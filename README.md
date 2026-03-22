@@ -5,12 +5,21 @@ Personal Claude Code configuration — global settings, rules, and templates.
 ## Structure
 
 ```
-global/CLAUDE.md          # Global config → symlinked to ~/.claude/CLAUDE.md
-rules/planning.md         # Strategic planning mode (first principles, systems thinking)
-rules/verification.md     # Enforce test/typecheck before claiming done
-rules/tdd-pragmatic.md    # Pragmatic TDD for TypeScript
+global/CLAUDE.md              # Global config → symlinked to ~/.claude/CLAUDE.md
+rules/
+  planning.md                 # Strategic planning mode (first principles, systems thinking)
+  verification.md             # Enforce test/typecheck before claiming done
+  tdd-pragmatic.md            # Pragmatic TDD for TypeScript
+skills/
+  adr/SKILL.md                # /adr — Create and manage architectural decision records
+  new-project/SKILL.md        # /new-project — Scaffold repos with CLAUDE.md and test setup
+  cross-project/SKILL.md      # /cross-project — Analyze cross-repo impact of changes
+  tech-radar/SKILL.md         # /tech-radar — Manage technology radar entries (assess/trial/adopt/hold)
+  tenet-exception/SKILL.md    # /tenet-exception — Create engineering tenet exception requests
+agents/
+  platform-reviewer.md        # Platform engineering code reviewer (API stability, ops impact)
 templates/
-  PROJECT-CLAUDE-MD.md    # Drop-in template for per-repo CLAUDE.md files
+  PROJECT-CLAUDE-MD.md        # Drop-in template for per-repo CLAUDE.md files
 ```
 
 ## Install
@@ -26,7 +35,9 @@ The install script symlinks config files into `~/.claude/`. Existing files are b
 ## How It Works
 
 - **`global/CLAUDE.md`** loads in every Claude Code session — personal preferences, shell environment, git conventions, communication style.
-- **`rules/*.md`** load conditionally based on file glob patterns. For example, `planning.md` activates when editing `PLAN.md` or `ARCHITECTURE.md` files.
+- **`rules/*.md`** are loaded as global user rules in every Claude Code session. Rules can optionally include frontmatter with `globs:` patterns to restrict when they activate.
+- **`skills/`** are custom slash commands (`/adr`, `/new-project`, `/cross-project`, `/tech-radar`, `/tenet-exception`) symlinked into `~/.claude/skills/`.
+- **`agents/`** are specialized reviewers (e.g., platform engineering review) symlinked into `~/.claude/agents/`.
 - **`templates/`** are not symlinked — copy them into repos as needed.
 
 ## Adding New Rules
