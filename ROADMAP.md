@@ -1,6 +1,6 @@
 # Claude Config Roadmap
 
-Planned skills, agents, and hooks for future development.
+Track record and roadmap for skills, agents, and hooks.
 
 ## Shipped
 
