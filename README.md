@@ -16,6 +16,7 @@ skills/
   cross-project/SKILL.md      # /cross-project — Analyze cross-repo impact of changes
   tech-radar/SKILL.md         # /tech-radar — Manage technology radar entries (assess/trial/adopt/hold)
   tenet-exception/SKILL.md    # /tenet-exception — Create engineering tenet exception requests
+  define-the-problem/SKILL.md # define-the-problem — Ensure features start with a clear user problem
 agents/
   platform-reviewer.md        # Platform engineering code reviewer (API stability, ops impact)
 templates/
@@ -36,7 +37,7 @@ The install script symlinks config files into `~/.claude/`. Existing files are b
 
 - **`global/CLAUDE.md`** loads in every Claude Code session — personal preferences, shell environment, git conventions, communication style.
 - **`rules/*.md`** are loaded as global user rules in every Claude Code session. Rules can optionally include frontmatter with `globs:` patterns to restrict when they activate.
-- **`skills/`** are custom slash commands (`/adr`, `/new-project`, `/cross-project`, `/tech-radar`, `/tenet-exception`) symlinked into `~/.claude/skills/`.
+- **`skills/`** are custom skills (`/adr`, `/new-project`, `/cross-project`, `/tech-radar`, `/tenet-exception`, `define-the-problem`) symlinked into `~/.claude/skills/`.
 - **`agents/`** are specialized reviewers (e.g., platform engineering review) symlinked into `~/.claude/agents/`.
 - **`templates/`** are not symlinked — copy them into repos as needed.
 
