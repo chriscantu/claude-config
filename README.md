@@ -10,6 +10,7 @@ rules/
   planning.md                 # Strategic planning mode (first principles, systems thinking)
   verification.md             # Enforce test/typecheck before claiming done
   tdd-pragmatic.md            # Pragmatic TDD for TypeScript
+  fat-marker-sketch.md        # Require fat marker sketch before detailed design
 skills/
   adr/SKILL.md                # /adr — Create and manage architectural decision records
   new-project/SKILL.md        # /new-project — Scaffold repos with CLAUDE.md and test setup
