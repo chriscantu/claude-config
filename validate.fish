@@ -6,6 +6,11 @@
 # Phase 2: Concept coverage (required behavioral concepts exist somewhere in config)
 
 set repo_dir (cd (dirname (status filename)); and pwd)
+if test -z "$repo_dir"
+    echo "Error: Could not determine repository directory"
+    exit 1
+end
+
 set claude_dir "$HOME/.claude"
 set pass_count 0
 set fail_count 0
@@ -26,6 +31,18 @@ function warn
     echo "  ⚠ $argv"
 end
 
+# Helper: check if frontmatter contains a field (searches only between --- delimiters)
+function frontmatter_has
+    # Usage: frontmatter_has <file> <field_pattern>
+    sed -n '2,/^---$/p' $argv[1] | sed '$d' | grep -q $argv[2]
+end
+
+# Helper: extract a frontmatter field value
+function frontmatter_get
+    # Usage: frontmatter_get <file> <field_name>
+    sed -n '2,/^---$/p' $argv[1] | sed '$d' | grep "^$argv[2]:" | head -1 | sed "s/^$argv[2]: *//"
+end
+
 # ─────────────────────────────────────────────────
 # Phase 1: Static Validation
 # ─────────────────────────────────────────────────
@@ -35,38 +52,45 @@ echo ""
 
 # 1a. Skill frontmatter
 echo "── Skill frontmatter"
-for skill_dir in $repo_dir/skills/*/
-    set name (basename $skill_dir)
-    set skill_file "$skill_dir/SKILL.md"
+set skill_dirs $repo_dir/skills/*/
+if test (count $skill_dirs) -eq 0; or not test -d "$skill_dirs[1]"
+    fail "No skill directories found in $repo_dir/skills/"
+else
+    for skill_dir in $skill_dirs
+        set name (basename $skill_dir)
+        set skill_file "$skill_dir/SKILL.md"
 
-    if not test -f "$skill_file"
-        fail "$name: missing SKILL.md"
-        continue
-    end
-
-    # Check for opening frontmatter delimiter
-    set first_line (head -1 "$skill_file")
-    if test "$first_line" != "---"
-        fail "$name: missing frontmatter (no opening ---)"
-        continue
-    end
-
-    # Check for name field
-    if not grep -q "^name:" "$skill_file"
-        fail "$name: missing 'name:' in frontmatter"
-    else
-        # Verify name matches directory name
-        set fm_name (grep "^name:" "$skill_file" | head -1 | sed 's/^name: *//')
-        if test "$fm_name" != "$name"
-            fail "$name: frontmatter name '$fm_name' doesn't match directory name '$name'"
-        else
-            pass "$name: frontmatter valid"
+        if not test -f "$skill_file"
+            fail "$name: missing SKILL.md"
+            continue
         end
-    end
 
-    # Check for description field
-    if not grep -q "^description:" "$skill_file"
-        fail "$name: missing 'description:' in frontmatter"
+        # Check for opening frontmatter delimiter
+        set first_line (head -1 "$skill_file")
+        if test $status -ne 0
+            fail "$name: could not read SKILL.md"
+            continue
+        end
+        if test "$first_line" != "---"
+            fail "$name: missing frontmatter (no opening ---)"
+            continue
+        end
+
+        # Check fields within frontmatter only (not body content)
+        if not frontmatter_has "$skill_file" "^name:"
+            fail "$name: missing 'name:' in frontmatter"
+        else
+            set fm_name (frontmatter_get "$skill_file" "name")
+            if test "$fm_name" != "$name"
+                fail "$name: frontmatter name '$fm_name' doesn't match directory name '$name'"
+            else
+                pass "$name: frontmatter valid"
+            end
+        end
+
+        if not frontmatter_has "$skill_file" "^description:"
+            fail "$name: missing 'description:' in frontmatter"
+        end
     end
 end
 
@@ -74,19 +98,28 @@ echo ""
 
 # 1b. Rule frontmatter
 echo "── Rule frontmatter"
-for rule in $repo_dir/rules/*.md
-    set name (basename $rule .md)
+set rule_files $repo_dir/rules/*.md
+if test (count $rule_files) -eq 0; or not test -f "$rule_files[1]"
+    fail "No rule files found in $repo_dir/rules/"
+else
+    for rule in $rule_files
+        set name (basename $rule .md)
 
-    set first_line (head -1 "$rule")
-    if test "$first_line" != "---"
-        fail "$name: missing frontmatter (no opening ---)"
-        continue
-    end
+        set first_line (head -1 "$rule")
+        if test $status -ne 0
+            fail "$name: could not read file"
+            continue
+        end
+        if test "$first_line" != "---"
+            fail "$name: missing frontmatter (no opening ---)"
+            continue
+        end
 
-    if not grep -q "^description:" "$rule"
-        fail "$name: missing 'description:' in frontmatter"
-    else
-        pass "$name: frontmatter valid"
+        if not frontmatter_has "$rule" "^description:"
+            fail "$name: missing 'description:' in frontmatter"
+        else
+            pass "$name: frontmatter valid"
+        end
     end
 end
 
@@ -94,32 +127,41 @@ echo ""
 
 # 1c. Agent frontmatter
 echo "── Agent frontmatter"
-for agent in $repo_dir/agents/*.md
-    set name (basename $agent .md)
+set agent_files $repo_dir/agents/*.md
+if test (count $agent_files) -eq 0; or not test -f "$agent_files[1]"
+    fail "No agent files found in $repo_dir/agents/"
+else
+    for agent in $agent_files
+        set name (basename $agent .md)
 
-    set first_line (head -1 "$agent")
-    if test "$first_line" != "---"
-        fail "$name: missing frontmatter (no opening ---)"
-        continue
-    end
-
-    set has_desc 0
-    set has_tools 0
-    if grep -q "^description:" "$agent"
-        set has_desc 1
-    end
-    if grep -q "^tools:" "$agent"
-        set has_tools 1
-    end
-
-    if test $has_desc -eq 1 -a $has_tools -eq 1
-        pass "$name: frontmatter valid"
-    else
-        if test $has_desc -eq 0
-            fail "$name: missing 'description:' in frontmatter"
+        set first_line (head -1 "$agent")
+        if test $status -ne 0
+            fail "$name: could not read file"
+            continue
         end
-        if test $has_tools -eq 0
-            fail "$name: missing 'tools:' in frontmatter"
+        if test "$first_line" != "---"
+            fail "$name: missing frontmatter (no opening ---)"
+            continue
+        end
+
+        set has_desc 0
+        set has_tools 0
+        if frontmatter_has "$agent" "^description:"
+            set has_desc 1
+        end
+        if frontmatter_has "$agent" "^tools:"
+            set has_tools 1
+        end
+
+        if test $has_desc -eq 1 -a $has_tools -eq 1
+            pass "$name: frontmatter valid"
+        else
+            if test $has_desc -eq 0
+                fail "$name: missing 'description:' in frontmatter"
+            end
+            if test $has_tools -eq 0
+                fail "$name: missing 'tools:' in frontmatter"
+            end
         end
     end
 end
@@ -132,13 +174,17 @@ echo "── Pipeline cross-references"
 # Extract all skill/agent invocation targets from rules and skills
 set targets (grep -rhoE 'invoke.*`/([a-z-]+)`' $repo_dir/rules/ $repo_dir/skills/ 2>/dev/null | grep -oE '/[a-z-]+' | sed 's|^/||' | sort -u)
 
-for target in $targets
-    if test -d "$repo_dir/skills/$target"
-        pass "/$target referenced and exists as skill"
-    else if test -f "$repo_dir/agents/$target.md"
-        pass "/$target referenced and exists as agent"
-    else
-        fail "/$target referenced in pipeline but no matching skill or agent found"
+if test (count $targets) -eq 0
+    warn "No invocation targets found — cross-reference check skipped (verify the grep pattern matches your invoke syntax)"
+else
+    for target in $targets
+        if test -d "$repo_dir/skills/$target"
+            pass "/$target referenced and exists as skill"
+        else if test -f "$repo_dir/agents/$target.md"
+            pass "/$target referenced and exists as agent"
+        else
+            fail "/$target referenced in pipeline but no matching skill or agent found"
+        end
     end
 end
 
@@ -146,7 +192,6 @@ echo ""
 
 # 1e. Symlink verification
 echo "── Symlink verification"
-set symlink_ok 1
 
 for skill_dir in $repo_dir/skills/*/
     set name (basename $skill_dir)
@@ -162,7 +207,6 @@ for skill_dir in $repo_dir/skills/*/
         warn "~/.claude/skills/$name exists but is not a symlink"
     else
         fail "~/.claude/skills/$name missing — run install.fish"
-        set symlink_ok 0
     end
 end
 
@@ -172,7 +216,6 @@ for rule in $repo_dir/rules/*.md
         pass "~/.claude/rules/$name symlinked"
     else
         fail "~/.claude/rules/$name missing — run install.fish"
-        set symlink_ok 0
     end
 end
 
@@ -182,7 +225,6 @@ for agent in $repo_dir/agents/*.md
         pass "~/.claude/agents/$name symlinked"
     else
         fail "~/.claude/agents/$name missing — run install.fish"
-        set symlink_ok 0
     end
 end
 
@@ -205,6 +247,7 @@ set concepts_file "$repo_dir/tests/required-concepts.txt"
 if not test -f "$concepts_file"
     fail "required-concepts.txt not found at $concepts_file"
 else
+    set concept_count 0
     # Search across rules and skills for each required concept
     while read -l line
         # Skip comments and blank lines
@@ -221,10 +264,24 @@ else
             continue
         end
 
+        set concept_count (math $concept_count + 1)
+
+        # Validate the regex pattern before using it
+        echo "test" | grep -E "$pattern" >/dev/null 2>&1
+        set grep_status $status
+        if test $grep_status -eq 2
+            fail "$desc (invalid regex pattern: $pattern)"
+            continue
+        end
+
         # grep -rlE across rules/ skills/ global/
         set matches (grep -rlE "$pattern" $repo_dir/rules/ $repo_dir/skills/ $repo_dir/global/ 2>/dev/null)
+        set grep_status $status
 
-        if test (count $matches) -gt 0
+        # Distinguish "no match" (status 1) from "error" (status 2)
+        if test $grep_status -eq 2
+            fail "$desc (grep error searching for: $pattern)"
+        else if test (count $matches) -gt 0
             # Show which files contain it
             set file_list ""
             for m in $matches
@@ -236,6 +293,10 @@ else
             fail "$desc"
         end
     end <"$concepts_file"
+
+    if test $concept_count -eq 0
+        fail "No concepts found in required-concepts.txt (file may be empty or malformed)"
+    end
 end
 
 echo ""
