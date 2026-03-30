@@ -1,0 +1,39 @@
+# Required Concepts
+#
+# Each line is a concept that MUST appear somewhere in the config (rules/ or skills/).
+# Format: <grep pattern> | <human-readable description>
+#
+# When refactoring, if a concept moves between files that's fine — but if it
+# disappears entirely, validation fails. This is the safety net for prompt
+# regressions like the behavioral HARD-GATE we lost during the planning.md refactor.
+#
+# To add a concept: append a line with the grep pattern and description.
+# To remove a concept: delete the line — but ask yourself why first.
+
+# Planning pipeline stages
+invoke.*define-the-problem | Pipeline must reference /define-the-problem
+invoke.*systems-analysis | Pipeline must reference /systems-analysis
+invoke.*brainstorming | Pipeline must reference brainstorming
+invoke.*fat-marker-sketch | Pipeline must reference /fat-marker-sketch
+
+# Behavioral requirements
+behavioral.*emotional|emotional.*behavioral | Must probe behavioral/emotional dimensions beyond functional pain
+separate.*facts.*from.*assumptions|facts.*from.*opinions | Must challenge inherited assumptions vs verified facts
+trade-off matrix|trade.off matrix | Decision framework must require trade-off analysis
+irreversible decisions | Must flag irreversible decisions for extra scrutiny
+
+# Problem definition requirements
+concrete.*observable|observable.*behavior | Pain must be concrete and observable, not aspirational
+cost of inaction|what happens if we do nothing | Must force prioritization honesty
+red flag | Must have red flag detection for weak problem statements
+
+# Systems analysis requirements
+second-order effects | Must consider downstream consequences
+failure modes|blast radius | Must consider how things degrade
+feedback loops | Must identify reinforcement patterns
+operational burden | Must assess ongoing operational cost
+
+# Verification culture
+NEVER.*claim.*works.*without|NEVER say.*should work | Must enforce run-it-and-prove-it culture
+tsc --noEmit | Must verify TypeScript compilation
+write.*test.*before|reproducing test | Bug fixes must start with reproducing test
