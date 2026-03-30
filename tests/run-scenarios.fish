@@ -46,7 +46,7 @@ for scenario_file in $scenarios_dir/*.md
     echo "━━━ $scenario_name ━━━"
 
     # Extract prompts from scenario file (lines starting with **Prompt:** )
-    set prompts (grep -oP '(?<=\*\*Prompt:\*\* ).*' "$scenario_file" | sed 's/"//g')
+    set prompts (grep '^\*\*Prompt:\*\*' "$scenario_file" | sed 's/^\*\*Prompt:\*\* //' | sed 's/"//g')
     set prompt_num 0
 
     for prompt in $prompts
