@@ -14,7 +14,7 @@ Rules load automatically in every Claude Code session and shape how Claude appro
 
 | Rule | What it enforces |
 |------|-----------------|
-| **planning** | First-principles decomposition before any solution — ground truth, core problem, constraints, systems thinking, and org impact. Announces stage transitions so you always know where you are in the process. |
+| **planning** | Enforces the mandatory planning pipeline: problem definition → systems analysis → brainstorming → fat-marker sketch → detailed design. Thin gate rule that delegates to skills for each stage. Announces stage transitions so you always know where you are. |
 | **fat-marker-sketch** | After selecting an approach, Claude must produce a crude visual sketch (rendered as HTML with bordered boxes) before detailed design. Forces structural conversation before pixel-level detail. |
 | **tdd-pragmatic** | Test-first for non-trivial logic, tests alongside for simple code. Every bug fix starts with a reproducing test. |
 | **verification** | Claude must run tests or type-checks before claiming work is complete. No "this should work" — prove it. |
@@ -25,7 +25,8 @@ Skills are invoked with `/skill-name` and guide Claude through structured proces
 
 | Skill | Purpose |
 |-------|---------|
-| `/define-the-problem` | Front door to solution design. Ensures every feature starts with a clear user problem — not a solution, not a feature request. Hands off to brainstorming when complete. |
+| `/define-the-problem` | Front door to the planning pipeline. Ensures every feature starts with a clear user problem — not a solution, not a feature request. Hands off to `/systems-analysis` when complete. |
+| `/systems-analysis` | Maps dependencies, second-order effects, failure modes, and organizational impact. Bridge between problem definition and solution design. |
 | `/adr` | Create, list, or supersede architectural decision records following system-design-records conventions. |
 | `/new-project` | Scaffold a new repo with CLAUDE.md, test config, and git setup for your chosen stack (TypeScript, Python, Swift, docs). |
 | `/cross-project` | Analyze how a change in the current repo affects other local repositories. Scans `~/repos/` for dependents. |
@@ -50,7 +51,7 @@ Skills are invoked with `/skill-name` and guide Claude through structured proces
 These pieces compose into a deliberate design pipeline:
 
 ```
-/define-the-problem → first-principles decomposition → fat-marker sketch → detailed design → TDD implementation → verification
+/define-the-problem → /systems-analysis → brainstorming → /fat-marker-sketch → detailed design → TDD implementation → verification
 ```
 
 You can enter at any point — the rules enforce the upstream steps automatically. Start building a feature and Claude will decompose the problem first. Select an approach and Claude will sketch before designing. Write code and Claude will verify before declaring done.
@@ -150,6 +151,7 @@ skills/                         # On-demand slash commands
   define-the-problem/SKILL.md
   fat-marker-sketch/SKILL.md
   new-project/SKILL.md
+  systems-analysis/SKILL.md
   tech-radar/SKILL.md
   tenet-exception/SKILL.md
 agents/                         # Specialized reviewers
