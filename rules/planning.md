@@ -53,6 +53,15 @@ depth — go deeper if the problem warrants it.
 | Feature         | Full pass          | Paragraph each          | Standard       |
 | System/Platform | Full pass          | Dedicated subsections   | Multi-component|
 
+## Decision Framework
+
+When evaluating approaches (during brainstorming or any solution comparison):
+- Present options as a trade-off matrix — lead with **user value** and **problem fit**,
+  then effort, risk, reversibility, and org impact
+- Quantify when possible — "faster" is not data, "reduces p99 latency by ~200ms" is
+- Recommend one option with clear reasoning, but show your work
+- Flag irreversible decisions explicitly — these deserve more scrutiny
+
 ## Multi-Session Continuity
 
 When a design spans multiple conversations:
