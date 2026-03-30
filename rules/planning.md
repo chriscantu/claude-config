@@ -107,18 +107,15 @@ define-the-problem), reference and refine them rather than re-asking from scratc
   from the chosen approach, not the other way around.
 - Ask: "How does the user experience differ between these approaches?" If the answer
   is "it doesn't" — you're proposing implementation variants, not real alternatives.
-- **After the user selects an approach, you MUST produce a fat marker sketch before
-  proceeding to any design work.** See fat-marker-sketch.md. Do NOT skip this step.
+- **After the user selects an approach, invoke the `fat-marker-sketch` skill to
+  produce a sketch before proceeding to any design work.** Do NOT skip this step.
 
-<HARD-GATE>
 Steps 1-5 above are ALL mandatory. Do NOT skip systems thinking or organizational
 impact analysis — even for prototypes, POCs, or "simple" projects. Scale the DEPTH
 of analysis to the project scope (a prototype gets lighter analysis than a production
 system), but every step must be explicitly addressed. If a step is not applicable,
-state why rather than silently skipping it.
-
-Do NOT propose approaches until all 5 steps are complete and presented to the user.
-</HARD-GATE>
+state why rather than silently skipping it. Do NOT propose approaches until all 5
+steps are complete and presented to the user.
 
 ### Scope Calibration
 
