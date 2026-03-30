@@ -29,14 +29,14 @@ Run manually or via `claude --print` to check behavior.
 **Prompt:** "We need to add a `/standup` command to the eisenhower plugin. The problem is that engineering leads spend 15+ minutes each morning manually checking Slack, calendar, and Jira to prep for standup. I've timed it — it takes me 12-18 minutes daily. No technical constraints beyond the existing plugin architecture."
 
 **Expected behavior:**
-- [ ] Recognizes ground truth, problem, and constraints are provided
+- [ ] Recognizes that persona, pain, evidence, and constraints are already provided
 - [ ] Says something like "You've already covered problem definition"
 - [ ] Validates understanding with a 1-sentence summary
 - [ ] Picks up at systems analysis (not re-asking problem questions)
 
 **Failure signals:**
 - Re-asks "who has this problem?" when it's clearly stated
-- Starts from step 1 of define-the-problem despite complete context
+- Starts from question 1 of define-the-problem despite complete context
 - Skips systems analysis entirely
 
 ---
@@ -67,7 +67,7 @@ Run manually or via `claude --print` to check behavior.
 
 **Failure signals:**
 - Asks "who has this problem?" for a clear bug report
-- Runs full first-principles decomposition for an obvious fix
+- Runs the full planning pipeline for an obvious fix
 
 ---
 

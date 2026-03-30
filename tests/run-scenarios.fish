@@ -68,7 +68,9 @@ for scenario_file in $scenarios_dir/*.md
     for prompt in $prompts
         set prompt_num (math $prompt_num + 1)
 
-        # Skip prompts that are contextual/conditional (start with parenthetical)
+        # Handle contextual prompts (e.g. "(after problem definition) ...").
+        # Strip the prefix and run the remaining text. Only skip if the
+        # entire prompt is a parenthetical note with no actual prompt text.
         if string match -q "(after*" -- "$prompt"
             set clean_prompt (string replace -r '^\(.*?\)\s*' '' "$prompt")
             if test -z "$clean_prompt"

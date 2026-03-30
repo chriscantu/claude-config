@@ -1,6 +1,6 @@
 # Required Concepts
 #
-# Each line is a concept that MUST appear somewhere in the config (rules/ or skills/).
+# Each line is a concept that MUST appear somewhere in the config (rules/, skills/, or global/).
 # Format: <grep pattern> | <human-readable description>
 #
 # When refactoring, if a concept moves between files that's fine — but if it
@@ -30,7 +30,7 @@ red flag | Must have red flag detection for weak problem statements
 # Systems analysis requirements
 second-order effects | Must consider downstream consequences
 failure modes|blast radius | Must consider how things degrade
-feedback loops | Must identify reinforcement patterns
+[Ff]eedback loops | Must identify reinforcement patterns
 operational burden | Must assess ongoing operational cost
 
 # Verification culture
