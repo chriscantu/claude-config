@@ -5,7 +5,7 @@ description: >
   Triggers when the user proposes building something new ("let's build", "new feature",
   "I want to add") or asks "what should we solve". Lightweight by default — a few
   focused questions — with deeper investigation when red flags surface. Hands off to
-  superpowers:brainstorming when complete.
+  /systems-analysis when complete.
 ---
 
 # Define the Problem
@@ -13,10 +13,10 @@ description: >
 Every feature starts with a clear problem. Not a solution, not a feature request —
 a problem that a specific person has, with evidence that it's real.
 
-This skill is the front door to solution design:
+This skill is the front door to the planning pipeline:
 
 ```
-define-the-problem → superpowers:brainstorming → writing-plans → implementation
+define-the-problem → systems-analysis → superpowers:brainstorming → writing-plans → implementation
 ```
 
 **Announce at start:** "I'm using the define-the-problem skill to make sure we have
@@ -195,16 +195,17 @@ with inherited assumptions.
 
 ---
 
-## Step 5: Handoff to Brainstorming
+## Step 5: Handoff to Systems Analysis
 
 1. Display the final problem statement (if not just displayed)
-2. Ask: "Problem defined. Move to solution design?"
-3. On confirmation, invoke `superpowers:brainstorming` with the problem statement
+2. Ask: "Problem defined. Ready to map dependencies and impact?"
+3. On confirmation, invoke `/systems-analysis` with the problem statement
 
 ### What this skill does NOT do
 
-- **Propose solutions** — that is brainstorming's job
+- **Propose solutions** — that is brainstorming's job, after systems analysis
+- **Map dependencies or second-order effects** — that is systems-analysis's job
 - **Decompose into sub-problems** — brainstorming handles scope
 - **Write a design spec** — brainstorming → writing-plans handles that
 - **Save lightweight-pass output to disk** — it lives in conversation context;
-  brainstorming captures it in its spec. Only deeper investigation produces a file.
+  only deeper investigation (step 4b) produces a file.
