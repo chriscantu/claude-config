@@ -1,0 +1,37 @@
+name: Validate Config
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install fish shell
+        run: |
+          sudo apt-add-repository -y ppa:fish-shell/release-3
+          sudo apt-get update
+          sudo apt-get install -y fish
+
+      - name: Create mock symlinks for CI
+        run: |
+          mkdir -p ~/.claude/rules ~/.claude/skills ~/.claude/agents
+          ln -sf "$PWD/global/CLAUDE.md" ~/.claude/CLAUDE.md
+          for rule in rules/*.md; do
+            ln -sf "$PWD/$rule" ~/.claude/rules/$(basename "$rule")
+          done
+          for skill_dir in skills/*/; do
+            name=$(basename "$skill_dir")
+            ln -sfn "$PWD/${skill_dir%/}" ~/.claude/skills/"$name"
+          done
+          for agent in agents/*.md; do
+            ln -sf "$PWD/$agent" ~/.claude/agents/$(basename "$agent")
+          done
+
+      - name: Run validation (phases 1-2)
+        run: fish validate.fish
