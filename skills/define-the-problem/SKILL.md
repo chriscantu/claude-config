@@ -72,9 +72,19 @@ Require **concrete, observable behavior**:
 - "It would be nice to have a dashboard" — that's a solution, not a pain. Ask:
   "What goes wrong today without the dashboard?"
 
+<HARD-GATE>
+After the user describes the functional pain, you MUST ask at least one follow-up
+question about **behavioral and emotional dimensions** before moving to question 3.
+Probe: "What else makes this hard? What makes people give up, lose trust, or work
+around it?" This is mandatory, not optional — functional pain alone misses why
+users actually fail.
+</HARD-GATE>
+
 ### 3. What evidence do we have?
 
-How do we know this is real?
+Before accepting evidence, separate facts from assumptions. Ask: "What do we know
+to be **verifiably true** vs. what are we inheriting from convention or opinion?"
+Reject inherited assumptions — validate that prior constraints still hold.
 
 Valid evidence:
 - Personal experience ("I missed an overdue check-in twice this week")
