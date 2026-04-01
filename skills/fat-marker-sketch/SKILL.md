@@ -65,13 +65,16 @@ user explicitly requests it or the environment cannot render HTML.
 A fat marker sketch is a VISUAL artifact, not a text artifact. When rendering as HTML:
 
 - Start from `assets/sketch-template.html`
-- The root element MUST set `background: #fff; color: #000; font-family: monospace;`
-- Use `div` elements with `border: 2px solid #000` for screen frames
-- Use `border: 1px solid #000` for region boxes within screens
-- Do NOT inherit the host page's theme — the sketch must look like black marker on white paper
+- Include Google Font: `<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">`
+- The root element MUST set `background: #fff; color: #000; font-family: 'Permanent Marker', cursive; font-size: 14px;`
+- Use `border: 4px solid #000` for screen frames (fat marker = thick lines)
+- Use `border: 3px solid #000` for region boxes within screens
+- Use uneven `border-radius` values (e.g., `2px 5px 4px 3px`) on every box -- vary
+  the values so no two boxes have the same radius. This creates a hand-drawn feel.
+- Do NOT inherit the host page's theme -- the sketch must look like black marker on white paper
 
 Never output the sketch as plain prose or an unstyled text list. If it doesn't have
-visible boxes/borders around screens and regions, it's not a sketch — it's notes.
+visible boxes/borders around screens and regions, it's not a sketch -- it's notes.
 
 See `assets/example-ui-sketch.html` for a complete example of the right output.
 </HARD-GATE>
@@ -87,9 +90,10 @@ Apply these fidelity rules regardless of format:
   root element. Do NOT rely on the host page's theme.
 - **Journey-focused** — show the full user journey across screens or steps, not a
   single screen in isolation. Number each screen/step.
-- **Structural boxes** — each screen is a bordered rectangle. Regions within screens
-  are smaller bordered rectangles or dividers. The boxes ARE the sketch — without
-  them you just have a text list.
+- **Structural boxes** — each screen is a thick-bordered (4px) rectangle. Regions
+  within screens are 3px-bordered rectangles. Use uneven border-radius on every box
+  so they look hand-drawn. The boxes ARE the sketch — without them you just have a
+  text list.
 - **Representative content** — include enough text to understand what each region DOES,
   not just what it IS. "Q: How often paid?" is good — it tells you the screen is a
   guided questionnaire. "Goal Card" is too abstract. But don't write full copy or
