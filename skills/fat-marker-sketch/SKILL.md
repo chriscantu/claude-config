@@ -66,7 +66,7 @@ A fat marker sketch is a VISUAL artifact, not a text artifact. When rendering as
 
 - Start from `assets/sketch-template.html`
 - Include Google Font: `<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">`
-- The root element MUST set `background: #fff; color: #000; font-family: 'Permanent Marker', cursive; font-size: 14px;`
+- The root element MUST set `background: #fff; color: #000; font-family: 'Permanent Marker', cursive; font-size: 20px;`
 - Use `border: 4px solid #000` for screen frames (fat marker = thick lines)
 - Use `border: 3px solid #000` for region boxes within screens
 - Use uneven `border-radius` values (e.g., `2px 5px 4px 3px`) on every box -- vary
