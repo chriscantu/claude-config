@@ -26,8 +26,8 @@ The sketch answers two questions:
 1. **What are the major components and how do they relate?** — structural regions,
    boxes, connections. For UI: screen layout. For systems: what talks to what.
 2. **What happens when the system is exercised?** — the happy-path flow. For UI:
-   tap this → see that. For backends: request enters here → passes through these
-   → result lands there.
+   tap this -> see that. For backends: request enters here -> passes through these
+   -> result lands there.
 
 It does NOT answer: what things look like in detail, how they're styled, what edge
 cases exist, or how errors are handled.
@@ -45,7 +45,7 @@ Pick the format that fits the feature:
 - **UI / output feature** — show the key screens side by side as a journey. Each screen
   gets a numbered title, 3-5 boxes inside showing regions, and labeled actions in
   brackets. Include a separate FLOW section mapping screen-to-screen connections as
-  plain text (e.g., `Welcome → Questions → Your Plan → [Activate] → Dashboard`).
+  plain text (e.g., `Welcome -> Questions -> Your Plan -> [Activate] -> Dashboard`).
 - **Process / workflow feature** — a simple numbered flow or rough state diagram showing
   the steps the user goes through. Happy path only.
 - **CLI / command feature** — the command invocation and a rough example of output.
@@ -99,7 +99,10 @@ Apply these fidelity rules regardless of format:
 - **No styling** — no colors, no icons, no shadows, no rounded corners with specific
   radii. Plain rectangles and lines. Crude block-character progress bars are fine
   for showing proportional state.
-- **Show relationships** — how components connect (tap this → see that, service A calls
+- **ASCII-safe characters only** — use `->` for arrows, `[x]` for checked, `[ ]` for
+  unchecked. Do NOT use Unicode arrows (->), checkmarks (✓), or other special characters
+  — they render as garbled text in minimal HTML viewers.
+- **Show relationships** — how components connect (tap this -> see that, service A calls
   service B). For UI, include a FLOW section mapping connections as plain text.
 
 ### Self-check before presenting
@@ -162,7 +165,7 @@ Always state what triggered the backtrack, where you're going, and why.
 ### UI Example
 
 See `assets/example-ui-sketch.html` for a complete rendered example of a guided
-savings feature. It shows four screens (Welcome → Guided Q's → Your Plan → Dashboard)
+savings feature. It shows four screens (Welcome -> Guided Q's -> Your Plan -> Dashboard)
 with representative content, bracketed actions, and a FLOW section.
 
 **Too detailed** (wrong):
@@ -189,9 +192,9 @@ graph LR
 
 ```
 FLOW
-Request → API validates → Queue buffers → Worker processes → DB stores
-Worker → Notification service (async, on completion)
-Failure → Queue retries 3x → Dead letter → Alert
+Request -> API validates -> Queue buffers -> Worker processes -> DB stores
+Worker -> Notification service (async, on completion)
+Failure -> Queue retries 3x -> Dead letter -> Alert
 ```
 
 Six nodes. One diagram. A flow section showing the happy path and one failure mode.
