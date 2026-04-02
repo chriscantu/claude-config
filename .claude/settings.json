@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//Users/chris.cantu/.claude/**)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(/Users/chris.cantu/.claude/hooks/check-protected-file.sh)",
+      "Bash(git -C /Users/chris.cantu/repos/claude-config status)"
+    ],
+    "additionalDirectories": [
+      "/Users/chris.cantu/.claude/hooks",
+      "/Users/chris.cantu/.claude"
+    ]
+  }
+}
