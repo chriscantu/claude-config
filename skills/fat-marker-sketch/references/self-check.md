@@ -24,4 +24,5 @@ any of the "too detailed" items, STOP and simplify. If you're missing any of the
 The sketch should look like something drawn in 2 minutes on a whiteboard — bordered
 screen frames, labeled regions inside them, bracketed actions, and a flow summary.
 
+All paths are relative to the skill root directory (`skills/fat-marker-sketch/`).
 See `assets/example-fat-marker-sketch.jpg` for a visual reference of the target fidelity.

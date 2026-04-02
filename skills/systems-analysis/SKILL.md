@@ -14,7 +14,7 @@ modes, and organizational impact. This is the bridge between understanding the p
 and designing a solution.
 
 ```
-define-the-problem → **systems-analysis** → superpowers:brainstorming → implementation
+define-the-problem → **systems-analysis** → superpowers:brainstorming → fat-marker-sketch → detailed design → implementation
 ```
 
 **Announce at start:** "I'm using the systems-analysis skill to map dependencies,
