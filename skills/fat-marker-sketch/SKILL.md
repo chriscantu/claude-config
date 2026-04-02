@@ -100,11 +100,11 @@ Apply these fidelity rules regardless of format:
   real data for every field.
 - **Explicit actions** — label every user action in brackets: [Get Started], [Next],
   [Activate], [+ Add Goal]. These make the flow traceable.
-- **No styling** — no colors, no icons, no shadows, no rounded corners with specific
-  radii. Plain rectangles and lines. Crude block-character progress bars are fine
-  for showing proportional state.
+- **No styling** — no colors, no icons, no shadows. Uneven border-radius for a
+  hand-drawn feel is the one exception. Otherwise, plain rectangles and lines.
+  Crude block-character progress bars are fine for showing proportional state.
 - **ASCII-safe characters only** — use `->` for arrows, `[x]` for checked, `[ ]` for
-  unchecked. Do NOT use Unicode arrows (->), checkmarks (✓), or other special characters
+  unchecked. Do NOT use Unicode arrows, checkmarks, or other special characters
   — they render as garbled text in minimal HTML viewers.
 - **Show relationships** — how components connect (tap this -> see that, service A calls
   service B). For UI, include a FLOW section mapping connections as plain text.
@@ -201,5 +201,5 @@ Worker -> Notification service (async, on completion)
 Failure -> Queue retries 3x -> Dead letter -> Alert
 ```
 
-Six nodes. One diagram. A flow section showing the happy path and one failure mode.
+Five nodes. One diagram. A flow section showing the happy path and one failure mode.
 Enough to ask "should notifications be sync or async?" — but not enough to implement from.
