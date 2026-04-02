@@ -16,7 +16,7 @@ a problem that a specific person has, with evidence that it's real.
 This skill is the front door to the planning pipeline:
 
 ```
-define-the-problem → systems-analysis → superpowers:brainstorming → writing-plans → implementation
+define-the-problem → systems-analysis → superpowers:brainstorming → fat-marker-sketch → writing-plans → implementation
 ```
 
 **Announce at start:** "I'm using the define-the-problem skill to make sure we have
@@ -32,11 +32,12 @@ a clear user problem before designing a solution."
 
 ## Step 0: Scope Calibration
 
-Scale depth to match the work. Reference the planning pipeline scope table:
+Scale depth to match the work. Complement the planning pipeline scope table with
+skill-specific guidance:
 
 | Scope           | Approach                                                        |
 |-----------------|-----------------------------------------------------------------|
-| Prototype / POC | Ask questions 1, 2, and 4 only. Produce a 2-3 sentence problem statement. Skip red flag assessment. Hand off directly. |
+| Prototype / POC | Condensed pass — all five questions but accept brief answers. Produce a 2-3 sentence problem statement. Lightweight red flags (flag only, don't offer investigation). Hand off directly. |
 | Feature         | Full pass — all five questions, red flag assessment, handoff.   |
 | System/Platform | Full pass with deeper investigation likely — expect Step 4b.    |
 
@@ -66,7 +67,9 @@ questions in the project's reality, not abstraction.
 If the user provides a pre-formed problem statement — or enough context to draft one —
 do NOT restart the five questions. Instead:
 
-1. Draft the problem statement (Step 3 template) from what they've provided
+1. Draft the problem statement (Step 3 template) from what they've provided —
+   populate all six template fields (even if some are marked "unknown") so red
+   flag criteria can be properly evaluated
 2. Evaluate it against the red flag criteria (Step 4)
 3. Present the draft: "Based on what you've shared, here's the problem statement.
    Anything to correct or add?"
@@ -253,6 +256,6 @@ with inherited assumptions.
 - **Propose solutions** — that is brainstorming's job, after systems analysis
 - **Map dependencies or second-order effects** — that is systems-analysis's job
 - **Decompose into sub-problems** — brainstorming handles scope
-- **Write a design spec** — brainstorming → writing-plans handles that
+- **Write a design spec** — brainstorming → fat-marker-sketch → writing-plans handles that
 - **Save lightweight-pass output to disk** — it lives in conversation context;
   only deeper investigation (step 4b) produces a file.

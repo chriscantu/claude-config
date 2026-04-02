@@ -20,7 +20,8 @@ the point: it forces the conversation to stay on structure and components, not p
 
 **See `assets/example-fat-marker-sketch.jpg` for a visual reference of the target fidelity.**
 That image IS the standard — crude boxes, cross-hatching for placeholder content, no
-styling, no detail. Match that level when producing sketches.
+decorative styling beyond the hand-drawn aesthetic (marker font, thick borders, uneven
+radii). Match that level when producing sketches.
 
 The sketch answers two questions:
 1. **What are the major components and how do they relate?** — structural regions,
