@@ -108,7 +108,7 @@ Require **concrete, observable behavior**:
 - "It would be nice to have a dashboard" — that's a solution, not a pain. Ask:
   "What goes wrong today without the dashboard?"
 
-**Behavioral and emotional dimensions** — if the problem has a human-facing dimension
+**behavioral and emotional dimensions** — if the problem has a human-facing dimension
 (end-user workflow, team process, UX), ask at least one follow-up: "What else makes
 this hard? What makes people give up, lose trust, or work around it?" Functional pain
 alone misses why users actually fail.
