@@ -16,7 +16,7 @@ a problem that a specific person has, with evidence that it's real.
 This skill is the front door to the planning pipeline:
 
 ```
-define-the-problem → systems-analysis → superpowers:brainstorming → fat-marker-sketch → writing-plans → implementation
+define-the-problem → systems-analysis → superpowers:brainstorming → fat-marker-sketch → detailed design → implementation
 ```
 
 **Announce at start:** "I'm using the define-the-problem skill to make sure we have
@@ -256,6 +256,6 @@ with inherited assumptions.
 - **Propose solutions** — that is brainstorming's job, after systems analysis
 - **Map dependencies or second-order effects** — that is systems-analysis's job
 - **Decompose into sub-problems** — brainstorming handles scope
-- **Write a design spec** — brainstorming → fat-marker-sketch → writing-plans handles that
+- **Write a design spec** — brainstorming → fat-marker-sketch → detailed design handles that
 - **Save lightweight-pass output to disk** — it lives in conversation context;
   only deeper investigation (step 4b) produces a file.
