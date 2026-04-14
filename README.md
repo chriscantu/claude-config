@@ -1,16 +1,47 @@
 # claude-config
 
-A portable, version-controlled configuration for [Claude Code](https://docs.anthropic.com/en/docs/claude-code) that installs structured engineering workflows — first-principles thinking, UX-driven design, verification gates, and reusable process skills.
+*Claude Code, configured as your strategic engineering thought partner.*
 
 **The problem:** Claude Code is powerful out of the box, but without guardrails it skips straight to implementation. It doesn't decompose problems, doesn't consider trade-offs, doesn't verify its work, and doesn't think about organizational impact. You end up with code that compiles but misses the point.
 
 **What this gives you:** A set of rules, skills, and agents that enforce a deliberate workflow — from problem definition through design sketching to verified implementation. Claude still does the work; it just thinks before it acts.
 
+## Install
+
+```sh
+git clone https://github.com/chriscantu/claude-config.git ~/repos/claude-config
+cd ~/repos/claude-config
+
+# bash/zsh
+bash install.sh
+
+# fish
+fish install.fish
+```
+
+Both scripts do the same thing: symlink everything into `~/.claude/`. Existing files are backed up with a `.bak` extension. Re-running is safe — symlinks are replaced, not duplicated.
+
+### Post-Install: Customize `global/CLAUDE.md`
+
+The global config ships with opinionated defaults (shell preferences, language defaults, communication style). **Edit `global/CLAUDE.md` to match your environment** — it's the one file you should personalize.
+
+On your next Claude Code session, ask Claude to build something. You'll see it stop and ask you to define the problem before writing a line of code.
+
+## See it in action
+
+A VP asks Claude to add a new billing tier to the platform. Without this config, Claude starts writing code. With it:
+
+1. **Problem Definition** — Claude asks: *Who is this tier for? What behavior changes? What does success look like?*
+2. **Systems Analysis** — Claude maps what's affected: billing service, entitlements, usage reporting, downstream teams
+3. **Trade-off presentation** — Claude surfaces 2-3 approaches with organizational implications, not just technical ones
+4. **Sketch before design** — Claude produces a structural sketch before writing a single line
+5. **Verified implementation** — Tests run before Claude declares the work done
+
 ## What's Included
 
-### Rules (always active)
+Rules run automatically and shape how Claude approaches every session. Skills are invoked on demand for specific workflows. Agents are specialized reviewers you bring in at key moments.
 
-Rules load automatically in every Claude Code session and shape how Claude approaches work.
+### Rules (always active)
 
 | Rule | What it enforces |
 |------|-----------------|
@@ -33,6 +64,7 @@ Skills are invoked with `/skill-name` and guide Claude through structured proces
 | `/tech-radar` | Manage technology adoption entries (Assess → Trial → Adopt → Hold) with structured evaluation criteria. |
 | `/tenet-exception` | Create engineering tenet exception requests with proper justification and PR process guidance. |
 | `/fat-marker-sketch` | Produce a crude structural sketch — invoked automatically by the planning rule, but can also be called directly. |
+| `/present` | Create professional presentations using Slidev + Bun. Takes a brief, draft, or existing slides → live preview → PDF/PPTX export. Source-controllable Markdown. |
 
 ### Agents (specialized reviewers)
 
@@ -46,34 +78,38 @@ Skills are invoked with `/skill-name` and guide Claude through structured proces
 |----------|---------|
 | **PROJECT-CLAUDE-MD.md** | Drop-in template for per-repo CLAUDE.md files. Covers project purpose, architecture, commands, conventions, domain glossary, and non-obvious decisions. |
 
+> **What this is not:** This isn't a replacement for engineering judgment — it's a forcing function. Claude still gets things wrong. The config makes it wrong less often, and in more visible ways.
+
 ## The Workflow
 
 These pieces compose into a deliberate design pipeline:
 
-```
-/define-the-problem → /systems-analysis → brainstorming → /fat-marker-sketch → detailed design → TDD implementation → verification
+```mermaid
+flowchart LR
+    A["/define-the-problem"] --> B["/systems-analysis"]
+    B --> C["brainstorming"]
+    C --> D["/fat-marker-sketch"]
+    D --> E["detailed design"]
+    E --> F["TDD implementation"]
+    F --> G["verification"]
+
+    style A fill:#4a90d9,color:#fff,stroke:none
+    style B fill:#4a90d9,color:#fff,stroke:none
+    style C fill:#7b68ee,color:#fff,stroke:none
+    style D fill:#7b68ee,color:#fff,stroke:none
+    style E fill:#5ba85a,color:#fff,stroke:none
+    style F fill:#5ba85a,color:#fff,stroke:none
+    style G fill:#e67e22,color:#fff,stroke:none
 ```
 
 You can enter at any point — the rules enforce the upstream steps automatically. Start building a feature and Claude will decompose the problem first. Select an approach and Claude will sketch before designing. Write code and Claude will verify before declaring done.
 
-## Install
+## References
 
-```sh
-git clone https://github.com/chriscantu/claude-config.git ~/repos/claude-config
-cd ~/repos/claude-config
-
-# bash/zsh
-bash install.sh
-
-# fish
-fish install.fish
-```
-
-Both scripts do the same thing: symlink everything into `~/.claude/`. Existing files are backed up with a `.bak` extension. Re-running is safe — symlinks are replaced, not duplicated.
-
-### Post-Install: Customize `global/CLAUDE.md`
-
-The global config ships with opinionated defaults (shell preferences, language defaults, communication style). **Edit `global/CLAUDE.md` to match your environment** — it's the one file you should personalize.
+- [Claude Code docs](https://docs.anthropic.com/en/docs/claude-code) — official documentation
+- [awesome-claude-md](https://github.com/josix/awesome-claude-md) — curated CLAUDE.md examples
+- [HumanLayer: Writing a Good CLAUDE.md](https://www.humanlayer.dev/blog/writing-a-good-claude-md) — WHY/WHAT/HOW framework
+- [Fat Marker Sketches](https://domhabersack.com/blog/fat-marker-sketches) — the concept behind the sketch rule
 
 ## Extending
 
@@ -135,36 +171,3 @@ Your agent instructions here.
 ```
 
 Re-run the install script to symlink it.
-
-## Structure
-
-```
-global/CLAUDE.md                # Global config → ~/.claude/CLAUDE.md
-rules/                          # Always-on behavioral rules
-  planning.md
-  fat-marker-sketch.md
-  tdd-pragmatic.md
-  verification.md
-skills/                         # On-demand slash commands
-  adr/SKILL.md
-  cross-project/SKILL.md
-  define-the-problem/SKILL.md
-  fat-marker-sketch/SKILL.md
-  new-project/SKILL.md
-  systems-analysis/SKILL.md
-  tech-radar/SKILL.md
-  tenet-exception/SKILL.md
-agents/                         # Specialized reviewers
-  platform-reviewer.md
-templates/                      # Copy into repos as needed
-  PROJECT-CLAUDE-MD.md
-install.sh                      # Symlink installer (bash/zsh)
-install.fish                    # Symlink installer (fish)
-```
-
-## References
-
-- [Claude Code docs](https://docs.anthropic.com/en/docs/claude-code) — official documentation
-- [awesome-claude-md](https://github.com/josix/awesome-claude-md) — curated CLAUDE.md examples
-- [HumanLayer: Writing a Good CLAUDE.md](https://www.humanlayer.dev/blog/writing-a-good-claude-md) — WHY/WHAT/HOW framework
-- [Fat Marker Sketches](https://domhabersack.com/blog/fat-marker-sketches) — the concept behind the sketch rule

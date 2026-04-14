@@ -14,12 +14,24 @@
       "Edit(~/.claude/skills/fat-marker-sketch/**)",
       "Skill(commit-commands:commit-push-pr)",
       "Skill(commit-commands:commit-push-pr:*)",
-      "Bash(git -C /Users/cantu/repos/claude-config diff --stat)"
+      "Bash(git -C /Users/cantu/repos/claude-config diff --stat)",
+      "Bash(bunx slidev:*)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(fish install.fish)",
+      "Bash(bunx @slidev/cli --version)",
+      "Bash(bunx @slidev/cli export slides.md --format pdf)",
+      "Bash(bun init:*)",
+      "Bash(bun add:*)",
+      "Bash(npx playwright:*)",
+      "Bash(bunx playwright:*)",
+      "Bash(bunx @slidev/cli export slides.md --format pptx)"
     ],
     "additionalDirectories": [
       "/Users/chris.cantu/.claude/hooks",
       "/Users/chris.cantu/.claude",
-      "/private/tmp"
+      "/private/tmp",
+      "/Users/cantu/repos/claude-config/skills",
+      "/Users/cantu/presentations"
     ]
   }
 }
