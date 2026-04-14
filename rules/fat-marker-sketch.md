@@ -31,5 +31,6 @@ questions, and backtracking protocol.
 
 A fat marker sketch is a VISUAL artifact rendered using excalidraw (outline shapes,
 Excalifont, transparent background) — not a text list, not a code block, not prose.
-Fall back to HTML with bordered boxes if excalidraw is unavailable. If it doesn't have
+Fall back to HTML with bordered boxes if excalidraw is unavailable (requires a canvas
+running at localhost:3000 — see the skill for setup details). If it doesn't have
 visible borders around screens and regions, it's not a sketch.
