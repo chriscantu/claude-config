@@ -51,6 +51,8 @@ Ask these questions **one at a time**:
 
 In **Revise mode**, skip intake and ask instead: "What needs to change — audience shift, new data, restructure, or something else?"
 
+In **Assist mode**, run the full intake — but when asking about length (question 3), note that the provided content may naturally determine slide count. Offer a suggested count based on the content volume and let the user override.
+
 ## Step 2: Narrative Outline
 
 Generate a slide-by-slide outline based on the intake. Apply audience content rules:
@@ -189,7 +191,7 @@ Both files land in `~/presentations/<slug>/`.
 
 If export fails (Puppeteer/Chromium not available):
 
-1. Try: `bunx slidev export slides.md --format pdf --with-clicks`
+1. Try increasing the export timeout: `bunx slidev export slides.md --format pdf --timeout 60000`
 2. If still failing: open `http://localhost:3030` and use browser print-to-PDF as fallback
 3. For PPTX: export requires Chromium. If unavailable, export PDF first and note the PPTX limitation.
 
