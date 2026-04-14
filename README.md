@@ -71,6 +71,8 @@ Skills are invoked with `/skill-name` and guide Claude through structured proces
 | Agent | Purpose |
 |-------|---------|
 | **platform-reviewer** | Reviews code changes for API contract stability, backward compatibility, operational burden, and cross-team impact. |
+| **security-reviewer** | Reviews code changes for security vulnerabilities — OWASP categories, credential exposure, input validation, auth/authz boundaries, and dependency risks. |
+| **decision-challenger** | Devil's advocate for ADRs, SDRs, and tech radar entries. Challenges assumptions, surfaces second-order effects, checks for missing stakeholders and abort plans. |
 
 ### Templates
 
