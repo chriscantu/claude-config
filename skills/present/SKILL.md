@@ -14,7 +14,7 @@ Creates professional presentations using Slidev + Bun. Source-controllable Markd
 Before anything else, verify Slidev is available:
 
 ```fish
-bunx slidev --version
+bunx @slidev/cli --version
 ```
 
 If this fails, tell the user:
@@ -155,7 +155,7 @@ After writing slides.md, tell the user:
 > "Slides written to `~/presentations/<slug>/slides.md`. Start the preview with:"
 >
 > ```fish
-> cd ~/presentations/<slug> && bunx slidev slides.md
+> cd ~/presentations/<slug> && bunx @slidev/cli slides.md
 > ```
 >
 > "This opens at http://localhost:3030 and hot-reloads on every save."
@@ -179,10 +179,10 @@ When the user is ready to export:
 
 ```fish
 # PDF
-cd ~/presentations/<slug> && bunx slidev export slides.md --format pdf
+cd ~/presentations/<slug> && bunx @slidev/cli export slides.md --format pdf
 
 # PowerPoint
-cd ~/presentations/<slug> && bunx slidev export slides.md --format pptx
+cd ~/presentations/<slug> && bunx @slidev/cli export slides.md --format pptx
 ```
 
 Both files land in `~/presentations/<slug>/`.
@@ -191,7 +191,7 @@ Both files land in `~/presentations/<slug>/`.
 
 If export fails (Puppeteer/Chromium not available):
 
-1. Try increasing the export timeout: `bunx slidev export slides.md --format pdf --timeout 60000`
+1. Try increasing the export timeout: `bunx @slidev/cli export slides.md --format pdf --timeout 60000`
 2. If still failing: open `http://localhost:3030` and use browser print-to-PDF as fallback
 3. For PPTX: export requires Chromium. If unavailable, export PDF first and note the PPTX limitation.
 
