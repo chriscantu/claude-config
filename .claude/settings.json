@@ -5,11 +5,21 @@
       "Skill(update-config)",
       "Skill(update-config:*)",
       "Bash(/Users/chris.cantu/.claude/hooks/check-protected-file.sh)",
-      "Bash(git -C /Users/chris.cantu/repos/claude-config status)"
+      "Bash(git -C /Users/chris.cantu/repos/claude-config status)",
+      "mcp__excalidraw__describe_scene",
+      "mcp__excalidraw__batch_create_elements",
+      "mcp__excalidraw__clear_canvas",
+      "mcp__excalidraw__get_canvas_screenshot",
+      "mcp__excalidraw__snapshot_scene",
+      "Edit(~/.claude/skills/fat-marker-sketch/**)",
+      "Skill(commit-commands:commit-push-pr)",
+      "Skill(commit-commands:commit-push-pr:*)",
+      "Bash(git -C /Users/cantu/repos/claude-config diff --stat)"
     ],
     "additionalDirectories": [
       "/Users/chris.cantu/.claude/hooks",
-      "/Users/chris.cantu/.claude"
+      "/Users/chris.cantu/.claude",
+      "/private/tmp"
     ]
   }
 }

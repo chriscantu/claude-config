@@ -19,9 +19,10 @@ and sketched on a whiteboard. The thick marker physically prevents fine detail. 
 the point: it forces the conversation to stay on structure and components, not pixels.
 
 **See `assets/example-fat-marker-sketch.jpg` for a visual reference of the target fidelity.**
-That image IS the standard — crude boxes, cross-hatching for placeholder content, no
-decorative styling beyond the hand-drawn aesthetic (marker font, thick borders, uneven
-radii). Match that level when producing sketches.
+That image IS the standard — crude boxes, structural regions, no decorative styling.
+Match that *level* of fidelity: coarse and structural, not polished. In excalidraw, the
+equivalent is outline-only rectangles in Excalifont; cross-hatching and uneven radii are
+HTML-fallback aesthetics and do not apply to the MCP renderer.
 
 The sketch answers two questions:
 1. **What are the major components and how do they relate?** — structural regions,
@@ -56,29 +57,72 @@ Pick the format that fits the feature:
 
 ### Rendering
 
-Default to **HTML**. Use `assets/sketch-template.html` as the starting scaffold —
-duplicate the screen `div` for each step in the journey, fill in names/regions/actions.
+Default to **excalidraw** via the excalidraw MCP. Use this decision tree:
 
-Only fall back to ASCII (markdown code block with `+`, `-`, `|` box characters) if the
-user explicitly requests it or the environment cannot render HTML.
+- If `mcp__excalidraw__*` tools are **not available** → fall back to HTML immediately.
+- If the tools are available but the canvas is **not reachable** → ask the user to run
+  `PORT=3000 npm run canvas` in the `mcp_excalidraw` directory and open
+  `http://localhost:3000`. Do NOT fall back to HTML in this case — wait for the user to
+  start the server.
+
+Fall back to **HTML** (using `assets/sketch-template.html`) only when the MCP tools are
+absent. Fall back to **ASCII** (markdown code block with `+`, `-`, `|` box characters)
+only if the user explicitly requests it or neither excalidraw nor HTML can render.
 
 <HARD-GATE>
-A fat marker sketch is a VISUAL artifact, not a text artifact. When rendering as HTML:
+A fat marker sketch is a VISUAL artifact, not a text artifact. When rendering with excalidraw:
+
+- Use outline-only shapes — no fills. This matches the rough, low-fidelity intent.
+- Use Excalifont (the excalidraw default) for all labels — it is organic and hand-drawn looking.
+- Set transparent backgrounds so the sketch reads as "drawn on a whiteboard."
+- Keep shapes simple: rectangles for screens/regions, arrows for flow connections.
+- Do NOT add colors, shadows, or fills — black strokes on transparent background only.
+- The output will be a "refined rough sketch" rather than a chaotic napkin doodle — that is acceptable and expected.
+
+### Staged drawing (required — do NOT skip)
+
+Build the sketch in **4 stages** — Pass 1 fires one `batch_create_elements` call per
+screen frame; Passes 2–4 fire one call each. Do NOT create all elements in one call
+— it causes the entire sketch to pop in fully-formed, removing the live-draw experience entirely.
+
+| Pass | What to create | How |
+|------|----------------|-----|
+| 1. Skeleton | Outermost screen frames only | One call **per frame** — user sees each screen box appear |
+| 2. Titles + regions | Screen title labels + inner region boxes | Single batch |
+| 3. Content + actions | Representative text, inputs, `[buttons]`, radio groups | Single batch |
+| 4. Connections | Arrows bound between screens + FLOW text at the bottom | Single batch |
+
+Pass 1 draws one screen at a time so the user sees the structure emerge screen by screen. Passes 2–4 land as a single batch each.
+
+### Font sizes (minimum to prevent blur)
+
+Excalifont renders blurry below 13px — both on the live canvas and in screenshots.
+This is not a one-off; it happens every time a small font is used.
+
+| Element | Minimum fontSize |
+|---------|-----------------|
+| Sketch / composite header | 20px |
+| Screen title | 16px |
+| Body labels, questions, actions | 13px |
+
+**Never use fontSize below 13.** If elements don't fit at 13px, reduce the number
+of elements or increase the screen box size — do NOT shrink the font to fit more in.
+</HARD-GATE>
+
+When falling back to HTML:
 
 - Start from `assets/sketch-template.html`
 - Include Google Font: `<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">`
 - The root element MUST set `background: #fff; color: #000; font-family: 'Permanent Marker', cursive; font-size: 20px;`
-- Use `border: 4px solid #000` for screen frames (fat marker = thick lines)
-- Use `border: 3px solid #000` for region boxes within screens
-- Use uneven `border-radius` values (e.g., `2px 5px 4px 3px`) on every box -- vary
-  the values so no two boxes have the same radius. This creates a hand-drawn feel.
-- Do NOT inherit the host page's theme -- the sketch must look like black marker on white paper
+- Use `border: 4px solid #000` for screen frames and `border: 3px solid #000` for regions
+- Use uneven `border-radius` values (e.g., `2px 5px 4px 3px`) on every box — vary the
+  values so no two boxes have the same radius
+- Do NOT inherit the host page's theme
 
 Never output the sketch as plain prose or an unstyled text list. If it doesn't have
-visible boxes/borders around screens and regions, it's not a sketch -- it's notes.
+visible boxes/borders around screens and regions, it's not a sketch — it's notes.
 
-See `assets/example-ui-sketch.html` for a complete example of the right output.
-</HARD-GATE>
+See `assets/example-ui-sketch.html` for a reference of the target structure (HTML fallback).
 
 ---
 
@@ -86,9 +130,9 @@ See `assets/example-ui-sketch.html` for a complete example of the right output.
 
 Apply these fidelity rules regardless of format:
 
-- **Black on white** — white background, black text and strokes. Like marker on paper.
-  Every rendered sketch must set an explicit white background and black text on the
-  root element. Do NOT rely on the host page's theme.
+- **Black on white** — black strokes and text. For excalidraw: outline-only shapes on a
+  transparent canvas (like marker on a whiteboard). For HTML fallback: set an explicit
+  white background and black text on the root element. Do NOT rely on the host page's theme.
 - **Journey-focused** — show the full user journey across screens or steps, not a
   single screen in isolation. Number each screen/step.
 - **Structural boxes** — each screen is a thick-bordered (4px) rectangle. Regions
@@ -101,12 +145,14 @@ Apply these fidelity rules regardless of format:
   real data for every field.
 - **Explicit actions** — label every user action in brackets: [Get Started], [Next],
   [Activate], [+ Add Goal]. These make the flow traceable.
-- **No styling** — no colors, no icons, no shadows. Uneven border-radius for a
-  hand-drawn feel is the one exception. Otherwise, plain rectangles and lines.
-  Crude block-character progress bars are fine for showing proportional state.
+- **No styling** — no colors, no shadows, no fills. For excalidraw: outline-only shapes
+  with Excalifont labels. For HTML fallback: uneven border-radius for a hand-drawn feel
+  is the one exception. Crude progress indicators (block characters in HTML, thin
+  rectangles in excalidraw) are fine for showing proportional state.
 - **ASCII-safe characters only** — use `->` for arrows, `[x]` for checked, `[ ]` for
-  unchecked. Do NOT use Unicode arrows, checkmarks, or other special characters
-  — they render as garbled text in minimal HTML viewers.
+  unchecked. For HTML fallback: do NOT use Unicode arrows or checkmarks — they render
+  as garbled text in minimal HTML viewers. For excalidraw: standard ASCII is still
+  preferred for simplicity, but Unicode is safe.
 - **Show relationships** — how components connect (tap this -> see that, service A calls
   service B). For UI, include a FLOW section mapping connections as plain text.
 
@@ -170,8 +216,9 @@ Always state what triggered the backtrack, where you're going, and why.
 ### UI Example
 
 See `assets/example-ui-sketch.html` for a complete rendered example of a guided
-savings feature. It shows four screens (Welcome -> Guided Q's -> Your Plan -> Dashboard)
-with representative content, bracketed actions, and a FLOW section.
+savings feature (HTML fallback path). It shows four screens
+(Welcome -> Guided Q's -> Your Plan -> Dashboard) with representative content,
+bracketed actions, and a FLOW section.
 
 **Too detailed** (wrong):
 A single-screen wireframe with full sample data for every field, styled progress bars,
