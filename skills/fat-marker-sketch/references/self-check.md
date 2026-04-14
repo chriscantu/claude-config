@@ -19,6 +19,11 @@ any of the "too detailed" items, STOP and simplify. If you're missing any of the
 - Inheriting a dark theme instead of setting explicit white background
 - Missing the FLOW section that maps screen-to-screen connections
 
+## Excalidraw-Specific
+
+- Font size below 13px anywhere in the sketch — will render blurry; fix by reducing element count, not font size
+- All elements created in a single `batch_create_elements` call — staged drawing (4 passes) is required so the user sees the sketch emerge live
+
 ## Right Level
 
 The sketch should look like something drawn in 2 minutes on a whiteboard — bordered
