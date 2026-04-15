@@ -24,7 +24,10 @@
       "Bash(bun add:*)",
       "Bash(npx playwright:*)",
       "Bash(bunx playwright:*)",
-      "Bash(bunx @slidev/cli export slides.md --format pptx)"
+      "Bash(bunx @slidev/cli export slides.md --format pptx)",
+      "Bash(git tag:*)",
+      "WebFetch(domain:antigravity.google)",
+      "WebFetch(domain:www.mejba.me)"
     ],
     "additionalDirectories": [
       "/Users/chris.cantu/.claude/hooks",
