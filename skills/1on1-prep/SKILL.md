@@ -20,9 +20,14 @@ mcp__memory__read_graph
 ```
 
 If this fails, warn the user:
-> "The memory MCP server isn't available. I can still help you prep, but I won't be
-> able to read or write observations. To fix this, check that the `memory` MCP server
-> is configured and running."
+> "The memory MCP server isn't available. I can still help you prep from what you
+> tell me, but I won't be able to read prior observations. If you capture notes,
+> they'll be saved locally to `pending-sync/` and you can retry with `/1on1-prep --sync`
+> when the server is back."
+
+Set a flag to route all writes to pending-sync for the remainder of this session.
+The capture phase and write path should treat every write as a failure and save to
+the pending-sync file instead of attempting `mcp__memory__add_observations`.
 
 Check for pending-sync files:
 
