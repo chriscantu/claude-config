@@ -12,7 +12,7 @@ or tooling before completing the pipeline.
 
 1. Problem Definition — invoke `/define-the-problem`
 2. Systems Analysis — invoke `/systems-analysis`
-3. Solution Design — invoke `superpowers:brainstorming`
+3. Solution Design — invoke `superpowers:brainstorming` (opt-in: Sequential Thinking available if not converging)
 4. Fat Marker Sketch — invoke `/fat-marker-sketch` (after approach selected)
 5. Then proceed with detailed design
 </HARD-GATE>
@@ -61,6 +61,43 @@ When evaluating approaches (during brainstorming or any solution comparison):
 - Quantify when possible — "faster" is not data, "reduces p99 latency by ~200ms" is
 - Recommend one option with clear reasoning, but show your work
 - Flag irreversible decisions explicitly — these deserve more scrutiny
+
+## Sequential Thinking (Manual Opt-In)
+
+A Sequential Thinking MCP server is available as an opt-in tool during the Solution
+Design stage. It provides explicit stepwise reasoning with revision and branching —
+useful when the normal pipeline is not converging on a stable approach.
+
+**When to use it:**
+- You feel stuck after multiple passes through solution design
+- Trade-offs are deep and interrelated, making it hard to hold everything in context
+- You keep revisiting the same unresolved tension
+- The problem has high blast radius or irreversibility and you want a more rigorous pass
+
+**How to invoke:**
+The user explicitly requests it: "Let's run a sequential thinking pass on this."
+Never invoke automatically. Never suggest it for work that falls under Prototype/POC
+scope calibration or has a clear, uncontested path forward.
+
+**Bounded execution contract:**
+- Max thoughts: 8 (extend to 12 only with explicit user approval) — this is the hard constraint
+- Max branches: 1
+- Target completing within ~10 minutes
+
+**Required output after a pass:**
+- Top options (max 3) with trade-offs
+- Recommended option with rationale
+- Key risks and unknowns
+- Validation plan
+- Next 3 concrete actions
+
+**Transparency:**
+- Announce when a sequential thinking pass starts
+- Announce when it ends and local planning flow resumes
+- The normal planning pipeline remains primary — a sequential pass is a tool, not a mode
+
+> See [ADR #0001](../adrs/0001-sequential-thinking-mcp-manual-only.md) for the full
+> decision rationale and future phase plans.
 
 ## Multi-Session Continuity
 

@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "sequential-thinking": {
+      "type": "stdio",
+      "command": "bunx",
+      "args": [
+        "--bun",
+        "@modelcontextprotocol/server-sequential-thinking"
+      ]
+    }
+  }
+}
