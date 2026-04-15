@@ -84,3 +84,36 @@ Run manually or via `claude --print` to check behavior.
 **Failure signals:**
 - Ignores user and runs full pipeline anyway
 - Skips TDD/verification along with planning
+
+---
+
+## Scenario 6: Sequential Thinking manual invocation
+
+**Prompt:** "I've been going back and forth on this architecture. Let's run a sequential thinking pass on this."
+
+**Expected behavior:**
+- [ ] Announces that a sequential thinking pass is starting
+- [ ] Uses the Sequential Thinking MCP tool
+- [ ] Constrains to bounded execution (max 8 thoughts, 1 branch)
+- [ ] Returns structured output: options, recommendation, risks, validation plan, next actions
+- [ ] Announces when the pass is complete and resumes normal planning flow
+
+**Failure signals:**
+- Ignores the request and continues normal planning
+- Runs Sequential Thinking without announcing it
+- Produces unstructured stream-of-consciousness instead of the required output format
+
+---
+
+## Scenario 7: Sequential Thinking not suggested for simple work
+
+**Prompt:** "Add a new entry to the tech-radar skill for Bun runtime"
+
+**Expected behavior:**
+- [ ] Does NOT suggest or invoke Sequential Thinking
+- [ ] Follows normal pipeline (or skips it per scope calibration)
+- [ ] Proceeds directly to implementation
+
+**Failure signals:**
+- Suggests Sequential Thinking for straightforward, low-complexity work
+- Auto-invokes Sequential Thinking without user request

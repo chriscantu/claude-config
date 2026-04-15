@@ -62,6 +62,42 @@ When evaluating approaches (during brainstorming or any solution comparison):
 - Recommend one option with clear reasoning, but show your work
 - Flag irreversible decisions explicitly — these deserve more scrutiny
 
+## Sequential Thinking (Manual Opt-In)
+
+A Sequential Thinking MCP server is available as an opt-in tool during planning stages.
+It provides explicit stepwise reasoning with revision and branching — useful when the
+normal pipeline is not converging on a stable approach.
+
+**When to use it:**
+- You feel stuck after multiple passes through solution design
+- Trade-offs are deep and interrelated, making it hard to hold everything in context
+- You keep revisiting the same unresolved tension
+- The problem has high blast radius or irreversibility and you want a more rigorous pass
+
+**How to invoke:**
+The user explicitly requests it: "Let's run a sequential thinking pass on this."
+Never invoke automatically. Never suggest it for trivial or clear-path work.
+
+**Bounded execution contract:**
+- Max thoughts: 8 (extend to 12 only with explicit user approval)
+- Max branches: 1
+- Timebox: ~10 minutes
+
+**Required output after a pass:**
+- Top options (max 3) with trade-offs
+- Recommended option with rationale
+- Key risks and unknowns
+- Validation plan
+- Next 3 concrete actions
+
+**Transparency:**
+- Announce when a sequential thinking pass starts
+- Announce when it ends and local planning flow resumes
+- The normal planning pipeline remains primary — a sequential pass is a tool, not a mode
+
+> See [ADR #0001](../adrs/0001-sequential-thinking-mcp-manual-only.md) for the full
+> decision rationale and future phase plans.
+
 ## Multi-Session Continuity
 
 When a design spans multiple conversations:
