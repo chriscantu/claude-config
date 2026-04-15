@@ -54,8 +54,9 @@ If any exist, warn:
 | `--context "..."` | Add a `[context]` observation without entering meeting flow |
 | `--sync` | Drain pending-sync files — retry all failed writes |
 
-**`--context` flow**: Write a `[context]` observation to the Person and exit. No meeting
-flow, no phase detection. Format: `[YYYY-MM-DD][context] <user-provided text>`.
+**`--context` flow**: Write a `[context]` observation to the Person (or to pending-sync
+if MCP is unavailable) and exit. No meeting flow, no phase detection.
+Format: `[YYYY-MM-DD][context] <user-provided text>`.
 
 **`--sync` flow**: Read all files in `skills/1on1-prep/pending-sync/`, attempt to write
 each observation to the graph via `mcp__memory__add_observations`. Report results
@@ -84,6 +85,11 @@ Never merge entities automatically. Never create a Person without going through 
 
 When person lookup returns no results, run the bootstrap flow. This creates a new
 Person entity in the knowledge graph.
+
+**If the memory MCP is unavailable**, bootstrap cannot proceed — entity creation is not
+deferrable to pending-sync. Inform the user and exit:
+> "I can't create a new person because the memory server is unavailable. Please check
+> that the `memory` MCP server is running and try again."
 
 **Four-prompt form** — present all four in one message, user replies in one message:
 
