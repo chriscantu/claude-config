@@ -1,7 +1,7 @@
 # Anthropic KG Memory MCP — Installation & Setup Runbook
 
 **Date:** 2026-04-15
-**Status:** Draft — to be executed after ADR #0003 is accepted
+**Status:** Completed 2026-04-15
 **ADR:** [#0003](../../../adrs/0003-adopt-anthropic-kg-memory-mcp-for-onboarding-storage.md)
 **Owner:** Cantu
 
@@ -265,12 +265,12 @@ is trivially recoverable via git history.
 
 ## Definition of done
 
-- [ ] NPX install path configured in Claude Code MCP config
-- [ ] `~/.claude/memory/` directory created
-- [ ] `MEMORY_FILE_PATH` pointed at `~/.claude/memory/graph.jsonl`
-- [ ] Smoke test passes end-to-end (create, search, delete)
-- [ ] Git repo initialized in `~/.claude/memory/` with first commit
-- [ ] `TaxonomyV1` Decision entity captured in the graph
-- [ ] Manual capture protocol exercised at least once with real data
-- [ ] Weekly/monthly health check cadence set as a reminder
-- [ ] This runbook marked `Completed` in the status line above
+- [x] ~~NPX~~ **bunx** install path configured in Claude Code MCP config (substituted bunx because this machine runs Bun, not Node — see `~/.claude.json` `mcpServers.memory`)
+- [x] `~/.claude/memory/` directory created
+- [x] `MEMORY_FILE_PATH` pointed at `/Users/cantu/.claude/memory/graph.jsonl` (absolute path, not `~`)
+- [x] Smoke test passes end-to-end (create, search, delete — executed 2026-04-15)
+- [x] Git repo initialized in `~/.claude/memory/` with first commit; per-repo identity set to `Chris Cantu <chris.m.cantu@icloud.com>`
+- [x] `TaxonomyV1` Decision entity captured in the graph (permanent, not tagged)
+- [x] Manual capture protocol exercised with real data: `LegacyTestbed` subgraph (1 Person, 2 Teams, 4 Systems, 6 relations) from prior Procore role, all observations tagged `[legacy-testbed]` for hermetic cleanup later
+- [x] Weekly/monthly health check cadence documented (see Step 8) and dry-run verified
+- [x] This runbook marked `Completed` in the status line above
