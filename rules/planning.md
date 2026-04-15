@@ -12,7 +12,7 @@ or tooling before completing the pipeline.
 
 1. Problem Definition — invoke `/define-the-problem`
 2. Systems Analysis — invoke `/systems-analysis`
-3. Solution Design — invoke `superpowers:brainstorming`
+3. Solution Design — invoke `superpowers:brainstorming` (opt-in: Sequential Thinking available if not converging)
 4. Fat Marker Sketch — invoke `/fat-marker-sketch` (after approach selected)
 5. Then proceed with detailed design
 </HARD-GATE>
@@ -64,9 +64,9 @@ When evaluating approaches (during brainstorming or any solution comparison):
 
 ## Sequential Thinking (Manual Opt-In)
 
-A Sequential Thinking MCP server is available as an opt-in tool during planning stages.
-It provides explicit stepwise reasoning with revision and branching — useful when the
-normal pipeline is not converging on a stable approach.
+A Sequential Thinking MCP server is available as an opt-in tool during the Solution
+Design stage. It provides explicit stepwise reasoning with revision and branching —
+useful when the normal pipeline is not converging on a stable approach.
 
 **When to use it:**
 - You feel stuck after multiple passes through solution design
@@ -76,12 +76,13 @@ normal pipeline is not converging on a stable approach.
 
 **How to invoke:**
 The user explicitly requests it: "Let's run a sequential thinking pass on this."
-Never invoke automatically. Never suggest it for trivial or clear-path work.
+Never invoke automatically. Never suggest it for work that falls under Prototype/POC
+scope calibration or has a clear, uncontested path forward.
 
 **Bounded execution contract:**
-- Max thoughts: 8 (extend to 12 only with explicit user approval)
+- Max thoughts: 8 (extend to 12 only with explicit user approval) — this is the hard constraint
 - Max branches: 1
-- Timebox: ~10 minutes
+- Target completing within ~10 minutes
 
 **Required output after a pass:**
 - Top options (max 3) with trade-offs

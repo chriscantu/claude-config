@@ -62,13 +62,14 @@ potential augmentation to the existing planning pipeline.
 ## Decision
 
 We will adopt Sequential Thinking MCP as a **manual-only, opt-in tool** available
-during planning stages (Phase 1). Specifically:
+during the Solution Design stage (Phase 1). Specifically:
 
 1. **Manual invocation only.** Users explicitly request a sequential thinking pass when
    they feel the planning process is not converging. No automatic triggers.
 
 2. **Bounded execution.** Each pass is constrained: max 8 thought steps (extendable to
-   12 with explicit approval), max 1 branch, ~10 minute timebox.
+   12 with explicit approval), max 1 branch. Target completing within ~10 minutes;
+   the max-thoughts limit is the hard constraint.
 
 3. **Structured output.** Each pass returns: top options (max 3), recommended option
    with rationale, key risks/unknowns, validation plan, and next 3 concrete actions.
@@ -85,10 +86,12 @@ We will **not** build:
 - Mandatory usage for any task category
 
 Future phases (tracked in GitHub issues):
-- **Phase 2:** Design semantic trigger heuristics based on observed manual usage
-  patterns — what signals preceded manual invocation?
-- **Phase 3:** Implement semi-automatic escalation offers with validated triggers,
-  preserving user consent and transparency.
+- **Phase 2 ([#30](https://github.com/chriscantu/claude-config/issues/30)):** Design
+  semantic trigger heuristics based on observed manual usage patterns — what signals
+  preceded manual invocation?
+- **Phase 3 ([#31](https://github.com/chriscantu/claude-config/issues/31)):** Implement
+  semi-automatic escalation offers with validated triggers, preserving user consent
+  and transparency.
 
 ## Consequences
 

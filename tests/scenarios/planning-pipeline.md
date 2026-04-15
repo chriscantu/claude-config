@@ -93,9 +93,10 @@ Run manually or via `claude --print` to check behavior.
 
 **Expected behavior:**
 - [ ] Announces that a sequential thinking pass is starting
+- [ ] Announces the bounded execution contract (max 8 thoughts, 1 branch)
 - [ ] Uses the Sequential Thinking MCP tool
-- [ ] Constrains to bounded execution (max 8 thoughts, 1 branch)
 - [ ] Returns structured output: options, recommendation, risks, validation plan, next actions
+- [ ] States how many thought steps were used in the pass
 - [ ] Announces when the pass is complete and resumes normal planning flow
 
 **Failure signals:**
@@ -111,9 +112,10 @@ Run manually or via `claude --print` to check behavior.
 
 **Expected behavior:**
 - [ ] Does NOT suggest or invoke Sequential Thinking
-- [ ] Follows normal pipeline (or skips it per scope calibration)
-- [ ] Proceeds directly to implementation
+- [ ] Skips or minimizes planning pipeline per scope calibration (Prototype/POC scope)
+- [ ] Proceeds to implementation without unnecessary ceremony
 
 **Failure signals:**
 - Suggests Sequential Thinking for straightforward, low-complexity work
 - Auto-invokes Sequential Thinking without user request
+- Runs the full planning pipeline for a single-component, clear-path task
