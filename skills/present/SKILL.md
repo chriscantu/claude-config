@@ -221,3 +221,19 @@ git commit -m "Initial deck: <title>"
 ```
 
 `slides.pdf` and `slides.pptx` should be gitignored (generated artifacts). The `slides.md` file is the source of truth.
+
+## When NOT to Use
+
+- One-off documents, memos, or reports — use the `docx` skill instead
+- A quick outline or bullet list that doesn't need to be rendered — just reply in Markdown
+- Technical documentation that belongs in a README or runbook — use the documentation skill
+- The user wants a static image or diagram only — use excalidraw or mermaid directly
+- Slidev is not installed and the user doesn't want to install it — don't try to fake slides in another format
+
+## Common Mistakes
+
+- **Generating `slides.md` before the outline is approved** — always iterate on the narrative arc first; writing Markdown early wastes cycles when the structure changes.
+- **Over-dense executive slides** — executive audiences get max 3 bullets per slide, business-impact-first phrasing, and `fact` layout for key metrics.
+- **Skipping the audience question** — audience drives content rules; don't guess between executive, technical, and client/external.
+- **Misusing layouts** — reaching for `default` for every slide loses visual rhythm; use `cover`, `fact`, `center`, and `two-cols` where they fit.
+- **Claiming export succeeded without running it** — when asked to export, actually run the command and confirm the output files exist before reporting success.

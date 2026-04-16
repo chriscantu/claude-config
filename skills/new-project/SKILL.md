@@ -85,3 +85,18 @@ Print a checklist of what was created and what the user should do next:
 - [ ] Fill in CLAUDE.md sections (Architecture, Conventions, Domain Glossary)
 - [ ] Install dependencies (show the command)
 - [ ] Verify test setup works
+
+## When NOT to Use
+
+- The project already exists and has a CLAUDE.md — use targeted edits instead
+- Adding a feature, module, or subdirectory to an existing project
+- Setting up a one-off script or scratch file that doesn't need project scaffolding
+- The user only wants a `.gitignore` or a `CLAUDE.md` — create those directly without running the full workflow
+
+## Common Mistakes
+
+- **Auto-installing dependencies or creating config files without confirmation** — this skill recommends setup and waits for the user; don't run `bun add` or write `vitest.config.ts` unprompted.
+- **Using `npm`/`node` for TypeScript stacks** — the user's environment is Bun; commands in CLAUDE.md must use `bun`/`bunx`.
+- **Filling in Architecture, Conventions, or Domain Glossary with guesses** — leave those as template comments for the user; inventing content creates memory that rots fast.
+- **Forgetting the one-line purpose** — the WHY in CLAUDE.md is the most useful section; don't skip Step 1's purpose question.
+- **Committing before the user has reviewed CLAUDE.md** — make the initial commit, but stop there and let the user fill in the placeholders before further work.
