@@ -99,4 +99,4 @@ Print a checklist of what was created and what the user should do next:
 - **Using `npm`/`node` for TypeScript stacks** — the user's environment is Bun; commands in CLAUDE.md must use `bun`/`bunx`.
 - **Filling in Architecture, Conventions, or Domain Glossary with guesses** — leave those as template comments for the user; inventing content creates memory that rots fast.
 - **Forgetting the one-line purpose** — the WHY in CLAUDE.md is the most useful section; don't skip Step 1's purpose question.
-- **Committing before the user has reviewed CLAUDE.md** — make the initial commit, but stop there and let the user fill in the placeholders before further work.
+- **Doing further work before the user fills in CLAUDE.md** — if Step 4 creates the initial commit, stop there and let the user complete the Architecture/Conventions/Glossary placeholders before continuing.

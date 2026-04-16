@@ -86,7 +86,6 @@ Apply the planning rule's systems thinking framework:
 ## Common Mistakes
 
 - **Searching only for direct references and missing indirect impacts** — downstream consumers of an API, shared config patterns, or documentation references can all be affected without naming the identifier directly.
-- **Forgetting to exclude build directories** — `node_modules/`, `dist/`, `build/`, `__pycache__/` produce noisy false positives and slow the scan.
 - **Reporting matches without assessing severity** — a match in a test file is very different from a match in production code; always tag findings with blast radius and reversibility.
 - **Scanning only the default path when the user has multiple repo roots** — ask about `--scan-paths` if the default parent-dir scan seems too narrow for their layout.
 - **Skipping ownership** — a finding without an owner is hard to act on; flag cross-team dependencies explicitly.
