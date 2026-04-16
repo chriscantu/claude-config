@@ -1,11 +1,9 @@
 ---
 name: fat-marker-sketch
 description: >
-  Produce a fat marker sketch — a crude visual artifact showing the user journey
-  across screens or components. Use when someone asks to sketch, wireframe, mockup,
-  or visually map a user flow before detailed design. Invoked during brainstorming
-  after an approach is selected. Contains rendering format, fidelity rules, examples,
-  validation questions, and backtracking protocol.
+  Use when someone asks to sketch, wireframe, mockup, or visually map a user flow
+  before detailed design. Also triggers during brainstorming after an approach is
+  selected, per the planning pipeline.
 license: MIT
 metadata:
   author: chriscantu

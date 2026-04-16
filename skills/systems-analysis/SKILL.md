@@ -1,10 +1,9 @@
 ---
 name: systems-analysis
 description: >
-  Analyze dependencies, second-order effects, failure modes, and organizational impact
-  before solution design. Triggers after problem definition is complete and before
-  brainstorming. Use when entering the systems analysis stage of the planning pipeline,
-  or standalone when evaluating the blast radius of a proposed change.
+  Use when entering the systems analysis stage of the planning pipeline, after problem
+  definition is complete and before brainstorming. Also triggers standalone when
+  evaluating the blast radius of a proposed change.
 ---
 
 # Systems Analysis

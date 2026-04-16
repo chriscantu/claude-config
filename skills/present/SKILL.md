@@ -1,6 +1,6 @@
 ---
 name: present
-description: Create professional Slidev presentations from a brief, draft, or existing slides. Use when the user says /present, "create a presentation", "make slides", "build a deck", or wants to create or update a presentation.
+description: Use when the user says /present, "create a presentation", "make slides", "build a deck", or wants to create or update a Slidev presentation.
 ---
 
 # Present: Professional Presentation Workflow

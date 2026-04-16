@@ -1,6 +1,6 @@
 ---
 name: new-project
-description: Scaffold a new project with CLAUDE.md, test config, and git conventions. Use when the user says /new-project, "scaffold a project", "set up a new repo", or "initialize project".
+description: Use when the user says /new-project, "scaffold a project", "set up a new repo", "initialize project", or wants to start a fresh codebase with standard conventions.
 ---
 
 # New Project Scaffolding

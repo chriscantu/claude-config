@@ -1,6 +1,6 @@
 ---
 name: tech-radar
-description: Create and manage technology radar entries for tool/framework adoption decisions. Use when the user says /tech-radar, "evaluate a technology", "should we adopt X", "add to tech radar", "tech radar entry", or "technology assessment".
+description: Use when the user says /tech-radar, "evaluate a technology", "should we adopt X", "add to tech radar", "tech radar entry", or "technology assessment". Also triggers when comparing tools or frameworks for an adoption decision.
 ---
 
 # Technology Radar Management

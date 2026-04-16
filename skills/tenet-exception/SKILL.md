@@ -1,6 +1,6 @@
 ---
 name: tenet-exception
-description: Create tenet exception requests for the engineering tenets governance process. Use when the user says /tenet-exception, "request a tenet exception", "exception to tenet", "deviate from a tenet", or "tenet exception".
+description: Use when the user says /tenet-exception, "request a tenet exception", "exception to tenet", "deviate from a tenet", or "tenet exception". Also triggers when proposing a deviation from an established engineering tenet.
 ---
 
 # Tenet Exception Request
