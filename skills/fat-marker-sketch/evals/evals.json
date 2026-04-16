@@ -9,7 +9,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(hard[- ]gate|won'?t skip|sketch first|before (the )?detailed (design|spec)|require(s)? (an )?explicit (override|skip)|two minutes|napkin)",
+          "pattern": "(hard[- ]gate|\\bgate\\b|won'?t skip|sketch first|before (the )?detailed (design|spec)|require(s)? (an )?explicit (override|skip)|(two|2) minutes|napkin|trade[- ]off|rework risk|acknowledg)",
           "flags": "i",
           "description": "Names the gate or refuses to skip without an explicit override"
         },
@@ -21,9 +21,9 @@
         },
         {
           "type": "regex",
-          "pattern": "(excalidraw|html|fallback|preview)",
+          "pattern": "(excalidraw|html|fallback|preview|napkin|2 minutes|two minutes|quick sketch|produce (a|the) sketch|offer (a|to))",
           "flags": "i",
-          "description": "References the rendering options (excalidraw / HTML fallback) rather than capitulating"
+          "description": "Offers to produce the sketch (naming rendering option, napkin-level, or 2-minute timebox) rather than capitulating"
         }
       ]
     },
@@ -34,7 +34,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(prose (is )?not (a )?sketch|visible (border|box)|bordered (box|region)|isn'?t (a )?sketch|text list isn'?t|not a (fat marker )?sketch)",
+          "pattern": "(prose (is )?(n'?t|not) (a )?(fat[- ]marker )?sketch|visible (border|box)|bordered (box|region)|isn'?t (a )?(fat[- ]marker )?sketch|text list isn'?t|not (a )?(fat[- ]marker )?sketch|visual artifact|description isn'?t)",
           "flags": "i",
           "description": "Quotes or paraphrases the 'visible boxes or it's notes' rule"
         },
@@ -53,7 +53,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(fallback (hierarchy|order)|excalidraw.{0,30}html|html.{0,30}fallback|preview[_ -]?start|excalidraw[- ]canvas)",
+          "pattern": "(fallback (hierarchy|order)|excalidraw|html fallback|preview[_ -]?start|visual artifact|not a text list)",
           "flags": "i",
           "description": "References the fallback hierarchy or the preview/excalidraw setup path"
         },

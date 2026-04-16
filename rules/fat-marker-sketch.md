@@ -21,7 +21,20 @@ go back to this step.
 
 - Changes scoped to a single component with no structural implications
 - Bug fixes where the solution shape is obvious from the diagnosis
-- The user explicitly says to skip
+- The user explicitly overrides the gate **and** acknowledges the trade-off
+
+### What counts as an explicit override
+
+Saying "skip the sketch" is NOT sufficient on its own. The override must include an
+explicit acknowledgement of what is being traded away — e.g., "skip the sketch, I accept
+the rework risk" or "override the gate, I'll redraw if the shape is wrong." Absent that
+acknowledgement, name the gate and produce the sketch (a 2-minute napkin-level rendering
+is always cheaper than the rework risk from skipping).
+
+**Time pressure is not an override.** "I have 10 minutes" or "meeting in 5" is a reason
+the sketch matters more, not less — a rushed detailed design is the most expensive
+thing to throw away. See the rationalization table in the skill for the full list of
+combined red flags.
 
 ## Producing the Sketch
 
