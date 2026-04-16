@@ -65,6 +65,8 @@ Skills are invoked with `/skill-name` and guide Claude through structured proces
 | `/tenet-exception` | Create engineering tenet exception requests with proper justification and PR process guidance. |
 | `/fat-marker-sketch` | Produce a crude structural sketch — invoked automatically by the planning rule, but can also be called directly. |
 | `/present` | Create professional presentations using Slidev + Bun. Takes a brief, draft, or existing slides → live preview → PDF/PPTX export. Source-controllable Markdown. |
+| `/1on1-prep` | Prepare for and capture 1:1 meetings with structured output. Pulls context from memory, surfaces discussion topics, and writes meeting notes back to the knowledge graph. |
+| `/swot` | Accumulative SWOT landscape analysis for onboarding. Captures observations to the knowledge graph across sessions, with challenge pass for quality and multi-format export (markdown, excalidraw, presentation). |
 
 ### Agents (specialized reviewers)
 
