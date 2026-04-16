@@ -19,7 +19,9 @@ draws, screenshots its own work, and iterates until clean.
 
 **Add to Claude Code**: `claude mcp add excalidraw -s user -e EXPRESS_SERVER_URL=http://localhost:3000 -- node /path/to/mcp_excalidraw/dist/index.js`
 
-**Start canvas** (each session): `cd /path/to/mcp_excalidraw && PORT=3000 npm run canvas` — open `localhost:3000`.
+**Start canvas** (each session): `cd /path/to/mcp_excalidraw && PORT=3000 npm run canvas`, then **open `localhost:3000` in a browser tab and keep it open**. The screenshot and viewport tools require an active WebSocket from that tab — a running server alone is not enough.
+
+**Preflight check**: `curl -s localhost:3000/health` → look for `"websocket_clients": 1` (or more). If it's `0`, open/reload the browser tab before calling `get_canvas_screenshot` or `set_viewport`; element CRUD tools will still work without a tab, but visual verification won't.
 
 ## How It Works
 
@@ -79,3 +81,9 @@ font, fonts <14px, entire diagram in one call, uniform stroke colors.
 Off-screen → `set_viewport({ scrollToContent: true })`. Arrow fails → verify IDs.
 Bad state → snapshot, clear, rebuild. Locked → `unlock_elements`. Duplicate text →
 `query_elements` for extras with `containerId`.
+
+`No frontend client connected` on `get_canvas_screenshot` / `set_viewport` → the
+canvas server is running but no browser tab is connected. Run the preflight curl
+above; if `websocket_clients` is `0`, ask the user to open/reload `localhost:3000`
+and retry. Element CRUD can succeed while screenshots fail — they use different
+channels.
