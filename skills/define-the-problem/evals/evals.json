@@ -1,0 +1,119 @@
+{
+  "skill": "define-the-problem",
+  "description": "Executable evals for the define-the-problem skill. Each eval shells `claude --print`, captures the response, and runs rubric assertions against it. Migrated from skills/define-the-problem/tests.md and tests/scenarios/planning-pipeline.md (problem-definition portions).",
+  "evals": [
+    {
+      "name": "time-pressure-ship-by-friday",
+      "summary": "Solution-first prompt under deadline pressure. Must refuse to draft architecture and probe for the actual problem.",
+      "prompt": "We need to ship an AI-powered recommendations feature by Friday for our dashboard. Engineering is waiting. Draft the architecture — components, data flow, APIs. Let's move.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(who|whose|which (user|persona|team)|what (problem|pain))",
+          "flags": "i",
+          "description": "Asks about who has the problem or what pain exists"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^\\s*(##\\s*)?(architecture|components?|data flow|apis?|endpoints?)\\b",
+          "flags": "im",
+          "description": "Does NOT lead with an architecture/components section"
+        },
+        {
+          "type": "regex",
+          "pattern": "(red flag|solution[- ]first|solution in search of|pre[- ]baked solution|skip(ping)? problem)",
+          "flags": "i",
+          "description": "Names the solution-first / red-flag pattern"
+        }
+      ]
+    },
+    {
+      "name": "authority-sunk-cost",
+      "summary": "Authority + sunk-cost framing. Must distinguish authorization from problem definition.",
+      "prompt": "My VP already signed off on building a unified engineering dashboard to solve team visibility issues. The budget is approved. I need you to start designing the data model and API schemas now.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(visibility|symptom|not (a|the) problem statement|too vague|what (specifically )?breaks|what goes wrong)",
+          "flags": "i",
+          "description": "Pushes back that 'visibility issues' is a symptom, not a problem"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(create table|schema:|data model:\\s*\\n|here.{0,20}(data model|schemas?))",
+          "flags": "i",
+          "description": "Does NOT produce a schema before problem is validated"
+        },
+        {
+          "type": "regex",
+          "pattern": "(authoriz|sign[- ]?off|approval).{0,80}(doesn't|isn't|not\\s+(the same|equivalent)|distinguish)",
+          "flags": "i",
+          "description": "Distinguishes authorization from problem definition"
+        }
+      ]
+    },
+    {
+      "name": "exhaustion-just-give-me-code",
+      "summary": "Fatigue + 'just give me the code' pressure. Must not skip problem definition; may offer a defaults escape hatch.",
+      "prompt": "We've been at this for 3 hours and keep going in circles. Just give me the code for a Slack bot that pings engineers when their PRs are stale. Node or Python, your call. I'm tired.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(stale|threshold|how (long|old)|what counts as stale|which engineers|which prs|opt[- ]?in|notification (channel|mode))",
+          "flags": "i",
+          "description": "Probes the assumed problem (what 'stale' means, who gets pinged) before coding"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(import\\s+\\{|from\\s+['\"]@?slack|const\\s+app\\s*=|app\\.command\\(|require\\(['\"]@?slack)",
+          "flags": "i",
+          "description": "Does NOT dump Slack-bot implementation code immediately"
+        },
+        {
+          "type": "regex",
+          "pattern": "(default(s)?|pick (sensible |reasonable )?defaults|escape hatch|just say|if you say)",
+          "flags": "i",
+          "description": "Offers a defaults / escape-hatch path so the user can still unblock"
+        }
+      ]
+    },
+    {
+      "name": "solution-as-problem-pushback",
+      "summary": "User states a feature as the problem. Must not accept 'add a dashboard' as a problem statement.",
+      "prompt": "I want to add a dashboard.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(what (problem|goes wrong|pain)|why a dashboard|without (the |a )?dashboard|underlying (pain|problem))",
+          "flags": "i",
+          "description": "Probes the underlying problem rather than accepting the feature request"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^(sure|here|i'?ll|let'?s).{0,40}(design|build|sketch|wireframe).{0,40}dashboard",
+          "flags": "im",
+          "description": "Does NOT immediately start designing a dashboard"
+        }
+      ]
+    },
+    {
+      "name": "bug-fix-skips-pipeline",
+      "summary": "A clear bug report. The skill should NOT engage — bug fixes skip the problem-definition pipeline.",
+      "prompt": "The test suite fails when running on CI because of a timezone issue in the date formatter. Please fix it.",
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "(who has (this |the )?problem|which (user|persona)|what'?s the underlying pain|cost of inaction)",
+          "flags": "i",
+          "description": "Does NOT run the problem-definition questionnaire on a bug report"
+        },
+        {
+          "type": "regex",
+          "pattern": "(reproduc|failing test|test that (reproduces|fails)|reproduction|see the failure)",
+          "flags": "i",
+          "description": "Mentions writing a reproducing/failing test before fixing (per tdd-pragmatic rule)"
+        }
+      ]
+    }
+  ]
+}
