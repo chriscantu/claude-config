@@ -142,3 +142,114 @@ If `--mode` flag was provided, use it directly. Otherwise, default to `add`.
 > "This SWOT analysis has no observations yet. Let's add some first."
 
 Proceed to `add` mode.
+
+## Graph Schema
+
+### Entity
+
+````
+name: "<Org Name> SWOT"
+entityType: "SWOT"
+````
+
+One entity per organization.
+
+### Observation Format
+
+````
+[YYYY-MM-DD][<swot-tag>][<landscape-tag>] <observation text> (<provenance>)
+````
+
+**SWOT tags** (mutually exclusive — internal vs. external):
+- `[strength]` — internal positive (what the org controls and does well)
+- `[weakness]` — internal negative (what the org controls but does poorly)
+- `[opportunity]` — external positive (what the org could exploit)
+- `[threat]` — external negative (what could hurt the org from outside)
+- Omitted for `[context]` observations
+
+**Landscape tags** (one per observation, optional):
+- `[technical]` — architecture, infrastructure, tooling, code quality
+- `[cultural]` — team dynamics, values, practices, morale
+- `[market]` — competitive position, industry trends, customer landscape
+- `[org]` — structure, headcount, processes, reporting lines
+
+**Provenance** in parentheses at the end — not formal citations, just source tracking:
+`(repo README)`, `(1:1 with Sarah)`, `(incident postmortem #47)`.
+
+### Examples
+
+````
+[2026-05-01][strength][technical] CI/CD deploys in 15 min, zero-downtime rolling updates (repo README)
+[2026-05-01][weakness][org] No dedicated SRE team — devs carry pager, oncall burden uneven (1:1 with Sarah)
+[2026-05-01][opportunity][market] Competitor X dropped enterprise support — their customers are shopping (sales team)
+[2026-05-01][threat][market] Series C competitor raised $80M, hiring aggressively in our space (public filing)
+[2026-05-01][context] Company went through reorg 6 months ago — some teams still settling (1:1 with Mike)
+````
+
+## Add Mode (Capture)
+
+Default mode. Two input paths — detected based on invocation. If `--read` flag is
+present, use artifact-pointed capture. Otherwise, use conversational capture.
+
+### Conversational Capture
+
+Present the structured capture form:
+
+````
+## SWOT Capture: <Org Name>
+
+Share what you've observed. Answer what applies, skip what doesn't.
+
+**Internal (what the org controls)**
+1. **Strengths** — What internal capabilities, assets, or advantages does the org have?
+2. **Weaknesses** — What internal gaps, inefficiencies, or liabilities exist?
+
+**External (what the org responds to)**
+3. **Opportunities** — What market shifts, industry trends, or external conditions could the org exploit?
+4. **Threats** — What external risks, competitive pressures, or environmental changes could hurt the org?
+
+5. **Landscape context** — Anything that doesn't fit the quadrants but matters?
+````
+
+The user replies in **one message**. Each numbered response maps to a tag:
+
+| Prompt # | SWOT tag |
+|----------|----------|
+| 1 | `[strength]` |
+| 2 | `[weakness]` |
+| 3 | `[opportunity]` |
+| 4 | `[threat]` |
+| 5 | `[context]` |
+
+### Parsing Rules
+
+- Match user responses to prompts by number prefix (e.g., "1. ..." or "1) ...") or by
+  sequential paragraph order if no numbers are provided
+- **Unparseable input**: If the response cannot be matched to prompt buckets (single
+  paragraph, no numbers, no clear breaks), present it back and ask the user to slot it
+  into the numbered prompts: "I couldn't match your notes to the capture categories.
+  Could you break them out by number? Here's the form again: [re-present the 5 prompts]."
+  Do NOT attempt to interpret content into buckets — that violates deterministic tagging.
+- Skip empty responses — if the user leaves a prompt blank or says "nothing", don't
+  create an observation for it
+- Each non-empty response becomes exactly one observation — if a response is
+  multi-sentence, it is still one observation. Do not split within a prompt bucket.
+- The observation body is the user's verbatim text (not a summary or interpretation)
+
+### Landscape Tag Assignment
+
+After parsing, add a landscape tag to each observation based on content keywords from
+the closed set: `[technical]`, `[cultural]`, `[market]`, `[org]`. This is best-effort
+LLM judgment — not deterministic. If the content doesn't clearly map to a single
+landscape dimension, omit the landscape tag.
+
+The user can override landscape tags in the confirm step.
+
+### Provenance
+
+After tagging, ask for provenance if not already included in the observation text:
+> "Where did each observation come from? (e.g., '1:1 with Sarah', 'repo README',
+> 'incident postmortem'). I'll add source tags. Or say 'skip' to leave them off."
+
+If the user provides provenance, append it in parentheses. If they skip, proceed
+without provenance — the challenge pass will later flag missing provenance.
