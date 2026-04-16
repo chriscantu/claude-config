@@ -19,11 +19,11 @@ draws, screenshots its own work, and iterates until clean.
 
 **Add to Claude Code**: `claude mcp add excalidraw -s user -e EXPRESS_SERVER_URL=http://localhost:3000 -- node /path/to/mcp_excalidraw/dist/index.js`
 
-**Start canvas** (each session): `cd /path/to/mcp_excalidraw && PORT=3000 npm run canvas`, then **open `localhost:3000` in a browser tab and keep it open** (or use the Claude desktop Preview panel — see below). The screenshot and viewport tools require an active WebSocket from that tab — a running server alone is not enough.
+**Start canvas** (each session): `cd /path/to/mcp_excalidraw && PORT=3000 bun run canvas` (or `npm run canvas` if using Node), then open `localhost:3000` in a browser tab (or use the Preview panel below). Screenshot and viewport tools need an active WebSocket client; element CRUD does not.
 
 **Preflight check**: `curl -s localhost:3000/health` → look for `"websocket_clients": 1` (or more). If it's `0`, open/reload the browser tab before calling `get_canvas_screenshot` or `set_viewport`; element CRUD tools will still work without a tab, but visual verification won't.
 
-**Claude desktop Preview alternative**: the repo's `.claude/launch.json` defines an `excalidraw-canvas` entry — `preview_start("excalidraw-canvas")` spawns the canvas and loads it in the Preview panel, which counts as the WebSocket client. Verified working end-to-end. **Critical gotcha**: if something is already listening on `:3000` (e.g. an external `bun run dist/server.js`), `preview_start` still reports success but silently binds its new process to the other address family (IPv4 vs IPv6). You end up with two canvas servers and split-brain state depending on which one the MCP HTTP client resolves to. Before `preview_start`, run `lsof -iTCP:3000 -sTCP:LISTEN -n -P` and kill any existing process.
+**Claude desktop Preview alternative**: the repo's `.claude/launch.json` defines an `excalidraw-canvas` entry — `preview_start("excalidraw-canvas")` spawns the canvas and loads it in the Preview panel, which counts as the WebSocket client. **Before `preview_start`, run `lsof -iTCP:3000 -sTCP:LISTEN -n -P` and kill any existing listener.** Otherwise `preview_start` reports success but binds a second process on the other address family (IPv4 vs IPv6), producing split-brain canvas state.
 
 ## How It Works
 
