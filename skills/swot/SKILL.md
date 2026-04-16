@@ -619,3 +619,29 @@ and provenance.
 
 User picks one or more. Generate sequentially. Each format is independent — export
 markdown now and come back for the presentation later.
+
+## Integration Points (Stubbed)
+
+Future flags for consuming other skills' graph data:
+
+- `--from=architecture-overview` — pull signals from `/architecture-overview` entity
+- `--from=stakeholder-map` — pull signals from `/stakeholder-map` entity
+
+Both currently return:
+> "The /<skill-name> skill isn't built yet. You can manually add insights from your
+> review using the conversational capture."
+
+When these skills exist, the `--from` flag will:
+1. Read the source skill's graph entity
+2. Extract signals relevant to SWOT dimensions
+3. Present them as draft observations in the same confirm flow as artifact-pointed capture
+
+## Composition
+
+- **Reads from**: `/1on1-prep` observations (manual — user transfers insights via
+  conversational capture), `/architecture-overview` and `/stakeholder-map` (future,
+  via `--from` flag)
+- **Writes to**: Knowledge graph (`SWOT` entity), markdown exports (`docs/swot/`),
+  excalidraw canvas, Slidev presentations
+- **Feeds**: `/strategy-doc` (#42), `/okr` (#36) — these skills will use
+  `search_nodes({ query: "<Org Name> SWOT" })` and filter observations by tag
