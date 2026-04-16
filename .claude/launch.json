@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "excalidraw-canvas",
+      "runtimeExecutable": "bun",
+      "runtimeArgs": ["run", "/Users/cantu/repos/mcp_excalidraw/dist/server.js"],
+      "port": 3000
+    }
+  ]
+}
