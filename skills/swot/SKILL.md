@@ -126,3 +126,19 @@ mcp__memory__create_entities({
 ````
 
 After bootstrap completes, proceed to **Mode Routing**.
+
+## Mode Routing
+
+If `--mode` flag was provided, use it directly. Otherwise, default to `add`.
+
+| Mode | When to use |
+|------|-------------|
+| `add` | Default. Capture new observations conversationally or from artifacts. |
+| `review` | Render the full SWOT report from graph data. |
+| `challenge` | Run quality checks against existing observations. |
+
+**Empty entity guard**: If the entity has zero observations and mode is `review` or
+`challenge`, warn and redirect:
+> "This SWOT analysis has no observations yet. Let's add some first."
+
+Proceed to `add` mode.
