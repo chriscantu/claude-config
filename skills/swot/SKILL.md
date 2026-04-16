@@ -71,3 +71,58 @@ Error handling for `--sync`:
 (`# Pending Observations: <Org Name> SWOT`). Each line starting with `- [` is one
 observation to write. The entity name for all observations in the file is
 `<Org Name> SWOT` (from the header).
+
+## Org Lookup
+
+Search the knowledge graph for the organization:
+
+````
+mcp__memory__search_nodes({ query: "<org-name>" })
+````
+
+**Resolution rules** (in order):
+
+1. **Exact match** on entity name (with " SWOT" suffix) → use that entity
+2. **Substring match** on entity name (case-insensitive) → if exactly one SWOT-type
+   result, use it
+3. **Ambiguous** (multiple matches) → show matches, ask user to pick:
+   > "I found multiple SWOT entities matching '<name>': [list]. Which one?"
+4. **Not found** (zero results returned) → proceed to **Bootstrap** (next section)
+5. **Lookup failed** (tool call error, not zero results) → do NOT proceed to bootstrap.
+   Inform the user: "Org lookup failed due to a server error. Please try again."
+   This prevents accidentally creating a duplicate entity.
+
+Never create an entity without going through Bootstrap.
+
+## Bootstrap (New Org)
+
+When org lookup returns no results, run the bootstrap flow.
+
+**If the memory MCP is unavailable**, bootstrap cannot proceed — entity creation is not
+deferrable to pending-sync. Inform the user and exit:
+> "I can't create a new SWOT entity because the memory server is unavailable. Please
+> check that the `memory` MCP server is running and try again."
+
+Confirm org name with the user:
+> "I'll create a new SWOT analysis for '<org-name>'. Is that the right name?"
+
+### Writing to the Graph
+
+**Name collision check**: Before creating, search for the exact name with " SWOT"
+suffix. If an entity with that name already exists, warn and force disambiguation:
+> "A SWOT entity named '<name> SWOT' already exists in the graph. Did you mean that
+> one, or is this a different organization?"
+
+Create the SWOT entity:
+
+````
+mcp__memory__create_entities({
+  entities: [{
+    name: "<Org Name> SWOT",
+    entityType: "SWOT",
+    observations: []
+  }]
+})
+````
+
+After bootstrap completes, proceed to **Mode Routing**.
