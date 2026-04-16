@@ -11,6 +11,9 @@ Capture phase writes verbatim user observations with deterministic tags.
 
 **Announce at start:** "I'm using the 1on1-prep skill to help you prepare for your 1:1."
 
+**Execution order:** Prerequisites → Invocation → Person Lookup → Bootstrap (if new) →
+Phase Detection → Mode Detection → Prep or Capture phase.
+
 ## Prerequisites
 
 Verify the memory MCP is available:
@@ -32,7 +35,7 @@ the pending-sync file instead of attempting `mcp__memory__add_observations`.
 Check for pending-sync files:
 
 ```fish
-ls skills/1on1-prep/pending-sync/*.md 2>/dev/null
+ls skills/1on1-prep/pending-sync/*.md 2>&1
 ```
 
 If any exist, warn:
@@ -63,6 +66,11 @@ the user, same as the capture phase fallback.
 each observation to the graph via `mcp__memory__add_observations`. Report results
 per-observation. Delete the pending-sync file only if all observations in it succeed.
 Exit after sync — no meeting flow.
+
+**Parsing pending-sync files**: Extract the Person name from the first line
+(`# Pending Observations: <Person Name>`). Each line starting with `- [` is one
+observation to write. The entity name for all observations in the file is the Person
+name from the header.
 
 Error handling for `--sync`:
 - If a file cannot be read (permissions, missing), report the error per-file and skip it
@@ -127,6 +135,7 @@ that name already exists, warn and force disambiguation:
 > "A person named '<name>' already exists in the graph. Did you mean them, or is this
 > a different person? If different, provide a distinguishing name (e.g., 'Sarah Chen (Platform)')."
 
+Answer #1 (full name) is used as the entity name, not written as an observation.
 For each non-empty answer (2, 3, 4), write a `[context]` observation:
 
 ```
@@ -224,12 +233,13 @@ Count observations matching `[1on1]`, check for `[context]`, and check relations
 ### Graduation Nudge
 
 If the auto-detect heuristic says "coaching" but no explicit `[mode:coaching]` marker
-exists, include a nudge at the end of the prep output:
+exists, include a nudge at the end of the prep output. The person is already being
+treated as coaching by heuristic — the nudge is about persisting that classification:
 
 > "Based on your history with <name> (N meetings, context recorded, reporting
-> relationship set), they might be ready to graduate from intake to coaching mode.
-> Want me to mark them as coaching? This just adds a `[mode:coaching]` observation —
-> you can always switch back."
+> relationship set), I'm treating them as coaching mode. Want me to lock that in with
+> an explicit marker so this detection doesn't have to re-run each time? You can always
+> switch back."
 
 If the user confirms, write:
 ```
@@ -288,7 +298,9 @@ Render all `[context]` observations as a bulleted list:
 #### 3. Open Commitments From Them
 
 Filter observations tagged `[commitment]` that do not have a corresponding `[resolved]`
-observation referencing the same date. Show oldest first.
+observation referencing the same date. Show oldest first, up to 10 items. If more than
+10 exist, show the 10 oldest and note: "N more open items not shown. Consider reviewing
+and resolving stale items."
 
 ```
 ### Open Commitments (they owe you)
@@ -301,7 +313,7 @@ the string `(ref YYYY-MM-DD)` matching the commitment's date.
 
 #### 4. Open Follow-ups I Owe Them
 
-Same logic as commitments but for `[followup]` tags.
+Same logic as commitments but for `[followup]` tags. Same 10-item cap.
 
 ```
 ### Open Follow-ups (you owe them)
@@ -329,15 +341,19 @@ sections.
 
 #### 6. What Others Have Said
 
-Search ALL Person entities for observations that mention this Person's name as a
-substring in the observation body:
+Search for this Person's name across the entire graph using server-side filtering:
 
 ```
-mcp__memory__read_graph()
+mcp__memory__search_nodes({ query: "<person name>" })
 ```
 
-Filter all observations across all entities (excluding this Person's own observations)
-where the body contains the Person's name. Cap at 5 hits. Show the source entity name.
+From the results, filter observations across other entities (excluding this Person's
+own observations) where the body contains the Person's name. Cap at 5 hits. Show the
+source entity name.
+
+**Scaling note:** Do NOT use `read_graph` for this section — it pulls the entire graph
+into context and will degrade as the graph grows. `search_nodes` leverages server-side
+filtering.
 
 ```
 ### What Others Have Said
@@ -351,15 +367,16 @@ Other observations about <name> may exist but couldn't be retrieved."
 
 #### 7. Suggested Questions
 
-Draw 3-4 questions from `skills/1on1-prep/questions.md`, using the current mode's
-section. Rotate through the list to avoid repeats:
+Read the question bank from `skills/1on1-prep/questions.md`. Draw 3-4 questions from
+the current mode's section. Draw from **at least 2 different categories** per prep.
 
-- Track which question index was last used in a simple way: start from the section
-  matching the current strategic focus (if open commitments exist, lean toward
-  Constraints & Concerns questions; if few relationships recorded, lean toward
-  Relationships & Org Dynamics questions).
-- If no signal to guide selection, start from where the last prep left off (use the
-  count of prior 1:1s modulo the number of questions in the section).
+**Signal-based selection**: Start from the category matching the current strategic focus
+(if open commitments exist, lean toward Constraints & Concerns questions; if few
+relationships recorded, lean toward Relationships & Org Dynamics questions).
+
+**Default rotation**: If no signal guides category selection, rotate categories
+round-robin using `(count of prior 1:1s) mod (number of categories)` as the starting
+category. Draw 2 questions from that category and 1-2 from the next.
 
 ```
 ### Suggested Questions
@@ -385,6 +402,10 @@ Prep phase ends here. No further action unless the user asks for something.
 The capture phase collects post-meeting observations from the user and writes them to
 the knowledge graph. Tags are applied deterministically by prompt bucket — never by
 content interpretation.
+
+**Before presenting the capture form**, check if the user indicates no meeting occurred
+(e.g., "nothing happened", "we didn't meet", "they cancelled"). If so, skip directly
+to **Noshow Handling** at the end of this section.
 
 ### Capture Form
 
@@ -420,6 +441,11 @@ Where `<mode>` is `intake` or `coaching` based on the detected mode.
 
 - Match user responses to prompts by number prefix (e.g., "1. ..." or "1) ...") or by
   sequential paragraph order if no numbers are provided
+- **Unparseable input**: If the response cannot be matched to prompt buckets (single
+  paragraph, no numbers, no clear breaks), present it back and ask the user to slot it
+  into the numbered prompts: "I couldn't match your notes to the capture categories.
+  Could you break them out by number? Here's the form again: [re-present the 6 prompts]."
+  Do NOT attempt to interpret content into buckets — that violates deterministic tagging.
 - Skip empty responses — if the user leaves a prompt blank or says "nothing", don't
   create an observation for it
 - Each non-empty response becomes exactly one observation — if a response is
@@ -439,19 +465,25 @@ I'll write these observations to <Person Name>'s record:
 2. [2026-04-15][1on1][intake][commitment] Owes me the org chart by Friday
 3. [2026-04-15][1on1][intake][followup] Send them the onboarding doc
 
-[Confirm] [Edit] [Cancel]
+Does this look right? You can **confirm**, **edit**, or **cancel**.
 ```
 
-- **Confirm**: proceed to Write
-- **Edit**: ask which observation to change, show the edited version, re-confirm
-- **Cancel**: discard all observations, exit
+- **confirm**: proceed to Write
+- **edit**: ask which observation to change, show the edited version, re-confirm
+- **cancel**: discard all observations, exit
 
 ### Resolution Mini-Flow
 
 After showing the tagged preview, check if any `[commitment]` or `[followup]`
 observation's body might reference closing a prior open item. For each new observation
-tagged `[commitment]` or `[followup]`, substring-search the Person's existing open
-commitments and follow-ups for overlapping keywords.
+tagged `[commitment]` or `[followup]`, compare against the Person's existing open
+commitments and follow-ups using this matching rule:
+
+**Matching**: Extract substantive noun phrases from the new observation and check if any
+appear as substrings in existing open items. A match requires at least one multi-word
+phrase (2+ words) or a distinctive single noun (not common words like "update",
+"meeting", "team") appearing in both. When in doubt, do not match — it is better to
+miss a resolution than to false-positive.
 
 If a plausible match is found, ask:
 
