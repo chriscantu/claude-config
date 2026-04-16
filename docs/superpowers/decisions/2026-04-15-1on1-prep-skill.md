@@ -3,7 +3,7 @@
 **Date:** 2026-04-15
 **Branch:** `feature/1on1-prep-skill`
 **Issue:** [chriscantu/claude-config#33](https://github.com/chriscantu/claude-config/issues/33)
-**Status:** Design approved through all seven sections. Next step is fat-marker sketch (excalidraw), then spec doc, then writing-plans.
+**Status:** Design approved. Spec, plan, and implementation complete. Skill built and merged via PR #49.
 **Why this brief exists:** Session was restarted mid-pipeline to load the excalidraw MCP tools after a fresh global install at `~/repos/mcp_excalidraw`. This brief preserves the design state so the next session can pick up at the fat-marker sketch without re-running the pipeline.
 
 ## Planning pipeline state
@@ -93,7 +93,7 @@
 
 ### 4. Prep phase output (read-only)
 
-Six sections, empty ones omitted:
+Seven sections, empty ones omitted:
 
 1. Header (name, mode badge, meeting time, prior-meeting count, graduation nudge if triggered)
 2. Context (from `[context]` observations)

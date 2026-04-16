@@ -16,7 +16,7 @@
 
 ```
 skills/1on1-prep/
-  SKILL.md                          # Main skill definition (~350 lines)
+  SKILL.md                          # Main skill definition (~550 lines)
   questions.md                      # Question bank: intake + coaching sections
   pending-sync/                     # Failed writes stored here for retry
     .gitkeep

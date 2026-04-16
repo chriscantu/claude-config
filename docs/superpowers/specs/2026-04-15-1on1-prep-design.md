@@ -81,7 +81,7 @@ All observation bodies are verbatim user input. The skill never writes its own i
 | `[mode:coaching]` | marker | Person has graduated from intake |
 | `[mode:intake]` | marker | Reverted to intake (reversible) |
 | `[resolved]` | lifecycle | Closes a prior `[commitment]` or `[followup]` |
-| `[noshow]` | meeting state | Meeting happened on calendar but nothing captured |
+| `[noshow]` | meeting state | User invoked capture but reported no meeting or nothing to capture |
 
 **Reserved tags** (not built in v1):
 - `[heard-from:<PersonName>]` — cross-Person provenance (v2)
@@ -136,7 +136,7 @@ Context updates after bootstrap use the `--context "..."` flag. No other update 
 
 ### Prep Phase (Read-Only)
 
-Six sections, empty ones omitted:
+Seven sections, empty ones omitted:
 
 1. **Header** — name, mode badge, meeting time, prior-meeting count, graduation nudge if triggered
 2. **Context** — from `[context]` observations
