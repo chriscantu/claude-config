@@ -54,6 +54,10 @@ I'll write these observations to <Person Name>'s record:
 Does this look right? You can **confirm**, **edit**, or **cancel**.
 ```
 
+- **confirm** → write to graph
+- **edit** → ask which to change, show edited version, re-confirm
+- **cancel** → discard all, exit
+
 ## Resolution Mini-Flow
 
 After showing the tagged preview, check new `[commitment]` or `[followup]` observations

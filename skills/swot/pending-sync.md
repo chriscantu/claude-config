@@ -12,7 +12,8 @@ skills/swot/pending-sync/YYYY-MM-DD-<org-name-sanitized>.md
 ```
 
 **Filename sanitization**: lowercase, spaces → hyphens, strip all except letters/digits/hyphens,
-collapse consecutive hyphens. Examples: "Acme Corp" → `acme-corp`, "Acme & Co." → `acme-co`.
+collapse consecutive hyphens. Examples: "Acme Corp" → `acme-corp`, "Acme & Co." → `acme-co`,
+"My Org (West)" → `my-org-west`.
 
 ## File Format
 

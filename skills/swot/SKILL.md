@@ -17,6 +17,7 @@ review, and multi-format export.
 **Reference files** (read on demand, not upfront):
 - [graph-schema.md](graph-schema.md) — entity format, tags, provenance, examples
 - [pending-sync.md](pending-sync.md) — file format, sync flow, error handling
+- [capture-form.md](capture-form.md) — 5-prompt form, parsing rules, provenance, confirm flow
 - [challenge-checks.md](challenge-checks.md) — 4 quality checks with examples
 - [export-formats.md](export-formats.md) — markdown, excalidraw, presentation export
 
@@ -51,15 +52,12 @@ Default `add`. Empty entity with `review`/`challenge` → redirect to `add`.
 
 ## Add Mode (Capture)
 
-**Conversational** (default): present 5-prompt form:
-1. Strengths → `[strength]` 2. Weaknesses → `[weakness]` 3. Opportunities → `[opportunity]`
-4. Threats → `[threat]` 5. Context → `[context]`
+Read [capture-form.md](capture-form.md) for the form, parsing rules, and confirm flow.
 
-Parse by number prefix or sequential paragraphs. Unparseable → re-present form.
-Skip empties. One response = one verbatim observation. Add landscape tags
-(`[technical]`/`[cultural]`/`[market]`/`[org]`) by LLM judgment. Ask for provenance.
-Confirm → write one-at-a-time. Failed writes → pending-sync. After write, offer
-challenge pass.
+**Conversational** (default): 5-prompt form mapping to `[strength]`, `[weakness]`,
+`[opportunity]`, `[threat]`, `[context]`. Landscape tags by LLM judgment. Provenance
+asked after tagging. Confirm → write one-at-a-time. Failed writes → pending-sync.
+After write, offer challenge pass.
 
 **Artifact-pointed** (`--read`): read file/URL, extract signals as draft observations,
 present in same confirm flow. Never writes unconfirmed observations.
@@ -75,6 +73,13 @@ Gaps (4x4 SWOT × landscape matrix, flag cells <2 entries). Then offer export
 
 Read entity, run 4 checks (see [challenge-checks.md](challenge-checks.md)). Present
 flagged items with Edit/Remove/Keep/Recategorize actions.
+
+## Integration Points (Stubbed)
+
+`--from=architecture-overview` and `--from=stakeholder-map` are planned but unbuilt.
+If a user passes `--from`, return:
+> "The /<skill-name> skill isn't built yet. You can manually add insights using
+> the conversational capture."
 
 ## Composition
 

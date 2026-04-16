@@ -25,7 +25,6 @@ Observation body is the user's verbatim text — never summarize or interpret.
 |-----|---------|
 | `[1on1]` | Captured during a 1:1 session |
 | `[context]` | Background info added outside meetings |
-| `[noshow]` | Meeting didn't happen (cancellation/no-show) |
 
 ### Mode tags (applied alongside `[1on1]`)
 
@@ -44,6 +43,7 @@ Observation body is the user's verbatim text — never summarize or interpret.
 | `[commitment]` | Something they owe the user |
 | `[followup]` | Something the user owes them |
 | `[resolved]` | Closes a prior `[commitment]` or `[followup]` — body must contain `(ref YYYY-MM-DD)` |
+| `[noshow]` | Meeting didn't happen — format: `[1on1][<mode>][noshow]`. Feeds coverage-review (#23) |
 
 ### Mode markers (written as observations)
 

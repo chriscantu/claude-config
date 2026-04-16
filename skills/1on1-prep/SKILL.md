@@ -10,6 +10,9 @@ Capture writes verbatim observations with deterministic tags.
 
 **Announce:** "I'm using the 1on1-prep skill to help you prepare for your 1:1."
 
+**Flow:** Prerequisites → Invocation → Person Lookup → Bootstrap → Phase Detection →
+Mode Detection → Prep or Capture.
+
 **Reference files** (read on demand, not upfront):
 - [graph-schema.md](graph-schema.md) — observation format, tags, relations, examples
 - [pending-sync.md](pending-sync.md) — file format, parsing, error handling
@@ -18,8 +21,9 @@ Capture writes verbatim observations with deterministic tags.
 
 ## Prerequisites
 
-Verify memory MCP: `mcp__memory__read_graph`. If unavailable, warn and route writes
-to pending-sync. Check for existing pending-sync files.
+Verify memory MCP: `mcp__memory__read_graph`. If unavailable, warn and set a
+session-wide flag so ALL writes route to pending-sync for the remainder (not just the
+current write). Check for existing pending-sync files.
 
 ## Invocation
 
@@ -33,7 +37,8 @@ files (see [pending-sync.md](pending-sync.md)).
 ## Person Lookup
 
 `mcp__memory__search_nodes({ query: "<person-name>" })` — exact match → use it,
-one substring → use it, multiple → ask user, not found → Bootstrap, tool error → stop.
+one substring → use it, multiple → ask user, not found → Bootstrap,
+tool error → stop (prevents duplicate creation).
 
 ## Bootstrap (New Person)
 
@@ -50,6 +55,7 @@ Multiple → ask. None/unavailable → ask.
 
 Priority: `--mode` flag → explicit `[mode:*]` marker in graph → auto-detect.
 **Intake** if <3 `[1on1]` observations, no `[context]`, no `reports_to`. Else **Coaching**.
+Note: `open_nodes` doesn't return relations — use `search_nodes` to check `reports_to`.
 Offer graduation nudge if heuristic says coaching but no marker exists.
 
 ## Prep Phase (Read-Only)
@@ -66,6 +72,10 @@ Read Person's full node. Render in order, omit empty sections:
 
 ## Capture Phase
 
-Read [capture-form.md](capture-form.md) for form, parsing, and resolution flow.
-Tags assigned deterministically by prompt bucket. If no meeting occurred → write
-`[noshow]` observation. Write one-at-a-time, failed writes → pending-sync.
+**Before showing the form**, check if user indicates no meeting occurred (e.g.,
+"nothing happened", "we didn't meet", "they cancelled"). If so, skip to noshow:
+write `[YYYY-MM-DD][1on1][<mode>][noshow] No capture recorded`. Failed → pending-sync.
+
+Otherwise, read [capture-form.md](capture-form.md) for form, parsing, and resolution
+flow. Tags assigned deterministically by prompt bucket. Write one-at-a-time, failed
+writes → pending-sync.
