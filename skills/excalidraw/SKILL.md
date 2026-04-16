@@ -84,8 +84,6 @@ Off-screen → `set_viewport({ scrollToContent: true })`. Arrow fails → verify
 Bad state → snapshot, clear, rebuild. Locked → `unlock_elements`. Duplicate text →
 `query_elements` for extras with `containerId`.
 
-`No frontend client connected` on `get_canvas_screenshot` / `set_viewport` → the
-canvas server is running but no browser tab is connected. Run the preflight curl
-above; if `websocket_clients` is `0`, ask the user to open/reload `localhost:3000`
-and retry. Element CRUD can succeed while screenshots fail — they use different
-channels.
+`No frontend client connected` on `get_canvas_screenshot` / `set_viewport` → run the
+preflight curl above; if `websocket_clients` is `0`, open/reload `localhost:3000` (or
+`preview_start` it) and retry.
