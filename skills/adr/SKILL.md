@@ -98,6 +98,21 @@ Display a markdown table:
 
 Parse the number from the filename, the title from the H1, and extract Status, Lifecycle, and Responsible Architect from the document body.
 
+## When NOT to Use
+
+- Trivial decisions that don't warrant formal tracking (naming conventions, small refactors, one-off code style choices)
+- Decisions that require a fuller System Design Record — see Related Templates below for system-level, service-creation, or tool-adoption decisions
+- Tenet deviations — use `/tenet-exception` instead
+- Technology adoption with lifecycle tracking (Assess/Trial/Adopt/Hold) — use `/tech-radar` instead
+
+## Common Mistakes
+
+- **Writing Context as solution justification** — Context describes forces in tension in value-neutral language. Save the "why we chose X" for Decision and Consequences.
+- **Skipping Consequences, or only listing positives** — every decision has trade-offs. Enumerate negative and neutral consequences too.
+- **Creating ADRs for decisions that are already made and deployed** — ADRs are decision records; if the decision is fait accompli, mark Status accordingly rather than backfilling as "Proposed".
+- **Forgetting to update the superseded ADR** — when superseding, always update the old ADR's Status field; otherwise future readers can't follow the chain.
+- **Stuffing system-level designs into an ADR** — if the scope is a whole system or service, suggest the appropriate larger template instead.
+
 ## Related Templates
 
 The system-design-records repo has additional templates for larger decisions:

@@ -10,6 +10,7 @@ Analyzes how a change in the current project might affect other local repositori
 ## Arguments
 
 - `<description>` — What changed or is about to change (e.g., "removing the auth middleware", "renaming UserAccount to Account")
+- `--scan-paths <comma-separated-paths>` — Optional. Override the default scan locations with one or more directories to search across (e.g., `--scan-paths ~/work,~/oss`)
 - (no args) — Infer from recent git diff or ask the user
 
 ## Workflow
@@ -32,7 +33,13 @@ Extract searchable identifiers from the change:
 
 ### Step 3: Scan Local Repos
 
-Search across sibling directories in `~/repos/` for references to the identified items.
+Determine the scan paths:
+
+1. If `--scan-paths` was provided, use those directories (comma-separated) as the exclusive scan roots.
+2. Otherwise, default to the **parent directory of the current working directory** (sibling repos).
+3. Additionally include `~/repos/` if it exists and is not already covered by the default (i.e., not the same directory as, or an ancestor of, the default).
+
+Search the resolved scan roots for references to the identified items.
 
 Use grep/glob across repos, but SKIP:
 - `node_modules/`, `.git/`, `dist/`, `build/`, `__pycache__/`
@@ -68,3 +75,17 @@ Apply the planning rule's systems thinking framework:
 - What feedback loops does this create?
 - What second-order effects might occur?
 - Who owns the affected repos? Flag cross-team dependencies.
+
+## When NOT to Use
+
+- Changes scoped entirely to the current repo with no shared APIs, packages, or config
+- Conceptual "what if we changed X someday" questions without a concrete change in hand
+- Single-file tweaks inside the current repo (no exported surface area changes)
+- When the user just wants to know who imports a symbol within this repo — use grep directly
+
+## Common Mistakes
+
+- **Searching only for direct references and missing indirect impacts** — downstream consumers of an API, shared config patterns, or documentation references can all be affected without naming the identifier directly.
+- **Reporting matches without assessing severity** — a match in a test file is very different from a match in production code; always tag findings with blast radius and reversibility.
+- **Scanning only the default path when the user has multiple repo roots** — ask about `--scan-paths` if the default parent-dir scan seems too narrow for their layout.
+- **Skipping ownership** — a finding without an owner is hard to act on; flag cross-team dependencies explicitly.

@@ -81,6 +81,14 @@ If a user passes `--from`, return:
 > "The /<skill-name> skill isn't built yet. You can manually add insights using
 > the conversational capture."
 
+## Common Mistakes
+
+- **Writing observations without provenance** — every observation should carry its source (conversation, artifact, meeting); unattributed entries can't be audited or challenged later.
+- **Miscategorizing internal vs. external** — strengths/weaknesses are internal to the org; opportunities/threats are external forces. Slipping a market trend into weaknesses (or vice versa) breaks the framework.
+- **Writing observations without user confirmation** — capture is confirm-then-write; never persist draft observations from artifact extraction until the user approves them.
+- **Reaching for challenge or review mode on an empty entity** — redirect to `add` when the entity has no observations yet; there's nothing to review.
+- **Skipping coverage gaps in review** — the 4x4 SWOT × landscape matrix is where missing analysis becomes visible; always surface cells with fewer than two entries.
+
 ## Composition
 
 - **Reads**: `/1on1-prep` (manual), `/architecture-overview`, `/stakeholder-map` (future `--from`)
