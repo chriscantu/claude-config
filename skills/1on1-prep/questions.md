@@ -1,8 +1,8 @@
 # 1:1 Question Bank
 
 Questions are partitioned by mode. The skill draws 3-4 per prep run, rotating
-to avoid repeats. Rotation tracks which questions were used in recent preps
-via a simple index — start from the top, advance each run, wrap around.
+to avoid repeats. Draw from at least 2 different categories per prep. When no
+signal guides category selection, rotate categories round-robin across preps.
 
 The user can always supplement or override generated questions.
 
@@ -14,10 +14,10 @@ constraints, relationships, and mental models — not status or task tracking.
 ### Opportunities & Strategy
 
 1. What's the biggest opportunity this team is sitting on that nobody's pursuing?
-2. If you had an extra engineer for six months, what would you point them at?
+2. If you got one more team, what problem would you point them at?
 3. What's one thing that used to be hard here but has gotten easier recently — and why?
 4. Where do you see the most momentum right now?
-5. What would you build if you didn't need anyone's permission?
+5. What's the one investment — people, tools, or time — that would have the highest ROI for your org right now?
 
 ### Constraints & Concerns
 
@@ -25,7 +25,7 @@ constraints, relationships, and mental models — not status or task tracking.
 7. What process or system do people quietly work around because it's broken?
 8. Where are we carrying the most technical or organizational debt?
 9. What's the decision you wish someone would just make?
-10. What keeps coming up in your team's retros that never gets fixed?
+10. Where do you have decision authority that you're not using, and where do you lack it but need it?
 
 ### Relationships & Org Dynamics
 
@@ -48,34 +48,37 @@ constraints, relationships, and mental models — not status or task tracking.
 Ongoing coaching questions for steady-state 1:1s. Focus: growth, blockers,
 strategic thinking, and relationship health — not status updates.
 
-### Growth & Development
-
-1. What skill are you actively trying to build right now?
-2. What's a stretch project you'd want to take on in the next quarter?
-3. Where do you feel most confident? Where do you feel least confident?
-4. What's something you've learned recently that changed how you work?
-5. Is there a part of your role that you've outgrown?
-
-### Blockers & Support
-
-6. What's slowing you down the most right now?
-7. Is there a decision you're waiting on that I could unblock?
-8. What's one thing I could do differently to be more helpful?
-9. Where are you spending time that feels low-value?
-10. Do you have what you need to do your best work this week?
+Categories are ordered for cold-open safety: Strategic Thinking is the safest
+default opener, Growth & Development requires the most trust and goes last.
 
 ### Strategic Thinking
 
-11. If you were in my role, what would you change first?
-12. What's a bet this team should be making that we're not?
-13. What's the strongest signal you're seeing from customers or users right now?
-14. Where are we over-investing? Under-investing?
-15. What's a risk we're not talking about enough?
+1. If you were in my role, what would you change first?
+2. What's a bet this team should be making that we're not?
+3. What's the strongest signal you're seeing from your customers — whether external users or internal teams that depend on you?
+4. Where are we over-investing? Under-investing?
+5. Where do you think my priorities and yours are most misaligned?
+
+### Blockers & Support
+
+6. Is there a decision you're waiting on that I could unblock?
+7. What's one thing I could do differently to be more helpful?
+8. Where are you spending time that feels low-value?
+9. What's a cross-team dependency that's costing you more than it should?
+10. What's a risk we're not talking about enough?
 
 ### Relationships & Team Health
 
-16. How's the team dynamic feeling right now?
-17. Is there a collaboration that's working well that I should know about?
-18. Is there a collaboration that's struggling that I should know about?
-19. Who on the team is doing great work that might not be visible?
+11. Where's the strongest tension on your team right now — even if it's productive?
+12. Is there a collaboration that's working well that I should know about?
+13. Is there a collaboration that's struggling that I should know about?
+14. Who on the team is doing great work that might not be visible?
+15. Is there anyone on your team I should be worried about losing, and do you have what you need to keep them?
+
+### Growth & Development
+
+16. What part of your leadership are you deliberately working on right now?
+17. Is there a problem or area outside your current scope that you'd want to own?
+18. Where do you feel most confident? Where do you feel least confident?
+19. What's something you've learned recently that changed how you work?
 20. Is there anything you're hearing from the team that I should know?
