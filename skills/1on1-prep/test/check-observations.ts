@@ -65,11 +65,17 @@ function validateObservation(obs: string): ValidationResult {
     }
   }
 
-  // Check date is valid
+  // Check date is valid (round-trip to catch impossible dates like Feb 30)
   const dateMatch = obs.match(/^\[(\d{4}-\d{2}-\d{2})\]/);
   if (dateMatch) {
-    const d = new Date(dateMatch[1]);
-    if (isNaN(d.getTime())) {
+    const [year, month, day] = dateMatch[1].split("-").map(Number);
+    const d = new Date(year, month - 1, day);
+    if (
+      isNaN(d.getTime()) ||
+      d.getFullYear() !== year ||
+      d.getMonth() !== month - 1 ||
+      d.getDate() !== day
+    ) {
       errors.push(`Invalid date: ${dateMatch[1]}`);
     }
   }
@@ -173,6 +179,21 @@ const testCases: TestCase[] = [
     input: "[2026-13-45][1on1][intake] Bad calendar date",
     expectValid: false,
     description: "invalid: impossible date values",
+  },
+  {
+    input: "[2026-02-30][1on1][intake] February 30 does not exist",
+    expectValid: false,
+    description: "invalid: impossible day for month (Feb 30)",
+  },
+  {
+    input: "[2026-04-31][1on1][intake] April has only 30 days",
+    expectValid: false,
+    description: "invalid: impossible day for month (Apr 31)",
+  },
+  {
+    input: "[2026-04-15][1on1][intake][opportunity] Said [per Sarah] this is big",
+    expectValid: false,
+    description: "invalid: brackets in body text parsed as unknown tag",
   },
 ];
 
