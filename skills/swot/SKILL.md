@@ -537,4 +537,85 @@ Dimensions with fewer than 2 entries:
 This nudges toward a complete landscape read over time without forcing it.
 
 After rendering the report, proceed to **Export Formats**.
-Each invocation extracts and confirms independently. The graph accumulates.
+
+## Export Formats
+
+After rendering the review report, offer export options:
+
+> "Export this SWOT? Choose a format:
+> 1. [Markdown] — standalone doc to docs/swot/
+> 2. [Excalidraw] — 2x2 SWOT grid on the canvas
+> 3. [Presentation] — Slidev deck via /present
+> 4. [All] — generate all three
+> Or skip to continue without exporting."
+
+### Markdown Export
+
+Write a point-in-time snapshot to `docs/swot/YYYY-MM-DD-<org-name-lowercase>.md`.
+Same structure as the review report. This is the artifact that downstream skills
+(`/strategy-doc`, `/okr`) can consume.
+
+### Excalidraw Export
+
+Render a classic 2x2 SWOT grid on the excalidraw canvas using the excalidraw MCP.
+
+**Prerequisites**: Check that `mcp__excalidraw__*` tools are available. If not:
+> "Excalidraw MCP is not available. Skipping canvas export. You can still use
+> Markdown or Presentation export."
+
+**Layout**:
+
+````
++-------------------------+-------------------------+
+|       STRENGTHS         |       WEAKNESSES        |
+|     (internal +)        |     (internal -)        |
+|                         |                         |
+|  [technical] entry 1    |  [technical] entry 1    |
+|  [cultural] entry 2     |  [org] entry 2          |
++-------------------------+-------------------------+
+|     OPPORTUNITIES       |        THREATS          |
+|     (external +)        |     (external -)        |
+|                         |                         |
+|  [market] entry 1       |  [market] entry 1       |
+|  [technical] entry 2    |  [org] entry 2          |
++-------------------------+-------------------------+
+````
+
+**Drawing steps**:
+1. Clear the canvas: `mcp__excalidraw__clear_canvas`
+2. Create four quadrant rectangles with `batch_create_elements` — equal-sized, arranged
+   in a 2x2 grid. Use outline-only shapes (no fill).
+3. Add quadrant title text elements: "STRENGTHS (internal +)", "WEAKNESSES (internal -)",
+   "OPPORTUNITIES (external +)", "THREATS (external -)"
+4. Add observation text within each quadrant, grouped by landscape tag. Use fontSize 14
+   minimum. If too many entries to fit, show the most recent N entries and add
+   "... and M more" text.
+5. Add a title text element above the grid: "SWOT Landscape: <Org Name>"
+6. Set viewport to fit all content: `mcp__excalidraw__set_viewport({ scrollToContent: true })`
+
+After drawing, offer:
+> "SWOT grid rendered on the canvas. You can export it as PNG/SVG from excalidraw."
+
+### Presentation Export
+
+Invoke `/present` with a generated brief:
+
+````
+Create a presentation titled "Landscape Assessment: <Org Name>"
+
+Slide structure:
+1. Title slide: "Landscape Assessment: <Org Name>" with date
+2. Internal Strengths — bulleted list with evidence citations
+3. Internal Weaknesses — bulleted list with evidence citations
+4. External Opportunities — bulleted list with evidence citations
+5. External Threats — bulleted list with evidence citations
+6. Coverage Gaps & Recommended Next Steps
+
+Use a clean, professional theme. Each bullet should include the landscape tag
+and provenance.
+````
+
+### Format Selection
+
+User picks one or more. Generate sequentially. Each format is independent — export
+markdown now and come back for the presentation later.
