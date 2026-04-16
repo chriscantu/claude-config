@@ -3,10 +3,11 @@
 Per `superpowers:writing-skills`, every skill needs pressure scenarios with
 baseline + with-skill runs. This file documents tier 1 tests for #58.
 
-**Methodology:** Ran each scenario twice via `Agent` (subagent_type: general-purpose).
-Baseline run: scenario prompt with no skill reference. With-skill run: same prompt
-prefixed with "Use the define-the-problem skill from [path]." Captured verbatim
-responses and rationalizations.
+**Methodology:** Three pressure scenarios × {baseline, with-skill} = 6
+subagent runs via `Agent` (subagent_type: general-purpose). Baseline run:
+scenario prompt with no skill reference. With-skill run: same prompt
+prefixed with "Use the define-the-problem skill from [path]." Captured
+verbatim responses and rationalizations.
 
 **Important environmental caveat.** Baseline agents inherit the user's global
 `~/.claude/CLAUDE.md`, which loads `rules/planning.md` with a HARD-GATE that

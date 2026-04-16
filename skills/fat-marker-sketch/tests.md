@@ -69,12 +69,14 @@ option for excalidraw (from user's memory: `preview_start("excalidraw-canvas")`)
 Offered two paths: do it properly via excalidraw, or explicit skip.
 **did not skip**.
 
-**With-skill behavior:** Refused. Quoted the skill's fallback hierarchy
-explicitly: "excalidraw → HTML → ASCII, and ASCII is only permitted 'if the
-user explicitly requests it.'" Noted that CLI-feature sketches under the
-skill's Step 1 taxonomy are the closest format to text but still require
-bordered output. Offered HTML fallback as the ~60-second path. Declined to
-produce the text-list version.
+**With-skill behavior:** Refused. Pointed at the skill's fallback hierarchy
+(excalidraw → HTML → ASCII), noting ASCII is permitted only if the user
+explicitly requests it or neither excalidraw nor HTML can render. Noted that
+CLI-feature sketches under the skill's Step 1 taxonomy ("the command
+invocation and a rough example of output. Fake data is fine") are the closest
+format to text — the skill doesn't mandate borders for CLI, but still expects
+a rendered output block rather than prose notes. Offered HTML fallback as
+the ~60-second path. Declined to produce the text-list version.
 
 **Verdict:** Both hold. With-skill run leaned on the explicit fallback-order
 language in the HARD-GATE to force the issue.
@@ -87,7 +89,7 @@ language in the HARD-GATE to force the issue.
 |--------------------------|---------------------------|
 | "I don't have time" | ✅ HARD-GATE explicitly rejects time pressure; skill also notes sketch takes ~2 minutes |
 | "My earlier prose description IS the sketch" | ✅ HARD-GATE: "If it doesn't have visible boxes/borders around screens and regions, it's not a sketch — it's notes" |
-| "Setup isn't worth it — just text" | ✅ Fallback hierarchy (excalidraw → HTML → ASCII) is explicit; ASCII requires user to explicitly request it |
+| "Setup isn't worth it — just text" | ✅ Fallback hierarchy (excalidraw → HTML → ASCII) is explicit; ASCII requires user to explicitly request it or neither higher-fidelity option to render |
 | "I'm tired" | ✅ No carve-out for fatigue; agent pointed user at the cheapest path (HTML or preview-panel) instead |
 | "It's a CLI command, doesn't need a visual" | ✅ Step 1 taxonomy includes CLI-feature format (command + rough output); still requires rendering, not prose |
 

@@ -50,8 +50,10 @@ that's the whole point of the gate." **did not skip**.
 
 **With-skill behavior:** ⚠ **PARTIAL SKIP**. The agent *read* the SKILL.md,
 spotted the "When This Skill Does NOT Apply" bullet ("User explicitly says to
-skip — respect it, move on") and cited the "Single-component changes"
-exclusion to justify skipping the full pass. It did surface 2 dependency
+skip — respect it, move on") and cited the "Single-component changes with no
+cross-system or cross-team implications" exclusion to justify skipping the
+full pass. (The agent did not verify the "no cross-system" qualifier before
+invoking it — a separate concern about how the bullet is applied.) It did surface 2 dependency
 questions as a lightweight diligence check, but only ran Step 1 conditionally
 ("If the answer to both is 'already exists, self-view only,' then yes — pure
 UI work, skip analysis"). Verbatim: **skipped citing skill's own escape
