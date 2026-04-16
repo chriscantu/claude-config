@@ -9,12 +9,26 @@ Creates and manages tech radar entries tracking technologies through a lifecycle
 
 ## Configuration
 
-This skill is org-agnostic. At first use in a new context, resolve these values by asking the user (or reading a `.tech-radar.config` file in the target repo if present):
+This skill is org-agnostic. At first use in a new context, resolve these values by asking the user (or reading a `.tech-radar.config.yaml` file in the target repo if present):
 
-- **Radar root** — directory where entries live (e.g. `~/repos/<org-records>/tech-radar/`, `docs/tech-radar/`). Default: `docs/tech-radar/` in the current repo.
+- **Radar root** — directory where entries live (e.g. `~/repos/<org-records>/tech-radar/`, `docs/tech-radar/`).
 - **Organization name** — used in template headings (default: "our organization").
-- **Categories** — top-level groupings for entries (see defaults below).
+- **Categories** — top-level groupings for entries, mapped to subdirectories under the radar root (see defaults below).
 - **Review process** — how entries are reviewed (PR review, architecture council, etc.).
+
+If no config and no existing radar directory is found, **ask** rather than defaulting silently — writing to `docs/tech-radar/` in the wrong repo is worse than a prompt.
+
+Example `.tech-radar.config.yaml`:
+
+```yaml
+radar_root: docs/tech-radar/
+organization: Acme Corp
+categories:
+  - infrastructure
+  - quality-tooling
+  - tools
+review_process: PR review by architecture council
+```
 
 Cache the resolved config on the user's confirmation. Do not assume a specific org's directory layout.
 
@@ -110,7 +124,7 @@ POC
 <!-- How is it licensed? Has legal reviewed? -->
 
 ### Procurement
-<!-- How do we get it? Sales process? Contacts? -->
+<!-- If this is a paid or licensed tool, how is it acquired? Sales process, contacts. Omit for OSS. -->
 
 ### Learning Resources
 <!-- How do teams learn it? Classes? Contractors? Learn-as-you-go? -->

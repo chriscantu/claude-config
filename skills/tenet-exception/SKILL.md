@@ -9,16 +9,33 @@ Creates tenet exception requests — formal records of decisions to deviate from
 
 ## Configuration
 
-This skill is org-agnostic. At first use in a new context, resolve these values by asking the user (or reading a `.tenet-exception.config` file in the target repo if present):
+This skill is org-agnostic. At first use in a new context, resolve these values by asking the user (or reading a `.tenet-exception.config.yaml` file in the target repo if present):
 
-- **Tenets root** — directory containing the org's engineering tenets (e.g. `~/repos/<org-records>/engineering_tenets/`, `docs/engineering-tenets/`). Default: `docs/engineering-tenets/` in the current repo.
+- **Tenets root** — directory containing the org's engineering tenets (e.g. `~/repos/<org-records>/engineering_tenets/`, `docs/engineering-tenets/`).
 - **Exceptions placement** — where exception records live (inline with tenets, in an ADR directory, or both).
-- **Review process** — the org's governance path (e.g. Engineering SLT review, architecture council, tenet champions).
+- **Filename convention** — pattern for new exception files (default: `TE_NNNN-<kebab-title>.md`).
+- **Review process** — the org's governance path (e.g. architecture review board, engineering leadership, tenet champions).
 - **Review SLA** — how quickly reviewers respond (e.g. 2 business days).
-- **Discussion channel** — where pre-filing discussion happens (e.g. a Slack channel, mailing list, regular sync).
+- **Discussion channel** — where pre-filing discussion happens (e.g. a Slack channel, mailing list, regular sync). Optional.
 - **Lenses** — engineering lens labels the org uses (optional; see examples below).
 - **Pillars** — architecture pillar labels the org uses (optional; see examples below).
 - **PR labels** — labels the org requires on exception PRs (optional).
+
+If no config and no existing tenets directory is found, **ask** rather than defaulting silently — writing to `docs/engineering-tenets/` in the wrong repo is worse than a prompt.
+
+Example `.tenet-exception.config.yaml`:
+
+```yaml
+tenets_root: docs/engineering-tenets/
+exceptions_placement: adrs  # or: inline, both
+filename_convention: "TE_{NNNN}-{kebab-title}.md"
+review_process: Architecture review board
+review_sla: 2 business days
+discussion_channel: "#engineering-discuss"
+lenses: [web, mobile, service, data]
+pillars: [security, reliability, quality]
+pr_labels: [exception]
+```
 
 Cache the resolved config on the user's confirmation. Do not assume a specific org's process.
 
@@ -58,15 +75,15 @@ Cache the resolved config on the user's confirmation. Do not assume a specific o
    - Which lens(es) are affected? (if the org uses lenses)
    - Which pillar(s) are affected? (if the org uses pillars)
 
-2. **Determine the next number**: Scan existing tenet exceptions (files matching `TE_NNNN*.md` or similar patterns) under the configured exceptions location. If no existing exceptions, start at `0001`.
+2. **Determine the next number**: Scan existing tenet exceptions matching the configured filename convention (default: `TE_NNNN*.md`) under the configured exceptions location. If no existing exceptions, start at `0001`.
 
 3. **Determine placement**: Tenet exceptions can be:
    - **Standalone**: Created as an ADR if the exception is a standalone decision
    - **Inline with a design record**: Added to an existing design record PR under a "Tenet Exceptions" section
 
-   Ask the user which approach fits their situation.
+   Ask the user which approach fits their situation (unless the config's `exceptions_placement` resolves it).
 
-4. **Create the exception using this template**:
+4. **Create the exception file**. Filename follows the configured convention — default `TE_NNNN-<kebab-title>.md` (e.g. `TE_0003-skip-auth-for-internal-probe.md`). Write it to the resolved exceptions location. File contents use this template:
 
 ```markdown
 # TE #NNNN: <Title>
@@ -102,12 +119,12 @@ Date: <today's date, YYYY-MM-DD>
 When creating the PR, you must:
 
 1. Apply the required PR labels for your org (e.g. `exception`, `lens:<name>`, `pillar:<name>`)
-2. Notify the designated reviewers (e.g. architecture council, Engineering SLT)
+2. Notify the designated reviewers (e.g. architecture council, engineering leadership)
 3. Reviewers respond with approval or next steps within the configured SLA
 
 Tip: An exception request is a record of a decision, not a substitute
 for the technical discussion. Reach out to architects and tenet champions
-in the configured discussion channel during the discussion phase.
+during the discussion phase — via the configured discussion channel if one is set.
 ```
 
 6. **Challenge the exception** (per user's preference for being challenged):
