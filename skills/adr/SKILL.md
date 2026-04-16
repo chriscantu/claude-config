@@ -1,6 +1,6 @@
 ---
 name: adr
-description: Create, list, or supersede architectural decision records using the system-design-records template. Use when the user says /adr, "create an ADR", "new decision record", "document this decision", or "supersede ADR".
+description: Use when the user says /adr, "create an ADR", "new decision record", "document this decision", or "supersede ADR". Also triggers when a technical decision needs formal documentation with status tracking and lifecycle management.
 ---
 
 # Architectural Decision Record Management

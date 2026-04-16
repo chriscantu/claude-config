@@ -1,6 +1,6 @@
 ---
 name: cross-project
-description: Analyze the impact of a change across multiple local repos. Use when the user says /cross-project, "what repos does this affect", "cross-repo impact", "cross-project dependency analysis", or "who else uses this API".
+description: Use when the user says /cross-project, "what repos does this affect", "cross-repo impact", "cross-project dependency analysis", or "who else uses this API". Also triggers when evaluating whether a change in one repo breaks consumers in other local repos.
 ---
 
 # Cross-Project Impact Analysis

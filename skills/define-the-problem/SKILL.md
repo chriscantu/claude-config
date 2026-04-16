@@ -1,11 +1,9 @@
 ---
 name: define-the-problem
 description: >
-  Ensure every new feature starts with a clear user problem before solution design.
-  Triggers when the user proposes building something new ("let's build", "new feature",
-  "I want to add") or asks "what should we solve". Lightweight by default — a few
-  focused questions — with deeper investigation when red flags surface. Hands off to
-  /systems-analysis when complete.
+  Use when the user proposes building something new ("let's build", "new feature",
+  "I want to add"), asks "what should we solve", or when entering the problem
+  definition stage of the planning pipeline.
 ---
 
 # Define the Problem

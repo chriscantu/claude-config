@@ -1,6 +1,6 @@
 ---
 name: 1on1-prep
-description: Prepare for and capture 1:1 meetings with structured observation tracking. Use when the user says /1on1-prep, "prep for my 1:1", "1:1 with", "capture my 1:1", or wants to prepare for or record notes from a one-on-one meeting.
+description: Use when the user says /1on1-prep, "prep for my 1:1", "1:1 with", "capture my 1:1", or wants to prepare for or record notes from a one-on-one meeting.
 ---
 
 # 1:1 Prep & Capture
