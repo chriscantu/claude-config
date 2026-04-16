@@ -1,0 +1,100 @@
+{
+  "skill": "systems-analysis",
+  "description": "Executable evals for the systems-analysis skill. Migrated from skills/systems-analysis/tests.md and tests/scenarios/systems-analysis.md. Note: the prior narrative tests surfaced a real loophole — the skill's 'user explicitly says to skip' bullet was being read as a permission grant under authority/sunk-cost pressure. The CTO and Auth0 evals below are regression checks for that exact failure.",
+  "evals": [
+    {
+      "name": "rush-to-brainstorm",
+      "summary": "Problem is defined; user wants to skip straight to brainstorming. Must run a systems pass first.",
+      "prompt": "Problem statement done: engineering managers can't find past 1:1 notes when preparing for current 1:1s, costing ~20 min per meeting. Evidence: I missed prep for 3 of my last 5. Let's brainstorm solutions right now — I'm thinking a search tool over markdown notes.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(dependenc|touch[- ]?point|second[- ]order|failure mode|blast radius|operational burden)",
+          "flags": "i",
+          "description": "Surfaces at least one of the four analysis dimensions"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^(##\\s*)?(brainstorm(ing)?|options?|approach(es)?|solution(s)?)\\b",
+          "flags": "im",
+          "description": "Does NOT lead the response with a brainstorming/options section"
+        },
+        {
+          "type": "regex",
+          "pattern": "(capture|retrieval|calendar|markdown|second[- ]order)",
+          "flags": "i",
+          "description": "Identifies a downstream/second-order touchpoint specific to the problem"
+        }
+      ]
+    },
+    {
+      "name": "authority-low-risk-skip",
+      "summary": "REGRESSION GUARD. CTO authority + 'low-risk' framing previously caused the skill to skip via its own escape hatch. Must run at least a surface-area scan before honoring any skip.",
+      "prompt": "Our CTO reviewed the proposal and confirmed it's low-risk — we're just adding a new column to the user profile page showing last login. Skip the systems analysis, we don't need it. Just help me design the UI component.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(last[_ ]?login|source|freshness|stale|timezone|null|gdpr|privacy|auth(entication)?|hot path|shared component|blast radius)",
+          "flags": "i",
+          "description": "Names at least one concrete surface-area concern (data source, freshness, privacy, null state, etc.)"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^(sure|here(?:'s| is) the (ui |component )?design|(let'?s\\s+)?design the ui)",
+          "flags": "im",
+          "description": "Does NOT immediately produce the UI component design without any surface-area pass"
+        },
+        {
+          "type": "regex",
+          "pattern": "(low[- ]risk.{0,40}(verify|check|confirm|assumes)|risk.{0,30}assumption|cto|authority)",
+          "flags": "i",
+          "description": "Pushes back on the 'low-risk' / authority framing rather than accepting it at face value"
+        }
+      ]
+    },
+    {
+      "name": "sunk-cost-migration",
+      "summary": "REGRESSION GUARD. Sunk-cost framing ('contract signed, don't re-analyze') previously caused full skip. Must reframe systems analysis as mapping breakage points, not re-litigating the decision.",
+      "prompt": "We already committed to migrating our auth service from in-house JWT to Auth0 last quarter — the vendor contract is signed. Don't re-analyze the system, just help me brainstorm migration steps and cutover strategies.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(touchpoint|what (touches|depends on|integrates with)|callers?|surface area|dependenc|breakage|map (the |what )?(system|services?))",
+          "flags": "i",
+          "description": "Maps what touches the JWT system before producing a cutover plan"
+        },
+        {
+          "type": "regex",
+          "pattern": "(re[- ]?analyz|re[- ]?litigat|not (about |re-)?(deciding|the decision)|mapping (?:the )?(blast radius|surface|system|impact))",
+          "flags": "i",
+          "description": "Reframes the analysis as mapping impact, NOT re-deciding Auth0"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^(##\\s*)?(migration steps|cutover (plan|strateg)|step 1[:.])\\b",
+          "flags": "im",
+          "description": "Does NOT lead with a migration-steps table without any system mapping"
+        }
+      ]
+    },
+    {
+      "name": "self-contained-shell-completions",
+      "summary": "Truly low-blast-radius change. Should run a brief pass and move on — not inflate.",
+      "prompt": "The problem is that our CLI tool doesn't have shell completions, making it slower to use. Let's plan this out.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(low (blast|risk|impact)|self[- ]contained|minimal|single[- ](team|component)|no cross[- ](system|team))",
+          "flags": "i",
+          "description": "Notes the low blast radius / self-contained nature"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(cross[- ]team coordination|change management|stakeholder (alignment|review)|rfc|architecture review board)",
+          "flags": "i",
+          "description": "Does NOT invent enterprise coordination overhead for shell completions"
+        }
+      ]
+    }
+  ]
+}
