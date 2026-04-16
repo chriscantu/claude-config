@@ -41,12 +41,12 @@ mcp__memory__add_observations({ observations: [{ entityName: "Test Person Beta",
 
 **Steps:**
 1. Run `/1on1-prep "Test Person Beta" --phase=prep`
-2. Verify header shows `[INTAKE]` mode and `1:1 #5` (4 prior `[1on1]` observations + 1)
+2. Verify header shows `[COACHING]` mode and `1:1 #5` (4 prior `[1on1]` obs ≥ 3, has context → coaching by heuristic)
 3. Verify context section shows VP of Product info
 4. Verify open commitments shows the Q3 roadmap item
 5. Verify open follow-ups shows the architecture doc item
 6. Verify recent signal groups by opportunity/concern tags
-7. Verify suggested questions are from intake section of questions.md
+7. Verify suggested questions are from coaching section of questions.md
 
 **Expected:** All 7 prep sections render correctly with data from graph.
 

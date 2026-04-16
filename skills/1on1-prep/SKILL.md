@@ -222,13 +222,18 @@ If `--mode` flag was provided, use it directly. Otherwise, detect mode for this 
      - No `reports_to` relation
    - **Coaching** otherwise
 
-To check, read the Person's observations:
+To check observations, read the Person's node:
 
 ```
 mcp__memory__open_nodes({ names: ["<person name>"] })
 ```
 
-Count observations matching `[1on1]`, check for `[context]`, and check relations.
+Count observations matching `[1on1]` and check for `[context]`.
+
+**Note:** `open_nodes` does not return relations. To check for `reports_to`, use
+`search_nodes` with the person's name and inspect the relations in the result, or
+check the full graph via `read_graph` if needed. If the relation check is inconclusive,
+treat it as absent (conservative — defaults toward intake).
 
 ### Graduation Nudge
 
