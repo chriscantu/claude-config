@@ -56,15 +56,36 @@ If any exist, warn:
 | `--read <path-or-url>` | Artifact-pointed capture — read file/URL and extract signals |
 | `--sync` | Drain pending-sync files — retry all failed writes |
 
-**`--sync` flow**: Read all files in `skills/swot/pending-sync/`, attempt to write
-each observation to the graph via `mcp__memory__add_observations`. Report results
-per-observation. Delete the pending-sync file only if all observations in it succeed.
-Exit after sync — no capture flow.
+**`--sync` flow**: When `--sync` is present, the `<org-name>` argument is optional.
+Behavior depends on whether it is provided:
+
+- **With `<org-name>`**: Only sync pending-sync files whose header matches
+  `<Org Name> SWOT`. Skip files for other orgs.
+- **Without `<org-name>`**: Sync all pending-sync files regardless of org.
+
+For each file, extract the org name from the header and verify the target entity
+exists in the graph before attempting writes:
+
+````
+mcp__memory__search_nodes({ query: "<Org Name> SWOT" })
+````
+
+If the entity does not exist, offer to recreate it:
+> "The entity '<Org Name> SWOT' no longer exists in the graph. Want me to recreate
+> it so I can sync these observations?"
+
+If the user confirms, run the Bootstrap flow for that org, then proceed with writes.
+If the user declines, skip that file and report it as skipped.
+
+For each valid file, attempt to write each observation via
+`mcp__memory__add_observations`. Delete the pending-sync file only if all observations
+in it succeed. Exit after sync — no capture flow.
 
 Error handling for `--sync`:
 - If a file cannot be read (permissions, missing), report the error per-file and skip it
 - If a file is read but yields zero parseable observations, warn the user and do NOT
   delete the file (it may be corrupted — preserve it for manual inspection)
+- If the target entity does not exist and user declines recreation, skip the file
 - Report: total files found, observations parsed, writes attempted, writes succeeded
 
 **Parsing pending-sync files**: Extract the Org name from the first line
@@ -175,6 +196,12 @@ One entity per organization.
 
 **Provenance** in parentheses at the end — not formal citations, just source tracking:
 `(repo README)`, `(1:1 with Sarah)`, `(incident postmortem #47)`.
+
+**Disambiguation rule**: Provenance is only the final parenthetical if it reads as a
+source reference (a person, document, system, or event). If the final parenthetical
+is part of the observation text (e.g., "Team uses React (but considering Vue)"), it is
+NOT provenance. When in doubt, treat it as observation text — missing provenance is
+flagged by the challenge pass, but corrupted observation text is harder to recover.
 
 ### Examples
 
@@ -308,7 +335,13 @@ Written: 3/3 observations
 
 For any failed write, save the observation to a pending-sync file:
 
-**File**: `skills/swot/pending-sync/YYYY-MM-DD-<org-name-lowercase>.md`
+**File**: `skills/swot/pending-sync/YYYY-MM-DD-<org-name-sanitized>.md`
+
+**Filename sanitization**: Convert org name to lowercase, replace spaces with hyphens,
+strip all characters except letters, digits, and hyphens. Examples:
+- "Acme Corp" → `acme-corp`
+- "Acme & Co." → `acme--co` → `acme-co` (collapse consecutive hyphens)
+- "My Org (West)" → `my-org-west`
 
 **Format** (human-readable):
 ````markdown
@@ -333,6 +366,15 @@ can copy it manually:
 > `[2026-05-01][weakness][org] No SRE team — devs carry pager (1:1 with Sarah)`"
 
 This ensures observations are never silently lost even in a double-failure scenario.
+
+### After Write: Challenge Offer
+
+After reporting write results, offer to run the challenge pass on the new entries:
+> "Want me to run a challenge pass on these new entries? It checks for specificity,
+> evidence, actionability, and correct categorization."
+
+If the user accepts, proceed to **Challenge Mode** scoped to only the newly written
+observations. If the user declines, end the add flow.
 
 ### Artifact-Pointed Capture
 
@@ -551,7 +593,8 @@ After rendering the review report, offer export options:
 
 ### Markdown Export
 
-Write a point-in-time snapshot to `docs/swot/YYYY-MM-DD-<org-name-lowercase>.md`.
+Write a point-in-time snapshot to `docs/swot/YYYY-MM-DD-<org-name-sanitized>.md`
+(same sanitization rules as pending-sync filenames).
 Same structure as the review report. This is the artifact that downstream skills
 (`/strategy-doc`, `/okr`) can consume.
 
@@ -582,7 +625,9 @@ Render a classic 2x2 SWOT grid on the excalidraw canvas using the excalidraw MCP
 ````
 
 **Drawing steps**:
-1. Clear the canvas: `mcp__excalidraw__clear_canvas`
+1. Warn before clearing: "This will clear the excalidraw canvas to draw the SWOT grid.
+   Continue?" If the user declines, skip excalidraw export. If confirmed, clear the
+   canvas: `mcp__excalidraw__clear_canvas`
 2. Create four quadrant rectangles with `batch_create_elements` — equal-sized, arranged
    in a 2x2 grid. Use outline-only shapes (no fill).
 3. Add quadrant title text elements: "STRENGTHS (internal +)", "WEAKNESSES (internal -)",
