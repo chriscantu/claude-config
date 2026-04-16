@@ -253,3 +253,105 @@ After tagging, ask for provenance if not already included in the observation tex
 
 If the user provides provenance, append it in parentheses. If they skip, proceed
 without provenance — the challenge pass will later flag missing provenance.
+
+### Confirm & Tag
+
+After parsing and tagging, show the tagged observations for review:
+
+````
+## Tagged Observations Preview
+
+I'll write these observations to <Org Name>'s SWOT record:
+
+1. [2026-05-01][strength][technical] CI/CD deploys in 15 min, zero-downtime (repo README)
+2. [2026-05-01][weakness][org] No SRE team — devs carry pager (1:1 with Sarah)
+3. [2026-05-01][opportunity][market] Competitor dropped enterprise support (sales team)
+
+Does this look right? You can **confirm**, **edit**, or **cancel**.
+````
+
+- **confirm**: proceed to Write
+- **edit**: ask which observation to change (text, SWOT tag, landscape tag, or
+  provenance), show the edited version, re-confirm
+- **cancel**: discard all observations, exit
+
+### Write to Graph
+
+Write observations **one at a time** (best-effort, not atomic). For each confirmed
+observation:
+
+````
+mcp__memory__add_observations({
+  observations: [{
+    entityName: "<Org Name> SWOT",
+    contents: ["<tagged observation string>"]
+  }]
+})
+````
+
+Track success/failure per observation.
+
+### Write Results
+
+After attempting all writes, report:
+
+````
+## Write Results
+
+Written: 3/3 observations
+- [OK] [2026-05-01][strength][technical] CI/CD deploys in 15 min, zero-downtime (repo README)
+- [OK] [2026-05-01][weakness][org] No SRE team — devs carry pager (1:1 with Sarah)
+- [OK] [2026-05-01][opportunity][market] Competitor dropped enterprise support (sales team)
+````
+
+### Pending-Sync Fallback
+
+For any failed write, save the observation to a pending-sync file:
+
+**File**: `skills/swot/pending-sync/YYYY-MM-DD-<org-name-lowercase>.md`
+
+**Format** (human-readable):
+````markdown
+# Pending Observations: <Org Name> SWOT
+# Failed: YYYY-MM-DD HH:MM
+# Retry: /swot <org-name> --sync
+
+- [2026-05-01][weakness][org] No SRE team — devs carry pager (1:1 with Sarah)
+````
+
+If the file already exists (multiple failed writes on the same day), append to it.
+
+Warn the user:
+> "One or more observations failed to write. They've been saved locally. Run
+> `/swot <org-name> --sync` to retry when the memory server is available."
+
+**Last-resort fallback**: If writing to the pending-sync file itself fails (disk full,
+permissions), display the full observation text directly in the chat output so the user
+can copy it manually:
+> "I could not save this observation to the pending-sync file either. Please copy the
+> text below and save it yourself:
+> `[2026-05-01][weakness][org] No SRE team — devs carry pager (1:1 with Sarah)`"
+
+This ensures observations are never silently lost even in a double-failure scenario.
+
+### Artifact-Pointed Capture
+
+Invoked with `--read <path-or-url>`. The skill reads the artifact using the Read tool
+(for local paths) or WebFetch (for URLs), extracts signals relevant to SWOT dimensions,
+and presents them as **draft observations** for the user to confirm, edit, or discard.
+
+**Process:**
+1. Read the artifact content
+2. Extract signals — identify statements that indicate strengths, weaknesses,
+   opportunities, or threats. Look for: architectural decisions, technical debt
+   mentions, team structure, performance metrics, incident patterns, competitive
+   references.
+3. Format each signal as a draft observation with proposed SWOT tag, landscape tag,
+   and provenance set to the artifact source
+4. Present drafts in the same confirm flow as conversational capture
+
+**Key constraint**: The skill never writes observations the user hasn't confirmed.
+Artifact reading produces drafts, not facts.
+
+**Multiple artifacts**: The user can invoke `--read` multiple times across sessions.
+Each invocation extracts and confirms independently. The graph accumulates.
