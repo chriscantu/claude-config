@@ -31,11 +31,11 @@ For each stack, populate the Commands section:
 
 **ts-react / ts-node:**
 ```
-npm run build        # Build
-npm test             # Test (all)
-npm test -- <file>   # Test (single file)
-npm run lint         # Lint
-npx tsc --noEmit     # Type check
+bun run build        # Build
+bun test             # Test (all)
+bun test <file>      # Test (single file)
+bun run lint         # Lint
+bunx tsc --noEmit    # Type check
 ```
 
 **python:**
