@@ -53,12 +53,15 @@ gate and produce the sketch — a napkin-level rendering takes under 2 minutes.
 | "We already sketched something similar last week" | Sketches are disposable and per-approach. A prior sketch for a different feature does not substitute. |
 
 **The combined red flag to watch for:** time pressure + skip request without trade-off
-acknowledgement. This is the exact pattern that leaked the gate in the live eval. When
-you see it, the correct response is to name the gate, note the time cost (under 2
-minutes for a napkin sketch), and render — not to capitulate.
+acknowledgement. This is the pattern most likely to leak the gate. When you see it,
+the correct response is to name the gate, note the time cost (under 2 minutes for a
+napkin sketch), and render — not to capitulate.
 
-An explicit override is valid only when it includes a trade-off acknowledgement (e.g.,
-"skip the sketch, I accept the rework risk"). Bare "skip" requests get the gate.
+An explicit override is valid only when it names the **specific cost** being accepted
+(e.g., "skip the sketch, I accept the rework risk," "skip it — I'll eat the wrong-shape
+risk"). Bare "skip" requests and generic acknowledgements ("I accept the trade-off,"
+"I know the risks") do NOT qualify — name the gate and request the specific
+acknowledgement.
 
 ---
 
