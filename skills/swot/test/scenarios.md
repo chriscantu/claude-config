@@ -175,3 +175,65 @@ mcp__memory__add_observations({ observations: [{ entityName: "Test Corp Zeta SWO
 **Expected:** Existing entity found, observations accumulate.
 
 **Cleanup:** `mcp__memory__delete_entities({ entityNames: ["Test Corp Zeta SWOT"] })`
+
+## Scenario 9: Empty Entity Guard
+
+**Setup:** Create a SWOT entity with no observations:
+````
+mcp__memory__create_entities({ entities: [{ name: "Test Corp Eta SWOT", entityType: "SWOT", observations: [] }] })
+````
+
+**Steps:**
+1. Run `/swot "Test Corp Eta" --mode=review`
+2. Verify skill warns: "This SWOT analysis has no observations yet. Let's add some first."
+3. Verify skill redirects to `add` mode and presents the capture form
+4. Run `/swot "Test Corp Eta" --mode=challenge`
+5. Verify same warning and redirect to `add` mode
+
+**Expected:** Both review and challenge modes redirect to add when entity is empty.
+
+**Cleanup:** `mcp__memory__delete_entities({ entityNames: ["Test Corp Eta SWOT"] })`
+
+## Scenario 10: Ambiguous Org Lookup
+
+**Setup:** Create two SWOT entities with overlapping names:
+````
+mcp__memory__create_entities({ entities: [
+  { name: "Test Corp SWOT", entityType: "SWOT", observations: [] },
+  { name: "Test Corp Beta SWOT", entityType: "SWOT", observations: [] }
+] })
+````
+
+**Steps:**
+1. Run `/swot "Test Corp"`
+2. Verify skill finds multiple matches
+3. Verify disambiguation prompt appears: "I found multiple SWOT entities matching 'Test Corp': [list]. Which one?"
+4. Select "Test Corp SWOT"
+5. Verify capture form is presented for the correct entity
+
+**Expected:** Disambiguation prompt shown, user selection respected.
+
+**Cleanup:** `mcp__memory__delete_entities({ entityNames: ["Test Corp SWOT", "Test Corp Beta SWOT"] })`
+
+## Scenario 11: Sync Error Handling — Malformed File
+
+**Setup:** Create a malformed pending-sync file with no parseable observations:
+````fish
+echo "# Pending Observations: Test Corp Theta SWOT
+# Failed: 2026-05-01 10:00
+# Retry: /swot Test Corp Theta --sync
+
+This line has no observation format
+Neither does this one" > skills/swot/pending-sync/2026-05-01-test-corp-theta.md
+````
+
+**Steps:**
+1. Run `/swot "Test Corp Theta" --sync`
+2. Verify skill reads the file
+3. Verify skill warns about zero parseable observations
+4. Verify file is NOT deleted (preserved for manual inspection)
+5. Verify report shows: 1 file found, 0 observations parsed
+
+**Expected:** Malformed file detected, warning shown, file preserved.
+
+**Cleanup:** Remove `skills/swot/pending-sync/2026-05-01-test-corp-theta.md`
