@@ -5,28 +5,35 @@ description: Use when the user says /tenet-exception, "request a tenet exception
 
 # Tenet Exception Request
 
-Creates tenet exception requests following the process defined in `~/repos/system-design-records/engineering_tenets/`.
+Creates tenet exception requests — formal records of decisions to deviate from engineering tenets.
 
-Tenet exceptions are formal records of decisions to deviate from engineering tenets. They require PR labels and Engineering SLT review within 2 business days.
+## Configuration
 
-## Arguments
+This skill is org-agnostic. At first use in a new context, resolve these values by asking the user (or reading a `.tenet-exception.config` file in the target repo if present):
 
-- `new <title>` — Create a new tenet exception
-- `list` — List existing tenet exceptions
-- (no args) — Interactive: ask what the user wants to do
+- **Tenets root** — directory containing the org's engineering tenets (e.g. `~/repos/<org-records>/engineering_tenets/`, `docs/engineering-tenets/`). Default: `docs/engineering-tenets/` in the current repo.
+- **Exceptions placement** — where exception records live (inline with tenets, in an ADR directory, or both).
+- **Review process** — the org's governance path (e.g. Engineering SLT review, architecture council, tenet champions).
+- **Review SLA** — how quickly reviewers respond (e.g. 2 business days).
+- **Discussion channel** — where pre-filing discussion happens (e.g. a Slack channel, mailing list, regular sync).
+- **Lenses** — engineering lens labels the org uses (optional; see examples below).
+- **Pillars** — architecture pillar labels the org uses (optional; see examples below).
+- **PR labels** — labels the org requires on exception PRs (optional).
 
-## Engineering Lenses (for labeling)
+Cache the resolved config on the user's confirmation. Do not assume a specific org's process.
 
-- Web Application (app.procore.com)
+## Example Lenses (customize per org)
+
+- Web Application
 - Mobile Application
-- Service (api.procore.com)
+- Service / API
 - Data
 - ML
 - Reusable Asset & Tooling
 - Platform Service
 - Infrastructure Service
 
-## Architecture Pillars (for labeling)
+## Example Architecture Pillars (customize per org)
 
 - Operational Excellence
 - Security
@@ -35,21 +42,27 @@ Tenet exceptions are formal records of decisions to deviate from engineering ten
 - Efficiency
 - Global by Design
 
+## Arguments
+
+- `new <title>` — Create a new tenet exception
+- `list` — List existing tenet exceptions
+- (no args) — Interactive: ask what the user wants to do
+
 ## Workflow
 
 ### Creating a New Exception (`new`)
 
 1. **Gather context from the user**:
    - Title — short description of the exception
-   - Which specific tenet is being excepted? Ask the user to identify the section. If unsure, help them search the tenets README at `~/repos/system-design-records/engineering_tenets/README.md`
-   - Which lens(es) are affected?
-   - Which pillar(s) are affected?
+   - Which specific tenet is being excepted? Ask the user to identify the section. If unsure, help them search the configured tenets root.
+   - Which lens(es) are affected? (if the org uses lenses)
+   - Which pillar(s) are affected? (if the org uses pillars)
 
-2. **Determine the next number**: Scan existing tenet exceptions (files matching `TE_NNNN*.md` or similar patterns) in the engineering_tenets directory and its subdirectories. If no existing exceptions, start at `0001`.
+2. **Determine the next number**: Scan existing tenet exceptions (files matching `TE_NNNN*.md` or similar patterns) under the configured exceptions location. If no existing exceptions, start at `0001`.
 
 3. **Determine placement**: Tenet exceptions can be:
-   - **Standalone**: Created as an ADR in `~/repos/system-design-records/adrs/` if the exception is a standalone decision
-   - **Inline with an SDR**: Added to an existing SDR PR under the "Tenet Exceptions" section
+   - **Standalone**: Created as an ADR if the exception is a standalone decision
+   - **Inline with a design record**: Added to an existing design record PR under a "Tenet Exceptions" section
 
    Ask the user which approach fits their situation.
 
@@ -81,33 +94,28 @@ Date: <today's date, YYYY-MM-DD>
 <!-- Consider: How does this affect the team and project going forward? -->
 ```
 
-5. **Remind the user of the PR process**:
+5. **Remind the user of the PR process** — customize the reminder using the configured review process, SLA, labels, and discussion channel. Generic template:
 
 ```
 ## PR Requirements for Tenet Exceptions
 
 When creating the PR, you must:
 
-1. Add the PR label: `exception`
-2. Add lens label(s): `lens:<lens-name>` for each affected lens
-3. Add pillar label(s): `pillar:<pillar-name>` for each affected pillar
-4. Slack your Engineering SLT member to notify them
-5. SLT will respond with approval or next steps within 2 business days
+1. Apply the required PR labels for your org (e.g. `exception`, `lens:<name>`, `pillar:<name>`)
+2. Notify the designated reviewers (e.g. architecture council, Engineering SLT)
+3. Reviewers respond with approval or next steps within the configured SLA
 
 Tip: An exception request is a record of a decision, not a substitute
 for the technical discussion. Reach out to architects and tenet champions
-in #engineering-tenets during the discussion phase.
+in the configured discussion channel during the discussion phase.
 ```
 
 6. **Challenge the exception** (per user's preference for being challenged):
-   - Ask: "Is this truly an outlier, or are the tenets out of touch? If there's an opportunity to improve the tenets instead of requesting an exception, consider reaching out to the Tenet Champions in #engineering-tenets first."
-   - This aligns with the exception process guidance in the README.
+   - Ask: "Is this truly an outlier, or are the tenets out of touch? If there's an opportunity to improve the tenets instead of requesting an exception, consider raising that with the tenet champions first."
 
 ### Listing Exceptions (`list`)
 
-Search for tenet exception files across:
-- `~/repos/system-design-records/engineering_tenets/` (including subdirectories like `playground/`)
-- `~/repos/system-design-records/adrs/` (any ADRs that reference tenet exceptions)
+Search for tenet exception files across the configured exceptions locations (tenets root, ADR directory, and any subdirectories).
 
 Display:
 
@@ -121,5 +129,5 @@ Display:
 ## Important Reminders
 
 - **Not a rubber stamp**: The exception process exists for transparency and learning. Encourage the user to have the technical discussion first, then document the decision.
-- **Champion consultation**: Suggest reaching out to the relevant tenet champions before filing. Champions are listed in the engineering tenets README.
+- **Champion consultation**: Suggest reaching out to the relevant tenet champions before filing.
 - **Time-bound**: Exceptions should have a clear scope. Ask if this is permanent or temporary, and if temporary, when it should be revisited.

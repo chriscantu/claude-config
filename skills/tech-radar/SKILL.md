@@ -5,9 +5,18 @@ description: Use when the user says /tech-radar, "evaluate a technology", "shoul
 
 # Technology Radar Management
 
-Creates and manages tech radar entries in `~/repos/system-design-records/tech-radar/` following the Tool or Framework Adoption template.
+Creates and manages tech radar entries tracking technologies through a lifecycle: **Assess → Trial → Adopt → Hold**.
 
-Tech radar entries track technologies through a lifecycle: **Assess → Trial → Adopt → Hold**
+## Configuration
+
+This skill is org-agnostic. At first use in a new context, resolve these values by asking the user (or reading a `.tech-radar.config` file in the target repo if present):
+
+- **Radar root** — directory where entries live (e.g. `~/repos/<org-records>/tech-radar/`, `docs/tech-radar/`). Default: `docs/tech-radar/` in the current repo.
+- **Organization name** — used in template headings (default: "our organization").
+- **Categories** — top-level groupings for entries (see defaults below).
+- **Review process** — how entries are reviewed (PR review, architecture council, etc.).
+
+Cache the resolved config on the user's confirmation. Do not assume a specific org's directory layout.
 
 ## Arguments
 
@@ -17,14 +26,14 @@ Tech radar entries track technologies through a lifecycle: **Assess → Trial �
 - `advance <tool>` — Move a tool to its next lifecycle stage and prompt for the new section content
 - (no args) — Interactive: ask what the user wants to do
 
-## Radar Categories
+## Default Radar Categories
 
-Entries are organized into subdirectories:
-- `infrastructure/` — Infrastructure technologies (Terraform, DNS, autoscaling, etc.)
-- `quality-tooling/` — QA and testing tools (SonarQube, mocking, etc.)
-- `tools/` — Developer and operational tools (pgAdmin, Nobl9, etc.)
+If the user has no existing categories, propose:
+- `infrastructure/` — Infrastructure technologies (IaC, networking, autoscaling, etc.)
+- `quality-tooling/` — QA and testing tools (static analysis, mocking, etc.)
+- `tools/` — Developer and operational tools
 
-If a tool doesn't fit an existing category, ask the user which category to use or propose a new one.
+Adapt to whatever categories the user's org already uses. If a tool doesn't fit, ask.
 
 ## Workflow
 
@@ -32,20 +41,20 @@ If a tool doesn't fit an existing category, ask the user which category to use o
 
 1. **Gather context from the user**:
    - Tool/framework name
-   - Category (infrastructure, quality-tooling, tools, or new)
-   - Responsible Architect
+   - Category
+   - Responsible Architect (or equivalent decision owner)
    - Author (default: the user)
    - Domain — which area of functionality does this apply to?
-   - Sponsoring Division or Group
+   - Sponsoring Division, Group, or Team
 
-2. **Generate the filename**: `<kebab-case-tool-name>.md` in the appropriate category directory. If the tool needs supporting assets (images, PDFs), create a subdirectory instead: `<tool-name>/<tool-name>.md`
+2. **Generate the filename**: `<kebab-case-tool-name>.md` in the appropriate category directory under the configured radar root. If the tool needs supporting assets (images, PDFs), create a subdirectory instead: `<tool-name>/<tool-name>.md`
 
-3. **Create the entry from the adoption template**:
+3. **Create the entry from the adoption template** (replace `<org>` with the configured organization name):
 
 ```markdown
-# SDR Template: Tool or Framework Adoption — <Tool Name>
+# Tool or Framework Adoption — <Tool Name>
 
-Use this template if you are evaluating a new technology for Procore to adopt. You should be filling this out incrementally, asking for review as you fill in each major section: Assessment, Trial, Adopt, Hold.
+Use this template if you are evaluating a new technology for <org> to adopt. Fill it out incrementally, asking for review as you complete each major section: Assessment, Trial, Adopt, Hold.
 
 ## Responsible Architect
 <name>
@@ -72,7 +81,7 @@ POC
 <!-- What are the timelines for this work? Critical milestones and dependencies? -->
 
 ### Architectural Dependencies
-<!-- Major architectural pieces not yet delivered that this depends on. Prefer links to other SDRs. -->
+<!-- Major architectural pieces not yet delivered that this depends on. Prefer links to other decision records. -->
 
 ### Architectural Risks
 <!-- Bucket as High, Medium, or Low -->
@@ -146,20 +155,12 @@ goto: Trial
 
 ### Listing Entries (`list`)
 
-Scan `~/repos/system-design-records/tech-radar/` and display:
+Scan the configured radar root and display entries grouped by category:
 
 ```markdown
 ## Tech Radar
 
-### Infrastructure
-| Tool | Lifecycle | Responsible Architect |
-|------|-----------|----------------------|
-
-### Quality Tooling
-| Tool | Lifecycle | Responsible Architect |
-|------|-----------|----------------------|
-
-### Tools
+### <Category Name>
 | Tool | Lifecycle | Responsible Architect |
 |------|-----------|----------------------|
 ```
@@ -187,4 +188,4 @@ When moving a tool to the next stage:
 
 - **Incremental review**: The adoption template is designed to be filled out incrementally with review at each major section (Assessment → Trial → Adopt → Hold). Remind users of this.
 - **Tenet exceptions**: If the tool requires exceptions to engineering tenets, remind the user to create a tenet exception request (suggest `/tenet-exception` skill).
-- **Cross-reference**: Check if related ADRs or SDRs already exist in `~/repos/system-design-records/` that should be linked.
+- **Cross-reference**: Check if related ADRs or decision records already exist that should be linked.
