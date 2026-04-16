@@ -8,9 +8,9 @@
  *
  * Usage:
  *   bun run tests/eval-runner.ts                      # all skills
- *   bun run tests/eval-runner.ts define-the-problem   # one skill
- *   bun run tests/eval-runner.ts --dry-run            # validate JSON, skip API calls
- *   CLAUDE_BIN=/path/to/claude bun run tests/eval-runner.ts
+ *   bun run tests/eval-runner.ts define-the-problem   # one skill (must match a skills/<name>/evals/evals.json directory)
+ *   bun run tests/eval-runner.ts --dry-run            # validate JSON + regex compile, skip API calls
+ *   env CLAUDE_BIN=/path/to/claude bun run tests/eval-runner.ts   # `env` prefix because fish lacks inline VAR=value
  *
  * Eval file schema:
  *   {
@@ -71,7 +71,12 @@ function loadEvalFile(skillName: string): EvalFile | null {
   const file = join(skillsDir, skillName, "evals", "evals.json");
   if (!existsSync(file)) return null;
   const raw = readFileSync(file, "utf8");
-  const parsed = JSON.parse(raw) as EvalFile;
+  let parsed: EvalFile;
+  try {
+    parsed = JSON.parse(raw) as EvalFile;
+  } catch (err) {
+    throw new Error(`${file}: invalid JSON — ${(err as Error).message}`);
+  }
   if (parsed.skill !== skillName) {
     throw new Error(`${file}: 'skill' field '${parsed.skill}' doesn't match directory '${skillName}'`);
   }
@@ -83,9 +88,21 @@ function loadEvalFile(skillName: string): EvalFile | null {
       throw new Error(`${file}: eval '${e.name ?? "(unnamed)"}' missing name/prompt/assertions`);
     }
     for (const a of e.assertions as Assertion[]) {
-      if (a.type === "regex" || a.type === "not_regex") {
-        // Validate the regex compiles. Surface bad patterns at load time, not run time.
+      if (!a.type || !a.description) {
+        throw new Error(`${file}: eval '${e.name}' has assertion missing 'type' or 'description'`);
+      }
+      if (a.type === "contains" || a.type === "not_contains") {
+        if (typeof a.value !== "string" || a.value.length === 0) {
+          throw new Error(`${file}: eval '${e.name}' ${a.type} assertion requires non-empty 'value' string`);
+        }
+      } else if (a.type === "regex" || a.type === "not_regex") {
+        if (typeof a.pattern !== "string" || a.pattern.length === 0) {
+          throw new Error(`${file}: eval '${e.name}' ${a.type} assertion requires non-empty 'pattern' string`);
+        }
+        // Surface bad patterns at load time, not run time.
         new RegExp(a.pattern, a.flags ?? "");
+      } else {
+        throw new Error(`${file}: eval '${e.name}' has unknown assertion type '${(a as { type: string }).type}'`);
       }
     }
   }
@@ -99,16 +116,34 @@ function discoverSkills(): string[] {
     .sort();
 }
 
-function runClaude(prompt: string): { stdout: string; stderr: string; code: number } {
+interface ClaudeResult {
+  stdout: string;
+  stderr: string;
+  code: number;
+  failure?: string; // human-readable reason: spawn error, signal, or timeout
+}
+
+function runClaude(prompt: string): ClaudeResult {
+  const timeoutMs = 5 * 60 * 1000;
   const res = spawnSync(claudeBin, ["--print"], {
     input: prompt,
     encoding: "utf8",
-    timeout: 5 * 60 * 1000,
+    timeout: timeoutMs,
   });
+  let failure: string | undefined;
+  if (res.error) {
+    failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
+  } else if (res.signal) {
+    // spawnSync sets signal to SIGTERM on timeout (Node default killSignal).
+    failure = res.signal === "SIGTERM" ? `timed out after ${timeoutMs / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
+  } else if (res.status === null) {
+    failure = "process exited without status (no signal, no error)";
+  }
   return {
     stdout: res.stdout ?? "",
     stderr: res.stderr ?? "",
     code: res.status ?? -1,
+    failure,
   };
 }
 
@@ -159,7 +194,9 @@ async function main() {
   }
 
   mkdirSync(resultsDir, { recursive: true });
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 16);
+  // ISO timestamp truncated to seconds — keeps re-runs within the same minute from
+  // overwriting each other's transcripts.
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
   let totalEvals = 0;
   let passedEvals = 0;
@@ -197,15 +234,24 @@ async function main() {
         continue;
       }
 
-      const { stdout, stderr, code } = runClaude(e.prompt);
+      const { stdout, stderr, code, failure } = runClaude(e.prompt);
       const transcriptFile = join(resultsDir, `${skillName}-${e.name}-${timestamp}.md`);
-      writeFileSync(
-        transcriptFile,
-        `# ${skillName} / ${e.name}\n\n## Prompt\n\n${e.prompt}\n\n## Response\n\n${stdout}\n\n## Stderr\n\n${stderr}\n`,
-      );
+      try {
+        writeFileSync(
+          transcriptFile,
+          `# ${skillName} / ${e.name}\n\n## Prompt\n\n${e.prompt}\n\n## Response\n\n${stdout}\n\n## Stderr\n\n${stderr}\n`,
+        );
+      } catch (err) {
+        // Transcript loss is not a correctness failure — log and keep evaluating.
+        console.log(`    ${dim(`(transcript write failed: ${(err as Error).message})`)}`);
+      }
 
-      if (code !== 0) {
-        console.log(`    ${red("✗")} claude exited ${code}: ${stderr.trim().split("\n")[0] ?? "(no stderr)"}`);
+      if (failure || code !== 0) {
+        // Count the planned assertions as failed so the exit gate can't report
+        // "all assertions passed" when an entire eval crashed.
+        totalAssertions += e.assertions.length;
+        const reason = failure ?? `claude exited ${code}: ${stderr.trim().split("\n")[0] ?? "(no stderr)"}`;
+        console.log(`    ${red("✗")} ${reason}`);
         continue;
       }
 
@@ -234,7 +280,10 @@ async function main() {
   console.log(passedEvals === totalEvals ? green(evalLine) : red(evalLine));
   console.log(passedAssertions === totalAssertions ? green(assertionLine) : red(assertionLine));
 
-  process.exit(passedAssertions === totalAssertions ? 0 : 1);
+  // Both gates must pass: every eval ran AND every assertion passed. Checking
+  // assertions alone would let a crashed eval slip through as a green build.
+  const ok = passedEvals === totalEvals && passedAssertions === totalAssertions;
+  process.exit(ok ? 0 : 1);
 }
 
 main().catch((err) => {

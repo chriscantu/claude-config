@@ -14,7 +14,7 @@ middle: cheap enough to run pre-PR, deterministic enough to run in CI.
 bun run tests/eval-runner.ts                      # all skills with evals
 bun run tests/eval-runner.ts define-the-problem   # one skill
 bun run tests/eval-runner.ts --dry-run            # validate JSON + regex compile, no API calls
-CLAUDE_BIN=/path/to/claude bun run tests/eval-runner.ts
+env CLAUDE_BIN=/path/to/claude bun run tests/eval-runner.ts  # `env` prefix because fish has no inline VAR=value syntax
 ```
 
 Exits non-zero if any assertion fails. Per-eval transcripts land in `tests/results/`.
@@ -40,6 +40,29 @@ Exits non-zero if any assertion fails. Per-eval transcripts land in `tests/resul
   ]
 }
 ```
+
+**Field requirements:**
+
+| Field | Required? | Notes |
+|---|---|---|
+| `skill` (top level) | required | must equal the parent directory name |
+| `description` (top level) | optional | shown in runner header |
+| `evals` | required | non-empty array |
+| `evals[].name` | required | slug; used in transcript filenames |
+| `evals[].summary` | optional | shown next to the name in runner output |
+| `evals[].prompt` | required | sent verbatim to `claude --print` |
+| `evals[].assertions` | required | non-empty array |
+| `assertion.type` | required | one of `contains` / `not_contains` / `regex` / `not_regex` |
+| `assertion.description` | required | human-readable; what the assertion proves |
+| `assertion.value` | required for `contains` / `not_contains` | non-empty string |
+| `assertion.pattern` | required for `regex` / `not_regex` | non-empty string; must compile |
+| `assertion.flags` | optional for `regex` / `not_regex` | RegExp flags string (e.g. `"i"`, `"im"`) |
+
+**Load-time invariants enforced by the runner** (`loadEvalFile` in `tests/eval-runner.ts`):
+- The `skill` field must equal the parent directory name (catches copy-paste mistakes).
+- `evals` and each eval's `assertions` array must be non-empty.
+- Every assertion is type-checked: required fields present, regex patterns precompiled.
+- A bad regex or missing required field fails fast with a file path in the error — the runner exits 1 before sending any prompt to claude.
 
 ## Authoring evals
 

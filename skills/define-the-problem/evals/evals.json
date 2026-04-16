@@ -15,9 +15,9 @@
         },
         {
           "type": "not_regex",
-          "pattern": "^\\s*(##\\s*)?(architecture|components?|data flow|apis?|endpoints?)\\b",
-          "flags": "im",
-          "description": "Does NOT lead with an architecture/components section"
+          "pattern": "^[\\s\\S]{0,400}?(##\\s*(architecture|components?|data flow|apis?|endpoints?)|\\b(here'?s|here is) (the|an?) (architecture|component|data flow|api))",
+          "flags": "i",
+          "description": "Does NOT lead the response (first ~400 chars) with an architecture/components section or 'here's the architecture' framing"
         },
         {
           "type": "regex",

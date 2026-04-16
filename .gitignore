@@ -2,3 +2,4 @@ default.profraw
 .vscode/
 excalidraw.log
 .claude/worktrees/
+tests/results/
