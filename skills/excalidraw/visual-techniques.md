@@ -70,7 +70,7 @@ Encode meaning through shape:
 Solid-filled circles with white numbers for step sequences:
 
 ```json
-{"id": "badge-1", "type": "ellipse", "x": 100, "y": 100, "width": 50, "height": 50,
+{"id": "badge-1", "type": "ellipse", "x": 100, "y": 100, "width": 40, "height": 40,
  "backgroundColor": "#1971c2", "strokeColor": "#1971c2", "roughness": 0,
  "text": "1", "fontSize": 24, "textAlign": "center"}
 ```
