@@ -209,6 +209,22 @@ If export fails because Chromium is unavailable:
 
 Note: Slidev's PPTX export embeds slide images — the output is not text-editable in PowerPoint. This is acceptable for presentation use; if the recipient needs to edit the deck, deliver PDF instead.
 
+## When NOT to Use
+
+- One-off documents, memos, or reports — deliver as a Word document (`.docx`) instead
+- A quick outline or bullet list that doesn't need to be rendered — just reply in Markdown
+- Technical documentation that belongs in a README or runbook
+- The user wants a static image or diagram only — use excalidraw or mermaid directly
+- Slidev is not installed and the user doesn't want to install it — don't try to fake slides in another format
+
+## Common Mistakes
+
+- **Generating `slides.md` before the outline is approved** — always iterate on the narrative arc first; writing Markdown early wastes cycles when the structure changes.
+- **Over-dense executive slides** — executive audiences get max 3 bullets per slide, business-impact-first phrasing, and `fact` layout for key metrics (per the audience content rules).
+- **Skipping the audience question** — audience drives content rules; don't guess between executive, technical, and client/external.
+- **Misusing layouts** — reaching for `default` for every slide loses visual rhythm; use `cover`, `fact`, `center`, and `two-cols` where they fit.
+- **Claiming export succeeded without running it** — when asked to export, actually run the command and confirm the output files exist before reporting success.
+
 ## Source Control
 
 Each presentation directory is independently git-trackable:

@@ -79,3 +79,11 @@ write `[YYYY-MM-DD][1on1][<mode>][noshow] No capture recorded`. Failed → pendi
 Otherwise, read [capture-form.md](capture-form.md) for form, parsing, and resolution
 flow. Tags assigned deterministically by prompt bucket. Write one-at-a-time, failed
 writes → pending-sync.
+
+## Common Mistakes
+
+- **Summarizing capture observations instead of recording verbatim** — the graph is only useful if entries preserve what was said; paraphrasing loses signal and invents details.
+- **Auto-resolving open commitments or follow-ups without asking** — always confirm with the user before marking prior items resolved; Prep shows them, it doesn't close them.
+- **Assigning tags by LLM judgment instead of prompt bucket** — capture tags are deterministic by form prompt; don't re-tag based on content interpretation.
+- **Skipping the cancelled/no-show path** — if the user indicates no meeting occurred, write the `[noshow]` entry instead of showing the capture form.
+- **Reading the full graph when person lookup suffices** — use `search_nodes` for cross-entity lookups; avoid `read_graph` which pulls the entire corpus into context.

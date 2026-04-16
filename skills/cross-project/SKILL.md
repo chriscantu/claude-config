@@ -76,3 +76,17 @@ Apply the planning rule's systems thinking framework:
 - What feedback loops does this create?
 - What second-order effects might occur?
 - Who owns the affected repos? Flag cross-team dependencies.
+
+## When NOT to Use
+
+- Changes scoped entirely to the current repo with no shared APIs, packages, or config
+- Conceptual "what if we changed X someday" questions without a concrete change in hand
+- Single-file tweaks inside the current repo (no exported surface area changes)
+- When the user just wants to know who imports a symbol within this repo — use grep directly
+
+## Common Mistakes
+
+- **Searching only for direct references and missing indirect impacts** — downstream consumers of an API, shared config patterns, or documentation references can all be affected without naming the identifier directly.
+- **Reporting matches without assessing severity** — a match in a test file is very different from a match in production code; always tag findings with blast radius and reversibility.
+- **Scanning only the default path when the user has multiple repo roots** — ask about `--scan-paths` if the default parent-dir scan seems too narrow for their layout.
+- **Skipping ownership** — a finding without an owner is hard to act on; flag cross-team dependencies explicitly.
