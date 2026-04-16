@@ -354,4 +354,108 @@ and presents them as **draft observations** for the user to confirm, edit, or di
 Artifact reading produces drafts, not facts.
 
 **Multiple artifacts**: The user can invoke `--read` multiple times across sessions.
+
+## Challenge Mode
+
+Invoked with `--mode=challenge`. Reads all observations from the entity and runs four
+quality checks. Can also be triggered automatically after an `add` capture — the skill
+offers: "Want me to run a challenge pass on these new entries?"
+
+Read the entity:
+
+````
+mcp__memory__open_nodes({ names: ["<Org Name> SWOT"] })
+````
+
+### Check 1: Specific?
+
+Rejects vague entries that could apply to any organization.
+
+- "Strong engineering culture" — **fails**. What specifically? Measured how?
+- "CI/CD deploys in 15 minutes with zero-downtime rolling updates" — **passes**
+
+### Check 2: Evidence-backed?
+
+Each observation should have provenance (text in parentheses at the end).
+
+- `(repo README)` / `(1:1 with Sarah)` / `(incident postmortem #47)` — **passes**
+- No provenance at all — **flagged**. Skill asks: "How do you know this? What did you
+  see or hear?"
+
+### Check 3: Actionable?
+
+Could a strategy or decision be informed by this entry?
+
+- "Platform team has no SRE — devs carry pager" — **actionable** (could propose
+  hiring, reorg, or process change)
+- "The office has nice furniture" — **not actionable**, flag for removal
+
+### Check 4: Correctly Categorized?
+
+Internal vs. external alignment:
+
+- A `[strength]` describing an external condition → suggest recategorizing as
+  `[opportunity]`
+- A `[threat]` describing an internal gap → suggest recategorizing as `[weakness]`
+- A `[weakness]` describing an external pressure → suggest recategorizing as `[threat]`
+- An `[opportunity]` describing an internal capability → suggest recategorizing as
+  `[strength]`
+
+### Challenge Output
+
+For each flagged observation, present the issue and offer actions:
+
+````
+## Challenge Results: <Org Name>
+
+3 of 12 entries flagged:
+
+1. [strength][cultural] "Strong engineering culture"
+   -> NOT SPECIFIC. What behaviors or practices demonstrate this?
+   [Edit] [Remove] [Keep anyway]
+
+2. [opportunity][market] "AI is big right now"
+   -> NOT ACTIONABLE. How specifically could this org exploit it?
+   [Edit] [Remove] [Keep anyway]
+
+3. [threat][org] "No dedicated SRE team"
+   -> MISCATEGORIZED. This is internal, not external. Suggest: [weakness][org]
+   [Recategorize] [Keep as-is]
+````
+
+### Acting on Flags
+
+User selects an action per flagged item:
+
+- **Edit**: User provides revised text. Delete old observation, write new one.
+- **Remove**: Delete the observation from the graph.
+- **Keep anyway**: No change — user overrides the challenge.
+- **Recategorize**: Delete old observation, write new one with corrected SWOT tag.
+
+Deleting an observation:
+
+````
+mcp__memory__delete_observations({
+  deletions: [{
+    entityName: "<Org Name> SWOT",
+    observations: ["<exact observation string>"]
+  }]
+})
+````
+
+Writing the replacement:
+
+````
+mcp__memory__add_observations({
+  observations: [{
+    entityName: "<Org Name> SWOT",
+    contents: ["<corrected observation string>"]
+  }]
+})
+````
+
+If either operation fails, warn the user and save to pending-sync.
+
+If zero entries are flagged:
+> "All entries passed the challenge. Your SWOT is looking solid."
 Each invocation extracts and confirms independently. The graph accumulates.
