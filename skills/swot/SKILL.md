@@ -458,4 +458,83 @@ If either operation fails, warn the user and save to pending-sync.
 
 If zero entries are flagged:
 > "All entries passed the challenge. Your SWOT is looking solid."
+
+## Review Mode
+
+Invoked with `--mode=review`. Reads all observations from the entity and renders a
+structured report.
+
+Read the entity:
+
+````
+mcp__memory__open_nodes({ names: ["<Org Name> SWOT"] })
+````
+
+### Report Structure
+
+Render these sections in order. **Omit any section that would be empty.**
+
+#### Header
+
+````
+## SWOT Landscape: <Org Name>
+Generated: YYYY-MM-DD | Observations: N | Last updated: YYYY-MM-DD
+````
+
+Where "Last updated" is the most recent date found across all observations.
+
+#### Internal
+
+Group observations by SWOT tag, sub-grouped by landscape tag within each group.
+
+````
+### Internal
+
+**Strengths** (N)
+- [technical] CI/CD deploys in 15 min, zero-downtime rolling updates (repo README)
+- [cultural] Blameless postmortem practice — 3 reviewed, all thorough (incident history)
+- [org] Strong platform team lead, respected cross-functionally (1:1 with CTO)
+
+**Weaknesses** (N)
+- [org] No dedicated SRE — devs carry pager, oncall burden uneven (1:1 with Sarah)
+- [technical] Monolith still serves 60% of traffic, migration stalled Q1 (architecture review)
+````
+
+#### External
+
+````
+### External
+
+**Opportunities** (N)
+- [market] Competitor X dropped enterprise support — their customers are shopping (sales team)
+- [technical] K8s migration unlocks multi-region, which unblocks APAC expansion (architecture review)
+
+**Threats** (N)
+- [market] Series C competitor raised $80M, hiring aggressively in our space (public filing)
+- [org] Key API partner deprecating v2 endpoint by Q3 (partner comms)
+````
+
+#### Landscape Context
+
+````
+### Landscape Context (N)
+- [cultural] Company went through reorg 6 months ago — some teams still settling (1:1 with Mike)
+- [market] Industry moving toward usage-based pricing, current model is seat-based (competitor analysis)
+````
+
+#### Coverage Gaps
+
+Cross-reference SWOT quadrants against landscape dimensions. 4 SWOT tags x 4 landscape
+tags = 16 cells. Surface any cell with fewer than 2 entries:
+
+````
+### Coverage Gaps
+Dimensions with fewer than 2 entries:
+- [market] threats: 1 entry — consider investigating competitive landscape
+- [cultural] strengths: 0 entries — no cultural strengths recorded yet
+````
+
+This nudges toward a complete landscape read over time without forcing it.
+
+After rendering the report, proceed to **Export Formats**.
 Each invocation extracts and confirms independently. The graph accumulates.
