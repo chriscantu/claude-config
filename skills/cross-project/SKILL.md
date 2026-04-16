@@ -10,6 +10,7 @@ Analyzes how a change in the current project might affect other local repositori
 ## Arguments
 
 - `<description>` — What changed or is about to change (e.g., "removing the auth middleware", "renaming UserAccount to Account")
+- `--scan-paths <comma-separated-paths>` — Optional. Override the default scan locations with one or more directories to search across (e.g., `--scan-paths ~/work,~/oss`)
 - (no args) — Infer from recent git diff or ask the user
 
 ## Workflow
@@ -32,7 +33,13 @@ Extract searchable identifiers from the change:
 
 ### Step 3: Scan Local Repos
 
-Search across sibling directories in `~/repos/` for references to the identified items.
+Determine the scan paths:
+
+1. If `--scan-paths` was provided, use those directories (comma-separated) as the exclusive scan roots.
+2. Otherwise, default to the **parent directory of the current working directory** (sibling repos).
+3. Additionally include `~/repos/` if it exists and is not already covered by the default (i.e., not the same directory as, or an ancestor of, the default).
+
+Search the resolved scan roots for references to the identified items.
 
 Use grep/glob across repos, but SKIP:
 - `node_modules/`, `.git/`, `dist/`, `build/`, `__pycache__/`
