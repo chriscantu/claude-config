@@ -41,7 +41,7 @@ mcp__memory__add_observations({ observations: [{ entityName: "Test Person Beta",
 
 **Steps:**
 1. Run `/1on1-prep "Test Person Beta" --phase=prep`
-2. Verify header shows `[INTAKE]` mode and `1:1 #3`
+2. Verify header shows `[INTAKE]` mode and `1:1 #5` (4 prior `[1on1]` observations + 1)
 3. Verify context section shows VP of Product info
 4. Verify open commitments shows the Q3 roadmap item
 5. Verify open follow-ups shows the architecture doc item
@@ -92,9 +92,13 @@ mcp__memory__add_observations({ observations: [{ entityName: "Test Person Beta",
 
 ## Scenario 5: Mode Graduation
 
-**Setup:** Create a Person with enough history to trigger graduation:
+**Setup:** Create two Persons — one as the reports_to target, one with enough history
+to trigger graduation (exactly 3 `[1on1]` observations — the boundary case):
 ```
-mcp__memory__create_entities({ entities: [{ name: "Test Person Delta", entityType: "Person", observations: [] }] })
+mcp__memory__create_entities({ entities: [
+  { name: "Test Person Alpha", entityType: "Person", observations: [] },
+  { name: "Test Person Delta", entityType: "Person", observations: [] }
+] })
 mcp__memory__add_observations({ observations: [{ entityName: "Test Person Delta", contents: [
   "[2026-04-01][context] Engineering Manager, Core team",
   "[2026-04-01][1on1][intake][opportunity] Migration project is ahead of schedule",
@@ -114,7 +118,7 @@ mcp__memory__create_relations({ relations: [{ from: "Test Person Delta", to: "Te
 
 **Expected:** Mode transitions from intake to coaching via explicit user confirmation.
 
-**Cleanup:** Delete test entities.
+**Cleanup:** `mcp__memory__delete_entities({ entityNames: ["Test Person Alpha", "Test Person Delta"] })`
 
 ## Scenario 6: Calendar Unavailable
 
@@ -125,3 +129,21 @@ mcp__memory__create_relations({ relations: [{ from: "Test Person Delta", to: "Te
 4. Verify prep output renders correctly
 
 **Expected:** Skill degrades gracefully without calendar.
+
+## Scenario 7: Context Flag (Quick-Add)
+
+**Setup:** Create a Person:
+```
+mcp__memory__create_entities({ entities: [{ name: "Test Person Epsilon", entityType: "Person", observations: [] }] })
+```
+
+**Steps:**
+1. Run `/1on1-prep "Test Person Epsilon" --context "Promoted to VP last week"`
+2. Verify a `[context]` observation is written: `[YYYY-MM-DD][context] Promoted to VP last week`
+3. Verify the skill exits immediately — no phase detection, no meeting flow
+4. Run `/1on1-prep "Test Person Epsilon" --phase=prep`
+5. Verify the context section shows the promotion note
+
+**Expected:** Context observation written and visible in next prep. No meeting flow triggered.
+
+**Cleanup:** `mcp__memory__delete_entities({ entityNames: ["Test Person Epsilon"] })`
