@@ -36,8 +36,9 @@ Extract searchable identifiers from the change:
 Determine the scan paths:
 
 1. If `--scan-paths` was provided, use those directories (comma-separated) as the exclusive scan roots.
-2. Otherwise, default to the **parent directory of the current working directory** (sibling repos).
+2. Otherwise, default to the **parent directory of the current working directory** (sibling repos) — **unless that parent is the user's home directory**, in which case skip the default (scanning `$HOME` sweeps in `Library/`, `Downloads/`, etc., which is rarely intended).
 3. Additionally include `~/repos/` if it exists and is not already covered by the default (i.e., not the same directory as, or an ancestor of, the default).
+4. If neither rule 2 nor rule 3 yields a scan root, ask the user to supply `--scan-paths` rather than guessing.
 
 Search the resolved scan roots for references to the identified items.
 
