@@ -54,14 +54,21 @@ If any exist, warn:
 | `--context "..."` | Add a `[context]` observation without entering meeting flow |
 | `--sync` | Drain pending-sync files — retry all failed writes |
 
-**`--context` flow**: Write a `[context]` observation to the Person (or to pending-sync
-if MCP is unavailable) and exit. No meeting flow, no phase detection.
-Format: `[YYYY-MM-DD][context] <user-provided text>`.
+**`--context` flow**: Write a `[context]` observation to the Person and exit. No meeting
+flow, no phase detection. Format: `[YYYY-MM-DD][context] <user-provided text>`.
+If the write fails (MCP unavailable or transient error), save to pending-sync and warn
+the user, same as the capture phase fallback.
 
 **`--sync` flow**: Read all files in `skills/1on1-prep/pending-sync/`, attempt to write
 each observation to the graph via `mcp__memory__add_observations`. Report results
 per-observation. Delete the pending-sync file only if all observations in it succeed.
 Exit after sync — no meeting flow.
+
+Error handling for `--sync`:
+- If a file cannot be read (permissions, missing), report the error per-file and skip it
+- If a file is read but yields zero parseable observations, warn the user and do NOT
+  delete the file (it may be corrupted — preserve it for manual inspection)
+- Report: total files found, observations parsed, writes attempted, writes succeeded
 
 ## Person Lookup
 
@@ -77,7 +84,10 @@ mcp__memory__search_nodes({ query: "<person-name>" })
 2. **Substring match** on entity name (case-insensitive) → if exactly one result, use it
 3. **Ambiguous** (multiple substring matches) → show matches, ask user to pick:
    > "I found multiple people matching '<name>': [list]. Which one?"
-4. **Not found** → proceed to **Bootstrap** (next section)
+4. **Not found** (zero results returned) → proceed to **Bootstrap** (next section)
+5. **Lookup failed** (tool call error, not zero results) → do NOT proceed to bootstrap.
+   Inform the user: "Person lookup failed due to a server error. Please try again."
+   This prevents accidentally creating a duplicate Person entity.
 
 Never merge entities automatically. Never create a Person without going through Bootstrap.
 
@@ -128,6 +138,10 @@ mcp__memory__add_observations({
 })
 ```
 
+Track success/failure per context write, same as the capture phase. If any fail, save
+to pending-sync and report which context observations were written vs. failed. The
+Person entity still exists — the user just needs to retry the failed context writes.
+
 **`reports_to` relation**: Only create if the named manager already exists as a Person
 entity in the graph. Search first:
 
@@ -147,6 +161,10 @@ mcp__memory__create_relations({
 ```
 
 If not found, skip silently — do not auto-create the manager as a Person entity.
+
+If the manager is found but `create_relations` fails, warn the user:
+> "I couldn't save the reporting relationship to <manager name>. You can add it later
+> with `--context`."
 
 After bootstrap completes, proceed to **Phase Detection**.
 
@@ -222,6 +240,10 @@ mcp__memory__add_observations({
   }]
 })
 ```
+
+If the write fails, warn the user:
+> "I couldn't save the mode change. The graduation nudge will appear again next time.
+> Check that the memory server is available."
 
 Never flip mode silently.
 
@@ -323,7 +345,9 @@ where the body contains the Person's name. Cap at 5 hits. Show the source entity
 - **Priya (Product)**: "Sarah's team is the bottleneck on API v2" (2026-04-05)
 ```
 
-If no cross-references found, omit this section entirely.
+If no cross-references found, omit this section entirely. If `read_graph` fails,
+include a note instead: "Could not load cross-references (memory server error).
+Other observations about <name> may exist but couldn't be retrieved."
 
 #### 7. Suggested Questions
 
@@ -398,7 +422,8 @@ Where `<mode>` is `intake` or `coaching` based on the detected mode.
   sequential paragraph order if no numbers are provided
 - Skip empty responses — if the user leaves a prompt blank or says "nothing", don't
   create an observation for it
-- Each non-empty response becomes exactly one observation
+- Each non-empty response becomes exactly one observation — if a response is
+  multi-sentence, it is still one observation. Do not split within a prompt bucket.
 - The observation body is the user's verbatim text (not a summary or interpretation)
 
 ### Confirm & Tag
@@ -497,6 +522,15 @@ Warn the user:
 > "One or more observations failed to write. They've been saved locally. Run
 > `/1on1-prep --sync` to retry when the memory server is available."
 
+**Last-resort fallback**: If writing to the pending-sync file itself fails (disk full,
+permissions), display the full observation text directly in the chat output so the user
+can copy it manually:
+> "I could not save this observation to the pending-sync file either. Please copy the
+> text below and save it yourself:
+> `[2026-04-15][1on1][intake][concern] Team morale dropping after reorg`"
+
+This ensures observations are never silently lost even in a double-failure scenario.
+
 ## Noshow Handling
 
 If the user invokes capture phase but says there's nothing to capture (e.g., "nothing
@@ -510,6 +544,9 @@ mcp__memory__add_observations({
   }]
 })
 ```
+
+If the noshow write fails, save to pending-sync and warn the user, same as the capture
+phase fallback.
 
 This is intentional data — the `[noshow]` tag feeds into #23 stakeholder-map
 coverage-review to track meeting frequency and gaps.
