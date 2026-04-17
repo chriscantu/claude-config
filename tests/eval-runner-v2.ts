@@ -24,7 +24,8 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
@@ -58,22 +59,45 @@ interface CliRun {
   readonly failure?: string;
 }
 
+/**
+ * Scratch cwd: running in-repo lets Claude read the skill files and recognize
+ * prompts as eval fixtures. Empty tmpdir removes that tell.
+ * bypassPermissions: skills invoke Bash/Write; an interactive permission gate
+ * stalls --print indefinitely. The scratch dir caps only relative-path writes
+ * — absolute paths and network calls are still unscoped, so evals must not
+ * run adversarial prompts without further sandboxing.
+ */
 function runClaude(prompt: string): CliRun {
   const timeoutMs = 5 * 60 * 1000;
-  const res = spawnSync(
-    claudeBin,
-    ["--print", "--output-format", "stream-json", "--verbose"],
-    { input: prompt, encoding: "utf8", timeout: timeoutMs, maxBuffer: 64 * 1024 * 1024 },
-  );
-  let failure: string | undefined;
-  if (res.error) {
-    failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
-  } else if (res.signal) {
-    failure = res.signal === "SIGTERM" ? `timed out after ${timeoutMs / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
-  } else if (res.status === null) {
-    failure = "process exited without status (no signal, no error)";
+  const scratchDir = mkdtempSync(join(tmpdir(), "claude-eval-"));
+  try {
+    const res = spawnSync(
+      claudeBin,
+      ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions"],
+      {
+        input: prompt,
+        encoding: "utf8",
+        timeout: timeoutMs,
+        maxBuffer: 64 * 1024 * 1024,
+        cwd: scratchDir,
+      },
+    );
+    let failure: string | undefined;
+    if (res.error) {
+      failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
+    } else if (res.signal) {
+      failure = res.signal === "SIGTERM" ? `timed out after ${timeoutMs / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
+    } else if (res.status === null) {
+      failure = "process exited without status (no signal, no error)";
+    }
+    return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
+  } finally {
+    try {
+      rmSync(scratchDir, { recursive: true, force: true });
+    } catch (err) {
+      console.error(`[eval-runner] failed to clean scratch dir ${scratchDir}: ${(err as Error).message}`);
+    }
   }
-  return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
 }
 
 function colour(s: string, code: string): string {
