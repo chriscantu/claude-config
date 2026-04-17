@@ -46,7 +46,7 @@
         },
         {
           "type": "regex",
-          "pattern": "((authoriz|sign[- ]?off|approv(ed|al)|budget).{0,120}(doesn'?t|isn'?t|not\\s+(the same|equivalent|a problem|the problem)|distinguish|but\\b|however|solution (description|framing|statement))|solution(,| -| —)? not (a |the )?(problem|problem (statement|definition)))",
+          "pattern": "((authoriz|sign[- ]?off|approv(ed|al)|budget).{0,120}(doesn'?t|isn'?t|not\\s+(the same|equivalent|a problem|the problem)|distinguish|solution (description|framing|statement))|solution(,| -| —)? not (a |the )?(problem|problem (statement|definition)))",
           "flags": "i",
           "description": "Distinguishes authorization/approval from problem definition — either by naming the distinction explicitly or by framing 'X' as 'a solution, not a problem'"
         }
