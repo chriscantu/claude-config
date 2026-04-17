@@ -1,0 +1,76 @@
+<!--
+  Example fat marker sketch: before/after diptych archetype.
+  Subject: eval-runner cwd refactor (from issue #93) — runs used to be in the repo cwd
+  (leaking artifacts); now isolated in a scratch cwd with bypassPermissions.
+
+  Key conventions demonstrated:
+    - AFTER dominates (larger footprint, heavier stroke weight)
+    - Removed paths: strikethrough label
+    - Added paths: heavier stroke (6px vs 3px base)
+    - Deprecated-still-present: dashed border
+    - DELTA footer names what changed so the reader doesn't have to diff two lists
+    - No bullets inside boxes — each box is one label or one short phrase
+-->
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
+<div style="background:#fff;color:#000;font-family:'Permanent Marker',cursive;padding:40px;font-size:20px">
+
+  <div style="display:flex;gap:40px;align-items:flex-start;margin-bottom:32px">
+
+    <!-- BEFORE: smaller, context only -->
+    <div style="flex:0 0 320px">
+      <div style="font-size:24px;margin-bottom:12px">BEFORE</div>
+      <div style="border:3px solid #000;padding:14px;border-radius:3px 5px 2px 4px">
+
+        <div style="border:3px solid #000;padding:6px;margin:8px 0;border-radius:2px 4px 1px 3px">eval-runner.ts</div>
+        <div style="text-align:center;margin:4px 0">|</div>
+        <div style="text-align:center;margin:4px 0">v</div>
+        <div style="border:3px solid #000;padding:6px;margin:8px 0;border-radius:3px 1px 4px 2px">spawn claude --print</div>
+        <div style="text-align:center;margin:4px 0">|</div>
+        <div style="text-align:center;margin:4px 0">v</div>
+        <div style="border:3px solid #000;padding:6px;margin:8px 0;border-radius:1px 3px 2px 4px;text-decoration:line-through">cwd = repo root</div>
+        <div style="text-align:center;margin:4px 0">|</div>
+        <div style="text-align:center;margin:4px 0">v</div>
+        <div style="border:3px dashed #000;padding:6px;margin:8px 0;border-radius:4px 2px 3px 1px">artifacts leak into repo</div>
+
+      </div>
+    </div>
+
+    <!-- ARROW -->
+    <div style="align-self:center;font-size:48px">&rarr;</div>
+
+    <!-- AFTER: dominant, heavier stroke, larger -->
+    <div style="flex:1;min-width:420px">
+      <div style="font-size:24px;margin-bottom:12px">AFTER</div>
+      <div style="border:6px solid #000;padding:18px;border-radius:4px 2px 5px 3px">
+
+        <div style="border:4px solid #000;padding:8px;margin:10px 0;border-radius:2px 4px 1px 3px">eval-runner.ts</div>
+        <div style="text-align:center;margin:6px 0">|</div>
+        <div style="text-align:center;margin:6px 0">v</div>
+        <div style="border:6px solid #000;padding:8px;margin:10px 0;border-radius:3px 1px 4px 2px">mkdtemp() scratch dir&nbsp; [new]</div>
+        <div style="text-align:center;margin:6px 0">|</div>
+        <div style="text-align:center;margin:6px 0">v</div>
+        <div style="border:4px solid #000;padding:8px;margin:10px 0;border-radius:1px 3px 2px 4px">spawn claude --print<br>cwd=scratch, --permission-mode bypass</div>
+        <div style="text-align:center;margin:6px 0">|</div>
+        <div style="text-align:center;margin:6px 0">v</div>
+        <div style="border:4px solid #000;padding:8px;margin:10px 0;border-radius:4px 2px 3px 1px">parse stream-json</div>
+        <div style="text-align:center;margin:6px 0">|</div>
+        <div style="text-align:center;margin:6px 0">v</div>
+        <div style="border:6px solid #000;padding:8px;margin:10px 0;border-radius:2px 5px 3px 1px">rm -rf scratch dir&nbsp; [new]</div>
+
+      </div>
+    </div>
+
+  </div>
+
+  <!-- DELTA: names the changes so reader doesn't have to diff two lists -->
+  <div style="border:4px solid #000;padding:16px;border-radius:3px 5px 2px 4px">
+    <div style="font-size:22px;margin-bottom:6px">DELTA</div>
+    [new] mkdtemp scratch dir wraps the run — cwd is now isolated<br>
+    [new] cleanup step removes the scratch dir after parse<br>
+    [removed] runs no longer execute in the repo cwd (strikethrough above)<br>
+    [deprecated] prior "artifacts leak into repo" failure mode is gone (dashed above)<br>
+    [added flag] --permission-mode bypassPermissions — safe now that cwd is scratch
+  </div>
+
+</div>

@@ -1,9 +1,10 @@
 ---
 name: fat-marker-sketch
 description: >
-  Use when someone asks to sketch, wireframe, mockup, or visually map a user flow
-  before detailed design. Also triggers during brainstorming after an approach is
-  selected, per the planning pipeline.
+  Use when someone asks to sketch, wireframe, mockup, or visually map a design before
+  detailed design — user flows, refactors, migrations, architecture changes, integration
+  diagrams, sequence/interaction flows, state machines, or data pipelines. Also triggers
+  during brainstorming after an approach is selected, per the planning pipeline.
 license: MIT
 metadata:
   author: chriscantu
@@ -51,6 +52,8 @@ gate and produce the sketch — a napkin-level rendering takes under 2 minutes.
 | "Long session, I'm fried — just a text list is fine" | The fallback order is excalidraw → HTML → ASCII, not excalidraw → bullet list. Fatigue is not a fallback trigger. |
 | "Component scope, no structure changes" | Verify this against the approach. If the approach introduces any new screen, flow, or integration boundary, the "single component" carve-out does NOT apply. |
 | "We already sketched something similar last week" | Sketches are disposable and per-approach. A prior sketch for a different feature does not substitute. |
+| "Each box needs 3 bullets to convey enough info" | Then split into 3 boxes, or drop to a single label. A box with bullets inside is a **note card**, not a structural region — the exact "notes with borders" anti-pattern the skill exists to prevent. |
+| "This is a refactor — framed boxes with old and new bullets ARE the sketch" | No. For refactor/migration prompts, pick the **Before/After diptych** archetype and use graphic delta markers (strikethrough removed, heavier stroke added, dashed deprecated). Two symmetric bullet-lists a reader has to diff in their head is not a sketch — it's two notes. |
 
 **The combined red flag to watch for:** time pressure + skip request without trade-off
 acknowledgement. This is the pattern most likely to leak the gate. When you see it,
@@ -65,20 +68,58 @@ acknowledgement.
 
 ---
 
-## Step 1: Choose the Format
+## Step 1: Choose the Format (Archetype)
 
-Pick the format that fits the feature:
+Pick the archetype that fits the shape of the work. Each heuristic names an **observable
+feature of the prompt** — keywords, structure, or count — so the same prompt routes to
+the same archetype across runs.
 
-- **UI / output feature** — show the key screens side by side as a journey. Each screen
-  gets a numbered title, 3-5 boxes inside showing regions, and labeled actions in
-  brackets. Include a separate FLOW section mapping screen-to-screen connections as
-  plain text (e.g., `Welcome -> Questions -> Your Plan -> [Activate] -> Dashboard`).
-- **Process / workflow feature** — a simple numbered flow or rough state diagram showing
-  the steps the user goes through. Happy path only.
-- **CLI / command feature** — the command invocation and a rough example of output.
-  Fake data is fine.
-- **System / integration feature** — a simple Mermaid diagram (≤6 nodes, no conditionals,
-  no styling directives). `graph LR; A-->B-->C` is the right level.
+| Archetype | Picker heuristic (observable features) | Example prompt trigger |
+|-----------|----------------------------------------|------------------------|
+| **UI / user journey** | Prompt names 2+ screens, user-visible surfaces, or UI actions (tap, click, swipe, submit). | "sketch the onboarding screens" |
+| **Process / workflow** | Prompt names actions a human or system *performs* in sequence (verbs: validate, fetch, review, approve). No named actors, no states, no data transforms. | "sketch the PR approval steps" |
+| **CLI / command** | Prompt names a command invocation or developer-facing tool whose surface is `stdin → stdout`. | "sketch what `bun run foo` outputs" |
+| **System integration (Mermaid)** | ≤6 boxes, one integration path, no tech-stack or protocol labeling needed. | "sketch how API talks to queue talks to worker" |
+| **Before/After diptych** | Prompt contains *delta* keywords: refactor, migration, rewrite, replace, rip out, move X to Y, change how X works. | "sketch the migration from REST to gRPC" |
+| **Sequence / swimlane** | Prompt names 2+ **actors by name** (User, API, Worker, DB) whose *call order* is load-bearing. Actor identity matters. | "sketch: user → API → worker → DB interaction" |
+| **C4 container** | Prompt names tech stacks, protocols, or deployable units (Node.js, Postgres, HTTPS, AMQP, S3). Multi-container architecture picture. | "sketch the containers: React app, Go API, Postgres, Redis" |
+| **Data-flow** | Prompt names *record transforms* or data stages (parse, dedupe, enrich, score, aggregate) — data changes shape as it moves. | "sketch the eval pipeline: transcripts in, reports out" |
+| **State machine** | Prompt names **states or modes** (pending, running, idle, active, failed, retrying) the system can sit in between triggers. | "sketch the job lifecycle states" |
+
+### Inline tiebreakers (high-risk pairs)
+
+Two pairs account for most mis-picks. Read these at decision time:
+
+- **System integration (Mermaid) vs. C4 container** — if the prompt mentions **any**
+  tech stack name, protocol, or deployable unit, pick **C4**. Mermaid is for the case
+  where arrows don't need labels beyond arrowheads.
+- **Sequence vs. C4 container** — if the prompt emphasizes **temporal order** ("first
+  this, then that") across named actors, pick **Sequence** even if tech stacks are
+  mentioned. C4 is for the **steady-state picture** — true at any moment, not a story
+  of what happens when.
+- **Process/workflow vs. State machine vs. Data-flow** — read what the boxes *are*.
+  Boxes are **actions a system performs** → process. Boxes are **modes the system sits
+  in** → state machine. Boxes are **stages that transform records** → data-flow. If the
+  prompt's nouns are states (pending, running), pick state machine even if you could
+  also describe them as steps.
+
+See `references/archetypes.md` for the full tiebreaker table (9 pairs) and per-archetype
+rendering conventions — especially before/after delta markers, swimlane actor columns,
+and C4 labeling.
+
+### Backtracking mid-pick
+
+If you catch yourself picking:
+- **"System integration"** for a refactor (delta is the point) → use **Before/After**
+- **"UI / user journey"** for something with no screens → use **Process/workflow** or the shape-appropriate archetype
+- **"Process/workflow"** when the prompt names states/modes → use **State machine**
+- **"Process/workflow"** when the prompt names actors and call order → use **Sequence**
+- **"Process/workflow"** when boxes transform records → use **Data-flow**
+- **"Sequence"** when there's only one actor → use **Process/workflow**
+- **"Before/After"** when there's no named change (it's a steady-state architecture) → use **C4 container**
+
+Stop and re-pick. Using the wrong archetype is how you end up with "notes with borders"
+(see the rationalization table above and Step 2 anti-patterns).
 
 ### Rendering
 
@@ -180,6 +221,10 @@ Apply these fidelity rules regardless of format:
   preferred for simplicity, but Unicode is safe.
 - **Show relationships** — how components connect (tap this -> see that, service A calls
   service B). For UI, include a FLOW section mapping connections as plain text.
+- **No bullets inside boxes** — a box holds a single label or a single representative
+  phrase, not a bulleted list. If a box contains more than one bullet, it has become a
+  note card. Split the box into multiple boxes, or drop the bullets to a single label.
+  "Notes with borders" is the anti-pattern this skill exists to prevent.
 
 ### Self-check before presenting
 
@@ -258,6 +303,14 @@ from a single screen.
 full journey. Each has 3-5 elements with enough content to understand what the screen
 DOES. Actions in brackets. A FLOW section mapping connections. No styling, no full
 copy, no pixel decisions — but enough to ask "is this the right experience?"
+
+### Before/After Example
+
+See `assets/example-before-after-sketch.html` for a rendered refactor-shaped sketch
+(eval-runner scratch-cwd change). Demonstrates AFTER-dominant visual weight,
+strikethrough on removed paths, heavier stroke on added nodes, and a DELTA footer that
+names the change so the reader doesn't have to diff two lists. That is the fidelity
+bar for the **Before/After diptych** archetype.
 
 ### System Example
 

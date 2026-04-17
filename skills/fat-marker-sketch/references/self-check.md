@@ -11,6 +11,12 @@ any of the "too detailed" items, STOP and simplify. If you're missing any of the
 - Building detailed flow diagrams with multiple conditional branches
 - Filling every field with realistic sample data instead of representative content
 
+## Notes With Borders (Anti-Pattern)
+
+- A box contains more than one bullet — it is now a note card, not a structural region. Split the box into multiple boxes, or drop the bullets to a single label.
+- Multiple framed boxes whose only content is prose bullets, with no arrows, flow, or delta between them — that is a list wearing box costumes, not a sketch.
+- A before/after diptych whose BEFORE and AFTER differ only in the text inside two symmetric boxes — the delta must be **graphic** (strikethrough, heavier stroke, dashed lines), not "read both and diff in your head."
+
 ## Not a Sketch (Too Low Fidelity)
 
 - Outputting a plain text list or prose instead of a visual with boxes/borders
