@@ -21,9 +21,9 @@
         },
         {
           "type": "regex",
-          "pattern": "(red flag|solution[- ]first|solution in search of|pre[- ]baked solution|skip(ping)? problem)",
+          "pattern": "(before (i |we )?(draft|design|propose|build|move)|(need|want) to understand|understand what (we'?re|you'?re) (actually |really )?(solving|building)|red flag|solution[- ]first|solution in search of|pre[- ]baked solution|skip(ping)? problem)",
           "flags": "i",
-          "description": "Names the solution-first / red-flag pattern"
+          "description": "Refuses to jump to architecture — either names the solution-first pattern OR frames the turn as 'before I draft, I need to understand'"
         }
       ]
     },
@@ -46,9 +46,9 @@
         },
         {
           "type": "regex",
-          "pattern": "(authoriz|sign[- ]?off|approval).{0,80}(doesn't|isn't|not\\s+(the same|equivalent)|distinguish)",
+          "pattern": "((authoriz|sign[- ]?off|approv(ed|al)|budget).{0,120}(doesn'?t|don'?t|isn'?t|aren'?t|not\\s+(the same|equivalent|a problem|the problem|tell(ing)? (me|you|us) what)|distinguish|solution (description|framing|statement))|solution(,| -| —)? not (a |the )?(problem|problem (statement|definition)))",
           "flags": "i",
-          "description": "Distinguishes authorization from problem definition"
+          "description": "Distinguishes authorization/approval from problem definition — either by naming the distinction explicitly or by framing 'X' as 'a solution, not a problem'"
         }
       ]
     },
@@ -103,9 +103,15 @@
       "assertions": [
         {
           "type": "not_regex",
-          "pattern": "(who has (this |the )?problem|which (user|persona)|what'?s the underlying pain|cost of inaction)",
+          "pattern": "(^|\\n)\\s*(\\*\\*)?(question\\s*1\\b|q1\\b|1\\.\\s+who|first question|let'?s start with (?:the |our )?(?:most important |first )?question)",
           "flags": "i",
-          "description": "Does NOT run the problem-definition questionnaire on a bug report"
+          "description": "Does NOT actually start a numbered problem-definition questionnaire (matches questionnaire-start markers, not rhetorical mentions of questionnaire phrases)"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(who (has|hits|is feeling|experiences) (this|the) (problem|pain)|what'?s the underlying pain|cost of inaction)[^\\n?]{0,80}\\?",
+          "flags": "i",
+          "description": "Does NOT pose problem-definition questions conversationally (catches the un-numbered questionnaire variant — phrase followed by '?' to distinguish actual questions from rhetorical mentions)"
         },
         {
           "type": "regex",

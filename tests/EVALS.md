@@ -64,12 +64,61 @@ Exits non-zero if any assertion fails. Per-eval transcripts land in `tests/resul
 - Every assertion is type-checked: required fields present, regex patterns precompiled.
 - A bad regex or missing required field fails fast with a file path in the error — the runner exits 1 before sending any prompt to claude.
 
-## Authoring evals
+## Status: regex path is frozen
+
+**Do not author new regex evals.** The regex substrate is kept as a smoke-test layer
+for existing pilot skills — it catches gross structural regressions (#78 was caught)
+but cannot distinguish correct-but-short responses from genuine skill failures without
+a tuning round every time (see #79, #81). The strategic replacement is tracked in
+**#86** (SDK-based conversations + structural tool-use assertions + LLM-graded rubrics);
+once #86 ships, update this section to point at the v2 authoring docs and retire the
+legacy guidance below.
+
+New skill evals should be authored against the v2 substrate once it lands. Until then,
+hold new coverage rather than adding more regex evals. For an existing eval that needs
+updating (e.g., a regression it should now guard against), the guidance below applies
+as maintenance-only — prefer migrating to v2 over extending the regex surface.
+
+## Maintaining existing regex evals (legacy path)
+
+This section is maintenance guidance for the frozen regex path. Do not use it as
+authoring guidance for new coverage.
 
 - **One assertion = one observable signal.** "Asks about persona" not "follows the skill correctly."
 - **Mix positive and negative.** A `regex` for what should appear AND a `not_regex` for what should NOT (e.g., the skill should ask probing questions AND should NOT lead with an architecture section).
-- **Regression guards belong in evals.** When a narrative test surfaces a loophole, encode the failing scenario as an eval with assertions that would have caught it.
+- **When a narrative test surfaces a loophole**, encode it in an existing eval's assertions (not a new regex eval) — file the new regression as a v2 candidate in #86.
 - **Keep prompts realistic.** Lift them from real conversations or pressure-tested narrative scenarios — don't write idealized prompts that don't reflect how users actually frame requests.
+
+### `claude --print` is single-turn and short — write behaviorally
+
+`claude --print` responses are one turn. When a skill runs a multi-question flow,
+Claude typically asks **only the first question** and waits. The skill HARD-GATE
+language that appears reliably in longer interactive sessions ("red flag",
+"solution-first", "low blast radius") often does NOT appear in the truncated
+single-question response. Assertions that scan for that vocabulary over-fit — they
+fail on correct behavior. Issue #79 logs eight such failures from PR #77.
+
+- **Assert behavior, not vocabulary.** Instead of matching "red flag", match the
+  observable refusal framing: "before (I |we )?(draft|design|propose|build)",
+  "need to understand", "what (we'?re|you'?re) (actually )?(solving|building)".
+  These appear regardless of whether the full multi-step skill body fires.
+- **Include multiple synonyms in positive regex.** If Claude might say "shape of
+  your current system" OR "how does your current auth work" OR "what touches the
+  JWT system," the regex must match all three phrasings — not just the one you
+  happened to see first.
+- **Anchor `not_regex` to actual questionnaire-start markers, not rhetorical
+  mentions.** Claude sometimes meta-discusses the eval framing (quoting the very
+  phrases you're scanning for). Match questionnaire structure (`question 1`, `Q1`,
+  `1. Who`, `first question`, `let's start with`) rather than free-floating phrases
+  like "what's the underlying pain" that also appear rhetorically.
+- **Prefer observable framing over editorial vocabulary.** "Distinguishes X from Y"
+  assertions should accept either an explicit distinction ("X isn't the same as Y")
+  OR a reframing ("X is a solution, not a problem"). Don't require one specific
+  phrasing.
+- **When in doubt, read the transcript before assuming the skill is broken.** The
+  transcripts land in `tests/results/` — if a failed assertion's response shows
+  correct skill behavior, the assertion is over-fit. Loosen it; don't patch the
+  skill.
 
 ## Pilot scope (issue #69)
 
