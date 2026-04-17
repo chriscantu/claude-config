@@ -70,16 +70,23 @@ Exits non-zero if any assertion fails. Per-eval transcripts land in `tests/resul
 for existing pilot skills — it catches gross structural regressions (#78 was caught)
 but cannot distinguish correct-but-short responses from genuine skill failures without
 a tuning round every time (see #79, #81). The strategic replacement is tracked in
-**#86** (SDK-based conversations + structural tool-use assertions + LLM-graded rubrics).
+**#86** (SDK-based conversations + structural tool-use assertions + LLM-graded rubrics);
+once #86 ships, update this section to point at the v2 authoring docs and retire the
+legacy guidance below.
 
-New skill evals should wait for the v2 substrate. For an existing eval that needs
-updating, prefer migrating it to v2 over tuning its regex further.
+New skill evals should be authored against the v2 substrate once it lands. Until then,
+hold new coverage rather than adding more regex evals. For an existing eval that needs
+updating (e.g., a regression it should now guard against), the guidance below applies
+as maintenance-only — prefer migrating to v2 over extending the regex surface.
 
-## Authoring evals (legacy — regex path)
+## Maintaining existing regex evals (legacy path)
+
+This section is maintenance guidance for the frozen regex path. Do not use it as
+authoring guidance for new coverage.
 
 - **One assertion = one observable signal.** "Asks about persona" not "follows the skill correctly."
 - **Mix positive and negative.** A `regex` for what should appear AND a `not_regex` for what should NOT (e.g., the skill should ask probing questions AND should NOT lead with an architecture section).
-- **Regression guards belong in evals.** When a narrative test surfaces a loophole, encode the failing scenario as an eval with assertions that would have caught it.
+- **When a narrative test surfaces a loophole**, encode it in an existing eval's assertions (not a new regex eval) — file the new regression as a v2 candidate in #86.
 - **Keep prompts realistic.** Lift them from real conversations or pressure-tested narrative scenarios — don't write idealized prompts that don't reflect how users actually frame requests.
 
 ### `claude --print` is single-turn and short — write behaviorally

@@ -108,6 +108,12 @@
           "description": "Does NOT actually start a numbered problem-definition questionnaire (matches questionnaire-start markers, not rhetorical mentions of questionnaire phrases)"
         },
         {
+          "type": "not_regex",
+          "pattern": "(who (has|hits|is feeling|experiences) (this|the) (problem|pain)|what'?s the underlying pain|cost of inaction)[^\\n?]{0,80}\\?",
+          "flags": "i",
+          "description": "Does NOT pose problem-definition questions conversationally (catches the un-numbered questionnaire variant — phrase followed by '?' to distinguish actual questions from rhetorical mentions)"
+        },
+        {
           "type": "regex",
           "pattern": "(reproduc|failing test|test that (reproduces|fails)|reproduction|see the failure)",
           "flags": "i",
