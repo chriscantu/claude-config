@@ -65,20 +65,29 @@ acknowledgement.
 
 ---
 
-## Step 1: Choose the Format
+## Step 1: Choose the Format (Archetype)
 
-Pick the format that fits the feature:
+Pick the archetype that fits the shape of the work. If more than one fits, pick the one
+whose **picker heuristic** is load-bearing for the decision the sketch needs to unblock.
 
-- **UI / output feature** — show the key screens side by side as a journey. Each screen
-  gets a numbered title, 3-5 boxes inside showing regions, and labeled actions in
-  brackets. Include a separate FLOW section mapping screen-to-screen connections as
-  plain text (e.g., `Welcome -> Questions -> Your Plan -> [Activate] -> Dashboard`).
-- **Process / workflow feature** — a simple numbered flow or rough state diagram showing
-  the steps the user goes through. Happy path only.
-- **CLI / command feature** — the command invocation and a rough example of output.
-  Fake data is fine.
-- **System / integration feature** — a simple Mermaid diagram (≤6 nodes, no conditionals,
-  no styling directives). `graph LR; A-->B-->C` is the right level.
+| Archetype | Picker heuristic | Prior art |
+|-----------|------------------|-----------|
+| **UI / user journey** | "User sees N screens in sequence" — any output/UI feature where the conversation is about what the user does across screens. | Product wireframes |
+| **Process / workflow** | "N numbered steps, one happy path" — procedural flow with no significant branching. | Swim-lanes, BPMN level-0 |
+| **CLI / command** | "User types a command and sees output" — developer-facing tool whose surface area is invocation + stdout. | Man-page synopsis |
+| **System integration (Mermaid)** | "A talks to B talks to C" — single integration path, ≤6 nodes, no multi-container detail needed. | `graph LR; A-->B-->C` |
+| **Before/After diptych** | "We're changing how X works" — refactor, migration, or architecture change where the whole point is the **delta**. | Fowler refactoring diagrams |
+| **Sequence / swimlane** | "A calls B, then B calls C, then…" — interaction order across 2+ actors over time is the thing being evaluated. | UML sequence, C4 dynamic view |
+| **C4 container** | "Multiple systems with tech stacks and protocols" — multi-container architecture where naming the tech/protocol on each edge is load-bearing. | Simon Brown's C4 model |
+| **Data-flow (sources → transforms → sinks)** | "Data moves through stages" — ETL, eval pipelines, stream processors, any system whose shape is input → transform → output. | DFD level-1 |
+| **State machine** | "System is in exactly one of these modes" — discrete states with transitions (permission modes, auth state, job lifecycle). | UML state diagram |
+
+If you catch yourself picking "system integration" for a refactor, or picking
+"UI / user journey" for something with no UI — stop and re-pick. Using the wrong
+archetype is how you end up with "notes with borders" (see Step 2 anti-patterns).
+
+See `references/archetypes.md` for rendering conventions per archetype — especially
+before/after delta markers, swimlane actor columns, and C4 labeling.
 
 ### Rendering
 
@@ -180,6 +189,10 @@ Apply these fidelity rules regardless of format:
   preferred for simplicity, but Unicode is safe.
 - **Show relationships** — how components connect (tap this -> see that, service A calls
   service B). For UI, include a FLOW section mapping connections as plain text.
+- **No bullets inside boxes** — a box holds a single label or a single representative
+  phrase, not a bulleted list. If a box contains more than one bullet, it has become a
+  note card. Split the box into multiple boxes, or drop the bullets to a single label.
+  "Notes with borders" is the anti-pattern this skill exists to prevent.
 
 ### Self-check before presenting
 
@@ -258,6 +271,14 @@ from a single screen.
 full journey. Each has 3-5 elements with enough content to understand what the screen
 DOES. Actions in brackets. A FLOW section mapping connections. No styling, no full
 copy, no pixel decisions — but enough to ask "is this the right experience?"
+
+### Before/After Example
+
+See `assets/example-before-after-sketch.html` for a rendered refactor-shaped sketch
+(eval-runner scratch-cwd change). Demonstrates AFTER-dominant visual weight,
+strikethrough on removed paths, heavier stroke on added nodes, and a DELTA footer that
+names the change so the reader doesn't have to diff two lists. That is the fidelity
+bar for the **Before/After diptych** archetype.
 
 ### System Example
 

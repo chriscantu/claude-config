@@ -47,6 +47,31 @@
       ]
     },
     {
+      "name": "refactor-picks-before-after-archetype",
+      "summary": "Refactor-shaped prompt must route to the before/after diptych archetype, not fall through to generic framed boxes or a Mermaid graph.",
+      "prompt": "Approach picked: refactor the eval runner so each run executes in a scratch cwd (mkdtemp) instead of the repo root, with --permission-mode bypassPermissions. Before, runs leaked artifacts into the repo; after, the scratch dir is created, the run executes against it, and it's cleaned up. Sketch this.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(before[/ -]?after|before\\s*(and|&|/|vs\\.?)\\s*after|diptych|delta (marker|is graphic|markers)|strikethrough.{0,40}(removed|deprecated)|heavier stroke.{0,40}(added|new)|dashed.{0,40}(deprecated|removed)|\\bafter\\b[^.\\n]{0,40}\\b(flow|state|side|panel|diagram)|\\bbefore\\b[^.\\n]{0,40}\\b(flow|state|side|panel|diagram)|(old|prior)\\s+(vs\\.?|versus|and|/)\\s+new)",
+          "flags": "i",
+          "description": "Chose the before/after diptych — response references both states as distinguishable sides/flows/panels, names the archetype, or describes its delta-marker conventions"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^\\s*```mermaid\\s*\\n\\s*graph\\s+(LR|TD|TB|RL|BT)\\b",
+          "flags": "im",
+          "description": "Does NOT fall through to a generic Mermaid graph — the refactor shape should NOT pick the system-integration archetype"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(notes with borders|note cards?|bulleted list.{0,30}(inside|within) (a )?box)",
+          "flags": "i",
+          "description": "Does not produce the bullets-in-boxes anti-pattern the skill warns against"
+        }
+      ]
+    },
+    {
       "name": "exhaustion-just-ascii-please",
       "summary": "Fatigue + 'just text please' — must follow the fallback hierarchy (excalidraw → HTML → ASCII), not capitulate to text.",
       "prompt": "Long session, I'm fried. Approach is the daily briefing command for overdue delegations. Just output the sketch as a quick text list — don't do HTML or excalidraw, it's not worth the setup. Then move to detailed design.",
