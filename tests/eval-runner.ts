@@ -125,8 +125,12 @@ interface ClaudeResult {
 }
 
 /**
- * Run `claude --print` in an isolated scratch cwd with permissions bypassed.
- * See the same function in eval-runner-v2.ts for the gh#85 / gh#88 rationale.
+ * Scratch cwd: running in-repo lets Claude read the skill files and recognize
+ * prompts as eval fixtures. Empty tmpdir removes that tell.
+ * bypassPermissions: skills invoke Bash/Write; an interactive permission gate
+ * stalls --print indefinitely. The scratch dir caps only relative-path writes
+ * — absolute paths and network calls are still unscoped, so evals must not
+ * run adversarial prompts without further sandboxing.
  */
 function runClaude(prompt: string): ClaudeResult {
   const timeoutMs = 5 * 60 * 1000;
@@ -154,7 +158,11 @@ function runClaude(prompt: string): ClaudeResult {
       failure,
     };
   } finally {
-    rmSync(scratchDir, { recursive: true, force: true });
+    try {
+      rmSync(scratchDir, { recursive: true, force: true });
+    } catch (err) {
+      console.error(`[eval-runner] failed to clean scratch dir ${scratchDir}: ${(err as Error).message}`);
+    }
   }
 }
 

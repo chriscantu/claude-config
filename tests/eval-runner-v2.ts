@@ -60,16 +60,12 @@ interface CliRun {
 }
 
 /**
- * Run `claude --print` in an isolated scratch cwd with permissions bypassed.
- *
- * Why the scratch cwd: running inside the repo lets Claude see claude-config's
- * skill files and CLAUDE.md, which tips it off that the prompt is an eval
- * fixture and changes its behavior (gh#85). An empty tmpdir removes that tell.
- *
- * Why bypassPermissions: without it, any skill that invokes Bash/Write inside
- * the scratch dir hits an interactive permission gate that `--print` cannot
- * resolve, stalling the eval mid-response (gh#88). The scratch dir itself is
- * the blast-radius cap — it's removed after the run.
+ * Scratch cwd: running in-repo lets Claude read the skill files and recognize
+ * prompts as eval fixtures. Empty tmpdir removes that tell.
+ * bypassPermissions: skills invoke Bash/Write; an interactive permission gate
+ * stalls --print indefinitely. The scratch dir caps only relative-path writes
+ * — absolute paths and network calls are still unscoped, so evals must not
+ * run adversarial prompts without further sandboxing.
  */
 function runClaude(prompt: string): CliRun {
   const timeoutMs = 5 * 60 * 1000;
@@ -96,7 +92,11 @@ function runClaude(prompt: string): CliRun {
     }
     return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
   } finally {
-    rmSync(scratchDir, { recursive: true, force: true });
+    try {
+      rmSync(scratchDir, { recursive: true, force: true });
+    } catch (err) {
+      console.error(`[eval-runner] failed to clean scratch dir ${scratchDir}: ${(err as Error).message}`);
+    }
   }
 }
 
