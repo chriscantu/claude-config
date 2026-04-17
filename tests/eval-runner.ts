@@ -31,7 +31,8 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -123,28 +124,38 @@ interface ClaudeResult {
   failure?: string; // human-readable reason: spawn error, signal, or timeout
 }
 
+/**
+ * Run `claude --print` in an isolated scratch cwd with permissions bypassed.
+ * See the same function in eval-runner-v2.ts for the gh#85 / gh#88 rationale.
+ */
 function runClaude(prompt: string): ClaudeResult {
   const timeoutMs = 5 * 60 * 1000;
-  const res = spawnSync(claudeBin, ["--print"], {
-    input: prompt,
-    encoding: "utf8",
-    timeout: timeoutMs,
-  });
-  let failure: string | undefined;
-  if (res.error) {
-    failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
-  } else if (res.signal) {
-    // spawnSync sets signal to SIGTERM on timeout (Node default killSignal).
-    failure = res.signal === "SIGTERM" ? `timed out after ${timeoutMs / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
-  } else if (res.status === null) {
-    failure = "process exited without status (no signal, no error)";
+  const scratchDir = mkdtempSync(join(tmpdir(), "claude-eval-"));
+  try {
+    const res = spawnSync(claudeBin, ["--print", "--permission-mode", "bypassPermissions"], {
+      input: prompt,
+      encoding: "utf8",
+      timeout: timeoutMs,
+      cwd: scratchDir,
+    });
+    let failure: string | undefined;
+    if (res.error) {
+      failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
+    } else if (res.signal) {
+      // spawnSync sets signal to SIGTERM on timeout (Node default killSignal).
+      failure = res.signal === "SIGTERM" ? `timed out after ${timeoutMs / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
+    } else if (res.status === null) {
+      failure = "process exited without status (no signal, no error)";
+    }
+    return {
+      stdout: res.stdout ?? "",
+      stderr: res.stderr ?? "",
+      code: res.status ?? -1,
+      failure,
+    };
+  } finally {
+    rmSync(scratchDir, { recursive: true, force: true });
   }
-  return {
-    stdout: res.stdout ?? "",
-    stderr: res.stderr ?? "",
-    code: res.status ?? -1,
-    failure,
-  };
 }
 
 function evaluate(assertion: Assertion, output: string): AssertionResult {
