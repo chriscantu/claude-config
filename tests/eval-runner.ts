@@ -140,6 +140,7 @@ function runClaude(prompt: string): ClaudeResult {
       input: prompt,
       encoding: "utf8",
       timeout: timeoutMs,
+      maxBuffer: 64 * 1024 * 1024,
       cwd: scratchDir,
     });
     let failure: string | undefined;
