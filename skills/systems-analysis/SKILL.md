@@ -33,6 +33,14 @@ This skill expects a **problem statement** from `/define-the-problem` or equival
 context from the conversation. If no problem statement exists, say so and ask whether
 to run `/define-the-problem` first or proceed with what we have.
 
+**Handback to problem definition.** If a problem statement exists but is too
+vague to map dependencies, blast radius, or affected parties against — e.g., it
+names a feature without naming the user pain, evidence, or outcome blocked —
+stop the surface-area pass and hand back to `/define-the-problem` before
+continuing. Don't fabricate dimensions for a problem you can't locate. Say:
+"The stated problem is too thin to map impact against — [what's missing]. Want
+to sharpen it via `/define-the-problem` first?"
+
 ---
 
 ## Step 1: Dependency Mapping

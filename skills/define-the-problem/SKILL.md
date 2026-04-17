@@ -1,9 +1,11 @@
 ---
 name: define-the-problem
 description: >
-  Use when the user proposes building something new ("let's build", "new feature",
-  "I want to add"), asks "what should we solve", or when entering the problem
-  definition stage of the planning pipeline.
+  Use when the user proposes building something new without a stated problem
+  ("let's build", "new feature", "I want to add"), asks "what should we solve",
+  or when entering the problem definition stage of the planning pipeline. Do NOT
+  use when the prompt explicitly names a problem AND scopes it to a specific
+  system, component, or workflow.
 ---
 
 # Define the Problem
@@ -24,6 +26,8 @@ a clear user problem before designing a solution."
 
 - **Bug fixes** — the problem is the bug. Skip to fixing it.
 - **Refactoring** — the problem is the code smell. Skip to brainstorming.
+- **Testable problem already in the prompt** — see the SKIP IF clause in
+  `rules/planning.md`.
 - **User explicitly says to skip** — respect it, move on.
 
 ---
