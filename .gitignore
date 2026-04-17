@@ -3,3 +3,4 @@ default.profraw
 excalidraw.log
 .claude/worktrees/
 tests/results/
+node_modules/

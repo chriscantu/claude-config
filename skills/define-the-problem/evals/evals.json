@@ -24,6 +24,11 @@
           "pattern": "(before (i |we )?(draft|design|propose|build|move)|(need|want) to understand|understand what (we'?re|you'?re) (actually |really )?(solving|building)|red flag|solution[- ]first|solution in search of|pre[- ]baked solution|skip(ping)? problem)",
           "flags": "i",
           "description": "Refuses to jump to architecture — either names the solution-first pattern OR frames the turn as 'before I draft, I need to understand'"
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "define-the-problem",
+          "description": "Structural check: the Skill tool is actually invoked with define-the-problem — solution-first pressure is exactly the trigger"
         }
       ]
     },
@@ -118,6 +123,11 @@
           "pattern": "(reproduc|failing test|test that (reproduces|fails)|reproduction|see the failure)",
           "flags": "i",
           "description": "Mentions writing a reproducing/failing test before fixing (per tdd-pragmatic rule)"
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "define-the-problem",
+          "description": "Structural check: the Skill tool is NOT invoked with define-the-problem — bug reports skip the problem-definition pipeline"
         }
       ]
     }
