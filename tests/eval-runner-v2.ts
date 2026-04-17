@@ -1,18 +1,17 @@
 #!/usr/bin/env bun
 /**
- * Stream-json CLI eval runner (v2).
+ * Stream-json CLI eval runner.
  *
  * Spawns `claude --print --output-format stream-json`, parses the NDJSON event
  * stream, and runs assertions against *structured signals* (final text, tool
- * uses, skill invocations) instead of raw prose. Step 2 of issue #86 — adds
- * structural assertions while staying on Max auth (no API credits billed).
+ * uses, skill invocations) instead of raw prose.
  *
- * Why this substrate (vs. v1 plain `claude --print` or the earlier SDK attempt):
+ * Why this substrate (vs. v1 plain `claude --print`):
  *   - v1 only sees stdout text: regex-on-prose is brittle and can't tell a
  *     "Skill invoked" block from a model describing a skill in prose.
- *   - The SDK path works but bills API credits separately from Max; rejected.
- *   - stream-json gives us tool-use blocks directly from the CLI transport on
- *     the user's existing Max auth (apiKeySource: "none" on init).
+ *   - stream-json surfaces tool-use blocks directly from the CLI transport, so
+ *     assertions can target structural facts ("did the Skill tool fire?")
+ *     instead of the model's narration about what it did.
  *
  * Usage:
  *   bun run tests/eval-runner-v2.ts                      # all skills with evals
@@ -29,7 +28,6 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  type Assertion,
   type EvalFile,
   type Signals,
   discoverSkills,
@@ -48,11 +46,16 @@ const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const skillFilter = args.find((a) => !a.startsWith("--"));
 
+/**
+ * `exitCode` is null when the process was killed by signal or never started
+ * (spawn error). Keep it nullable instead of coercing to -1 so the transcript
+ * can distinguish "exited cleanly with code N" from "no exit code available."
+ */
 interface CliRun {
-  stdout: string;
-  stderr: string;
-  code: number;
-  failure?: string;
+  readonly stdout: string;
+  readonly stderr: string;
+  readonly exitCode: number | null;
+  readonly failure?: string;
 }
 
 function runClaude(prompt: string): CliRun {
@@ -70,7 +73,7 @@ function runClaude(prompt: string): CliRun {
   } else if (res.status === null) {
     failure = "process exited without status (no signal, no error)";
   }
-  return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", code: res.status ?? -1, failure };
+  return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
 }
 
 function colour(s: string, code: string): string {
@@ -81,48 +84,59 @@ const red = (s: string) => colour(s, "31");
 const dim = (s: string) => colour(s, "2");
 const bold = (s: string) => colour(s, "1");
 
-function writeTranscript(
-  path: string,
-  skillName: string,
-  evalName: string,
-  prompt: string,
-  signals: Signals | null,
-  rawStdout: string,
-  rawStderr: string,
-  failure?: string,
-): void {
-  const skillsSeen = signals?.skillInvocations.map((s) => s.skill) ?? [];
-  const toolsSeen = signals?.toolUses.map((t) => t.name) ?? [];
+interface TranscriptArgs {
+  readonly path: string;
+  readonly skillName: string;
+  readonly evalName: string;
+  readonly prompt: string;
+  readonly signals: Signals | null;
+  readonly rawStdout: string;
+  readonly rawStderr: string;
+  readonly exitCode: number | null;
+  readonly parsedEvents?: number;
+  readonly skippedLines?: number;
+  readonly failure?: string;
+}
+
+function writeTranscript(a: TranscriptArgs): void {
+  const skillsSeen = a.signals?.skillInvocations.map((s) => s.skill) ?? [];
+  const toolsSeen = a.signals?.toolUses.map((t) => t.name) ?? [];
   const meta = [
-    `stdout_bytes: ${rawStdout.length}`,
-    `stderr_bytes: ${rawStderr.length}`,
+    `exit_code: ${a.exitCode ?? "(none — signal or spawn error)"}`,
+    `stdout_bytes: ${a.rawStdout.length}`,
+    `stderr_bytes: ${a.rawStderr.length}`,
+    `parsed_events: ${a.parsedEvents ?? "(not parsed)"}`,
+    `skipped_lines: ${a.skippedLines ?? "(not parsed)"}`,
+    `terminal_state: ${a.signals?.terminalState ?? "(no signals)"}`,
     `tool_uses: ${toolsSeen.length === 0 ? "(none)" : toolsSeen.join(", ")}`,
     `skills_invoked: ${skillsSeen.length === 0 ? "(none)" : skillsSeen.join(", ")}`,
   ].join("\n");
   const body = [
-    `# ${skillName} / ${evalName} (v2)`,
+    `# ${a.skillName} / ${a.evalName} (v2)`,
     "",
     "## Prompt",
     "",
-    prompt,
+    a.prompt,
     "",
     "## Final text",
     "",
-    signals?.finalText ?? "(no signals — run failed)",
+    a.signals?.finalText ?? "(no signals — run failed)",
     "",
     "## Metadata",
     "",
     meta,
   ];
-  if (failure) {
-    body.push("", "## Failure", "", failure);
+  if (a.failure) {
+    body.push("", "## Failure", "", a.failure);
   }
-  if (rawStderr.trim()) {
-    body.push("", "## Stderr", "", rawStderr);
+  if (a.rawStderr.trim()) {
+    body.push("", "## Stderr", "", a.rawStderr);
   }
-  body.push("");
+  // Raw NDJSON last — it's the biggest blob and least-read, but essential for
+  // post-mortem debugging when an assertion disagrees with what a human sees.
+  body.push("", "## Raw stream-json stdout", "", "```", a.rawStdout || "(empty)", "```", "");
   try {
-    writeFileSync(path, body.join("\n"));
+    writeFileSync(a.path, body.join("\n"));
   } catch (err) {
     console.log(`    ${dim(`(transcript write failed: ${(err as Error).message})`)}`);
   }
@@ -190,23 +204,70 @@ async function main() {
       }
 
       const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-${timestamp}.md`);
-      const { stdout, stderr, code, failure } = runClaude(e.prompt);
+      const { stdout, stderr, exitCode, failure } = runClaude(e.prompt);
 
-      if (failure || code !== 0) {
+      if (failure || exitCode !== 0) {
         totalAssertions += e.assertions.length;
-        const reason = failure ?? `claude exited ${code}: ${stderr.trim().split("\n")[0] ?? "(no stderr)"}`;
+        const reason = failure ?? `claude exited ${exitCode}: ${stderr.trim().split("\n")[0] ?? "(no stderr)"}`;
         console.log(`    ${red("✗")} ${reason}`);
-        writeTranscript(transcriptFile, skillName, e.name, e.prompt, null, stdout, stderr, reason);
+        writeTranscript({
+          path: transcriptFile,
+          skillName,
+          evalName: e.name,
+          prompt: e.prompt,
+          signals: null,
+          rawStdout: stdout,
+          rawStderr: stderr,
+          exitCode,
+          failure: reason,
+        });
         console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
         continue;
       }
 
-      const events = parseStreamJson(stdout);
+      const { events, skipped } = parseStreamJson(stdout);
+
+      // Exit 0 with no parseable events means the CLI returned without emitting
+      // the structured stream we rely on. Without this gate, every negative
+      // assertion (not_contains / not_regex / not_skill_invoked) would trivially
+      // pass against an empty signal set — a silent regression relative to v1.
+      if (events.length === 0) {
+        totalAssertions += e.assertions.length;
+        const reason = `no parseable stream-json events (exit 0, stdout=${stdout.length}B, skipped=${skipped})`;
+        console.log(`    ${red("✗")} ${reason}`);
+        writeTranscript({
+          path: transcriptFile,
+          skillName,
+          evalName: e.name,
+          prompt: e.prompt,
+          signals: null,
+          rawStdout: stdout,
+          rawStderr: stderr,
+          exitCode,
+          parsedEvents: 0,
+          skippedLines: skipped,
+          failure: reason,
+        });
+        console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+        continue;
+      }
+
       const signals = extractSignals(events);
-      writeTranscript(transcriptFile, skillName, e.name, e.prompt, signals, stdout, stderr);
+      writeTranscript({
+        path: transcriptFile,
+        skillName,
+        evalName: e.name,
+        prompt: e.prompt,
+        signals,
+        rawStdout: stdout,
+        rawStderr: stderr,
+        exitCode,
+        parsedEvents: events.length,
+        skippedLines: skipped,
+      });
 
       let evalPassed = true;
-      for (const a of e.assertions as Assertion[]) {
+      for (const a of e.assertions) {
         totalAssertions++;
         const r = evaluate(a, signals);
         if (r.ok) {
@@ -215,14 +276,14 @@ async function main() {
         } else {
           evalPassed = false;
           console.log(`    ${red("✗")} ${r.description}`);
-          if (r.detail) console.log(`        ${dim(r.detail)}`);
+          console.log(`        ${dim(r.detail)}`);
         }
       }
       if (evalPassed) passedEvals++;
       console.log(
         dim(
           `      transcript → ${transcriptFile.replace(repoDir + "/", "")}` +
-            ` (tools=${signals.toolUses.length} skills=${signals.skillInvocations.length})`,
+            ` (events=${events.length} skipped=${skipped} tools=${signals.toolUses.length} skills=${signals.skillInvocations.length})`,
         ),
       );
     }

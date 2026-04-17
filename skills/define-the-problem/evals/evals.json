@@ -28,7 +28,7 @@
         {
           "type": "skill_invoked",
           "skill": "define-the-problem",
-          "description": "Structural check: the Skill tool is actually invoked with define-the-problem — solution-first pressure is exactly the trigger"
+          "description": "Skill tool is invoked with define-the-problem — solution-first pressure is exactly the trigger"
         }
       ]
     },
@@ -127,7 +127,7 @@
         {
           "type": "not_skill_invoked",
           "skill": "define-the-problem",
-          "description": "Structural check: the Skill tool is NOT invoked with define-the-problem — bug reports skip the problem-definition pipeline"
+          "description": "Skill tool is NOT invoked with define-the-problem — bug reports skip the problem-definition pipeline"
         }
       ]
     }

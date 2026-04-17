@@ -14,8 +14,7 @@ Two runners exist. Both consume the same `evals.json` schema and write
 transcripts to `tests/results/`:
 
 - **v1 (`tests/eval-runner.ts`)** — shells `claude --print`, reads stdout text
-  only. Regex/substring assertions against prose. Retained for regression
-  comparison.
+  only. Regex/substring assertions against prose.
 - **v2 (`tests/eval-runner-v2.ts`)** — shells `claude --print --output-format
   stream-json`, parses the NDJSON event stream, and runs assertions against
   structured *signals* (`finalText`, `toolUses`, `skillInvocations`) extracted
@@ -88,11 +87,10 @@ they don't collide with v1 when both are run back-to-back for comparison.
 - Every assertion is type-checked: required fields present, regex patterns precompiled.
 - A bad regex or missing required field fails fast with a file path in the error — the runner exits 1 before sending any prompt to claude.
 
-## Status: v2 substrate + structural assertions landed (#86, steps 1-2)
+## Signal channels (v2)
 
-**v2 uses `claude --print --output-format stream-json` and parses the NDJSON
-event stream into structured signals.** Assertions now run against three
-channels:
+**v2 parses the NDJSON event stream from `claude --print --output-format
+stream-json` into structured signals.** Assertions run against three channels:
 
 - `finalText` — the CLI's `result` event (or concatenated assistant text if the
   run ended on a tool use). Regex/substring assertions consume this.
@@ -100,10 +98,10 @@ channels:
 - `skillInvocations` — the subset of `toolUses` where the tool is `Skill`,
   with the invoked skill name lifted to the top level.
 
-The new `skill_invoked` / `not_skill_invoked` assertion types let an eval
-assert *structurally* that the right skill fired, instead of scanning prose
-for words the model happens to say. This is the main lever against the
-over-fit failures that motivated #79 / #81.
+The `skill_invoked` / `not_skill_invoked` assertion types let an eval assert
+*structurally* that the right skill fired, instead of scanning prose for words
+the model happens to say. This is the main lever against over-fit regex
+failures on single-turn `claude --print` responses.
 
 **Authoring guidance:** for new coverage, prefer a structural assertion over a
 regex when the signal is observable in the tool-use stream. Keep regex for
@@ -113,13 +111,13 @@ maintenance guidance below for the regex layer.
 ## Maintaining regex evals
 
 Regex/substring assertions still apply to any content the model must produce in
-its answer. This section is the craft guidance for that layer — lessons from #79
-/ #81 about how to keep regex assertions from over-fitting on `claude --print`'s
-single-turn response shape.
+its answer. This section is the craft guidance for that layer — how to keep
+regex assertions from over-fitting on `claude --print`'s single-turn response
+shape.
 
 - **One assertion = one observable signal.** "Asks about persona" not "follows the skill correctly."
 - **Mix positive and negative.** A `regex` for what should appear AND a `not_regex` for what should NOT (e.g., the skill should ask probing questions AND should NOT lead with an architecture section).
-- **When a narrative test surfaces a loophole**, encode it in an existing eval's assertions (not a new regex eval) — file the new regression as a v2 candidate in #86.
+- **When a narrative test surfaces a loophole**, encode it in an existing eval's assertions. Prefer a structural assertion over a regex when the signal is observable in the tool-use stream.
 - **Keep prompts realistic.** Lift them from real conversations or pressure-tested narrative scenarios — don't write idealized prompts that don't reflect how users actually frame requests.
 
 ### `claude --print` is single-turn and short — write behaviorally
@@ -129,7 +127,7 @@ Claude typically asks **only the first question** and waits. The skill HARD-GATE
 language that appears reliably in longer interactive sessions ("red flag",
 "solution-first", "low blast radius") often does NOT appear in the truncated
 single-question response. Assertions that scan for that vocabulary over-fit — they
-fail on correct behavior. Issue #79 logs eight such failures from PR #77.
+fail on correct behavior.
 
 - **Assert behavior, not vocabulary.** Instead of matching "red flag", match the
   observable refusal framing: "before (I |we )?(draft|design|propose|build)",
@@ -153,7 +151,7 @@ fail on correct behavior. Issue #79 logs eight such failures from PR #77.
   correct skill behavior, the assertion is over-fit. Loosen it; don't patch the
   skill.
 
-## Pilot scope (issue #69)
+## Pilot scope
 
 Pilot skills: `define-the-problem`, `systems-analysis`, `fat-marker-sketch`. Migrated
 prompts and behavioral signals from each skill's `tests.md` and from
@@ -164,8 +162,8 @@ now — they cross multiple rules rather than a single skill.
 ## What this is NOT
 
 - **Not LLM-graded.** Both v1 and v2 are rubric-only (regex + structural). LLM-graded
-  assertions were scoped out of #86 — they bill API credits separately from the
-  user's existing `claude` subscription and add nondeterminism.
+  assertions are out of scope — they bill API credits separately from the user's
+  existing `claude` subscription and add nondeterminism.
 - **Not a replacement for `validate.fish`.** That covers structural drift (frontmatter,
   symlinks, concept coverage). Evals cover behavioral drift.
 - **Not a replacement for human review.** When an eval fails, read the transcript before
