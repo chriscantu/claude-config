@@ -2,7 +2,12 @@
 
 **Date:** 2026-04-17
 **Status:** Decided — splitting [#68](https://github.com/chriscantu/claude-config/issues/68)
-**Related:** [#68](https://github.com/chriscantu/claude-config/issues/68), [#90](https://github.com/chriscantu/claude-config/issues/90), [#58](https://github.com/chriscantu/claude-config/issues/58), [PR #67](https://github.com/chriscantu/claude-config/pull/67), [PR #89](https://github.com/chriscantu/claude-config/pull/89)
+**Related:**
+- [#68](https://github.com/chriscantu/claude-config/issues/68) — parent issue being split
+- [#90](https://github.com/chriscantu/claude-config/issues/90) — architectural blocker for sunk-cost scenario
+- [#58](https://github.com/chriscantu/claude-config/issues/58) — umbrella "no skill tests documented" initiative that surfaced both scenarios
+- [PR #67](https://github.com/chriscantu/claude-config/pull/67) — added tier-1 skill tests (authority + sunk-cost scenarios captured there)
+- [PR #89](https://github.com/chriscantu/claude-config/pull/89) — replaced regex eval assertions with structural `skill_invoked` checks, surfacing the real wrong-skill firings
 
 ## Problem
 
@@ -37,18 +42,28 @@ This is the trap. The `superpowers:using-superpowers` skill hardcodes:
 
 "Don't re-analyze" reads as a user instruction, "brainstorm migration steps" reads as a direct request for final output. Both outrank anything writable in `skills/systems-analysis/SKILL.md` or `rules/planning.md`. Three iterations on 2026-04-17 confirmed this; the third regressed the authority eval while the sunk-cost eval still failed.
 
-Memory: [feedback_sunk_cost_eval.md](/Users/cantu/.claude/projects/-Users-cantu-repos-claude-config/memory/feedback_sunk_cost_eval.md).
+### Reverted-attempts log (2026-04-17)
+
+Inlined here because the source memory file lives outside the repo and won't resolve for future sessions on other machines or in GitHub's web UI. Do NOT re-attempt any of these:
+
+- Edits to `skills/systems-analysis/SKILL.md` description and "Don't re-analyze is not a skip" paragraph — **reverted**. Didn't change outcome; in iteration 3 regressed `authority-low-risk-skip` by making the model ask permission instead of naming surface-area concerns.
+- Edits to `rules/planning.md` HARD-GATE step 2 "brainstorm is final output" clause and Expert Fast-Track "decisions are not coverage" paragraph — **reverted** for the same reason.
+- Stacking stronger language in SKILL.md or planning.md — structurally can't work, the priority ordering is the constraint.
+
+The `shell-completions` fix from the same 2026-04-17 session (SKIP-IF clause on `rules/planning.md` step 1 + "problem already stated" bullet in `skills/define-the-problem/SKILL.md`) was **kept** — different mechanism, already shipped.
+
+Steady-state eval result until an architectural decision lands: `3/4 evals passing, 10/11 assertions passing`.
 
 ## Decision
 
 Split #68 into two scopes:
 
 - **Child issue (new) — tractable fixes.** Implements recommendations 1–3 against the authority scenario. Explicitly excludes the sunk-cost eval. Verified by re-running the authority RED/GREEN scenarios from [`skills/systems-analysis/evals/`](skills/systems-analysis/evals/) and confirming no regression in `authority-low-risk-skip`.
-- **Architectural decision — tracked in [#90](https://github.com/chriscantu/claude-config/issues/90).** Sunk-cost requires one of:
-  1. Convert the eval to multi-turn so the pipeline can stage
-  2. Rewrite the eval prompt to stop combining sunk-cost framing with a direct brainstorm request
-  3. Add a `~/.claude/CLAUDE.md`-level rule that outranks in-prompt instructions (currently disallowed)
-  4. Modify `using-superpowers` priority ordering (largest blast radius — affects every skill)
+- **Architectural decision — tracked in [#90](https://github.com/chriscantu/claude-config/issues/90).** Sunk-cost requires one of these unblockers:
+  - **a.** Convert the eval to multi-turn so the pipeline can stage
+  - **b.** Rewrite the eval prompt to stop combining sunk-cost framing with a direct brainstorm request
+  - **c.** Add a `~/.claude/CLAUDE.md`-level rule that outranks in-prompt instructions (currently disallowed)
+  - **d.** Modify `using-superpowers` priority ordering (largest blast radius — affects every skill)
 
 Close #68 once the child issue merges. #90 tracks the architectural piece independently.
 
@@ -86,7 +101,7 @@ Close #68 once the child issue merges. #90 tracks the architectural piece indepe
 ## Multi-session hand-off
 
 Future sessions picking this up should read, in order:
-1. This doc
-2. [`MEMORY.md`](../../../.claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md) → `feedback_sunk_cost_eval.md`
-3. The comment on [#90](https://github.com/chriscantu/claude-config/issues/90) documenting what was reverted 2026-04-17
-4. [`skills/systems-analysis/evals/`](skills/systems-analysis/evals/) for the current eval surface
+1. This doc (the "Reverted-attempts log" section above has the constraints inlined — do not depend on external memory paths)
+2. The comment on [#90](https://github.com/chriscantu/claude-config/issues/90) documenting what was reverted 2026-04-17
+3. [`skills/systems-analysis/evals/`](../../../skills/systems-analysis/evals/) for the current eval surface
+4. If running on the author's machine, `~/.claude/projects/-Users-cantu-repos-claude-config/memory/feedback_sunk_cost_eval.md` has the same content in memory form — optional, not required
