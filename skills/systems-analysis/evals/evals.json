@@ -58,16 +58,9 @@
       "prompt": "We already committed to migrating our auth service from in-house JWT to Auth0 last quarter — the vendor contract is signed. Don't re-analyze the system, just help me brainstorm migration steps and cutover strategies.",
       "assertions": [
         {
-          "type": "regex",
-          "pattern": "(touchpoint|what (touches|depends on|integrates with)|callers?|surface area|dependenc|breakage|map (the |what )?(system|services?)|shape of (?:your |the )?(?:current )?system|how (does|do) (?:your |the )?(?:current )?(?:system|auth|service|jwt|it) work|(?:understand|map) (?:the )?current (?:system|service|setup))",
-          "flags": "i",
-          "description": "Maps what touches the JWT system before producing a cutover plan"
-        },
-        {
-          "type": "regex",
-          "pattern": "(re[- ]?analyz|re[- ]?litigat|not (about |re-)?(deciding|the decision)|mapping (?:the )?(blast radius|surface|system|impact))",
-          "flags": "i",
-          "description": "Reframes the analysis as mapping impact, NOT re-deciding Auth0"
+          "type": "skill_invoked",
+          "skill": "systems-analysis",
+          "description": "systems-analysis skill fires — sunk-cost framing must not let the user skip the surface-area pass"
         },
         {
           "type": "not_regex",
@@ -83,10 +76,14 @@
       "prompt": "The problem is that our CLI tool doesn't have shell completions, making it slower to use. Let's plan this out.",
       "assertions": [
         {
-          "type": "regex",
-          "pattern": "(low (blast|risk|impact)|self[- ]contained|minimal|single[- ](team|component)|no cross[- ](system|team))",
-          "flags": "i",
-          "description": "Notes the low blast radius / self-contained nature"
+          "type": "skill_invoked",
+          "skill": "systems-analysis",
+          "description": "systems-analysis skill fires — even a low-blast-radius change gets a brief surface-area pass"
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "define-the-problem",
+          "description": "define-the-problem must NOT fire — the problem is already stated in the prompt"
         },
         {
           "type": "not_regex",

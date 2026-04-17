@@ -1,0 +1,18 @@
+{
+  "name": "claude-config-evals",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Executable eval infrastructure for skills — v1 (claude --print text) and v2 (claude --print stream-json with structural assertions).",
+  "type": "module",
+  "scripts": {
+    "evals:v1": "bun run tests/eval-runner.ts",
+    "evals:v2": "bun run tests/eval-runner-v2.ts",
+    "typecheck": "bunx tsc --noEmit",
+    "test": "bun test tests/"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.0",
+    "@types/node": "^20.0.0",
+    "typescript": "^5.5.0"
+  }
+}
