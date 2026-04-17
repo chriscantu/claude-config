@@ -11,6 +11,11 @@ and architecture decisions. Do NOT skip steps. Do NOT jump to solutions, approac
 or tooling before completing the pipeline.
 
 1. Problem Definition — invoke `/define-the-problem`
+   **SKIP IF** the user has already stated a concrete problem in their prompt
+   ("the problem is X", "the issue is Y", "we need to solve Z") OR has described
+   a fixed decision with a signed contract or committed migration. In those
+   cases, go directly to step 2. Systems-analysis can hand back to step 1 if
+   the stated problem turns out to be too weak to map impact against.
 2. Systems Analysis — invoke `/systems-analysis`
 3. Solution Design — invoke `superpowers:brainstorming` (opt-in: Sequential Thinking available if not converging)
 4. Fat Marker Sketch — invoke `/fat-marker-sketch` (after approach selected)

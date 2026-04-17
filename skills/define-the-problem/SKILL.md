@@ -1,9 +1,12 @@
 ---
 name: define-the-problem
 description: >
-  Use when the user proposes building something new ("let's build", "new feature",
-  "I want to add"), asks "what should we solve", or when entering the problem
-  definition stage of the planning pipeline.
+  Use when the user proposes building something new without a stated problem
+  ("let's build", "new feature", "I want to add"), asks "what should we solve", or
+  when entering the problem definition stage of the planning pipeline. Do NOT use
+  when the user has already stated the problem in their prompt ("the problem is X",
+  "the issue is Y", "we need to solve Z") — in that case systems-analysis runs next,
+  and can hand back here if the problem turns out to be underspecified.
 ---
 
 # Define the Problem
@@ -24,6 +27,10 @@ a clear user problem before designing a solution."
 
 - **Bug fixes** — the problem is the bug. Skip to fixing it.
 - **Refactoring** — the problem is the code smell. Skip to brainstorming.
+- **Problem is already stated in the prompt** — if the user opens with "the
+  problem is X" or "we need to solve Y", skip to systems-analysis. If
+  systems-analysis finds the problem too weak to map impact against, it can
+  hand back here.
 - **User explicitly says to skip** — respect it, move on.
 
 ---
