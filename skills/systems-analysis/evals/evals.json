@@ -59,7 +59,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(touchpoint|what (touches|depends on|integrates with)|callers?|surface area|dependenc|breakage|map (the |what )?(system|services?))",
+          "pattern": "(touchpoint|what (touches|depends on|integrates with)|callers?|surface area|dependenc|breakage|map (the |what )?(system|services?)|shape of (?:your |the )?(?:current )?system|how (does|do) (?:your |the )?(?:current )?(?:system|auth|service|jwt|it) work|(?:understand|map) (?:the )?current (?:system|service|setup))",
           "flags": "i",
           "description": "Maps what touches the JWT system before producing a cutover plan"
         },
