@@ -9,7 +9,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(hard[- ]gate|won'?t skip|sketch first|before (the )?detailed (design|spec)|require(s)? (an )?explicit (override|skip)|two minutes|napkin)",
+          "pattern": "(hard[- ]gate|(name|hold|flag|invoke)(s|ing)? the gate|gate (applies|holds|stands|requires)|won'?t skip|sketch first|before (the )?detailed (design|spec)|require(s)? (an )?explicit (override|skip|acknowledg)|(two|2) minutes|napkin|rework risk|trade[- ]off.{0,40}acknowledg|acknowledg.{0,40}(trade[- ]off|rework|risk))",
           "flags": "i",
           "description": "Names the gate or refuses to skip without an explicit override"
         },
@@ -21,9 +21,9 @@
         },
         {
           "type": "regex",
-          "pattern": "(excalidraw|html|fallback|preview)",
+          "pattern": "(excalidraw|html fallback|preview[_ -]?start|napkin[- ](level|sketch)|napkin sketch|(2|two)[- ]minute|quick sketch|(let me|i'?ll|i will|here'?s) (a |the )?(quick |napkin[- ]?level |2[- ]minute |two[- ]minute )?sketch|produce (a|the) (quick |napkin[- ]?level )?sketch)",
           "flags": "i",
-          "description": "References the rendering options (excalidraw / HTML fallback) rather than capitulating"
+          "description": "Affirmatively offers to produce the sketch (naming a rendering option, napkin-level, or 2-minute timebox) rather than capitulating"
         }
       ]
     },
@@ -34,7 +34,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(prose (is )?not (a )?sketch|visible (border|box)|bordered (box|region)|isn'?t (a )?sketch|text list isn'?t|not a (fat marker )?sketch)",
+          "pattern": "(prose (is )?(n'?t|not) (a )?(fat[- ]marker )?sketch|visible (border|box)|bordered (box|region)|isn'?t (a )?(fat[- ]marker )?sketch|text list isn'?t|not (a )?(fat[- ]marker )?sketch|visual artifact|description isn'?t)",
           "flags": "i",
           "description": "Quotes or paraphrases the 'visible boxes or it's notes' rule"
         },
@@ -53,9 +53,9 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(fallback (hierarchy|order)|excalidraw.{0,30}html|html.{0,30}fallback|preview[_ -]?start|excalidraw[- ]canvas)",
+          "pattern": "(fallback (hierarchy|order)|excalidraw.{0,40}(html|fallback|first|default|canvas)|html.{0,20}fallback|preview[_ -]?start|excalidraw[- ]canvas|visual artifact|(isn'?t|not|never) (just )?(a )?text list|text list (isn'?t|is not))",
           "flags": "i",
-          "description": "References the fallback hierarchy or the preview/excalidraw setup path"
+          "description": "Rebuts the 'text list only' ask by naming the fallback hierarchy, the excalidraw/HTML path, or the 'visual artifact, not text' rule"
         },
         {
           "type": "not_regex",

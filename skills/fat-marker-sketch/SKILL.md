@@ -38,6 +38,33 @@ or "screen 3 shouldn't exist" — but NOT be able to build it without further de
 
 ---
 
+## Rationalizations that mean STOP — sketch anyway
+
+These requests look like valid skips. They are NOT. When you see any of them, name the
+gate and produce the sketch — a napkin-level rendering takes under 2 minutes.
+
+| Request / thought | Reality |
+|---|---|
+| "I have 10 minutes before my meeting — skip the sketch" | Time pressure **strengthens** the case. A rushed detailed design is the most expensive thing to throw away. 2 minutes of sketching beats 10 minutes of rework. |
+| "Just skip it and write the detailed design" | "Skip" alone is not an override. The override must acknowledge the trade-off (rework risk). Ask for it or sketch anyway. |
+| "You already described the approach — that's the sketch" | Prose is not a sketch. If it doesn't have visible borders around screens/regions, it's notes. See the fallback hierarchy below. |
+| "Long session, I'm fried — just a text list is fine" | The fallback order is excalidraw → HTML → ASCII, not excalidraw → bullet list. Fatigue is not a fallback trigger. |
+| "Component scope, no structure changes" | Verify this against the approach. If the approach introduces any new screen, flow, or integration boundary, the "single component" carve-out does NOT apply. |
+| "We already sketched something similar last week" | Sketches are disposable and per-approach. A prior sketch for a different feature does not substitute. |
+
+**The combined red flag to watch for:** time pressure + skip request without trade-off
+acknowledgement. This is the pattern most likely to leak the gate. When you see it,
+the correct response is to name the gate, note the time cost (under 2 minutes for a
+napkin sketch), and render — not to capitulate.
+
+An explicit override is valid only when it names the **specific cost** being accepted
+(e.g., "skip the sketch, I accept the rework risk," "skip it — I'll eat the wrong-shape
+risk"). Bare "skip" requests and generic acknowledgements ("I accept the trade-off,"
+"I know the risks") do NOT qualify — name the gate and request the specific
+acknowledgement.
+
+---
+
 ## Step 1: Choose the Format
 
 Pick the format that fits the feature:
