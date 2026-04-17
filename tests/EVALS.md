@@ -64,7 +64,18 @@ Exits non-zero if any assertion fails. Per-eval transcripts land in `tests/resul
 - Every assertion is type-checked: required fields present, regex patterns precompiled.
 - A bad regex or missing required field fails fast with a file path in the error — the runner exits 1 before sending any prompt to claude.
 
-## Authoring evals
+## Status: regex path is frozen
+
+**Do not author new regex evals.** The regex substrate is kept as a smoke-test layer
+for existing pilot skills — it catches gross structural regressions (#78 was caught)
+but cannot distinguish correct-but-short responses from genuine skill failures without
+a tuning round every time (see #79, #81). The strategic replacement is tracked in
+**#86** (SDK-based conversations + structural tool-use assertions + LLM-graded rubrics).
+
+New skill evals should wait for the v2 substrate. For an existing eval that needs
+updating, prefer migrating it to v2 over tuning its regex further.
+
+## Authoring evals (legacy — regex path)
 
 - **One assertion = one observable signal.** "Asks about persona" not "follows the skill correctly."
 - **Mix positive and negative.** A `regex` for what should appear AND a `not_regex` for what should NOT (e.g., the skill should ask probing questions AND should NOT lead with an architecture section).
