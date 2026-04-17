@@ -191,12 +191,18 @@ Use for discrete modes (permission modes, auth state, job lifecycle).
 
 ## Picking Between Adjacent Archetypes
 
-Some pairs blur. Quick tiebreakers:
+Some pairs blur. The shortcut: read what the **boxes are** (actions? states? record
+stages? containers?) and what the **arrows carry** (order? call? record? delta?).
 
 | If you're stuck between… | Pick the first if… | Pick the second if… |
 |--------------------------|--------------------|---------------------|
-| Process/workflow **vs.** State machine | Steps happen in order, one after another | System can sit in a state waiting for a trigger |
-| System integration **vs.** C4 container | ≤6 nodes, one integration path | Multiple containers, tech/protocol labels load-bearing |
-| System integration **vs.** Data-flow | Boxes are services that call each other | Boxes are stages that transform records |
-| Sequence **vs.** Before/After | Interaction **order** is the question | Structural **delta** is the question |
-| C4 container **vs.** Data-flow | You're naming deployable units | You're naming stages of a pipeline |
+| Process/workflow **vs.** State machine | Prompt names **verbs** (validate, fetch, transform) — boxes are actions the system performs | Prompt names **states/modes** (pending, running, idle, active, failed) — boxes are conditions the system sits in |
+| Process/workflow **vs.** Data-flow | Boxes are **actions a human or system performs** — a reviewer approves, a worker fetches | Boxes are **stages that transform records** — data changes shape between input and output |
+| Process/workflow **vs.** Sequence | Prompt describes a single procedure with no named actors | Prompt names **2+ actors** (User, API, Worker) and **call order between them** is load-bearing |
+| System integration **vs.** C4 container | ≤6 nodes, no tech stack or protocol names in the prompt | Prompt names tech stacks (Node.js, Postgres), protocols (HTTPS, AMQP), or deployable units |
+| System integration **vs.** Data-flow | Boxes are **services that call each other** (request/response) | Boxes are **stages that transform records** (data flows through) |
+| Sequence **vs.** Before/After | Interaction **order** across actors is the question | Structural **delta** between old and new is the question |
+| C4 container **vs.** Data-flow | You're naming **deployable units** (app, DB, queue) | You're naming **stages of a pipeline** (parse, enrich, score) |
+| Before/After **vs.** C4 container | Prompt contains **delta keywords** (refactor, migrate, replace, rewrite) — the change is the point | Prompt describes a **steady-state** multi-container picture with tech/protocol labels |
+| State machine **vs.** Sequence | Prompt names states the *same* system can be in | Prompt names calls between *different* actors |
+| Sequence **vs.** C4 container | **Temporal order** is the point — "first this, then that, then the other" | **Steady-state architecture** is the point — the picture is still true at any moment |

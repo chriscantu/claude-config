@@ -1,9 +1,10 @@
 ---
 name: fat-marker-sketch
 description: >
-  Use when someone asks to sketch, wireframe, mockup, or visually map a user flow
-  before detailed design. Also triggers during brainstorming after an approach is
-  selected, per the planning pipeline.
+  Use when someone asks to sketch, wireframe, mockup, or visually map a design before
+  detailed design — user flows, refactors, migrations, architecture changes, integration
+  diagrams, sequence/interaction flows, state machines, or data pipelines. Also triggers
+  during brainstorming after an approach is selected, per the planning pipeline.
 license: MIT
 metadata:
   author: chriscantu
@@ -51,6 +52,8 @@ gate and produce the sketch — a napkin-level rendering takes under 2 minutes.
 | "Long session, I'm fried — just a text list is fine" | The fallback order is excalidraw → HTML → ASCII, not excalidraw → bullet list. Fatigue is not a fallback trigger. |
 | "Component scope, no structure changes" | Verify this against the approach. If the approach introduces any new screen, flow, or integration boundary, the "single component" carve-out does NOT apply. |
 | "We already sketched something similar last week" | Sketches are disposable and per-approach. A prior sketch for a different feature does not substitute. |
+| "Each box needs 3 bullets to convey enough info" | Then split into 3 boxes, or drop to a single label. A box with bullets inside is a **note card**, not a structural region — the exact "notes with borders" anti-pattern the skill exists to prevent. |
+| "This is a refactor — framed boxes with old and new bullets ARE the sketch" | No. For refactor/migration prompts, pick the **Before/After diptych** archetype and use graphic delta markers (strikethrough removed, heavier stroke added, dashed deprecated). Two symmetric bullet-lists a reader has to diff in their head is not a sketch — it's two notes. |
 
 **The combined red flag to watch for:** time pressure + skip request without trade-off
 acknowledgement. This is the pattern most likely to leak the gate. When you see it,
@@ -67,27 +70,56 @@ acknowledgement.
 
 ## Step 1: Choose the Format (Archetype)
 
-Pick the archetype that fits the shape of the work. If more than one fits, pick the one
-whose **picker heuristic** is load-bearing for the decision the sketch needs to unblock.
+Pick the archetype that fits the shape of the work. Each heuristic names an **observable
+feature of the prompt** — keywords, structure, or count — so the same prompt routes to
+the same archetype across runs.
 
-| Archetype | Picker heuristic | Prior art |
-|-----------|------------------|-----------|
-| **UI / user journey** | "User sees N screens in sequence" — any output/UI feature where the conversation is about what the user does across screens. | Product wireframes |
-| **Process / workflow** | "N numbered steps, one happy path" — procedural flow with no significant branching. | Swim-lanes, BPMN level-0 |
-| **CLI / command** | "User types a command and sees output" — developer-facing tool whose surface area is invocation + stdout. | Man-page synopsis |
-| **System integration (Mermaid)** | "A talks to B talks to C" — single integration path, ≤6 nodes, no multi-container detail needed. | `graph LR; A-->B-->C` |
-| **Before/After diptych** | "We're changing how X works" — refactor, migration, or architecture change where the whole point is the **delta**. | Fowler refactoring diagrams |
-| **Sequence / swimlane** | "A calls B, then B calls C, then…" — interaction order across 2+ actors over time is the thing being evaluated. | UML sequence, C4 dynamic view |
-| **C4 container** | "Multiple systems with tech stacks and protocols" — multi-container architecture where naming the tech/protocol on each edge is load-bearing. | Simon Brown's C4 model |
-| **Data-flow (sources → transforms → sinks)** | "Data moves through stages" — ETL, eval pipelines, stream processors, any system whose shape is input → transform → output. | DFD level-1 |
-| **State machine** | "System is in exactly one of these modes" — discrete states with transitions (permission modes, auth state, job lifecycle). | UML state diagram |
+| Archetype | Picker heuristic (observable features) | Example prompt trigger |
+|-----------|----------------------------------------|------------------------|
+| **UI / user journey** | Prompt names 2+ screens, user-visible surfaces, or UI actions (tap, click, swipe, submit). | "sketch the onboarding screens" |
+| **Process / workflow** | Prompt names actions a human or system *performs* in sequence (verbs: validate, fetch, review, approve). No named actors, no states, no data transforms. | "sketch the PR approval steps" |
+| **CLI / command** | Prompt names a command invocation or developer-facing tool whose surface is `stdin → stdout`. | "sketch what `bun run foo` outputs" |
+| **System integration (Mermaid)** | ≤6 boxes, one integration path, no tech-stack or protocol labeling needed. | "sketch how API talks to queue talks to worker" |
+| **Before/After diptych** | Prompt contains *delta* keywords: refactor, migration, rewrite, replace, rip out, move X to Y, change how X works. | "sketch the migration from REST to gRPC" |
+| **Sequence / swimlane** | Prompt names 2+ **actors by name** (User, API, Worker, DB) whose *call order* is load-bearing. Actor identity matters. | "sketch: user → API → worker → DB interaction" |
+| **C4 container** | Prompt names tech stacks, protocols, or deployable units (Node.js, Postgres, HTTPS, AMQP, S3). Multi-container architecture picture. | "sketch the containers: React app, Go API, Postgres, Redis" |
+| **Data-flow** | Prompt names *record transforms* or data stages (parse, dedupe, enrich, score, aggregate) — data changes shape as it moves. | "sketch the eval pipeline: transcripts in, reports out" |
+| **State machine** | Prompt names **states or modes** (pending, running, idle, active, failed, retrying) the system can sit in between triggers. | "sketch the job lifecycle states" |
 
-If you catch yourself picking "system integration" for a refactor, or picking
-"UI / user journey" for something with no UI — stop and re-pick. Using the wrong
-archetype is how you end up with "notes with borders" (see Step 2 anti-patterns).
+### Inline tiebreakers (high-risk pairs)
 
-See `references/archetypes.md` for rendering conventions per archetype — especially
-before/after delta markers, swimlane actor columns, and C4 labeling.
+Two pairs account for most mis-picks. Read these at decision time:
+
+- **System integration (Mermaid) vs. C4 container** — if the prompt mentions **any**
+  tech stack name, protocol, or deployable unit, pick **C4**. Mermaid is for the case
+  where arrows don't need labels beyond arrowheads.
+- **Sequence vs. C4 container** — if the prompt emphasizes **temporal order** ("first
+  this, then that") across named actors, pick **Sequence** even if tech stacks are
+  mentioned. C4 is for the **steady-state picture** — true at any moment, not a story
+  of what happens when.
+- **Process/workflow vs. State machine vs. Data-flow** — read what the boxes *are*.
+  Boxes are **actions a system performs** → process. Boxes are **modes the system sits
+  in** → state machine. Boxes are **stages that transform records** → data-flow. If the
+  prompt's nouns are states (pending, running), pick state machine even if you could
+  also describe them as steps.
+
+See `references/archetypes.md` for the full tiebreaker table (9 pairs) and per-archetype
+rendering conventions — especially before/after delta markers, swimlane actor columns,
+and C4 labeling.
+
+### Backtracking mid-pick
+
+If you catch yourself picking:
+- **"System integration"** for a refactor (delta is the point) → use **Before/After**
+- **"UI / user journey"** for something with no screens → use **Process/workflow** or the shape-appropriate archetype
+- **"Process/workflow"** when the prompt names states/modes → use **State machine**
+- **"Process/workflow"** when the prompt names actors and call order → use **Sequence**
+- **"Process/workflow"** when boxes transform records → use **Data-flow**
+- **"Sequence"** when there's only one actor → use **Process/workflow**
+- **"Before/After"** when there's no named change (it's a steady-state architecture) → use **C4 container**
+
+Stop and re-pick. Using the wrong archetype is how you end up with "notes with borders"
+(see the rationalization table above and Step 2 anti-patterns).
 
 ### Rendering
 

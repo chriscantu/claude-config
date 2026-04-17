@@ -34,9 +34,9 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(prose (is )?(n'?t|not) (a )?(fat[- ]marker )?sketch|visible (border|box)|bordered (box|region)|isn'?t (a )?(fat[- ]marker )?sketch|text list isn'?t|not (a )?(fat[- ]marker )?sketch|visual artifact|description isn'?t)",
+          "pattern": "(prose (is )?(n'?t|not) (a )?(fat[- ]marker )?sketch|visible (border|box)|bordered (box|region)|isn'?t (a )?(fat[- ]marker )?sketch|text list isn'?t|not (a )?(fat[- ]marker )?sketch|visual artifact|description isn'?t|skip(ping)? the (sketch|visual).{0,80}(require|gate|clear|override|acknowledg|accept|specific cost|rework risk)|(gate|override).{0,80}(rework risk|specific cost|acknowledg|wrong[- ]shape)|won'?t skip|sketch first)",
           "flags": "i",
-          "description": "Quotes or paraphrases the 'visible boxes or it's notes' rule"
+          "description": "Quotes or paraphrases the 'visible boxes or it's notes' rule, or invokes the gate/override mechanism to refuse treating prose as a sketch"
         },
         {
           "type": "not_regex",
@@ -68,6 +68,63 @@
           "pattern": "(notes with borders|note cards?|bulleted list.{0,30}(inside|within) (a )?box)",
           "flags": "i",
           "description": "Does not produce the bullets-in-boxes anti-pattern the skill warns against"
+        }
+      ]
+    },
+    {
+      "name": "pipeline-picks-data-flow-archetype",
+      "summary": "ETL/pipeline prompt (stages transform records) must route to data-flow, not generic process/workflow. Regression guard against the 'Process/workflow vs. Data-flow' picker overlap flagged in PR #95 review.",
+      "prompt": "Approach picked: the new eval pipeline reads transcripts from disk, extracts signals (final text, tool uses, skill invocations), applies rubric assertions, and writes JSON reports to tests/results. Sketch this.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(data[- ]?flow|sources?\\s*(->|→|to)\\s*transforms?\\s*(->|→|to)\\s*sinks?|\\b(parse|extract|enrich|dedupe|aggregate|score)\\b.{0,80}\\b(stage|pipeline|transform|record)|pipeline (stage|tier|archetype)|record shape|transform(s|ed|ing) (record|event|data)|stages? that transform)",
+          "flags": "i",
+          "description": "Chose data-flow archetype — names the archetype, describes source→transform→sink tiers, or references record transformation"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^\\s*```mermaid\\s*\\n\\s*graph\\s+(LR|TD|TB|RL|BT)\\b",
+          "flags": "im",
+          "description": "Does NOT fall through to a generic Mermaid graph"
+        }
+      ]
+    },
+    {
+      "name": "lifecycle-picks-state-machine-archetype",
+      "summary": "Prompt naming discrete modes (queued, running, succeeded, failed, retrying) must route to state machine, not process/workflow. Regression guard against the 'Process/workflow vs. State machine' picker overlap flagged in PR #95 review.",
+      "prompt": "Approach picked: the job lifecycle — jobs sit in queued until a worker picks them up, move to running, then terminate in succeeded or failed. Failed jobs can transition to retrying and back to running. Sketch this.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(state[- ]machine|state diagram|\\bstates?\\b.{0,60}\\b(transition|trigger|mode)|\\bmodes?\\b.{0,60}\\b(transition|trigger|state)|initial state|terminal state|queued\\s*(->|→|to)\\s*running|transitions? between states|\\bstate (archetype|chart))",
+          "flags": "i",
+          "description": "Chose state-machine archetype — names the archetype, describes state transitions, or references state/trigger conventions"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(process[/ ]workflow|\\bnumbered steps?\\b|\\bstep [1-5]\\b)",
+          "flags": "i",
+          "description": "Does NOT describe the lifecycle as sequential numbered steps (process/workflow archetype)"
+        }
+      ]
+    },
+    {
+      "name": "multi-actor-picks-sequence-archetype",
+      "summary": "Prompt naming 2+ actors and temporal call order must route to sequence/swimlane, not process/workflow or C4. Prompt deliberately avoids tech-stack names (which would trigger C4) and transform verbs (which would trigger data-flow) — only actors and call order remain.",
+      "prompt": "Approach picked: the checkout interaction. First, the Shopper clicks 'Pay'. Then the Storefront asks the Cart service to finalize the order. Then Cart asks Billing to charge the card. Then Billing asks the Bank to authorize. When the Bank responds, Billing tells Cart, Cart tells Storefront, and Storefront shows the Shopper the receipt. The order the messages happen in is the whole point — sketch this.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(sequence (diagram|archetype|/swimlane)|swimlane|lifeline|actor column|(actor|lane)s?\\s*(across|at|along) the top|\\b(API|Worker|Queue|Postgres|S3)\\b.{0,80}\\b(lifeline|lane|actor|column)|(2\\+|multiple|several) actors)",
+          "flags": "i",
+          "description": "Chose sequence/swimlane archetype — names the archetype, references actor lanes/lifelines, or describes the 2+ actors convention"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(data[- ]?flow|sources?\\s*(->|→)\\s*transforms?\\s*(->|→)\\s*sinks?)",
+          "flags": "i",
+          "description": "Does NOT route to data-flow — this prompt has actors calling each other, not records being transformed"
         }
       ]
     },
