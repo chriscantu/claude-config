@@ -10,14 +10,13 @@ This applies to ALL work — greenfield projects, feature additions, bug investi
 and architecture decisions. Do NOT skip steps. Do NOT jump to solutions, approaches,
 or tooling before completing the pipeline.
 
-1. Problem Definition — invoke `/define-the-problem`
-   **SKIP IF** the prompt explicitly names a problem ("the problem is X", "the
-   issue is Y") AND scopes it to a specific system, component, or workflow so
-   impact can be mapped — OR describes a fixed decision with a signed contract
-   or committed migration. A surface grievance with no named system ("X is
-   broken", "we need Y", "the issue is no dark mode") does NOT qualify — run
-   the skill. If systems-analysis later finds the problem too thin to map
-   impact against, it hands back here.
+1. Problem Definition — invoke `/define-the-problem`. This is the mandatory
+   front door for all planning work. When the prompt already names a problem,
+   DTP runs its Expert Fast-Track by default: it drafts the problem statement
+   from prompt content, confirms it with the user, and fills gaps with at most
+   2 targeted questions before handing off. When no problem is stated, DTP
+   runs the full five-question sequence. Bug fixes and refactors still route
+   directly to implementation per DTP's "does not apply" clauses.
 2. Systems Analysis — invoke `/systems-analysis`
 3. Solution Design — invoke `superpowers:brainstorming` (opt-in: Sequential Thinking available if not converging)
 4. Fat Marker Sketch — invoke `/fat-marker-sketch` (after approach selected)

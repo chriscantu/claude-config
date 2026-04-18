@@ -24,15 +24,21 @@ Scenarios to verify the /systems-analysis skill works correctly.
 
 ## Scenario 2: Self-contained change with minimal blast radius
 
-**Prompt:** (after problem definition) "The problem is that our CLI tool doesn't have shell completions, making it slower to use."
+**Prompt:** "The problem is that our CLI tool doesn't have shell completions, making it slower to use."
+
+**Pipeline context:** Under ADR #0004, define-the-problem is the mandatory front door for all planning work. The prompt states a problem, so DTP runs in Expert Fast-Track: it drafts a problem statement, confirms with the user, and fills any gaps with at most two targeted questions before handing off to systems-analysis. Systems-analysis picks up from the confirmed statement.
 
 **Expected behavior:**
-- [ ] Quickly identifies: single-team ownership, no cross-system dependencies
+- [ ] DTP fires and uses the Expert Fast-Track path (draft + confirm, not five questions)
+- [ ] DTP fills gaps with ≤2 targeted questions, or flags them as known unknowns
+- [ ] Once systems-analysis runs, it quickly identifies: single-team ownership, no cross-system dependencies
 - [ ] Notes minimal second-order effects and low blast radius
 - [ ] Keeps analysis brief (1-2 sentences per dimension)
 - [ ] Moves to brainstorming quickly — doesn't inflate a simple problem
 
 **Failure signals:**
+- DTP walks the full five-question sequence on a prompt with a stated problem
+- DTP gets skipped entirely (should be impossible under ADR #0004, but worth watching)
 - Runs full enterprise-scale analysis for a shell completion feature
 - Invents dependencies that don't exist
 - Takes 5 minutes on systems analysis for a 1-hour feature

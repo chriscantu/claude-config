@@ -72,24 +72,61 @@
     },
     {
       "name": "self-contained-shell-completions",
-      "summary": "Truly low-blast-radius change. Should run a brief pass and move on — not inflate.",
+      "summary": "Well-scoped problem stated in the prompt. Under ADR #0004, DTP is the mandatory front door and must fast-track: draft + confirm, not five-question sequence.",
       "prompt": "The problem is that our CLI tool doesn't have shell completions, making it slower to use. Let's plan this out.",
       "assertions": [
         {
           "type": "skill_invoked",
-          "skill": "systems-analysis",
-          "description": "systems-analysis skill fires — even a low-blast-radius change gets a brief surface-area pass"
+          "skill": "define-the-problem",
+          "description": "define-the-problem fires — it is the mandatory front door per ADR #0004, regardless of how well-scoped the prompt is"
         },
         {
-          "type": "not_skill_invoked",
-          "skill": "define-the-problem",
-          "description": "define-the-problem must NOT fire — the problem is already stated in the prompt"
+          "type": "regex",
+          "pattern": "(\\*\\*(User|Problem|Impact|Evidence|Constraints)\\*\\*|draft (the |a )?problem statement|(expert )?fast[- ]?track|(couple of|two|2|few) (targeted|specific|clarif))",
+          "flags": "i",
+          "description": "DTP enters Expert Fast-Track — either drafts the problem statement using the Step 3 template, announces the fast-track path, or bounds itself to ≤2 targeted questions. Any of these signals distinguishes fast-track from the five-question walkthrough"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(who has this problem\\?[\\s\\S]{0,600}what'?s the pain\\?|question\\s*1[:.]\\s*who|let'?s start with (the |our )?first question)",
+          "flags": "i",
+          "description": "Does NOT walk through the full five-question sequence one at a time — fast-track is load-bearing"
         },
         {
           "type": "not_regex",
           "pattern": "(cross[- ]team coordination|change management|stakeholder (alignment|review)|rfc|architecture review board)",
           "flags": "i",
           "description": "Does NOT invent enterprise coordination overhead for shell completions"
+        }
+      ]
+    },
+    {
+      "name": "greenfield-no-problem-stated",
+      "summary": "Greenfield 'let's build X' prompt with no stated problem. Under ADR #0004, DTP still fronts the pipeline and must run the full five-question sequence — fast-track does not apply.",
+      "prompt": "Let's build a team-velocity widget for our engineering dashboard.",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "define-the-problem",
+          "description": "define-the-problem fires — mandatory front door even for greenfield prompts"
+        },
+        {
+          "type": "regex",
+          "pattern": "(who (has|experiences|hits|is feeling) (this|the)|which (user|persona|role|team)|whose (problem|pain)|what (problem|pain|goes wrong) (today|without))",
+          "flags": "i",
+          "description": "Probes the 'who' and/or 'what pain' — signals the full five-question path, not a fast-track draft"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^[\\s\\S]{0,400}?\\*\\*(User|Problem|Impact|Evidence)\\*\\*",
+          "flags": "i",
+          "description": "Does NOT lead with a drafted problem statement — there is no stated problem to draft from, so fast-track must not fire"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^(sure|here|let'?s|i'?ll)[\\s\\S]{0,80}(design|build|sketch|wireframe)[\\s\\S]{0,60}(widget|dashboard|velocity)",
+          "flags": "im",
+          "description": "Does NOT jump to designing the widget without a problem definition pass"
         }
       ]
     }

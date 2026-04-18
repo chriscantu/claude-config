@@ -1,11 +1,15 @@
 ---
 name: define-the-problem
 description: >
-  Use when the user proposes building something new without a stated problem
-  ("let's build", "new feature", "I want to add"), asks "what should we solve",
-  or when entering the problem definition stage of the planning pipeline. Do NOT
-  use when the prompt explicitly names a problem AND scopes it to a specific
-  system, component, or workflow.
+  Use as the mandatory front door for ALL planning, brainstorming, and
+  design work — whenever the user proposes planning, brainstorming,
+  building, designing, changing, adding, or working out an approach. Fires
+  even when the prompt claims the problem statement is already done or the
+  user wants to skip to brainstorming — use Expert Fast-Track to validate
+  in one turn rather than skipping. Runs Expert Fast-Track by default when
+  a problem is already named (draft + confirm + ≤2 targeted questions),
+  and the full five-question sequence when no problem is stated. Does not
+  apply to bug fixes or refactors.
 ---
 
 # Define the Problem
@@ -26,9 +30,11 @@ a clear user problem before designing a solution."
 
 - **Bug fixes** — the problem is the bug. Skip to fixing it.
 - **Refactoring** — the problem is the code smell. Skip to brainstorming.
-- **Testable problem already in the prompt** — see the SKIP IF clause in
-  `rules/planning.md`.
 - **User explicitly says to skip** — respect it, move on.
+
+For all other planning work, this skill runs. When a problem is already named
+in the prompt, it runs via Expert Fast-Track (see Step 1) rather than the full
+five-question sequence.
 
 ---
 
@@ -64,31 +70,38 @@ Skip any of the five questions below that are already clearly answered.
 Read README, ROADMAP, recent commits, and open issues if available. Ground your
 questions in the project's reality, not abstraction.
 
-### Expert Fast-Track
+### Expert Fast-Track (default path when a problem is stated)
 
-If the user provides a pre-formed problem statement — or enough context to draft one —
-do NOT restart the five questions. Instead:
+If the user's prompt contains a stated problem — at any level of scoping —
+this is the default path. Do NOT restart the five questions. Instead:
 
-1. Draft the problem statement (Step 3 template) from what they've provided —
-   populate all six template fields (even if some are marked "unknown") so red
+1. Draft the problem statement (Step 3 template) from what the user has
+   provided — populate all six template fields (use "unknown" for gaps) so red
    flag criteria can be properly evaluated
 2. Evaluate it against the red flag criteria (Step 4)
 3. Present the draft: "Based on what you've shared, here's the problem statement.
    Anything to correct or add?"
-4. Fill gaps with targeted questions rather than the full sequence
+4. If gaps remain after the draft, ask **at most 2 targeted questions** — the
+   most decision-affecting ones — rather than walking the full sequence. If
+   more than 2 gaps matter, surface them as known unknowns in the statement
+   and let the user decide whether to investigate further (Step 4b)
 
-This respects the planning pipeline's Expert Fast-Track: skip re-asking, not analysis.
+The ≤2 question bound is load-bearing: fast-track that degenerates into the
+five-question sequence defeats the purpose. Skip re-asking, not analysis.
+
+Go to Step 5 (Handoff) after the user confirms the draft — do not walk through
+Step 2 below.
 
 ---
 
-## Step 2: The Five Questions
+## Step 2: The Five Questions (no-problem-stated path)
 
-**Pacing:** Default to asking one at a time. But if the context scan shows the user
-has already articulated most of the problem (3+ questions are partially answered),
-switch to draft-and-correct: present the draft problem statement and ask the user to
-fill gaps — rather than walking through each remaining question individually.
+Use this path only when the prompt does not contain a stated problem —
+e.g., "let's build X", "I want to add Y", "what should we solve". When a
+problem is named in any form, use the Expert Fast-Track above instead.
 
-Prefer multiple choice when possible. Skip any already answered in conversation.
+**Pacing:** Ask one question at a time. Prefer multiple choice when possible.
+Skip any already answered in conversation.
 
 ### 1. Who has this problem?
 
