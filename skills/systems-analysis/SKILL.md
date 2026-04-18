@@ -36,13 +36,15 @@ anyway, and report what the scan found. Never skip the scan based on the framing
 
 ## When a Skip Is Honored
 
-Skipping is allowed **only after** the Step 1 surface-area scan and **only** for:
+Skipping the analysis entirely (no Condensed Pass, no Full Pass) is allowed **only
+after** the Step 1 surface-area scan and **only** when the user explicitly overrides
+by naming the specific cost — e.g., "skip the analysis, I accept the risk of missed
+blast radius." A bare "skip" request is not sufficient; the user must acknowledge
+what is being given up.
 
-- **Single-component changes** where the scan found no cross-system or cross-team touches
-- **Bug fixes** where the scan confirms the blast radius matches the diagnosis
-- **User override that names the specific cost** — "skip the analysis, I accept the risk
-  of missed blast radius" or equivalent. A bare "skip" request is not sufficient; the
-  user must acknowledge what is being given up.
+Low-blast-radius scenarios (single-component changes, bug fixes where the scan
+confirms the blast radius matches the diagnosis) are **not skips** — they run the
+Condensed Pass. One paragraph is still required output.
 
 ---
 
@@ -77,8 +79,13 @@ Name, in one short list:
 - **Edge states** the UI or code path must handle (null, empty, unauthorized, first-login)
 
 The scan takes ~60 seconds. Its purpose is to produce **concrete concerns**, not
-permission to stop. If the scan finds genuinely nothing, say so explicitly — don't
-invent concerns to justify depth.
+permission to stop. If the scan finds nothing, say so explicitly — don't invent
+concerns to justify depth, and don't omit concerns to justify Condensed.
+
+**Display the scan output to the user before choosing a tier.** The user should
+see what concerns surfaced (or that none did) — the tier decision is only
+defensible against an authority-pressure framing if the surface-area evidence is
+visible.
 
 ## Step 2: Pick the Tier
 
