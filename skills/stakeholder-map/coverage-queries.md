@@ -26,8 +26,9 @@ For each dimension, produce `{ buckets: { bucket_name: count }, gap_buckets: [li
 ### 2. Team
 
 - Buckets: distinct `[team:*]` values.
-- Known-but-not-met: traverse `reports_to` chains to extract team names mentioned
-  in observations but with no met member.
+- Known-but-not-met: team names that appear in `[context]` observation bodies
+  (e.g. "leads the platform team") but have zero entities carrying the matching
+  `[team:*]` tag. Surface these as "team mentioned but nobody met" candidates.
 - Gap: any known team with zero entities directly tagged.
 
 ### 3. Function

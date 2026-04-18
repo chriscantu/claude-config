@@ -22,8 +22,10 @@ Ask prompts one at a time. Prefer multiple-choice where possible.
 2. **Role** (full job title, free text) →
    `add_observations([{ entityName, contents: ["[YYYY-MM-DD][context] <title>"] }])`.
 
-3. **Role axis** (choice: manager / ic) →
-   replaceable write of `[YYYY-MM-DD][role:<axis>]`.
+3. **Role axis** (choice: manager / ic / exec / staff) →
+   replaceable write of `[YYYY-MM-DD][role:<axis>]`. See
+   [graph-schema.md](graph-schema.md) for the extensibility policy if a new
+   value is needed.
 
 4. **Function** (choice: engineering / product / design / data / security / sre) →
    replaceable write of `[YYYY-MM-DD][function:<name>]`.
