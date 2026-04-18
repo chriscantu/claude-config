@@ -18,11 +18,12 @@ review your coverage]."
 **Flow:** Prerequisites → Invocation → Mode Detection → Mode Dispatch.
 
 **Reference files** (read on demand, not upfront):
-- [graph-schema.md](graph-schema.md) — tags, relations, write protocols
+- [graph-schema.md](graph-schema.md) — tags, relations, write protocols, shared computation rules
 - [bootstrap.md](bootstrap.md) — manual form + calendar-seed flow (Mode A intake)
 - [chart-render.md](chart-render.md) — Mode A chart rendering
 - [heatmap-render.md](heatmap-render.md) — Mode B heatmap rendering
 - [coverage-queries.md](coverage-queries.md) — five dimension queries, echo-chamber, structural-gap
+- [sync.md](sync.md) — `--sync` drain line format and partial-replay semantics
 
 ## Privacy
 
@@ -53,28 +54,9 @@ render time (not skill invocation) using `mcp__Claude_Preview__preview_list` and
 /stakeholder-map --sync                       # drain pending-sync
 ```
 
-### `--sync` semantics
-
-`--sync` drains pending-sync files in `skills/stakeholder-map/pending-sync/` by
-reading each file top-to-bottom and replaying its entries into the memory graph.
-Each line begins with a type sigil:
-
-- `- ent: <entityName>` → `create_entities` with `entityType: "Person"` if the
-  entity is missing (no-op otherwise).
-- `- obs: <entityName> :: [YYYY-MM-DD][tag]... <text>` → `add_observations`
-  (creates the entity first if missing).
-- `- del: <entityName> :: [<prefix>]` → run the replaceable-tag write protocol
-  for the given prefix on the entity (deletes all matching observations). Used
-  by offline bootstrap to mark replaceable-tag rewrites; typically immediately
-  followed by a matching `- obs:` line carrying the new value.
-- `- rel: <from> --<relationType>--> <to>` → `create_relations` (only when both
-  entities exist; otherwise append a `- obs: <from> :: [YYYY-MM-DD][context]
-  pending relation <relationType> to <to>, target missing` line to a new
-  pending-sync file and continue).
-
-Lines are processed in file order. Lines that do not match are surfaced as
-errors; `--sync` does NOT silently skip. After a file drains without errors,
-delete it.
+`--sync` drains pending-sync files in `skills/stakeholder-map/pending-sync/`
+into the memory graph. Line format, partial-replay semantics, and
+authoring rules are specified in [sync.md](sync.md).
 
 ## Mode Detection
 

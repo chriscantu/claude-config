@@ -36,7 +36,7 @@ writes the new one. This keeps assessments current without accumulating stale re
 | `[tenure:<axis>]` | `long`, `new` | `[2026-04-18][tenure:long]` |
 | `[role:<axis>]` | `manager`, `ic`, `exec`, `staff` | `[2026-04-18][role:manager]` |
 
-**Adding values:** Writers may introduce new values for the enum-style tags (`category`, `function`, `role`, `tenure`) but must update this table in the same commit so consumers know what to expect.
+**Adding values:** Repo authors editing this file may introduce new values for the enum-style tags (`category`, `function`, `role`, `tenure`) but must update this table in the same commit so consumers know what to expect. At skill runtime, the agent MUST NOT mint new values — see [§Role-tag extensibility at runtime](#role-tag-extensibility-at-runtime) for the runtime rule.
 
 **Replaceable-tag write protocol:**
 1. `search_nodes` on the entity name.
@@ -162,12 +162,34 @@ order buckets as:
 
 ### Role-tag extensibility at runtime
 
-The "Adding values" policy on the replaceable tag table assumes a human author
-editing this file in a repo. At skill runtime, the agent MUST NOT mint new
-values for `category`, `function`, `role`, or `tenure` — only the canonical values
-in this file are writable. If the user insists on a value outside the enum,
-surface: "This value isn't in the schema. Record it in `[team:*]` or `[context]`
-instead, or edit graph-schema.md and re-run."
+This rule is the runtime counterpart to the "Adding values" note on the
+[replaceable tag table](#replaceable-tags-one-value-per-entity-at-a-time). At
+skill runtime, the agent MUST NOT mint new values for `category`, `function`,
+`role`, or `tenure` — only the canonical values in this file are writable.
+If the user insists on a value outside the enum, surface: "This value isn't in
+the schema. Record it in `[team:*]` or `[context]` instead, or edit
+graph-schema.md and re-run."
+
+### Replaceable-tag half-failure recovery
+
+If step 3 of the write protocol succeeds (priors deleted) but step 4 fails (new
+value not written), the entity is left with no value for that tag prefix. When
+this happens the skill MUST:
+
+1. Surface: "Prior `[<prefix>]` tag deleted for `<entityName>` but new value
+   failed to write. Entity is now in an inconsistent state."
+2. Offer two recovery actions:
+   - `[retry]` — re-run step 4 with the same value. Idempotent; safe to re-run
+     if the underlying MCP failure was transient.
+   - `[restore-manual]` — prompt the user for the prior value (if they
+     remember), write it via step 4. If the user cannot recall, treat the tag
+     as newly unset and re-run the appropriate bootstrap prompt to collect it.
+3. Do NOT auto-continue to other writes for this entity until one of the
+   recovery actions completes.
+
+`[retry]` is the default. Never silently continue — a half-failure that escapes
+recovery produces an entity that queries will read as `unknown` for that
+dimension, silently skewing coverage results.
 
 ## Compatibility With 1on1-prep
 

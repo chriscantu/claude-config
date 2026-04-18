@@ -88,8 +88,11 @@ When `--seed-from-calendar [--days=N]` (default N=30):
      `[skip]`.
    - Not found: include in picklist with default action `[add]`.
 4. Present picklist with four options per row: `[add]`, `[skip]`, `[seen-but-skip]`,
-   `[upgrade-existing]` (the last only when matched and the entity lacks
-   stakeholder-map tags).
+   `[upgrade-existing]` (the last only when the entity exists but does NOT
+   satisfy the **stakeholder-map membership predicate** in
+   [graph-schema.md](graph-schema.md#stakeholder-map-membership-predicate) —
+   i.e., it has 1on1-prep or `[context]`-only observations but no
+   category/power/function/role/tenure/team tags).
 5. For each `[add]`: run the manual form above, pre-filled with name from the
    calendar entry.
 6. For each `[seen-but-skip]`: create the entity if missing, and append
@@ -133,14 +136,11 @@ Running Mode A a second time on the same graph adds or updates without wiping:
 
 If memory MCP check from SKILL.md failed, every add/update write in this file
 routes to `pending-sync/YYYY-MM-DD-<person-lowercase>.md` instead. The file
-uses the line-prefix format defined in [SKILL.md](SKILL.md) under
-"`--sync` semantics":
+uses the line-prefix format and authoring rules specified in
+[sync.md](sync.md). Summary of the four sigils used by bootstrap writes:
 
 - Entity creation → `- ent: <name>`
 - Observation writes → `- obs: <name> :: [YYYY-MM-DD][tag]... <text>`
+- Replaceable-tag rewrites → `- del: <name> :: [<prefix>]` immediately
+  followed by the replacement `- obs:` line (sync.md enforces the pairing).
 - Relation writes → `- rel: <from> --<relationType>--> <to>`
-
-Replaceable-tag writes in offline mode append a new `- obs:` line for the new
-value AND a `- del: <name> :: [YYYY-MM-DD][<prefix>]` line marking the prefix to
-clear on replay. `--sync` processes `del` lines by running the replaceable-tag
-write protocol before applying the following `obs` line.

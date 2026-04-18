@@ -26,9 +26,10 @@ Canvas sections, top to bottom:
 2. **Echo-chamber banner** (only if `echo_chamber` is non-null) — `rectangle`
    outline frame at y=90, height=60, width=1200. The `themes` field for
    `possible` carries exactly the top-2 theme slugs (or 1 if only one theme
-   exists) in sort order from coverage-queries.md step 4. Inside:
-   - If `status == "possible"`: "Advice has clustered around
-     {themes.join(' and ')}. Worth checking if you're hearing the full range."
+   exists) in sort order from coverage-queries.md step 4. The banner text for
+   `"possible"` is authored in coverage-queries.md step 6 — this file emits it
+   verbatim, it does not re-format the join.
+   - If `status == "possible"`: emit the step-6 banner string.
    - If `status == "healthy"`: "Advice spans {distinct_themes} themes. Healthy
      diversity." (uses the count, not theme names, to avoid crowding the banner).
 3. **Heatmap grid** — starting at y=180. One row per dimension, one cell per

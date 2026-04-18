@@ -134,11 +134,22 @@ Date arithmetic rule in graph-schema.md).
    - `distinct_themes ≥ 3` AND `dominant_share ≤ 0.50` → `echo-chamber:
      healthy diversity`. Include `distinct_themes` count only (no summaries).
    - Otherwise → no flag (insufficient signal).
-6. Tone: "Advice has clustered around {slug_1} and {slug_2}. Worth checking if
-   you're hearing the full range." Never "WARNING" framing. Exactly the top-2
-   slugs, comma-separated, lowercased, in the order produced by step 4.
+6. Banner text (exact format, emitted by heatmap-render.md):
+   `"Advice has clustered around {slug_1} and {slug_2}. Worth checking if
+   you're hearing the full range."` Slugs are lowercased, joined with the
+   literal string `" and "`, in the order produced by step 4. If only one
+   theme exists, drop the second slug and the " and " join:
+   `"Advice has clustered around {slug_1}. Worth checking if you're hearing
+   the full range."` Never "WARNING" framing.
 
 ## Freshness Prompt
+
+**Note on intent.** Bootstrap writes a `[coverage:met] bootstrap intake`
+observation when the user first captures a stakeholder (see
+[bootstrap.md](bootstrap.md)). This is intentional — intake is a real first
+interaction event, and it sets the 30-day clock from the day the stakeholder
+enters the map. The guard in bootstrap prevents it from overwriting a real
+meeting on the same day.
 
 On every Mode B run (all date arithmetic per graph-schema.md):
 
@@ -162,8 +173,13 @@ emit "Map empty — run /stakeholder-map --mode=leader-onboarding first."
 
 Names mentioned in observation text but not tracked as entities.
 
-1. Scan every member entity's observation free-text body (the portion after the
-   final `]`).
+1. Scan observation free-text bodies (the portion after the final `]`) across
+   BOTH member entities and non-member entities carrying `[context]`
+   observations (e.g., `seen-but-skip` records). Limiting the scan to members
+   would silently exclude names mentioned in calendar-seeded context notes,
+   which is the exact case structural-gap detection is supposed to catch.
+   `[advice]` observations on non-members are NOT scanned — those are captured
+   by their own entity already.
 2. Regex for capitalized name-shaped tokens:
    `\b[A-Z][a-z'\-]+(?:\s+[A-Z][a-z'\-]+)+\b`
    (requires at least two capitalized words to avoid matching single capitalized
@@ -178,9 +194,10 @@ Names mentioned in observation text but not tracked as entities.
    observation more than once per candidate.
 5. For each candidate, `search_nodes` — if no entity exists with that exact name,
    add to the candidate list with the observation count from step 4.
-6. Sort candidates by count descending; break ties per the canonical sort order
-   (by name ascending, since entity-specific fields don't apply to untracked
-   names).
+6. Sort candidates by count descending. Break ties per the **canonical sort
+   order** in [graph-schema.md](graph-schema.md#canonical-sort-order-for-ties).
+   Untracked names have no category, coverage, or observation history, so
+   steps 1-3 of that order all tie; step 4 (name ascending) decides.
 7. For each candidate with count ≥ 2: emit
    "Name `{X}` came up in {count} observations but isn't tracked. Meet them?"
 
