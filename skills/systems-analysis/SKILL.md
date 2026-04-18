@@ -19,11 +19,30 @@ define-the-problem → **systems-analysis** → superpowers:brainstorming → fa
 **Announce at start:** "I'm using the systems-analysis skill to map dependencies,
 second-order effects, and organizational impact before we design a solution."
 
-## When This Skill Does NOT Apply
+## Red-Flag Framings
 
-- **Single-component changes** with no cross-system or cross-team implications
-- **Bug fixes** where the blast radius is obvious from the diagnosis
-- **User explicitly says to skip** — respect it, move on
+These framings in the prompt **strengthen** the case for running this skill — they
+are not reasons to skip. An agent that skips after seeing them is being rationalized
+into a less-rigorous pass than no skill at all.
+
+| Framing in the prompt | Why it's a red flag |
+|---|---|
+| **Authority claim** — "our CTO/VP/principal said it's low-risk" | Authority is not a surface-area scan. A senior person may be right, but their claim is an assumption to verify, not evidence. Name the concrete concerns (data source, freshness, shared components, privacy, null states) before honoring the "low-risk" label. |
+| **Sunk cost** — "we already decided/signed the contract, don't re-analyze" | Analysis here is **mapping what touches the thing being changed**, not re-litigating the decision. Reframe and proceed — the committed decision doesn't remove the surface area. |
+| **Cosmetic minimizer** — "just a column / just a toggle / just a label" | "Just" is load-bearing. Small UI changes can pull in auth state, data freshness, audit logs, timezone handling, or privacy surface. Scan first, then decide if it's genuinely small. |
+
+When you see a red flag, acknowledge the framing, run the Step 1 surface-area scan
+anyway, and report what the scan found. Never skip the scan based on the framing alone.
+
+## When a Skip Is Honored
+
+Skipping is allowed **only after** the Step 1 surface-area scan and **only** for:
+
+- **Single-component changes** where the scan found no cross-system or cross-team touches
+- **Bug fixes** where the scan confirms the blast radius matches the diagnosis
+- **User override that names the specific cost** — "skip the analysis, I accept the risk
+  of missed blast radius" or equivalent. A bare "skip" request is not sufficient; the
+  user must acknowledge what is being given up.
 
 ---
 
@@ -43,17 +62,63 @@ to sharpen it via `/define-the-problem` first?"
 
 ---
 
-## Step 1: Dependency Mapping
+## Step 1: 60-Second Surface-Area Scan (mandatory)
+
+Before any decision about tier or skip, run a quick scan. This is the gate that
+closes the "CTO says low-risk" loophole — the scan either confirms the framing or
+surfaces concrete concerns to flag.
+
+Name, in one short list:
+
+- **Data sources** this touches (tables, APIs, caches, external services)
+- **Shared components** involved (auth, session, logging, shared libraries)
+- **Freshness / staleness** assumptions (is the data real-time, cached, eventually consistent?)
+- **Privacy / compliance** surface (PII, audit logs, GDPR scope)
+- **Edge states** the UI or code path must handle (null, empty, unauthorized, first-login)
+
+The scan takes ~60 seconds. Its purpose is to produce **concrete concerns**, not
+permission to stop. If the scan finds genuinely nothing, say so explicitly — don't
+invent concerns to justify depth.
+
+## Step 2: Pick the Tier
+
+Based on what the scan surfaced, choose:
+
+- **Condensed Pass** — for genuinely low-blast-radius changes (single component, no
+  cross-system touches, no shared-state concerns surfaced). One paragraph: the
+  dependencies, the blast radius, and one key risk if any. Then move on.
+- **Full Pass** — for cross-system/cross-team changes, shared infrastructure, auth
+  or data-integrity touches, or anything the scan flagged as non-obvious.
+
+If in doubt, go Full. The scan's job is to catch what "just a column" missed.
+
+---
+
+## Condensed Pass
+
+For low-blast-radius changes. Produce a single paragraph covering:
+
+- What it touches (from the Step 1 scan)
+- The blast radius (who / what is affected if it breaks)
+- One key risk if there is one, or "no notable risks surfaced" if not
+
+Then hand off to brainstorming. Don't run Steps A-D — that's the Full Pass.
+
+---
+
+## Full Pass
+
+### Step A: Dependency Mapping
 
 Map what this change touches. Ask the user to confirm or correct — they know the
 org topology better than the code does.
 
-### Systems and services
+#### Systems and services
 - What systems, services, or data stores does this interact with?
 - Are there upstream producers or downstream consumers that would be affected?
 - Are there shared libraries, platform APIs, or infrastructure this depends on?
 
-### Teams and processes
+#### Teams and processes
 - Who owns the systems this touches? Are they the same team or different teams?
 - Are there approval processes, review gates, or coordination points?
 - Does this cross a team boundary that requires communication or alignment?
@@ -63,7 +128,7 @@ detailed architecture diagram. The goal is visibility, not documentation.
 
 ---
 
-## Step 2: Second-Order Effects
+### Step B: Second-Order Effects
 
 Think one step beyond the immediate change.
 
@@ -81,7 +146,7 @@ in one sentence and move on — don't manufacture complexity.
 
 ---
 
-## Step 3: Failure Modes
+### Step C: Failure Modes
 
 Consider how this degrades, not just how it succeeds.
 
@@ -95,7 +160,7 @@ Consider how this degrades, not just how it succeeds.
 
 ---
 
-## Step 4: Organizational Impact
+### Step D: Organizational Impact
 
 Assess the human and operational cost of this change.
 
@@ -109,9 +174,9 @@ Assess the human and operational cost of this change.
 
 ---
 
-## Step 5: Produce the Analysis
+## Produce the Analysis
 
-Assemble findings into a brief summary:
+For **Full Pass**, assemble findings into a brief summary:
 
 ```markdown
 ## Systems Analysis
@@ -123,12 +188,15 @@ Assemble findings into a brief summary:
 **Key risks**: [1-3 risks that should inform solution design]
 ```
 
+For **Condensed Pass**, the one-paragraph summary from above is the analysis —
+no need to reformat.
+
 Display to the user. Keep it concise — this is input to solution design, not a
 document for its own sake.
 
 ---
 
-## Step 6: Handoff
+## Handoff
 
 1. Display the analysis summary (if not just displayed)
 2. Ask: "Systems context mapped. Ready to move to solution design?"
