@@ -34,7 +34,9 @@ writes the new one. This keeps assessments current without accumulating stale re
 | `[function:<name>]` | `engineering`, `product`, `design`, `data`, `security`, `sre` | `[2026-04-18][function:product]` |
 | `[team:<name>]` | free text | `[2026-04-18][team:platform]` |
 | `[tenure:<axis>]` | `long`, `new` | `[2026-04-18][tenure:long]` |
-| `[role:<axis>]` | `manager`, `ic` (extensible: `exec`, `staff`) | `[2026-04-18][role:manager]` |
+| `[role:<axis>]` | `manager`, `ic`, `exec`, `staff` | `[2026-04-18][role:manager]` |
+
+**Adding values:** Writers may introduce new values for the enum-style tags (`category`, `function`, `role`, `tenure`) but must update this table in the same commit so consumers know what to expect.
 
 **Replaceable-tag write protocol:**
 1. `search_nodes` on the entity name.
