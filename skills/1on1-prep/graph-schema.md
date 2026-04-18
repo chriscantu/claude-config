@@ -70,3 +70,13 @@ Only create if the manager already exists as a Person entity. Never auto-create 
 [2026-04-15][1on1][coaching][noshow] No capture recorded
 [2026-04-15][mode:coaching] Graduated from intake
 ```
+
+## Schema Extensions (stakeholder-map)
+
+When the user runs `/stakeholder-map`, additional tags (`[power:*]`, `[category:*]`,
+`[function:*]`, `[team:*]`, `[tenure:*]`, `[role:*]`, `[coverage:met]`, `[advice]`)
+and relations (`reports_to_informally`, `influences`) are written to the same
+graph. See [stakeholder-map/graph-schema.md](../stakeholder-map/graph-schema.md)
+for full definitions. 1on1-prep's prep phase may read these tags to surface
+richer context — no code change required; the observation-format contract is
+unchanged.

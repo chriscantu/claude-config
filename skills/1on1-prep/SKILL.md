@@ -18,6 +18,7 @@ Mode Detection → Prep or Capture.
 - [pending-sync.md](pending-sync.md) — file format, parsing, error handling
 - [capture-form.md](capture-form.md) — 6-prompt form, parsing rules, resolution flow
 - [questions.md](questions.md) — question bank
+- [stakeholder-map graph-schema](../stakeholder-map/graph-schema.md) — extended schema (power, category, coverage, advice) shared when stakeholder-map is in use
 
 ## Prerequisites
 
