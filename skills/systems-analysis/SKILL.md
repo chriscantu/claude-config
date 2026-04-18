@@ -16,7 +16,7 @@ modes, and organizational impact. This is the bridge between understanding the p
 and designing a solution.
 
 ```
-define-the-problem → **systems-analysis** → superpowers:brainstorming → fat-marker-sketch → detailed design → implementation
+define-the-problem → **systems-analysis** → brainstorming → fat-marker-sketch → detailed design → implementation
 ```
 
 **Announce at start:** "I'm using the systems-analysis skill to map dependencies,
@@ -94,15 +94,16 @@ visible.
 
 ## Step 2: Pick the Tier
 
-Based on what the scan surfaced, choose:
+Map the scan output to a tier by this binary:
 
-- **Condensed Pass** — for genuinely low-blast-radius changes (single component, no
-  cross-system touches, no shared-state concerns surfaced). One paragraph: the
-  dependencies, the blast radius, and one key risk if any. Then move on.
-- **Full Pass** — for cross-system/cross-team changes, shared infrastructure, auth
-  or data-integrity touches, or anything the scan flagged as non-obvious.
+- **Condensed Pass** — the scan surfaced zero concrete concerns *and* the change is
+  single-component.
+- **Full Pass** — any concrete concern surfaced, *or* the change crosses a
+  system/team boundary. "Unknowns" count as concerns until the user resolves them.
 
-If in doubt, go Full. The scan's job is to catch what "just a column" missed.
+**Announce the tier before proceeding**: "Tier: Condensed Pass" or "Tier: Full
+Pass." Making the decision visible is what prevents a low-rigor pass from being
+mistaken for a scan-informed judgment.
 
 ---
 
