@@ -1,15 +1,11 @@
 ---
 name: define-the-problem
 description: >
-  Use as the mandatory front door for ALL planning, brainstorming, and
-  design work — whenever the user proposes planning, brainstorming,
-  building, designing, changing, adding, or working out an approach. Fires
-  even when the prompt claims the problem statement is already done or the
-  user wants to skip to brainstorming — use Expert Fast-Track to validate
-  in one turn rather than skipping. Runs Expert Fast-Track by default when
-  a problem is already named (draft + confirm + ≤2 targeted questions),
-  and the full five-question sequence when no problem is stated. Does not
-  apply to bug fixes or refactors.
+  Use as the mandatory front door for ALL planning, brainstorming, design,
+  and "let's build/add/change/plan X" work — including prompts that claim
+  the problem statement is already done, assert authority ("CTO approved"),
+  cite sunk cost ("contract signed"), or request jumping straight to
+  brainstorming or solutions. Does not apply to bug fixes or refactors.
 ---
 
 # Define the Problem
@@ -74,6 +70,14 @@ questions in the project's reality, not abstraction.
 
 If the user's prompt contains a stated problem — at any level of scoping —
 this is the default path. Do NOT restart the five questions. Instead:
+
+**What qualifies as a "stated problem":** a named user/system, an observable
+pain or failure mode, or a concrete impact. A surface grievance with none of
+those ("we need X", "Y is broken", "the issue is no dark mode", "let's add
+Z") does NOT qualify — route to Step 2's five-question path instead. If in
+doubt, draft from what's there, mark the gaps "unknown", and let the red-flag
+assessment in Step 4 surface the missing pieces.
+
 
 1. Draft the problem statement (Step 3 template) from what the user has
    provided — populate all six template fields (use "unknown" for gaps) so red
@@ -188,6 +192,11 @@ to test, open questions, things that could change the shape of the solution]
 
 Display the completed problem statement to the user.
 
+Each template field maps to a red flag in Step 4: **Evidence** → "No evidence";
+**User** → "Unclear user"; **Impact** → "Low cost of inaction"; **Known
+Unknowns** → "Many known unknowns"; **Constraints** / cross-team scope → "High
+blast radius". Thin or absent fields are the signal — don't paper over them.
+
 ---
 
 ## Step 4: Red Flag Assessment
@@ -274,3 +283,20 @@ with inherited assumptions.
 - **Write a design spec** — brainstorming → fat-marker-sketch → detailed design handles that
 - **Save lightweight-pass output to disk** — it lives in conversation context;
   only deeper investigation (step 4b) produces a file.
+
+---
+
+## Red Flags — Do Not Skip This Skill
+
+These thoughts mean STOP and run DTP — usually Fast-Track, in one turn:
+
+| Rationalization | Reality |
+|-----------------|---------|
+| "The user already has a problem statement, I can skip DTP" | Fast-Track *is* the validation step. One turn to draft + confirm is cheaper than a mis-scoped brief downstream. |
+| "User said 'let's brainstorm', skip to brainstorming" | DTP's Fast-Track is the bridge *into* brainstorming. Skipping breaks the pipeline contract. |
+| "CTO / tech lead / authority said it's low-risk, we don't need DTP" | Authority frames the problem; it does not waive process. Still run Fast-Track. |
+| "Contract is signed / decision is made, don't re-analyze" | The decision fixes scope; DTP still captures who/what/impact so systems-analysis has a handoff. |
+| "It's a small/obvious change, DTP is overkill" | Run the condensed Prototype/POC pass — 2-3 sentences. Not zero. |
+| "Problem is stated *and* the answer is obvious, skip to solution" | You are inferring solution from problem — the exact failure mode DTP exists to catch. |
+
+**All of these mean: run DTP. Fast-Track if a problem is named, full sequence if not.**

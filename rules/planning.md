@@ -11,12 +11,10 @@ and architecture decisions. Do NOT skip steps. Do NOT jump to solutions, approac
 or tooling before completing the pipeline.
 
 1. Problem Definition — invoke `/define-the-problem`. This is the mandatory
-   front door for all planning work. When the prompt already names a problem,
-   DTP runs its Expert Fast-Track by default: it drafts the problem statement
-   from prompt content, confirms it with the user, and fills gaps with at most
-   2 targeted questions before handing off. When no problem is stated, DTP
-   runs the full five-question sequence. Bug fixes and refactors still route
-   directly to implementation per DTP's "does not apply" clauses.
+   front door for all planning work. DTP self-calibrates depth (Expert
+   Fast-Track when a problem is already named, full five-question sequence
+   otherwise — see the skill for the mechanics). Bug fixes and refactors
+   route directly to implementation per DTP's "does not apply" clauses.
 2. Systems Analysis — invoke `/systems-analysis`
 3. Solution Design — invoke `superpowers:brainstorming` (opt-in: Sequential Thinking available if not converging)
 4. Fat Marker Sketch — invoke `/fat-marker-sketch` (after approach selected)

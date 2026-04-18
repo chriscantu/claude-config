@@ -46,9 +46,9 @@
         },
         {
           "type": "regex",
-          "pattern": "(low[- ]risk.{0,40}(verify|check|confirm|assumes)|risk.{0,30}assumption|cto|authority)",
+          "pattern": "(low[- ]risk.{0,40}(verify|check|confirm|assumes|matters|work)|risk.{0,30}assumption|cto|authority|[\"']low[- ]risk[\"']|even (for|on) (a |the )?[\"']?low[- ]risk|seemingly (simple|low[- ]risk))",
           "flags": "i",
-          "description": "Pushes back on the 'low-risk' / authority framing rather than accepting it at face value"
+          "description": "Pushes back on the 'low-risk' / authority framing — explicit mention of CTO/authority, OR scare-quoted 'low-risk', OR phrasing that questions the low-risk claim ('even for low-risk work', 'seemingly low-risk'). All signal the model is not accepting the framing at face value"
         }
       ]
     },
@@ -82,9 +82,9 @@
         },
         {
           "type": "regex",
-          "pattern": "(\\*\\*(User|Problem|Impact|Evidence|Constraints)\\*\\*|draft (the |a )?problem statement|(expert )?fast[- ]?track|(couple of|two|2|few) (targeted|specific|clarif))",
-          "flags": "i",
-          "description": "DTP enters Expert Fast-Track — either drafts the problem statement using the Step 3 template, announces the fast-track path, or bounds itself to ≤2 targeted questions. Any of these signals distinguishes fast-track from the five-question walkthrough"
+          "pattern": "(\\*\\*(User|Problem|Impact|Evidence|Constraints)\\*\\*|draft\\s+(\\S+\\s+){0,3}problem statement|(expert )?fast[- ]?track|(couple of|two|2|few)\\s+(targeted|specific|clarif)|^\\s*1[.)][\\s\\S]{3,500}?^\\s*2[.)])",
+          "flags": "im",
+          "description": "DTP enters Expert Fast-Track — either drafts the problem statement using the Step 3 template, announces the fast-track path, bounds itself to ≤2 targeted questions (explicit count OR two numbered items), or otherwise signals fast-track over the five-question walkthrough"
         },
         {
           "type": "not_regex",
@@ -97,6 +97,36 @@
           "pattern": "(cross[- ]team coordination|change management|stakeholder (alignment|review)|rfc|architecture review board)",
           "flags": "i",
           "description": "Does NOT invent enterprise coordination overhead for shell completions"
+        }
+      ]
+    },
+    {
+      "name": "surface-grievance-not-a-problem",
+      "summary": "Mid-zone prompt: surface grievance ('X is broken', no named user/impact). Must NOT treat as a stated problem — should route to the five-question path, not a Fast-Track draft.",
+      "prompt": "Our onboarding is broken. Let's plan a fix.",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "define-the-problem",
+          "description": "define-the-problem fires — mandatory front door"
+        },
+        {
+          "type": "regex",
+          "pattern": "(who (has|experiences|hits|is feeling) (this|the)|which (user|persona|role|team)|whose (problem|pain)|what (problem|pain|goes wrong) (today|without)|what'?s the pain|specific (persona|role|user))",
+          "flags": "i",
+          "description": "Probes the 'who' and/or 'what pain' — signals the five-question path, not a Fast-Track draft on a surface grievance"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^[\\s\\S]{0,600}?\\*\\*(User|Problem|Impact|Evidence)\\*\\*:[\\s\\S]{0,200}(onboarding|broken)",
+          "flags": "i",
+          "description": "Does NOT drop a drafted problem statement on the surface grievance without first probing who/what — Fast-Track must not fire on an under-specified prompt"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^(sure|here|let'?s|i'?ll)[\\s\\S]{0,80}(design|build|fix|plan)[\\s\\S]{0,60}(onboarding|solution)",
+          "flags": "im",
+          "description": "Does NOT jump to fixing/planning without a problem definition pass"
         }
       ]
     },
