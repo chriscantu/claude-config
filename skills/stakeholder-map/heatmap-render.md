@@ -24,25 +24,42 @@ Canvas sections, top to bottom:
 1. **Freshness banner** — single-line `text` element at y=40, `fontSize=16`,
    Excalifont, full-width.
 2. **Echo-chamber banner** (only if `echo_chamber` is non-null) — `rectangle`
-   outline frame at y=90, height=60, width=1200. Inside:
-   - If `status == "possible"`: "Advice has clustered around {themes.join(', ')}.
-     Worth checking if you're hearing the full range."
-   - If `status == "healthy"`: "Advice spans {themes.length} themes. Healthy
-     diversity."
+   outline frame at y=90, height=60, width=1200. The `themes` field for
+   `possible` carries exactly the top-2 theme slugs (or 1 if only one theme
+   exists) in sort order from coverage-queries.md step 4. Inside:
+   - If `status == "possible"`: "Advice has clustered around
+     {themes.join(' and ')}. Worth checking if you're hearing the full range."
+   - If `status == "healthy"`: "Advice spans {distinct_themes} themes. Healthy
+     diversity." (uses the count, not theme names, to avoid crowding the banner).
 3. **Heatmap grid** — starting at y=180. One row per dimension, one cell per
-   bucket. Columns share the widest dimension's cell count (pad shorter
-   dimensions with empty cells).
+   bucket. Bucket order within each row follows the **Bucket ordering** rule in
+   [graph-schema.md](graph-schema.md#bucket-ordering-for-dimension-outputs).
+   Columns share the widest dimension's cell count; shorter dimensions are
+   right-padded with empty-slot cells (no text, no stroke) to keep column
+   alignment.
 4. **Structural gaps list** — below the grid. Numbered `text` lines.
 5. **Next-interviews list** — below structural gaps. Numbered `text` lines.
 
 ## Heatmap Grid Cell Encoding
 
+Classify each cell by applying these rules in order; the first match wins:
+
+1. **Unknown** — the bucket is the `unknown` bucket for its dimension (no data
+   vs. a real bucket with count 0). Stroke: dashed, `strokeWidth: 1`.
+2. **Empty gap** — `count == 0`. Stroke: solid, `strokeWidth: 1`.
+3. **Undercovered** — `count == 1` OR the bucket is in `gap_buckets` with
+   `count < 2`. Stroke: solid, `strokeWidth: 1`.
+4. **Well-covered** — `count >= 2` AND bucket is NOT in `gap_buckets`. Stroke:
+   solid, `strokeWidth: 4`.
+
+Summary table (informational — the rule order above is authoritative):
+
 | Cell state | Stroke |
 |------------|--------|
-| Well-covered (count ≥ 2 and not in `gap_buckets`) | solid, `strokeWidth: 4` |
-| Undercovered (count = 1, or in `gap_buckets` with count < 2) | solid, `strokeWidth: 1` |
-| Empty gap (count = 0, in `gap_buckets`) | solid, `strokeWidth: 1` |
-| Unknown (no data for this bucket) | dashed, `strokeWidth: 1` |
+| Well-covered | solid, `strokeWidth: 4` |
+| Undercovered | solid, `strokeWidth: 1` |
+| Empty gap | solid, `strokeWidth: 1` |
+| Unknown | dashed, `strokeWidth: 1` |
 
 Cells are outline-only (`backgroundColor: transparent`). Inside each cell, two
 stacked `text` elements:

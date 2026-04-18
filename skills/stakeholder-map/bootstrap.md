@@ -54,8 +54,11 @@ Ask prompts one at a time. Prefer multiple-choice where possible.
     - Informal reports to? → `reports_to_informally`.
     - Influences? → `influences`.
 
-After prompt 11: append-only write `[YYYY-MM-DD][coverage:met] <context if any>`.
-Every bootstrap counts as a meeting event.
+After prompt 11: append-only write `[YYYY-MM-DD][coverage:met] bootstrap intake`.
+Every bootstrap counts as a meeting event — the text is fixed (`bootstrap intake`)
+so freshness signals are not inflated by optional context text. If the user has
+already logged a real meeting with this stakeholder today, omit this write and
+instead add `[YYYY-MM-DD][context] bootstrap intake, real meeting already logged`.
 
 ## Replaceable-Tag Write Protocol
 
@@ -74,18 +77,25 @@ failed to write" and prompt the user to retry.
 When `--seed-from-calendar [--days=N]` (default N=30):
 
 1. `mcp__5726bf10-7325-408d-9c0c-e32eaf106ac5__list_events` with
-   `timeMin` = N days ago, `timeMax` = now. If Calendar MCP is unavailable, warn
-   and offer to continue with manual bootstrap only.
-2. Extract unique attendee email/name pairs, excluding the current user.
-3. For each candidate, `search_nodes` against the graph.
-   - Match found: skip by default (user can override in step 5).
-   - Not found: include in picklist.
-4. Present picklist with three options per row: `[add]`, `[skip]`, `[seen-but-skip]`.
+   `timeMin` = N calendar days ago (UTC), `timeMax` = now. If Calendar MCP is
+   unavailable, warn and offer to continue with manual bootstrap only.
+2. Extract attendee records, excluding the current user. **Dedupe key:**
+   lowercased email address. Display label = first-seen display name for that
+   email. Attendees without an email (rare) dedupe on lowercased name and are
+   flagged as "no-email" in the picklist.
+3. For each candidate, `search_nodes` against the graph:
+   - Match found: show in picklist with a `[matched]` marker; default action is
+     `[skip]`.
+   - Not found: include in picklist with default action `[add]`.
+4. Present picklist with four options per row: `[add]`, `[skip]`, `[seen-but-skip]`,
+   `[upgrade-existing]` (the last only when matched and the entity lacks
+   stakeholder-map tags).
 5. For each `[add]`: run the manual form above, pre-filled with name from the
    calendar entry.
 6. For each `[seen-but-skip]`: create the entity if missing, and append
    `[YYYY-MM-DD][context] seen via calendar, not tracked`. This prevents the name
    from reappearing on the next seed run.
+7. For each `[upgrade-existing]`: run the upgrade flow (see below).
 
 ## Upgrade Flow (from 1on1-prep entity)
 
@@ -94,15 +104,23 @@ When the manual form's name-lookup matches an entity that has 1on1-prep tags
 
 > "{name} exists with 1on1-prep data. Add stakeholder fields? [yes/no/skip]"
 
-If yes: skip prompts 1-2 (name/role stay as recorded) and run prompts 3-11.
+If yes: skip prompt 1 (name stays as recorded). For prompt 2, verify at least one
+`[context]` observation already records a role/title; if none exists, still ask
+prompt 2 before proceeding. Then run prompts 3-11.
 
 ## Progressive Rendering
 
-After every 5 successful per-stakeholder completions, offer to re-render:
+Maintain a per-session counter. Increment by 1 on each successful completion of
+prompt 11 (full form, upgrade flow, or calendar-seeded add — `seen-but-skip`
+does NOT increment). The counter resets to 0 when the skill exits (a new
+`/stakeholder-map` invocation starts at 0).
+
+After every 5 increments, offer to re-render:
 
 > "Added 5 stakeholders. Render chart now? [yes/no]"
 
-Explicit `/stakeholder-map --render` command triggers a render on demand.
+Explicit `/stakeholder-map --render` command triggers a render on demand and does
+not reset the counter.
 
 ## Idempotence
 
@@ -114,5 +132,15 @@ Running Mode A a second time on the same graph adds or updates without wiping:
 ## MCP-Unavailable Fallback
 
 If memory MCP check from SKILL.md failed, every add/update write in this file
-routes to `pending-sync/YYYY-MM-DD-<person-lowercase>.md` instead, using the
-1on1-prep file format (one observation per line, prefixed with `- `).
+routes to `pending-sync/YYYY-MM-DD-<person-lowercase>.md` instead. The file
+uses the line-prefix format defined in [SKILL.md](SKILL.md) under
+"`--sync` semantics":
+
+- Entity creation → `- ent: <name>`
+- Observation writes → `- obs: <name> :: [YYYY-MM-DD][tag]... <text>`
+- Relation writes → `- rel: <from> --<relationType>--> <to>`
+
+Replaceable-tag writes in offline mode append a new `- obs:` line for the new
+value AND a `- del: <name> :: [YYYY-MM-DD][<prefix>]` line marking the prefix to
+clear on replay. `--sync` processes `del` lines by running the replaceable-tag
+write protocol before applying the following `obs` line.

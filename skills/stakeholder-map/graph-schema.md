@@ -68,6 +68,107 @@ by counting and sorting, not by replacement.
 Relations are created via `create_relations` and cleaned up with `delete_relations`.
 Do not create a relation unless both entities exist in the graph.
 
+## Shared Computation Rules
+
+These rules are canonical. Any file in this skill that mentions membership,
+"latest" tag values, date windows, sort order, or tag matching MUST defer to this
+section rather than restating its own rule.
+
+### Stakeholder-map membership predicate
+
+An entity is **on the stakeholder map** if and only if it has at least one
+observation whose tag portion matches one of these prefixes:
+
+- `[category:`
+- `[power:formal:`
+- `[power:informal:`
+- `[function:`
+- `[role:`
+- `[tenure:`
+- `[team:`
+
+`[context]`, `[coverage:met]`, `[advice]`, `[1on1]`, and `[followup]` observations
+do NOT confer membership on their own. An entity with only `[context]` observations
+(e.g., from a calendar `seen-but-skip` or a 1on1-prep upgrade candidate) is NOT on
+the map.
+
+This predicate is the single definition used by:
+- Mode auto-detection ([SKILL.md](SKILL.md))
+- Chart-render entity selection ([chart-render.md](chart-render.md))
+- Coverage-query scoping ([coverage-queries.md](coverage-queries.md))
+
+### Replaceable-tag prefix matching
+
+When the write protocol says "tag prefix being written", the match is a literal
+string prefix against the bracketed tag portion — not a regex. Examples:
+
+- Writing `[power:formal:high]` matches any prior `[power:formal:*]` observation
+  (prefix `[power:formal:`).
+- Writing `[category:peer]` matches any prior `[category:*]` observation
+  (prefix `[category:`).
+- Writing `[team:platform]` matches any prior `[team:*]` observation
+  (prefix `[team:`), including free-text team names.
+
+The prefix always ends with the trailing `:` (or `]` for tags with no value
+subspace). This prevents `[power:formal:high]` from accidentally matching
+`[power:formal-review]` if such a tag were ever introduced.
+
+### Latest-tag selection
+
+When a consumer reads a replaceable tag value (e.g., "latest `[role:*]`"):
+
+1. Filter the entity's observations to those matching the tag prefix.
+2. Select the observation with the greatest `[YYYY-MM-DD]` date.
+3. On same-date ties: pick the observation with the highest index in the
+   `observations` array (last-written wins).
+4. If no matching observation exists, the value is `unknown`.
+
+### Date arithmetic
+
+- **"Today"** means the current UTC date (`YYYY-MM-DD`).
+- **"Last N days"** means observations whose `[YYYY-MM-DD]` prefix falls in the
+  half-open interval `[today - N calendar days, today]`. Always calendar days,
+  never 24-hour windows.
+- **"Stale by N days"** means `today - last_date > N` calendar days.
+- Two agents running on the same graph on the same UTC date MUST produce the
+  same freshness and echo-chamber windows.
+
+### Canonical sort order for ties
+
+Any ranked list (next-interviews, meet-in-what-order, structural gaps) that
+produces equal primary-score ties MUST break ties in this fixed order:
+
+1. Higher `category_weight` first (direct_report=5, skip=4, peer=3, skip_up=2,
+   cross_functional=1; unknown category sorts last with weight=0).
+2. Unmet before met (no `[coverage:met]` observation sorts first).
+3. More recent latest-`[YYYY-MM-DD]` observation first.
+4. Entity name ascending, case-sensitive Unicode codepoint order.
+
+Truncation (e.g., top 10, top 5) is applied AFTER this sort, so ties at the
+truncation boundary resolve deterministically.
+
+### Bucket ordering for dimension outputs
+
+When emitting dimension buckets (coverage queries, heatmap grid, fallback text),
+order buckets as:
+
+| Dimension | Canonical bucket order |
+|-----------|------------------------|
+| hierarchy | `direct_report`, `skip`, `peer`, `skip_up`, `cross_functional`, `unknown` |
+| function | `engineering`, `product`, `design`, `data`, `security`, `sre`, then any extensions alphabetically, then `unknown` |
+| role | `manager`, `ic`, `exec`, `staff`, then any extensions alphabetically, then `unknown` |
+| tenure | `long`, `new`, `unknown` |
+| team | ascending by `[team:*]` value (case-insensitive), then `unknown` |
+
+### Role-tag extensibility at runtime
+
+The "Adding values" policy on the replaceable tag table assumes a human author
+editing this file in a repo. At skill runtime, the agent MUST NOT mint new
+values for `category`, `function`, `role`, or `tenure` — only the canonical values
+in this file are writable. If the user insists on a value outside the enum,
+surface: "This value isn't in the schema. Record it in `[team:*]` or `[context]`
+instead, or edit graph-schema.md and re-run."
+
 ## Compatibility With 1on1-prep
 
 - A person entity may exist with only 1on1-prep tags (`[1on1]`, `[context]`, `reports_to`).

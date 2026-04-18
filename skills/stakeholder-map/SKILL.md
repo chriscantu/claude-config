@@ -53,13 +53,34 @@ render time (not skill invocation) using `mcp__Claude_Preview__preview_list` and
 /stakeholder-map --sync                       # drain pending-sync
 ```
 
-`--sync` drains pending-sync files using the same format and rules as 1on1-prep.
+### `--sync` semantics
+
+`--sync` drains pending-sync files in `skills/stakeholder-map/pending-sync/` by
+reading each file top-to-bottom and replaying its entries into the memory graph.
+Each line begins with a type sigil:
+
+- `- ent: <entityName>` → `create_entities` with `entityType: "Person"` if the
+  entity is missing (no-op otherwise).
+- `- obs: <entityName> :: [YYYY-MM-DD][tag]... <text>` → `add_observations`
+  (creates the entity first if missing).
+- `- del: <entityName> :: [<prefix>]` → run the replaceable-tag write protocol
+  for the given prefix on the entity (deletes all matching observations). Used
+  by offline bootstrap to mark replaceable-tag rewrites; typically immediately
+  followed by a matching `- obs:` line carrying the new value.
+- `- rel: <from> --<relationType>--> <to>` → `create_relations` (only when both
+  entities exist; otherwise append a `- obs: <from> :: [YYYY-MM-DD][context]
+  pending relation <relationType> to <to>, target missing` line to a new
+  pending-sync file and continue).
+
+Lines are processed in file order. Lines that do not match are surfaced as
+errors; `--sync` does NOT silently skip. After a file drains without errors,
+delete it.
 
 ## Mode Detection
 
 If no `--mode` flag:
-1. `mcp__memory__read_graph` — count entities with any stakeholder-map tag
-   (`[category:*]`, `[power:*]`, `[function:*]`).
+1. `mcp__memory__read_graph` — count entities that satisfy the **stakeholder-map
+   membership predicate** defined in [graph-schema.md](graph-schema.md#stakeholder-map-membership-predicate).
 2. If count is 0 → default to leader-onboarding and confirm with user.
 3. If count < 10 → default to leader-onboarding (resume mode) and confirm.
 4. If count ≥ 10 → default to coverage-review and confirm.
@@ -83,6 +104,26 @@ stakeholders added), load [`chart-render.md`](chart-render.md) and render.
 
 Load [`coverage-queries.md`](coverage-queries.md) and run the queries. Load
 [`heatmap-render.md`](heatmap-render.md) and render.
+
+## Common Mistakes
+
+- **Minting enum values at runtime.** Only the canonical values in
+  [graph-schema.md](graph-schema.md) are writable. If the user says "he's a
+  distinguished engineer", don't invent `[role:distinguished]` — record the title
+  in a `[context]` observation and tag `[role:staff]` (closest canonical).
+- **Skipping the replaceable-tag write protocol.** Writing a new `[power:formal:*]`
+  without first deleting the prior one leaves two values on the entity and breaks
+  latest-tag selection.
+- **Creating a relation before both entities exist.** `create_relations` requires
+  both ends to resolve. In bootstrap, create the target entity first, or skip the
+  relation.
+- **Using stakeholder-map-tagged entities as a general contact database.**
+  `[context]`-only entities (from `seen-but-skip` or 1on1-prep upgrades) are NOT
+  on the map per the membership predicate. Don't let them leak into charts or
+  coverage counts.
+- **Rendering without preflight.** Always run `preview_list` + `describe_scene`
+  before drawing. If either fails, use the text fallback — do not silently skip
+  the render.
 
 ## Compatibility With 1on1-prep
 

@@ -12,8 +12,12 @@ Excalidraw canvas output for the leader-onboarding view.
 
 ## Inputs
 
-Query the memory graph for all entities that carry any stakeholder-map tag. For
-each entity, read:
+Query the memory graph for all entities that satisfy the **stakeholder-map
+membership predicate** defined in
+[graph-schema.md](graph-schema.md#stakeholder-map-membership-predicate). "Latest"
+below refers to the **Latest-tag selection** rule in the same file. For each
+entity, read:
+
 - Name
 - Latest `[role:*]`, `[function:*]`, `[team:*]`, `[category:*]`, `[tenure:*]`
 - Latest `[power:formal:*]` and `[power:informal:*]`
@@ -32,19 +36,24 @@ Five columns, left to right, in this order (each is a category bucket):
 | 4 | `skip_up` | 860 |
 | 5 | `cross_functional` | 1120 |
 
-Column headers at y=60, `fontSize=16`, Excalifont. Nodes start at y=120 and stack
-downward with 20px vertical padding.
+Column headers at y=60, `fontSize=16`, Excalifont. Within each column, nodes are
+sorted by meet-in-what-order score descending (see "Meet-in-What-Order List"
+below for the formula), with the **canonical sort-order tie-break** from
+[graph-schema.md](graph-schema.md#canonical-sort-order-for-ties) applied to
+equal scores. The top-scoring node starts at y=120. Each subsequent node is
+placed 20px below the previous node's bottom edge (the 20px is between-node
+padding; the first node has no extra top padding beyond y=120).
 
 ## Node Encoding
 
 Each person renders as a `rectangle` whose size encodes **formal power**:
 
-| Formal power | Width × Height |
-|--------------|----------------|
-| `high` | 220 × 80 |
-| `medium` | 180 × 64 |
-| `low` | 140 × 50 |
-| unknown | 140 × 50 (dashed stroke) |
+| Formal power | Width × Height | Stroke |
+|--------------|----------------|--------|
+| `high` | 220 × 80 | solid |
+| `medium` | 180 × 64 | solid |
+| `low` | 140 × 50 | solid |
+| unknown | 140 × 50 | dashed (`strokeStyle: "dashed"`) |
 
 Inside the rectangle, a `text` label with `fontSize=13`, Excalifont:
 - Line 1: `{name}`
@@ -95,7 +104,10 @@ category_weight: direct_report=5, skip=4, peer=3, skip_up=2, cross_functional=1
 unmet_bonus: +10 if no [coverage:met] observation exists, else 0
 ```
 
-Sort descending. Emit up to 10 lines as `text` elements:
+Sort descending by score. Break ties using the **canonical sort order** in
+[graph-schema.md](graph-schema.md#canonical-sort-order-for-ties). Truncation at
+10 is applied after the full sort so the boundary is deterministic. Emit up to
+10 lines as `text` elements:
 
 ```
 1. {name} — {category}, formal={level}, informal={level} [unmet]
