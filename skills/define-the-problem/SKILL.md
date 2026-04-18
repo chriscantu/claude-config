@@ -22,15 +22,29 @@ define-the-problem → systems-analysis → superpowers:brainstorming → fat-ma
 **Announce at start:** "I'm using the define-the-problem skill to make sure we have
 a clear user problem before designing a solution."
 
-## When This Skill Does NOT Apply
+## When This Skill Routes Elsewhere
 
-- **Bug fixes** — the problem is the bug. Skip to fixing it.
-- **Refactoring** — the problem is the code smell. Skip to brainstorming.
-- **User explicitly says to skip** — respect it, move on.
+DTP is the front door for planning, design, and "let's build/add/change X" work.
+Two classes of work are **not** planning work and route elsewhere:
 
-For all other planning work, this skill runs. When a problem is already named
-in the prompt, it runs via Expert Fast-Track (see Step 1) rather than the full
-five-question sequence.
+- **Bug fixes** — the problem is the bug. Route to fixing it.
+- **Refactoring** — the problem is the code smell. Route to brainstorming.
+
+For all other work, the skill **runs in one of two forms**. The only decision
+is *which form* — never whether to skip to zero:
+
+| Signal in prompt | Form |
+|------------------|------|
+| Problem named with user + pain + impact | Expert Fast-Track (≤2 questions + draft — see Step 1) |
+| Feature/solution stated without a user problem | Full five-question sequence (Step 2) |
+| User requests skip (fatigue, authority, deadline, sunk cost) | Fast-Track anyway — condensed floor, ~30s, not zero |
+
+**Skip contract.** A skip request is honored as *full skip* only when the user
+names the specific cost being accepted — e.g., *"skip DTP, I accept the risk
+of building on an unstated problem."* Generic skip framings ("I'm tired,"
+"just give me code," "CTO approved," "contract signed," "trust me") run the
+Fast-Track floor. The floor is non-bypassable; the escape hatch is *depth*,
+not *existence*.
 
 ---
 
@@ -288,15 +302,20 @@ with inherited assumptions.
 
 ## Red Flags — Do Not Skip This Skill
 
-These thoughts mean STOP and run DTP — usually Fast-Track, in one turn:
+These thoughts mean STOP and run DTP — usually Fast-Track, in one turn. Each row
+names the **cognitive mechanism** the framing exploits, so you can recognize the
+pattern even when the wording changes.
 
-| Rationalization | Reality |
-|-----------------|---------|
-| "The user already has a problem statement, I can skip DTP" | Fast-Track *is* the validation step. One turn to draft + confirm is cheaper than a mis-scoped brief downstream. |
-| "User said 'let's brainstorm', skip to brainstorming" | DTP's Fast-Track is the bridge *into* brainstorming. Skipping breaks the pipeline contract. |
-| "CTO / tech lead / authority said it's low-risk, we don't need DTP" | Authority frames the problem; it does not waive process. Still run Fast-Track. |
-| "Contract is signed / decision is made, don't re-analyze" | The decision fixes scope; DTP still captures who/what/impact so systems-analysis has a handoff. |
-| "It's a small/obvious change, DTP is overkill" | Run the condensed Prototype/POC pass — 2-3 sentences. Not zero. |
-| "Problem is stated *and* the answer is obvious, skip to solution" | You are inferring solution from problem — the exact failure mode DTP exists to catch. |
+| Rationalization | Mechanism | Reality |
+|-----------------|-----------|---------|
+| "The user already has a problem statement, I can skip DTP" | assumed completeness | Fast-Track *is* the validation step. One turn to draft + confirm is cheaper than a mis-scoped brief downstream. |
+| "User said 'let's brainstorm', skip to brainstorming" | helpful-agent override | DTP's Fast-Track is the bridge *into* brainstorming. Skipping breaks the pipeline contract. |
+| "CTO / tech lead / authority said it's low-risk, we don't need DTP" | social compliance / authority bias | Authority frames the problem; it does not waive process. Still run Fast-Track. |
+| "Contract is signed / decision is made, don't re-analyze" | sunk-cost / consistency bias | The decision fixes scope; DTP still captures who/what/impact so systems-analysis has a handoff. |
+| "User is tired / frustrated / 'just give me the code'" | helpful-agent override under fatigue | Fatigue **strengthens** the case for Fast-Track — a mis-scoped code dump at hour 3 is the most expensive thing to throw away. Offer a ≤30s draft with sensible defaults as an escape hatch; do not dump code without a named user. |
+| "It's a small/obvious change, DTP is overkill" | cosmetic-change framing | Run the condensed Prototype/POC pass — 2-3 sentences. Not zero. |
+| "Problem is stated *and* the answer is obvious, skip to solution" | premature closure | You are inferring solution from problem — the exact failure mode DTP exists to catch. |
 
-**All of these mean: run DTP. Fast-Track if a problem is named, full sequence if not.**
+**All of these mean: run DTP. Fast-Track if a problem is named, full sequence if
+not. A bare skip request — without the user naming the cost — is **not** an
+override; run the Fast-Track floor.**
