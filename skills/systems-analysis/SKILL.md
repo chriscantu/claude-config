@@ -1,9 +1,12 @@
 ---
 name: systems-analysis
 description: >
-  Use when entering the systems analysis stage of the planning pipeline, after problem
-  definition is complete and before brainstorming. Also triggers standalone when
-  evaluating the blast radius of a proposed change.
+  Use when evaluating what a proposed change will touch — dependencies, blast radius,
+  failure modes, or second-order effects — or when the prompt names a scoped problem
+  and says "plan this out", "what could go wrong", "think through the impact", or
+  similar. Also triggers in the planning pipeline after `define-the-problem` and
+  before `superpowers:brainstorming`. Do NOT use when the user is only asking to
+  implement or fix something with no design question attached.
 ---
 
 # Systems Analysis
@@ -80,7 +83,9 @@ Name, in one short list:
 
 The scan takes ~60 seconds. Its purpose is to produce **concrete concerns**, not
 permission to stop. If the scan finds nothing, say so explicitly — don't invent
-concerns to justify depth, and don't omit concerns to justify Condensed.
+concerns to justify depth, and don't omit concerns to justify Condensed. If you
+don't have enough context to answer a scan dimension, say "unknown — need user
+input" rather than silently omitting it; "unknown" is not the same as "no concern."
 
 **Display the scan output to the user before choosing a tier.** The user should
 see what concerns surfaced (or that none did) — the tier decision is only
@@ -103,11 +108,9 @@ If in doubt, go Full. The scan's job is to catch what "just a column" missed.
 
 ## Condensed Pass
 
-For low-blast-radius changes. Produce a single paragraph covering:
-
-- What it touches (from the Step 1 scan)
-- The blast radius (who / what is affected if it breaks)
-- One key risk if there is one, or "no notable risks surfaced" if not
+For low-blast-radius changes. Produce a single paragraph that names: what the change
+touches (from the Step 1 scan), the blast radius (who or what is affected if it
+breaks), and one key risk — or "no notable risks surfaced" if none.
 
 Then hand off to brainstorming. Don't run Steps A-D — that's the Full Pass.
 
