@@ -4,3 +4,9 @@ excalidraw.log
 .claude/worktrees/
 tests/results/
 node_modules/
+
+# Stakeholder-map / 1on1-prep offline writes — sensitive assessments, never commit.
+skills/stakeholder-map/pending-sync/*
+!skills/stakeholder-map/pending-sync/.gitkeep
+skills/1on1-prep/pending-sync/*
+!skills/1on1-prep/pending-sync/.gitkeep
