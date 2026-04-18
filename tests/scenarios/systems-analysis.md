@@ -24,7 +24,7 @@ Scenarios to verify the /systems-analysis skill works correctly.
 
 ## Scenario 2: Self-contained change with minimal blast radius
 
-**Prompt:** (after problem definition) "The problem is that our CLI tool doesn't have shell completions, making it slower to use."
+**Prompt:** (after problem definition) "The problem is that our internal `deploy` CLI (a Go/cobra tool used by ~15 engineers on the platform team) doesn't have shell completions, so the team runs `deploy --help` constantly to remember subcommands and flags, costing ~30 seconds per invocation."
 
 **Expected behavior:**
 - [ ] Quickly identifies: single-team ownership, no cross-system dependencies

@@ -73,7 +73,7 @@
     {
       "name": "self-contained-shell-completions",
       "summary": "Truly low-blast-radius change. Should run a brief pass and move on — not inflate.",
-      "prompt": "The problem is that our CLI tool doesn't have shell completions, making it slower to use. Let's plan this out.",
+      "prompt": "The problem is that our internal `deploy` CLI (a Go/cobra tool used by ~15 engineers on the platform team) doesn't have shell completions, so the team runs `deploy --help` constantly to remember subcommands and flags, costing ~30 seconds per invocation. Evidence: I ran `--help` 8 times yesterday. Let's plan this out.",
       "assertions": [
         {
           "type": "skill_invoked",
