@@ -33,6 +33,7 @@ import {
   type Signals,
   discoverSkills,
   evaluate,
+  extractSessionId,
   extractSignals,
   loadEvalFile,
   parseStreamJson,
@@ -59,17 +60,23 @@ interface CliRun {
   readonly failure?: string;
 }
 
+interface ChainRun {
+  readonly turns: readonly CliRun[];
+  readonly sessionId: string | null;
+  /** Set when the chain could not proceed — e.g. turn 1 failed or yielded no session_id. */
+  readonly chainFailure?: string;
+}
+
 /**
- * Scratch cwd: running in-repo lets Claude read the skill files and recognize
- * prompts as eval fixtures. Empty tmpdir removes that tell.
- * bypassPermissions: skills invoke Bash/Write; an interactive permission gate
- * stalls --print indefinitely. The scratch dir caps only relative-path writes
- * — absolute paths and network calls are still unscoped, so evals must not
- * run adversarial prompts without further sandboxing.
+ * Spawn a single fresh `claude --print` turn in an isolated scratch cwd.
+ * Used for single-turn evals and as turn 1 of a multi-turn chain.
+ *
+ * When `cwd` is provided (by the chain helper), the caller owns cleanup.
+ * Otherwise we create and clean up a tmpdir in this function.
  */
-function runClaude(prompt: string): CliRun {
+function runClaude(prompt: string, cwd?: string): CliRun {
   const timeoutMs = 5 * 60 * 1000;
-  const scratchDir = mkdtempSync(join(tmpdir(), "claude-eval-"));
+  const ownCwd = cwd ?? mkdtempSync(join(tmpdir(), "claude-eval-"));
   try {
     const res = spawnSync(
       claudeBin,
@@ -79,7 +86,7 @@ function runClaude(prompt: string): CliRun {
         encoding: "utf8",
         timeout: timeoutMs,
         maxBuffer: 64 * 1024 * 1024,
-        cwd: scratchDir,
+        cwd: ownCwd,
       },
     );
     let failure: string | undefined;
@@ -91,6 +98,90 @@ function runClaude(prompt: string): CliRun {
       failure = "process exited without status (no signal, no error)";
     }
     return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
+  } finally {
+    if (!cwd) {
+      try {
+        rmSync(ownCwd, { recursive: true, force: true });
+      } catch (err) {
+        console.error(`[eval-runner] failed to clean scratch dir ${ownCwd}: ${(err as Error).message}`);
+      }
+    }
+  }
+}
+
+/**
+ * Run an N-turn chain via `claude --print` (turn 1) + `claude --resume <id>`
+ * (turns 2..N). All turns share one scratch cwd so tool writes persist.
+ *
+ * Short-circuits if turn 1 fails to produce a session_id — chain continuation
+ * would be meaningless without a valid --resume handle. Partial-failure runs
+ * return a `chainFailure` message; the caller decides how to render it.
+ *
+ * Each turn has its own 5-minute timeout; a 3-turn chain therefore caps at 15
+ * minutes of wall time.
+ */
+function runClaudeChain(turnPrompts: readonly string[]): ChainRun {
+  if (turnPrompts.length === 0) {
+    return { turns: [], sessionId: null, chainFailure: "chain has zero turns" };
+  }
+  const scratchDir = mkdtempSync(join(tmpdir(), "claude-eval-chain-"));
+  const runs: CliRun[] = [];
+  let sessionId: string | null = null;
+  let chainFailure: string | undefined;
+  try {
+    // Turn 1: fresh session
+    const t1 = runClaude(turnPrompts[0], scratchDir);
+    runs.push(t1);
+    if (t1.failure || t1.exitCode !== 0) {
+      chainFailure = `turn 1 failed: ${t1.failure ?? `exit ${t1.exitCode}`}`;
+      return { turns: runs, sessionId: null, chainFailure };
+    }
+    const { events: t1Events } = parseStreamJson(t1.stdout);
+    sessionId = extractSessionId(t1Events);
+    if (!sessionId) {
+      chainFailure = `turn 1 produced no session_id in stream-json init event (events=${t1Events.length})`;
+      return { turns: runs, sessionId: null, chainFailure };
+    }
+
+    // Turns 2..N: resume
+    for (let i = 1; i < turnPrompts.length; i++) {
+      const timeoutMs = 5 * 60 * 1000;
+      const res = spawnSync(
+        claudeBin,
+        [
+          "--resume", sessionId,
+          "--print",
+          "--output-format", "stream-json",
+          "--verbose",
+          "--permission-mode", "bypassPermissions",
+        ],
+        {
+          input: turnPrompts[i],
+          encoding: "utf8",
+          timeout: timeoutMs,
+          maxBuffer: 64 * 1024 * 1024,
+          cwd: scratchDir,
+        },
+      );
+      let failure: string | undefined;
+      if (res.error) {
+        failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
+      } else if (res.signal) {
+        failure = res.signal === "SIGTERM" ? `timed out after ${timeoutMs / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
+      } else if (res.status === null) {
+        failure = "process exited without status (no signal, no error)";
+      }
+      const turnRun: CliRun = { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
+      runs.push(turnRun);
+      if (failure || res.status !== 0) {
+        chainFailure = `turn ${i + 1} failed: ${failure ?? `exit ${res.status}`}`;
+        // Stop the chain — turn N+1 depends on N succeeding. Assertions for
+        // later turns will be counted as failures by the caller.
+        return { turns: runs, sessionId, chainFailure };
+      }
+    }
+
+    return { turns: runs, sessionId };
   } finally {
     try {
       rmSync(scratchDir, { recursive: true, force: true });
