@@ -1,8 +1,9 @@
 # Skill Evals
 
 Executable behavioral evals for skills. Each pilot skill has `skills/<name>/evals/evals.json`
-with prompts and rubric assertions. The runner sends each prompt through `claude --print`
-and applies regex/substring assertions against the response — real PASS/FAIL, not narrative.
+declaring either a single-turn eval (one `prompt` to `claude --print`) or a multi-turn eval
+(a `turns[]` chain via `claude --print` + `--resume`). The runner applies structural and
+regex assertions against the stream-json transcript — real PASS/FAIL, not narrative.
 
 This complements `validate.fish` (structural/concept-coverage drift) and
 `run-scenarios.fish` (manual-review behavioral scenarios). Evals are the executable
@@ -72,8 +73,10 @@ they don't collide with v1 when both are run back-to-back for comparison.
 | `evals` | required | non-empty array |
 | `evals[].name` | required | slug; used in transcript filenames |
 | `evals[].summary` | optional | shown next to the name in runner output |
-| `evals[].prompt` | required | sent verbatim to `claude --print` |
-| `evals[].assertions` | required | non-empty array |
+| `evals[].prompt` | one of `prompt` or `turns[]` | single-turn: sent verbatim to `claude --print`. Mutually exclusive with `turns[]` |
+| `evals[].assertions` | required with `prompt` | non-empty array; per-turn assertion types only |
+| `evals[].turns` | one of `prompt` or `turns[]` | multi-turn: non-empty array of `{ prompt, assertions }` objects run as a chain |
+| `evals[].final_assertions` | optional with `turns[]` | non-empty array if present; runs against the chain after all turns (the only place `chain_order` / `skill_invoked_in_turn` are allowed) |
 | `assertion.type` | required | one of `contains` / `not_contains` / `regex` / `not_regex` / `skill_invoked` / `not_skill_invoked` / `skill_invoked_in_turn` / `chain_order` |
 | `assertion.description` | required | human-readable; what the assertion proves |
 | `assertion.value` | required for `contains` / `not_contains` | non-empty string |
