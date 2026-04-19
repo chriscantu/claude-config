@@ -9,7 +9,9 @@ import { join } from "node:path";
 export type Assertion =
   | { type: "contains" | "not_contains"; value: string; description: string }
   | { type: "regex" | "not_regex"; pattern: string; flags?: string; description: string }
-  | { type: "skill_invoked" | "not_skill_invoked"; skill: string; description: string };
+  | { type: "skill_invoked" | "not_skill_invoked"; skill: string; description: string }
+  | { type: "skill_invoked_in_turn"; turn: number; skill: string; description: string }
+  | { type: "chain_order"; skills: string[]; description: string };
 
 declare const validatedBrand: unique symbol;
 
@@ -105,6 +107,19 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
     case "not_skill_invoked":
       if (typeof a.skill !== "string" || a.skill.length === 0) {
         throw new Error(`${loc}: ${a.type} assertion requires non-empty 'skill' string`);
+      }
+      break;
+    case "skill_invoked_in_turn":
+      if (typeof a.turn !== "number" || !Number.isInteger(a.turn) || a.turn < 1) {
+        throw new Error(`${loc}: skill_invoked_in_turn requires integer 'turn' >= 1`);
+      }
+      if (typeof a.skill !== "string" || a.skill.length === 0) {
+        throw new Error(`${loc}: skill_invoked_in_turn requires non-empty 'skill' string`);
+      }
+      break;
+    case "chain_order":
+      if (!Array.isArray(a.skills) || a.skills.length === 0 || !a.skills.every((s) => typeof s === "string" && s.length > 0)) {
+        throw new Error(`${loc}: chain_order requires non-empty array 'skills' of non-empty strings`);
       }
       break;
     default: {
@@ -280,6 +295,10 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
       return signals.skillInvocations.some((s) => s.skill === assertion.skill)
         ? fail(`forbidden Skill('${assertion.skill}') was invoked`)
         : pass();
+    case "skill_invoked_in_turn":
+      return fail("skill_invoked_in_turn: evaluation not yet implemented (requires multi-turn context)");
+    case "chain_order":
+      return fail("chain_order: evaluation not yet implemented (requires multi-turn context)");
   }
 }
 

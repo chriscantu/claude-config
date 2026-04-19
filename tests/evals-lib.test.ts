@@ -369,6 +369,23 @@ describe("parseStreamJson()", () => {
   });
 });
 
+describe("validateAssertion() — multi-turn variants", () => {
+  test("skill_invoked_in_turn — requires positive integer turn and non-empty skill", () => {
+    expect(() => v({ type: "skill_invoked_in_turn", turn: 1, skill: "foo", description: "d" } as Assertion)).not.toThrow();
+    expect(() => v({ type: "skill_invoked_in_turn", turn: 0, skill: "foo", description: "d" } as Assertion)).toThrow(/turn/);
+    expect(() => v({ type: "skill_invoked_in_turn", turn: 1.5, skill: "foo", description: "d" } as Assertion)).toThrow(/turn/);
+    expect(() => v({ type: "skill_invoked_in_turn", turn: -1, skill: "foo", description: "d" } as Assertion)).toThrow(/turn/);
+    expect(() => v({ type: "skill_invoked_in_turn", turn: 1, skill: "", description: "d" } as Assertion)).toThrow(/skill/);
+  });
+
+  test("chain_order — requires non-empty array of non-empty skill names", () => {
+    expect(() => v({ type: "chain_order", skills: ["a", "b", "c"], description: "d" } as Assertion)).not.toThrow();
+    expect(() => v({ type: "chain_order", skills: [], description: "d" } as Assertion)).toThrow(/skills/);
+    expect(() => v({ type: "chain_order", skills: ["a", ""], description: "d" } as Assertion)).toThrow(/skills/);
+    expect(() => v({ type: "chain_order", skills: "a,b,c", description: "d" } as unknown as Assertion)).toThrow(/skills/);
+  });
+});
+
 describe("extractSignals()", () => {
   test("pulls finalText from result event and records terminalState=result", () => {
     const { events } = parseStreamJson(
