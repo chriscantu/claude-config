@@ -74,18 +74,98 @@ they don't collide with v1 when both are run back-to-back for comparison.
 | `evals[].summary` | optional | shown next to the name in runner output |
 | `evals[].prompt` | required | sent verbatim to `claude --print` |
 | `evals[].assertions` | required | non-empty array |
-| `assertion.type` | required | one of `contains` / `not_contains` / `regex` / `not_regex` / `skill_invoked` / `not_skill_invoked` |
+| `assertion.type` | required | one of `contains` / `not_contains` / `regex` / `not_regex` / `skill_invoked` / `not_skill_invoked` / `skill_invoked_in_turn` / `chain_order` |
 | `assertion.description` | required | human-readable; what the assertion proves |
 | `assertion.value` | required for `contains` / `not_contains` | non-empty string |
 | `assertion.pattern` | required for `regex` / `not_regex` | non-empty string; must compile |
 | `assertion.flags` | optional for `regex` / `not_regex` | RegExp flags string (e.g. `"i"`, `"im"`) |
 | `assertion.skill` | required for `skill_invoked` / `not_skill_invoked` | non-empty string; matches the Skill tool's `input.skill` in the stream-json transcript (v2 runner only) |
+| `assertion.turn` | required for `skill_invoked_in_turn` | integer ≥ 1; refers to turn index in a multi-turn eval's `turns[]` array |
+| `assertion.skills` | required for `chain_order` | non-empty array of non-empty skill names; compared against the sequence of per-turn winner skills |
 
 **Load-time invariants enforced by the runners** (`loadEvalFile` in `tests/evals-lib.ts` for v2; matching logic in v1):
 - The `skill` field must equal the parent directory name (catches copy-paste mistakes).
 - `evals` and each eval's `assertions` array must be non-empty.
 - Every assertion is type-checked: required fields present, regex patterns precompiled.
 - A bad regex or missing required field fails fast with a file path in the error — the runner exits 1 before sending any prompt to claude.
+
+## Multi-turn evals
+
+`claude --print` is single-turn. Some behavioural regressions — notably the
+planning pipeline's DTP → systems-analysis → brainstorming chain — can only be
+observed across turns. The v2 runner supports an additive multi-turn shape that
+runs a chain via `claude --print` (turn 1) + `claude --resume <session_id>`
+(turns 2..N). All turns share one scratch cwd so tool writes persist.
+
+### When to reach for multi-turn
+
+Prefer single-turn by default — it's faster, cheaper, and simpler to author.
+Reach for multi-turn only when the thing under test is the chaining behaviour
+itself: pipeline stage transitions, retention of context across turns, or a
+behaviour that only emerges after the first hand-off.
+
+If you find yourself writing a single-turn eval with heroically complex regex
+to catch a behaviour that happens on a follow-up, you probably want multi-turn.
+
+### Multi-turn schema
+
+A multi-turn eval declares `turns[]` instead of `prompt`. Each turn has its
+own `prompt` and `assertions` (these run against that turn's stream-json
+output only). The eval may also declare `final_assertions` that run against
+the whole chain.
+
+```json
+{
+  "name": "my-multi-turn-eval",
+  "summary": "...",
+  "turns": [
+    { "prompt": "turn 1 user message", "assertions": [/* per-turn */] },
+    { "prompt": "turn 2 user message", "assertions": [/* per-turn */] },
+    { "prompt": "turn 3 user message", "assertions": [/* per-turn */] }
+  ],
+  "final_assertions": [
+    { "type": "chain_order", "skills": ["a", "b", "c"], "description": "..." },
+    { "type": "skill_invoked_in_turn", "turn": 2, "skill": "b", "description": "..." }
+  ]
+}
+```
+
+An eval declares **either** `prompt` (single-turn) **or** `turns[]` (multi-turn),
+never both. `final_assertions` only applies to multi-turn evals and is optional.
+
+### The turn-boundary contract: crafted user replies
+
+Turns 2..N contain **crafted user replies** — realistic continuations a human
+would actually type when handed off between pipeline stages ("confirmed —
+proceed", "move on to brainstorming"). This keeps eval behaviour close to
+real conversations. The trade-off: each multi-turn eval needs its turn-2/3
+text written by hand.
+
+Auto-advance stubs (canned "ok"/"yes" replies injected by the harness) were
+considered and rejected for the initial design — they risk training evals
+against a tell the harness can produce but a real user would not. Revisit if
+authoring costs start dominating new-eval work.
+
+### New assertion types
+
+- **`skill_invoked_in_turn`** — pass if the named skill was invoked in the
+  specified turn (membership, not winnership: a turn may also invoke helper
+  skills; any of them counts). Requires `turn` (integer ≥ 1) and `skill`.
+- **`chain_order`** — pass if the sequence of **per-turn winner** skills
+  (the first `Skill` tool_use in each turn) exactly matches `skills[]`.
+  Ordering and length must match. A turn with no skill invocation fails the
+  assertion.
+
+Use `skill_invoked_in_turn` when "this skill had to fire in turn N" is the
+claim; use `chain_order` when the stage sequence itself is what's being
+regression-tested.
+
+### Chain failure handling
+
+If any turn exits non-zero or times out, the chain aborts. All remaining
+turns' assertions count as failures in the final summary (honest accounting
+— a chain that didn't reach turn 3 didn't pass turn 3). The transcript
+records `chain_failure` with a human-readable reason and which turn failed.
 
 ## Signal channels (v2)
 
