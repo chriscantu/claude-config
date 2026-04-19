@@ -159,87 +159,29 @@ Rough shape for the plan that would follow this spec:
 
 ---
 
-## Resuming This Work (new thread)
+## Status
 
-This spec was produced in a thread that completed problem definition, systems
-analysis, brainstorming, and sketching. The implementation plan should be
-written in a fresh thread to avoid context bloat. This section is the hand-off.
+Implemented in PR [#106](https://github.com/chriscantu/claude-config/pull/106).
+Prework resolved: `claude --resume` used (not SDK); ADR #0004 remained
+"Proposed" during eval authoring and the multi-turn eval probes the intent.
+Live validation landed Regime 2 data — chain ran end-to-end but per-turn
+winner-skill signal was inconclusive. Follow-up on signal channels is
+out-of-scope for this spec.
 
-### Entry prompt
+## Rakes to avoid (durable — applies to any follow-up work)
 
-Paste this into the new thread:
+The constraints from the reverted 2026-04-17 attempts still apply as *design
+constraints* to prevent scope creep on future follow-ups (e.g. Options 2/3
+if the winner-skill channel proves insufficient):
 
-> Write an implementation plan for the design at
-> `docs/superpowers/specs/2026-04-18-multi-turn-eval-substrate-design.md`.
->
-> This design was already taken through the full planning pipeline
-> (problem definition → systems analysis → brainstorming → sketch) in a prior
-> session. The spec stands — do not re-run those stages. Skip straight to
-> `superpowers:writing-plans` using the spec as input.
->
-> Before writing the plan, run the two prework items in the spec's "Resuming
-> This Work" section (verify `claude --resume <session_id>` captures and
-> resumes cleanly; confirm ADR #0004 status). Both are blocking — if
-> `--resume` doesn't work, the design shifts to SDK-based and the plan
-> differs materially.
-
-### Read-first (in order)
-
-1. `docs/superpowers/specs/2026-04-18-multi-turn-eval-substrate-design.md` —
-   this spec. The source of truth.
-2. [`adrs/0004-define-the-problem-mandatory-front-door.md`](../../../adrs/0004-define-the-problem-mandatory-front-door.md) —
-   the ADR that makes DTP the unconditional front door. Check status field
-   before planning (see prework).
-3. [Issue #90](https://github.com/chriscantu/claude-config/issues/90) —
-   original problem, full comment thread including the 2026-04-17 revert.
-4. [`docs/superpowers/decisions/2026-04-17-systems-analysis-skip-pathways.md`](../decisions/2026-04-17-systems-analysis-skip-pathways.md) —
-   the decision doc that split the tractable fixes from the architectural
-   piece this spec resolves. Contains the "Reverted-attempts log" — do not
-   re-attempt those paths.
-5. `tests/eval-runner-v2.ts` — current runner. Runs `claude --print` one-shot
-   per eval. Schema is `{ name, prompt, assertions }` per eval. The substrate
-   change lives here.
-6. `tests/EVALS.md` — eval authoring guidance. Needs a new section on
-   multi-turn after the plan lands.
-
-### Prework (blocking — run before the plan)
-
-1. **Verify `claude --resume <session_id>` works for chaining.** Specifically:
-   does the first `claude --print` call emit a usable `session_id` in its
-   `stream-json` output? Does `claude --resume <that id> --print` with a new
-   prompt continue the conversation? If yes, proceed. If no, the design
-   shifts to SDK-based session management and the plan must reflect it.
-   Spend ≤30 min on this — it's a binary question.
-2. **Decide ADR #0004 status.** The ADR is currently "Proposed" per the file.
-   The spec is coherent with both "Accepted" and "Proposed" status, but the
-   interpretation of eval results differs — a passing multi-turn
-   `sunk-cost-migration` against an unaccepted ADR is weaker evidence than
-   against an accepted one. Either accept, or document in the plan that
-   evals are probing an intent, not an adopted contract.
-
-### Rakes to avoid
-
-Even though this spec lands at the eval-harness layer, the constraints from
-the reverted 2026-04-17 attempts still apply as *design constraints* to
-prevent scope creep:
-
-- **Do not modify `skills/systems-analysis/SKILL.md` description as part of
-  the plan.** That layer was tried and reverted. Three iterations of proof.
+- **Do not modify `skills/systems-analysis/SKILL.md` description.** That
+  layer was tried and reverted. Three iterations of proof.
 - **Do not modify `rules/planning.md` to stack stronger language against
   pressure framings.** Same reason.
 - **Do not modify `superpowers:using-superpowers`.** Fork was considered and
-  rejected (Option 3 in the spec). Revisit only if Option 1 lands and the
-  chain still skips under pressure, and only as a separately-scoped
-  architectural decision.
+  rejected (Option 3 in the spec). Revisit only if the chain keeps skipping
+  under pressure, and only as a separately-scoped architectural decision.
 - **Do not rewrite existing single-turn eval prompts to avoid the pressure
   framing.** That was Option B, rejected — it loses the canary without
-  fixing the rake. The new `sunk-cost-migration` is *additive* to the
-  existing one until validated, not a replacement.
-
-### What this thread did not decide
-
-Two questions are named in the spec as open for the plan:
-
-- CLI `--resume` vs SDK-based session management (resolved by prework item 1).
-- Turn-boundary contract: crafted user replies vs auto-advance stubs. Spec
-  recommends crafted, but the plan should make this decision explicit.
+  fixing the rake. The multi-turn eval is *additive* to the existing
+  single-turn one, not a replacement.
