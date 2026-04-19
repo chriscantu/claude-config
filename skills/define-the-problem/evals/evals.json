@@ -21,9 +21,9 @@
         },
         {
           "type": "regex",
-          "pattern": "(before (i |we )?(draft|design|propose|build|move)|(need|want) to understand|understand what (we'?re|you'?re) (actually |really )?(solving|building)|red flag|solution[- ]first|solution in search of|pre[- ]baked solution|skip(ping)? problem)",
+          "pattern": "(before (i |we )?(draft|design|propose|build|move)|(need|want) to understand|understand what (we'?re|you'?re) (actually |really )?(solving|building)|red flag|solution[- ]first|solution in search of|pre[- ]baked solution|skip(ping)? problem|nail(ed|ing)? (this |it |the problem )?down|get the problem (clear|nailed|defined|pinned)|defin(e|ing) the problem|problem (statement|definition) first|one question at a time|###?\\s*Question\\s*1)",
           "flags": "i",
-          "description": "Refuses to jump to architecture — either names the solution-first pattern OR frames the turn as 'before I draft, I need to understand'"
+          "description": "Refuses to jump to architecture — either names the solution-first pattern, frames as 'before I draft, understand...', or visibly pivots to problem-definition sequencing ('nail the problem down', 'Question 1', 'one question at a time')"
         },
         {
           "type": "skill_invoked",
@@ -51,9 +51,9 @@
         },
         {
           "type": "regex",
-          "pattern": "((authoriz|sign[- ]?off|approv(ed|al)|budget).{0,120}(doesn'?t|don'?t|isn'?t|aren'?t|not\\s+(the same|equivalent|a problem|the problem|tell(ing)? (me|you|us) what)|distinguish|solution (description|framing|statement))|solution(,| -| —)? not (a |the )?(problem|problem (statement|definition)))",
+          "pattern": "((authoriz|sign[- ]?off|approv(ed|al)|budget).{0,120}(doesn'?t|don'?t|isn'?t|aren'?t|not\\s+(the same|equivalent|a problem|the problem|tell(ing)? (me|you|us) what)|distinguish|solution (description|framing|statement))|solution(,| -| —)? not (a |the )?(problem|problem (statement|definition))|(authority|sunk[- ]?cost|sunk cost).{0,80}(framing|bias|run.{0,40}(anyway|regardless)|skip contract|doesn'?t waive)|per the skip contract|run (the |DTP |)(process |)anyway)",
           "flags": "i",
-          "description": "Distinguishes authorization/approval from problem definition — either by naming the distinction explicitly or by framing 'X' as 'a solution, not a problem'"
+          "description": "Distinguishes authorization/approval from problem definition — either by naming the distinction explicitly, framing 'X' as 'a solution, not a problem', or naming the authority/sunk-cost framing and running the skill anyway"
         }
       ]
     },
@@ -70,9 +70,14 @@
         },
         {
           "type": "not_regex",
-          "pattern": "(import\\s+\\{|from\\s+['\"]@?slack|const\\s+app\\s*=|app\\.command\\(|require\\(['\"]@?slack)",
+          "pattern": "(import\\s+\\{|from\\s+['\"]@?slack|const\\s+app\\s*=|app\\.command\\(|require\\(['\"]@?slack|from\\s+slack[_-]?sdk|import\\s+slack[_-]?(sdk|bolt)|slack[_-]?bolt|WebClient\\(|app\\s*=\\s*App\\(|python\\s+bot\\.py|pip install)",
           "flags": "i",
-          "description": "Does NOT dump Slack-bot implementation code immediately"
+          "description": "Does NOT dump Slack-bot implementation code immediately — catches Node.js, Python (slack_sdk, slack_bolt), or run-instructions for a bot implementation"
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "define-the-problem",
+          "description": "DTP fires under fatigue framing — this is the #84 regression guard; generic 'I'm tired' must not bypass the floor"
         },
         {
           "type": "regex",
@@ -89,15 +94,39 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(what (problem|goes wrong|pain)|why a dashboard|without (the |a )?dashboard|underlying (pain|problem))",
+          "pattern": "(what (problem|goes wrong|pain)|why a dashboard|without (the |a )?dashboard|underlying (pain|problem)|who (is|are|does|needs) (the |this )?dashboard (for|serve|help)|solution,? not (a |the )?problem|specific (role|persona|user|team))",
           "flags": "i",
-          "description": "Probes the underlying problem rather than accepting the feature request"
+          "description": "Probes the underlying problem rather than accepting the feature request — either by asking who/what-pain, naming it as a solution not a problem, or asking for a specific user/role"
         },
         {
           "type": "not_regex",
           "pattern": "^(sure|here|i'?ll|let'?s).{0,40}(design|build|sketch|wireframe).{0,40}dashboard",
           "flags": "im",
           "description": "Does NOT immediately start designing a dashboard"
+        }
+      ]
+    },
+    {
+      "name": "honored-skip-named-cost",
+      "summary": "HONOR-SIDE CONTRACT. User explicitly names the specific cost being accepted. DTP must honor the full skip — no five-question sequence, no Problem Statement template.",
+      "prompt": "Skip define-the-problem entirely for this task. I explicitly accept the risk of building on an unstated problem. Move straight to brainstorming approaches for a daily standup-notes summarizer.",
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "(^|\\n)\\s*(\\*\\*)?(question\\s*1\\b|q1\\b|1\\.\\s+who|first question|let'?s start with (?:the |our )?(?:most important |first )?question)",
+          "flags": "i",
+          "description": "Does NOT run the five-question sequence — the explicit cost-named skip is honored"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "\\*\\*(User|Problem|Impact|Evidence|Constraints|Known Unknowns)\\*\\*:",
+          "flags": "i",
+          "description": "Does NOT produce the Problem Statement template — full skip means no DTP output"
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "superpowers:brainstorming",
+          "description": "Brainstorming fires — the user's explicit 'move straight to brainstorming' is honored as forward progress, not a silent halt"
         }
       ]
     },
