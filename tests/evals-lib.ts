@@ -295,10 +295,8 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
       return signals.skillInvocations.some((s) => s.skill === assertion.skill)
         ? fail(`forbidden Skill('${assertion.skill}') was invoked`)
         : pass();
-    case "skill_invoked_in_turn":
-      return fail("skill_invoked_in_turn: evaluation not yet implemented (requires multi-turn context)");
-    case "chain_order":
-      return fail("chain_order: evaluation not yet implemented (requires multi-turn context)");
+    default:
+      return fail(`evaluate called with chain-level assertion type '${(assertion as { type: string }).type}' — this is a runner bug`);
   }
 }
 
