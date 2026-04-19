@@ -48,6 +48,7 @@ export type AssertionResult =
 export interface StreamEvent {
   type?: string;
   subtype?: string;
+  session_id?: string;
   message?: {
     content?: Array<{
       type: "text" | "tool_use" | (string & {});
@@ -193,6 +194,25 @@ export function parseStreamJson(raw: string): ParseResult {
     }
   }
   return { events, skipped };
+}
+
+/**
+ * Pull the canonical session_id from an `init` system event emitted by
+ * `claude --print --output-format stream-json`. Used by the multi-turn runner
+ * to feed `claude --resume <id>` on turns 2..N.
+ *
+ * The CLI also emits `session_id` on earlier hook events (SessionStart hooks
+ * fire before `init`), so we specifically match `type:"system" subtype:"init"`
+ * rather than the first event with a session_id field. Returns null if the
+ * stream ended before init (a spawn or parse failure).
+ */
+export function extractSessionId(events: readonly StreamEvent[]): string | null {
+  for (const ev of events) {
+    if (ev.type === "system" && ev.subtype === "init" && typeof ev.session_id === "string" && ev.session_id.length > 0) {
+      return ev.session_id;
+    }
+  }
+  return null;
 }
 
 /**

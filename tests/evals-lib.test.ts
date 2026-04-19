@@ -15,6 +15,7 @@ import {
   type Signals,
   brandForTest as v,
   evaluate,
+  extractSessionId,
   extractSignals,
   loadEvalFile,
   parseStreamJson,
@@ -485,5 +486,38 @@ describe("extractSignals()", () => {
     expect(s.terminalState).toBe("empty");
     expect(s.toolUses.length).toBe(0);
     expect(s.skillInvocations.length).toBe(0);
+  });
+});
+
+describe("extractSessionId()", () => {
+  test("returns session_id from the first system/init event", () => {
+    const events = [
+      { type: "system", subtype: "hook_started", session_id: "will-be-ignored" },
+      { type: "system", subtype: "init", session_id: "abc-123", model: "claude-opus-4-6" },
+      { type: "assistant", session_id: "abc-123", message: { content: [] } },
+    ];
+    expect(extractSessionId(events)).toBe("abc-123");
+  });
+
+  test("returns null when no init event exists", () => {
+    const events = [{ type: "assistant", message: { content: [] } }];
+    expect(extractSessionId(events)).toBeNull();
+  });
+
+  test("returns null when init event lacks a session_id", () => {
+    const events = [{ type: "system", subtype: "init" }];
+    expect(extractSessionId(events)).toBeNull();
+  });
+
+  test("init session_id takes precedence over earlier hook session_ids", () => {
+    // Regression: the CLI emits hook_started/hook_response system events with
+    // session_id BEFORE the canonical init event. The extractor must skip past
+    // those to the init event, not return the first system session_id it sees.
+    const events = [
+      { type: "system", subtype: "hook_started", session_id: "hook-sid" },
+      { type: "system", subtype: "hook_response", session_id: "hook-sid" },
+      { type: "system", subtype: "init", session_id: "real-sid" },
+    ];
+    expect(extractSessionId(events)).toBe("real-sid");
   });
 });
