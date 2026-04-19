@@ -19,6 +19,7 @@ import {
   aggregateChainSignals,
   brandForTest as v,
   evaluate,
+  evaluateChain,
   extractSessionId,
   extractSignals,
   loadEvalFile,
@@ -685,5 +686,82 @@ describe("aggregateChainSignals()", () => {
     const t3: Signals = { finalText: "", toolUses: [], skillInvocations: [inv("c")], terminalState: "result" };
     const chain = aggregateChainSignals([t1, t2, t3]);
     expect(chain.per_turn_winner).toEqual(["a", undefined, "c"]);
+  });
+});
+
+describe("evaluateChain()", () => {
+  function inv(skill: string) { return { skill, raw: { name: "Skill" as const, input: { skill } } }; }
+  function chainOf(winners: (string | undefined)[]): ChainSignals {
+    return {
+      per_turn: winners.map((w) => ({
+        finalText: "",
+        toolUses: [],
+        skillInvocations: w ? [inv(w)] : [],
+        terminalState: "result" as const,
+      })),
+      per_turn_winner: winners,
+      union_skill_invocations: winners.filter((w): w is string => !!w).map(inv),
+    };
+  }
+
+  test("skill_invoked_in_turn — passes when the turn's winner matches", () => {
+    const a = v({ type: "skill_invoked_in_turn", turn: 2, skill: "systems-analysis", description: "d" });
+    expect(evaluateChain(a, chainOf(["define-the-problem", "systems-analysis", "superpowers:brainstorming"])).ok).toBe(true);
+  });
+
+  test("skill_invoked_in_turn — also passes when the skill appears as a non-winner in the turn", () => {
+    // A turn may invoke helpers besides the winner. If the target skill fired
+    // in that turn at all, the assertion passes — the "in_turn" contract is
+    // membership, not winnership. (chain_order uses winners; this does not.)
+    const a = v({ type: "skill_invoked_in_turn", turn: 1, skill: "helper", description: "d" });
+    const cs: ChainSignals = {
+      per_turn: [{
+        finalText: "",
+        toolUses: [],
+        skillInvocations: [inv("winner"), inv("helper")],
+        terminalState: "result" as const,
+      }],
+      per_turn_winner: ["winner"],
+      union_skill_invocations: [inv("winner"), inv("helper")],
+    };
+    expect(evaluateChain(a, cs).ok).toBe(true);
+  });
+
+  test("skill_invoked_in_turn — fails when the skill did not fire in that turn", () => {
+    const a = v({ type: "skill_invoked_in_turn", turn: 2, skill: "fat-marker-sketch", description: "d" });
+    const r = evaluateChain(a, chainOf(["define-the-problem", "systems-analysis"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/turn 2|systems-analysis/);
+  });
+
+  test("skill_invoked_in_turn — turn index beyond chain length reports distinct error", () => {
+    const a = v({ type: "skill_invoked_in_turn", turn: 5, skill: "x", description: "d" });
+    const r = evaluateChain(a, chainOf(["a", "b"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/out of range|only 2 turns/i);
+  });
+
+  test("chain_order — passes when per-turn winners match exactly", () => {
+    const a = v({ type: "chain_order", skills: ["define-the-problem", "systems-analysis", "superpowers:brainstorming"], description: "d" });
+    expect(evaluateChain(a, chainOf(["define-the-problem", "systems-analysis", "superpowers:brainstorming"])).ok).toBe(true);
+  });
+
+  test("chain_order — fails when order differs", () => {
+    const a = v({ type: "chain_order", skills: ["define-the-problem", "systems-analysis"], description: "d" });
+    const r = evaluateChain(a, chainOf(["systems-analysis", "define-the-problem"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/expected|actual/i);
+  });
+
+  test("chain_order — fails when a turn has no winner", () => {
+    const a = v({ type: "chain_order", skills: ["a", "b"], description: "d" });
+    const r = evaluateChain(a, chainOf(["a", undefined]));
+    expect(r.ok).toBe(false);
+  });
+
+  test("chain_order — fails when chain length differs from expected length", () => {
+    const a = v({ type: "chain_order", skills: ["a", "b", "c"], description: "d" });
+    const r = evaluateChain(a, chainOf(["a", "b"]));
+    expect(r.ok).toBe(false);
   });
 });

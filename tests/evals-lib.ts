@@ -437,6 +437,46 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
 }
 
 /**
+ * Chain-level assertion evaluator. Handles `skill_invoked_in_turn` and
+ * `chain_order` — the only two assertion variants that read across turns.
+ * For all other assertion types, the per-turn loop in the runner calls the
+ * regular `evaluate(assertion, signals)` on the matching turn's signals.
+ */
+export function evaluateChain(assertion: ValidatedAssertion, chain: ChainSignals): AssertionResult {
+  const { description } = assertion;
+  const fail = (detail: string): AssertionResult => ({ ok: false, description, detail });
+  const pass = (): AssertionResult => ({ ok: true, description });
+
+  switch (assertion.type) {
+    case "skill_invoked_in_turn": {
+      const idx = assertion.turn - 1;
+      if (idx < 0 || idx >= chain.per_turn.length) {
+        return fail(`turn ${assertion.turn} is out of range (only ${chain.per_turn.length} turns in chain)`);
+      }
+      const fired = chain.per_turn[idx].skillInvocations.some((s) => s.skill === assertion.skill);
+      if (fired) return pass();
+      const skills = chain.per_turn[idx].skillInvocations.map((s) => s.skill);
+      return fail(
+        `turn ${assertion.turn}: Skill('${assertion.skill}') not invoked. Skills seen in this turn: ${
+          skills.length === 0 ? "(none)" : skills.join(", ")
+        }`,
+      );
+    }
+    case "chain_order": {
+      const actual = chain.per_turn_winner;
+      const expected = assertion.skills;
+      const same = expected.length === actual.length && expected.every((s, i) => s === actual[i]);
+      if (same) return pass();
+      return fail(`chain_order mismatch. expected=[${expected.join(", ")}] actual=[${actual.map((s) => s ?? "(none)").join(", ")}]`);
+    }
+    default:
+      // Other assertion variants are per-turn; the runner should route them to
+      // `evaluate`, not here. Reaching this branch is a runner bug.
+      return fail(`evaluateChain called with non-chain assertion type '${(assertion as { type: string }).type}' — this is a runner bug`);
+  }
+}
+
+/**
  * Test-only helper: brand an `Assertion` as validated without going through
  * `loadEvalFile`. Production code should rely on `loadEvalFile` to produce
  * validated assertions; this exists so unit tests can construct them inline.
