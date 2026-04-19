@@ -48,12 +48,7 @@ export interface ValidatedEval {
   readonly name: string;
   readonly summary?: string;
   readonly prompt?: string;
-  /**
-   * Non-empty for single-turn evals; empty array for multi-turn evals.
-   * Always present so the existing test `?.assertions[0]?.type` compiles.
-   * Use `turns` to distinguish multi-turn vs single-turn.
-   */
-  readonly assertions: readonly ValidatedAssertion[];
+  readonly assertions?: readonly ValidatedAssertion[];
   readonly turns?: readonly ValidatedTurn[];
   readonly final_assertions?: readonly ValidatedAssertion[];
 }
@@ -249,7 +244,6 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
     validatedEvals.push({
       name: e.name,
       summary: e.summary,
-      assertions: [],
       turns: validatedTurns,
       final_assertions: validatedFinal,
     });

@@ -168,7 +168,7 @@ describe("loadEvalFile()", () => {
         },
       ],
     });
-    expect(loadEvalFile(root, "skill-a")?.evals[0]?.assertions[0]?.type).toBe("skill_invoked");
+    expect(loadEvalFile(root, "skill-a")?.evals[0]?.assertions?.[0]?.type).toBe("skill_invoked");
   });
 
   test("rejects skill_invoked with empty skill", () => {
