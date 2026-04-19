@@ -9,7 +9,9 @@ import { join } from "node:path";
 export type Assertion =
   | { type: "contains" | "not_contains"; value: string; description: string }
   | { type: "regex" | "not_regex"; pattern: string; flags?: string; description: string }
-  | { type: "skill_invoked" | "not_skill_invoked"; skill: string; description: string };
+  | { type: "skill_invoked" | "not_skill_invoked"; skill: string; description: string }
+  | { type: "skill_invoked_in_turn"; turn: number; skill: string; description: string }
+  | { type: "chain_order"; skills: string[]; description: string };
 
 declare const validatedBrand: unique symbol;
 
@@ -21,17 +23,54 @@ declare const validatedBrand: unique symbol;
  */
 export type ValidatedAssertion = Assertion & { readonly [validatedBrand]: true };
 
-export interface Eval {
-  name: string;
-  summary?: string;
+export interface Turn {
   prompt: string;
   assertions: Assertion[];
 }
 
+export interface Eval {
+  name: string;
+  summary?: string;
+  /** Single-turn shape: either `prompt` + `assertions`, or … */
+  prompt?: string;
+  assertions?: Assertion[];
+  /** … multi-turn shape: `turns[]` and optional `final_assertions`. */
+  turns?: Turn[];
+  final_assertions?: Assertion[];
+}
+
+export interface ValidatedTurn {
+  readonly prompt: string;
+  readonly assertions: readonly ValidatedAssertion[];
+}
+
+/**
+ * After `loadEvalFile`, every eval is known to be exactly one of single-turn
+ * or multi-turn — the xor invariant that the raw JSON schema can only express
+ * procedurally is lifted into the type system here. `kind` discriminates;
+ * narrowing on it gives callers access to the shape-specific fields without
+ * `!` assertions or runtime key checks.
+ */
+export type ValidatedEval =
+  | {
+      readonly kind: "single";
+      readonly name: string;
+      readonly summary?: string;
+      readonly prompt: string;
+      readonly assertions: readonly ValidatedAssertion[];
+    }
+  | {
+      readonly kind: "multi";
+      readonly name: string;
+      readonly summary?: string;
+      readonly turns: readonly ValidatedTurn[];
+      readonly final_assertions?: readonly ValidatedAssertion[];
+    };
+
 export interface EvalFile {
   skill: string;
   description?: string;
-  evals: Array<Omit<Eval, "assertions"> & { assertions: ValidatedAssertion[] }>;
+  evals: ValidatedEval[];
 }
 
 export type AssertionResult =
@@ -46,6 +85,7 @@ export type AssertionResult =
 export interface StreamEvent {
   type?: string;
   subtype?: string;
+  session_id?: string;
   message?: {
     content?: Array<{
       type: "text" | "tool_use" | (string & {});
@@ -82,6 +122,28 @@ export interface Signals {
   readonly terminalState: "result" | "assistant" | "empty";
 }
 
+/**
+ * Container for per-turn signals in a multi-turn eval run.
+ *
+ * `per_turn_winner[i]` is the first skill invocation seen in turn `i+1`
+ * (1-indexed in the schema), or `undefined` if no skill fired. This is the
+ * "winner" — the skill the model chose to run for that turn. `chain_order`
+ * assertions compare their expected sequence against this array by strict
+ * element-wise equality: length must match `skills[]`, and a turn with no
+ * winner (`undefined`) fails the assertion for that position. Keep this
+ * contract tight — a future "tolerate missing winners" variant should be a
+ * new assertion type, not a silent relaxation of `chain_order`.
+ */
+export interface ChainSignals {
+  readonly per_turn: readonly Signals[];
+  readonly per_turn_winner: readonly (string | undefined)[];
+}
+
+export function aggregateChainSignals(per_turn: readonly Signals[]): ChainSignals {
+  const per_turn_winner = per_turn.map((s) => s.skillInvocations[0]?.skill);
+  return { per_turn, per_turn_winner };
+}
+
 function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
   if (!a.type || !a.description) {
     throw new Error(`${loc}: assertion missing 'type' or 'description'`);
@@ -105,6 +167,19 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
     case "not_skill_invoked":
       if (typeof a.skill !== "string" || a.skill.length === 0) {
         throw new Error(`${loc}: ${a.type} assertion requires non-empty 'skill' string`);
+      }
+      break;
+    case "skill_invoked_in_turn":
+      if (typeof a.turn !== "number" || !Number.isInteger(a.turn) || a.turn < 1) {
+        throw new Error(`${loc}: skill_invoked_in_turn requires integer 'turn' >= 1`);
+      }
+      if (typeof a.skill !== "string" || a.skill.length === 0) {
+        throw new Error(`${loc}: skill_invoked_in_turn requires non-empty 'skill' string`);
+      }
+      break;
+    case "chain_order":
+      if (!Array.isArray(a.skills) || a.skills.length === 0 || !a.skills.every((s) => typeof s === "string" && s.length > 0)) {
+        throw new Error(`${loc}: chain_order requires non-empty array 'skills' of non-empty strings`);
       }
       break;
     default: {
@@ -133,15 +208,85 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
   if (!Array.isArray(parsed.evals) || parsed.evals.length === 0) {
     throw new Error(`${file}: 'evals' must be a non-empty array`);
   }
+
+  const validatedEvals: ValidatedEval[] = [];
   for (const e of parsed.evals) {
-    if (!e.name || !e.prompt || !Array.isArray(e.assertions) || e.assertions.length === 0) {
+    if (!e.name) {
       throw new Error(`${file}: eval '${e.name ?? "(unnamed)"}' missing name/prompt/assertions`);
     }
-    for (const a of e.assertions) {
-      validateAssertion(a, `${file}: eval '${e.name}'`);
+    const hasPrompt = typeof e.prompt === "string" && e.prompt.length > 0;
+    const hasTurns = Array.isArray(e.turns);
+    if (hasPrompt && hasTurns) {
+      throw new Error(`${file}: eval '${e.name}' has both 'prompt' and 'turns' — pick one`);
     }
+    if (!hasPrompt && !hasTurns) {
+      throw new Error(`${file}: eval '${e.name}' missing name/prompt/assertions`);
+    }
+
+    if (hasPrompt) {
+      if (!Array.isArray(e.assertions) || e.assertions.length === 0) {
+        throw new Error(`${file}: eval '${e.name}' missing name/prompt/assertions`);
+      }
+      const validated: ValidatedAssertion[] = [];
+      for (const a of e.assertions) {
+        if (a.type === "chain_order" || a.type === "skill_invoked_in_turn") {
+          throw new Error(`${file}: eval '${e.name}': '${a.type}' is a chain-level assertion; use it in 'final_assertions' on a multi-turn eval`);
+        }
+        validated.push(validateAssertion(a, `${file}: eval '${e.name}'`));
+      }
+      validatedEvals.push({ kind: "single", name: e.name, summary: e.summary, prompt: e.prompt!, assertions: validated });
+      continue;
+    }
+
+    // multi-turn
+    const turns = e.turns as Turn[];
+    if (turns.length === 0) {
+      throw new Error(`${file}: eval '${e.name}' has empty 'turns' array`);
+    }
+    const validatedTurns: ValidatedTurn[] = [];
+    turns.forEach((t, idx) => {
+      const turnLoc = `${file}: eval '${e.name}' turn ${idx + 1}`;
+      if (typeof t.prompt !== "string" || t.prompt.length === 0) {
+        throw new Error(`${turnLoc}: missing non-empty 'prompt'`);
+      }
+      if (!Array.isArray(t.assertions) || t.assertions.length === 0) {
+        throw new Error(`${turnLoc}: missing non-empty 'assertions'`);
+      }
+      const va: ValidatedAssertion[] = [];
+      for (const a of t.assertions) {
+        if (a.type === "chain_order" || a.type === "skill_invoked_in_turn") {
+          throw new Error(`${turnLoc}: '${a.type}' is a chain-level assertion; move it to 'final_assertions' on the eval`);
+        }
+        va.push(validateAssertion(a, turnLoc));
+      }
+      validatedTurns.push({ prompt: t.prompt, assertions: va });
+    });
+
+    let validatedFinal: ValidatedAssertion[] | undefined;
+    if (e.final_assertions !== undefined) {
+      if (!Array.isArray(e.final_assertions) || e.final_assertions.length === 0) {
+        throw new Error(`${file}: eval '${e.name}': 'final_assertions' must be a non-empty array if present (omit the field for none)`);
+      }
+      validatedFinal = [];
+      for (const a of e.final_assertions) {
+        const v = validateAssertion(a, `${file}: eval '${e.name}' final_assertions`);
+        if (a.type === "skill_invoked_in_turn" && a.turn > validatedTurns.length) {
+          throw new Error(`${file}: eval '${e.name}' final_assertions: skill_invoked_in_turn.turn=${a.turn} is out of range (only ${validatedTurns.length} turns)`);
+        }
+        validatedFinal.push(v);
+      }
+    }
+
+    validatedEvals.push({
+      kind: "multi",
+      name: e.name,
+      summary: e.summary,
+      turns: validatedTurns,
+      final_assertions: validatedFinal,
+    });
   }
-  return parsed as EvalFile;
+
+  return { skill: parsed.skill, description: parsed.description, evals: validatedEvals };
 }
 
 export function discoverSkills(skillsDir: string): string[] {
@@ -178,6 +323,25 @@ export function parseStreamJson(raw: string): ParseResult {
     }
   }
   return { events, skipped };
+}
+
+/**
+ * Pull the canonical session_id from an `init` system event emitted by
+ * `claude --print --output-format stream-json`. Used by the multi-turn runner
+ * to feed `claude --resume <id>` on turns 2..N.
+ *
+ * The CLI also emits `session_id` on earlier hook events (SessionStart hooks
+ * fire before `init`), so we specifically match `type:"system" subtype:"init"`
+ * rather than the first event with a session_id field. Returns null if the
+ * stream ended before init (a spawn or parse failure).
+ */
+export function extractSessionId(events: readonly StreamEvent[]): string | null {
+  for (const ev of events) {
+    if (ev.type === "system" && ev.subtype === "init" && typeof ev.session_id === "string" && ev.session_id.length > 0) {
+      return ev.session_id;
+    }
+  }
+  return null;
 }
 
 /**
@@ -280,6 +444,48 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
       return signals.skillInvocations.some((s) => s.skill === assertion.skill)
         ? fail(`forbidden Skill('${assertion.skill}') was invoked`)
         : pass();
+    default:
+      return fail(`evaluate called with chain-level assertion type '${(assertion as { type: string }).type}' — this is a runner bug`);
+  }
+}
+
+/**
+ * Chain-level assertion evaluator. Handles `skill_invoked_in_turn` and
+ * `chain_order` — the only two assertion variants that read across turns.
+ * For all other assertion types, the per-turn loop in the runner calls the
+ * regular `evaluate(assertion, signals)` on the matching turn's signals.
+ */
+export function evaluateChain(assertion: ValidatedAssertion, chain: ChainSignals): AssertionResult {
+  const { description } = assertion;
+  const fail = (detail: string): AssertionResult => ({ ok: false, description, detail });
+  const pass = (): AssertionResult => ({ ok: true, description });
+
+  switch (assertion.type) {
+    case "skill_invoked_in_turn": {
+      const idx = assertion.turn - 1;
+      if (idx < 0 || idx >= chain.per_turn.length) {
+        return fail(`turn ${assertion.turn} is out of range (only ${chain.per_turn.length} turns in chain)`);
+      }
+      const fired = chain.per_turn[idx].skillInvocations.some((s) => s.skill === assertion.skill);
+      if (fired) return pass();
+      const skills = chain.per_turn[idx].skillInvocations.map((s) => s.skill);
+      return fail(
+        `turn ${assertion.turn}: Skill('${assertion.skill}') not invoked. Skills seen in this turn: ${
+          skills.length === 0 ? "(none)" : skills.join(", ")
+        }`,
+      );
+    }
+    case "chain_order": {
+      const actual = chain.per_turn_winner;
+      const expected = assertion.skills;
+      const same = expected.length === actual.length && expected.every((s, i) => s === actual[i]);
+      if (same) return pass();
+      return fail(`chain_order mismatch. expected=[${expected.join(", ")}] actual=[${actual.map((s) => s ?? "(none)").join(", ")}]`);
+    }
+    default:
+      // Other assertion variants are per-turn; the runner should route them to
+      // `evaluate`, not here. Reaching this branch is a runner bug.
+      return fail(`evaluateChain called with non-chain assertion type '${(assertion as { type: string }).type}' — this is a runner bug`);
   }
 }
 

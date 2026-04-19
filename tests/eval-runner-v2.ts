@@ -29,10 +29,14 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  type ChainSignals,
   type EvalFile,
   type Signals,
+  aggregateChainSignals,
   discoverSkills,
   evaluate,
+  evaluateChain,
+  extractSessionId,
   extractSignals,
   loadEvalFile,
   parseStreamJson,
@@ -59,38 +63,123 @@ interface CliRun {
   readonly failure?: string;
 }
 
+interface ChainRun {
+  readonly turns: readonly CliRun[];
+  readonly sessionId: string | null;
+  /** Set when the chain could not proceed — e.g. turn 1 failed or yielded no session_id. */
+  readonly chainFailure?: string;
+}
+
+const TURN_TIMEOUT_MS = 5 * 60 * 1000;
+const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions"] as const;
+
 /**
- * Scratch cwd: running in-repo lets Claude read the skill files and recognize
- * prompts as eval fixtures. Empty tmpdir removes that tell.
- * bypassPermissions: skills invoke Bash/Write; an interactive permission gate
- * stalls --print indefinitely. The scratch dir caps only relative-path writes
- * — absolute paths and network calls are still unscoped, so evals must not
- * run adversarial prompts without further sandboxing.
+ * Spawn `claude` with the given args, classify the exit reason, and return a
+ * normalized CliRun. Shared by the single-turn path and every turn of a chain
+ * so spawn-failure classification lives in exactly one place.
  */
-function runClaude(prompt: string): CliRun {
-  const timeoutMs = 5 * 60 * 1000;
-  const scratchDir = mkdtempSync(join(tmpdir(), "claude-eval-"));
+function spawnClaudeCli(args: readonly string[], prompt: string, cwd: string): CliRun {
+  const res = spawnSync(claudeBin, [...args], {
+    input: prompt,
+    encoding: "utf8",
+    timeout: TURN_TIMEOUT_MS,
+    maxBuffer: 64 * 1024 * 1024,
+    cwd,
+  });
+  let failure: string | undefined;
+  if (res.error) {
+    failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
+  } else if (res.signal) {
+    failure = res.signal === "SIGTERM" ? `timed out after ${TURN_TIMEOUT_MS / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
+  } else if (res.status === null) {
+    failure = "process exited without status (no signal, no error)";
+  }
+  return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
+}
+
+/**
+ * Spawn a single fresh `claude --print` turn in an isolated scratch cwd.
+ * Used for single-turn evals and as turn 1 of a multi-turn chain.
+ *
+ * When `cwd` is provided (by the chain helper), the caller owns cleanup.
+ * Otherwise we create and clean up a tmpdir in this function.
+ */
+function runClaude(prompt: string, cwd?: string): CliRun {
+  const ownCwd = cwd ?? mkdtempSync(join(tmpdir(), "claude-eval-"));
   try {
-    const res = spawnSync(
-      claudeBin,
-      ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions"],
-      {
-        input: prompt,
-        encoding: "utf8",
-        timeout: timeoutMs,
-        maxBuffer: 64 * 1024 * 1024,
-        cwd: scratchDir,
-      },
-    );
-    let failure: string | undefined;
-    if (res.error) {
-      failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
-    } else if (res.signal) {
-      failure = res.signal === "SIGTERM" ? `timed out after ${timeoutMs / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
-    } else if (res.status === null) {
-      failure = "process exited without status (no signal, no error)";
+    return spawnClaudeCli(CLI_BASE_ARGS, prompt, ownCwd);
+  } finally {
+    if (!cwd) {
+      try {
+        rmSync(ownCwd, { recursive: true, force: true });
+      } catch (err) {
+        console.error(`[eval-runner] failed to clean scratch dir ${ownCwd}: ${(err as Error).message}`);
+      }
     }
-    return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
+  }
+}
+
+/**
+ * Run an N-turn chain via `claude --print` (turn 1) + `claude --resume <id>`
+ * (turns 2..N). All turns share one scratch cwd so tool writes persist.
+ *
+ * Short-circuits if turn 1 fails to produce a session_id — chain continuation
+ * would be meaningless without a valid --resume handle. Partial-failure runs
+ * return a `chainFailure` message; the caller decides how to render it.
+ *
+ * Each turn has its own 5-minute timeout; a 3-turn chain therefore caps at 15
+ * minutes of wall time.
+ */
+function runClaudeChain(turnPrompts: readonly string[]): ChainRun {
+  if (turnPrompts.length === 0) {
+    return { turns: [], sessionId: null, chainFailure: "chain has zero turns" };
+  }
+  const scratchDir = mkdtempSync(join(tmpdir(), "claude-eval-chain-"));
+  const runs: CliRun[] = [];
+  let sessionId: string | null = null;
+  let chainFailure: string | undefined;
+  try {
+    // Turn 1: fresh session
+    const t1 = runClaude(turnPrompts[0], scratchDir);
+    runs.push(t1);
+    if (t1.failure || t1.exitCode !== 0) {
+      chainFailure = `turn 1 failed: ${t1.failure ?? `exit ${t1.exitCode}`}`;
+      return { turns: runs, sessionId: null, chainFailure };
+    }
+    const { events: t1Events } = parseStreamJson(t1.stdout);
+    sessionId = extractSessionId(t1Events);
+    if (!sessionId) {
+      chainFailure = `turn 1 produced no session_id in stream-json init event (events=${t1Events.length})`;
+      return { turns: runs, sessionId: null, chainFailure };
+    }
+
+    // Turns 2..N: resume
+    for (let i = 1; i < turnPrompts.length; i++) {
+      const turnRun = spawnClaudeCli(
+        ["--resume", sessionId, ...CLI_BASE_ARGS],
+        turnPrompts[i],
+        scratchDir,
+      );
+      runs.push(turnRun);
+      if (turnRun.failure || turnRun.exitCode !== 0) {
+        chainFailure = `turn ${i + 1} failed: ${turnRun.failure ?? `exit ${turnRun.exitCode}`}`;
+        // Stop the chain — turn N+1 depends on N succeeding. Assertions for
+        // later turns will be counted as failures by the caller.
+        return { turns: runs, sessionId, chainFailure };
+      }
+      // Symmetric with the single-turn empty-events gate: a clean exit with
+      // zero parseable events means the CLI returned without the structured
+      // stream we need. Continuing would burn wall-time on a session that
+      // can't answer anything. Abort the chain here rather than quietly
+      // tolerating degenerate middle turns.
+      const { events } = parseStreamJson(turnRun.stdout);
+      if (events.length === 0) {
+        chainFailure = `turn ${i + 1} produced no parseable stream-json events (stdout=${turnRun.stdout.length}B)`;
+        return { turns: runs, sessionId, chainFailure };
+      }
+    }
+
+    return { turns: runs, sessionId };
   } finally {
     try {
       rmSync(scratchDir, { recursive: true, force: true });
@@ -162,7 +251,58 @@ function writeTranscript(a: TranscriptArgs): void {
   try {
     writeFileSync(a.path, body.join("\n"));
   } catch (err) {
-    console.log(`    ${dim(`(transcript write failed: ${(err as Error).message})`)}`);
+    console.error(`    [eval-runner] transcript write failed (${a.path}): ${(err as Error).message}`);
+  }
+}
+
+interface ChainTranscriptArgs {
+  readonly path: string;
+  readonly skillName: string;
+  readonly evalName: string;
+  readonly turnPrompts: readonly string[];
+  readonly turnSignals: ReadonlyArray<Signals | null>;
+  readonly turnRuns: readonly CliRun[];
+  readonly sessionId: string | null;
+  readonly chainFailure?: string;
+}
+
+function writeChainTranscript(a: ChainTranscriptArgs): void {
+  const body: string[] = [
+    `# ${a.skillName} / ${a.evalName} (v2, multi-turn)`,
+    "",
+    `session_id: ${a.sessionId ?? "(none)"}`,
+    `turns_run: ${a.turnRuns.length}/${a.turnPrompts.length}`,
+  ];
+  if (a.chainFailure) body.push(`chain_failure: ${a.chainFailure}`);
+  body.push("");
+
+  for (let i = 0; i < a.turnPrompts.length; i++) {
+    const run = a.turnRuns[i];
+    const signals = a.turnSignals[i] ?? null;
+    body.push(`## Turn ${i + 1} prompt`, "", a.turnPrompts[i], "");
+    if (!run) {
+      body.push(`(turn not run — chain aborted before reaching it)`, "");
+      continue;
+    }
+    body.push(`## Turn ${i + 1} final text`, "", signals?.finalText ?? "(no signals — turn failed)", "");
+    const meta = [
+      `exit_code: ${run.exitCode ?? "(none)"}`,
+      `stdout_bytes: ${run.stdout.length}`,
+      `stderr_bytes: ${run.stderr.length}`,
+      `terminal_state: ${signals?.terminalState ?? "(no signals)"}`,
+      `tool_uses: ${signals?.toolUses.map((t) => t.name).join(", ") || "(none)"}`,
+      `skills_invoked: ${signals?.skillInvocations.map((s) => s.skill).join(", ") || "(none)"}`,
+    ].join("\n");
+    body.push(`## Turn ${i + 1} metadata`, "", meta, "");
+    if (run.failure) body.push(`## Turn ${i + 1} failure`, "", run.failure, "");
+    if (run.stderr.trim()) body.push(`## Turn ${i + 1} stderr`, "", run.stderr, "");
+    body.push(`## Turn ${i + 1} raw stream-json stdout`, "", "```", run.stdout || "(empty)", "```", "");
+  }
+
+  try {
+    writeFileSync(a.path, body.join("\n"));
+  } catch (err) {
+    console.error(`    [eval-runner] transcript write failed (${a.path}): ${(err as Error).message}`);
   }
 }
 
@@ -205,6 +345,191 @@ async function main() {
   let totalAssertions = 0;
   let passedAssertions = 0;
 
+  // Shared helpers captured by the two branches below so the report counters
+  // and transcript paths come from one place.
+
+  function runSingleTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "single" }>): void {
+    const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-${timestamp}.md`);
+    const { stdout, stderr, exitCode, failure } = runClaude(e.prompt);
+
+    if (failure || exitCode !== 0) {
+      totalAssertions += e.assertions.length;
+      const reason = failure ?? `claude exited ${exitCode}: ${stderr.trim().split("\n")[0] ?? "(no stderr)"}`;
+      console.log(`    ${red("✗")} ${reason}`);
+      writeTranscript({
+        path: transcriptFile,
+        skillName,
+        evalName: e.name,
+        prompt: e.prompt,
+        signals: null,
+        rawStdout: stdout,
+        rawStderr: stderr,
+        exitCode,
+        failure: reason,
+      });
+      console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+      return;
+    }
+
+    const { events, skipped } = parseStreamJson(stdout);
+
+    // Exit 0 with no parseable events means the CLI returned without emitting
+    // the structured stream we rely on. Without this gate, every negative
+    // assertion (not_contains / not_regex / not_skill_invoked) would trivially
+    // pass against an empty signal set — a silent regression relative to v1.
+    if (events.length === 0) {
+      totalAssertions += e.assertions.length;
+      const reason = `no parseable stream-json events (exit 0, stdout=${stdout.length}B, skipped=${skipped})`;
+      console.log(`    ${red("✗")} ${reason}`);
+      writeTranscript({
+        path: transcriptFile,
+        skillName,
+        evalName: e.name,
+        prompt: e.prompt,
+        signals: null,
+        rawStdout: stdout,
+        rawStderr: stderr,
+        exitCode,
+        parsedEvents: 0,
+        skippedLines: skipped,
+        failure: reason,
+      });
+      console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+      return;
+    }
+
+    const signals = extractSignals(events);
+    writeTranscript({
+      path: transcriptFile,
+      skillName,
+      evalName: e.name,
+      prompt: e.prompt,
+      signals,
+      rawStdout: stdout,
+      rawStderr: stderr,
+      exitCode,
+      parsedEvents: events.length,
+      skippedLines: skipped,
+    });
+
+    let evalPassed = true;
+    for (const a of e.assertions) {
+      totalAssertions++;
+      const r = evaluate(a, signals);
+      if (r.ok) {
+        passedAssertions++;
+        console.log(`    ${green("✓")} ${r.description}`);
+      } else {
+        evalPassed = false;
+        console.log(`    ${red("✗")} ${r.description}`);
+        console.log(`        ${dim(r.detail)}`);
+      }
+    }
+    if (evalPassed) passedEvals++;
+    console.log(
+      dim(
+        `      transcript → ${transcriptFile.replace(repoDir + "/", "")}` +
+          ` (events=${events.length} skipped=${skipped} tools=${signals.toolUses.length} skills=${signals.skillInvocations.length})`,
+      ),
+    );
+  }
+
+  function runMultiTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "multi" }>): void {
+    const turns = e.turns;
+    const turnPrompts = turns.map((t) => t.prompt);
+    const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-multiturn-${timestamp}.md`);
+    const { turns: runs, sessionId, chainFailure } = runClaudeChain(turnPrompts);
+
+    // Extract per-turn signals for each completed turn. Missing turns (chain
+    // aborted before reaching them) get null signals; their assertions count
+    // as failures. The first turn to fail has a CliRun entry but may have
+    // unparseable stdout; the extractor gracefully returns terminalState:"empty".
+    const turnSignals: (Signals | null)[] = [];
+    for (const run of runs) {
+      if (run.failure || run.exitCode !== 0) {
+        turnSignals.push(null);
+        continue;
+      }
+      const { events } = parseStreamJson(run.stdout);
+      if (events.length === 0) {
+        turnSignals.push(null);
+        continue;
+      }
+      turnSignals.push(extractSignals(events));
+    }
+    while (turnSignals.length < turns.length) turnSignals.push(null);
+
+    writeChainTranscript({
+      path: transcriptFile,
+      skillName,
+      evalName: e.name,
+      turnPrompts,
+      turnSignals,
+      turnRuns: runs,
+      sessionId,
+      chainFailure,
+    });
+
+    let evalPassed = true;
+    if (chainFailure) {
+      console.log(`    ${red("✗")} ${chainFailure}`);
+      // All assertions still count — mark them failed so the summary is honest.
+      for (const t of turns) totalAssertions += t.assertions.length;
+      totalAssertions += e.final_assertions?.length ?? 0;
+      console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+      return;
+    }
+
+    // Per-turn assertions
+    for (let i = 0; i < turns.length; i++) {
+      const signals = turnSignals[i];
+      for (const a of turns[i].assertions) {
+        totalAssertions++;
+        if (!signals) {
+          evalPassed = false;
+          console.log(`    ${red("✗")} turn ${i + 1}: ${a.description}`);
+          console.log(`        ${dim("no signals for this turn")}`);
+          continue;
+        }
+        const r = evaluate(a, signals);
+        if (r.ok) {
+          passedAssertions++;
+          console.log(`    ${green("✓")} turn ${i + 1}: ${r.description}`);
+        } else {
+          evalPassed = false;
+          console.log(`    ${red("✗")} turn ${i + 1}: ${r.description}`);
+          console.log(`        ${dim(r.detail)}`);
+        }
+      }
+    }
+
+    // Chain-level final assertions
+    if (e.final_assertions && e.final_assertions.length > 0) {
+      const chain = aggregateChainSignals(turnSignals.map((s) => s ?? { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" as const }));
+      for (const a of e.final_assertions) {
+        totalAssertions++;
+        const r = evaluateChain(a, chain);
+        if (r.ok) {
+          passedAssertions++;
+          console.log(`    ${green("✓")} final: ${r.description}`);
+        } else {
+          evalPassed = false;
+          console.log(`    ${red("✗")} final: ${r.description}`);
+          console.log(`        ${dim(r.detail)}`);
+        }
+      }
+    }
+
+    if (evalPassed) passedEvals++;
+    const union = turnSignals.reduce((sum, s) => sum + (s?.skillInvocations.length ?? 0), 0);
+    console.log(
+      dim(
+        `      transcript → ${transcriptFile.replace(repoDir + "/", "")}` +
+          ` (turns=${runs.length}/${turns.length} skills=${union} session=${sessionId ?? "none"})`,
+      ),
+    );
+  }
+
   console.log(dim(`v2 runner — stream-json CLI${dryRun ? " (dry-run)" : ""}\n`));
 
   for (const skillName of skills) {
@@ -218,98 +543,30 @@ async function main() {
       console.log(`  ${bold("▸")} ${e.name}${e.summary ? dim(" — " + e.summary) : ""}`);
 
       if (dryRun) {
-        for (const a of e.assertions) {
-          totalAssertions++;
-          passedAssertions++;
-          console.log(`    ${green("✓")} ${dim("[dry-run]")} ${a.description}`);
+        const turns = e.kind === "multi" ? e.turns : [{ prompt: e.prompt, assertions: e.assertions }];
+        for (const t of turns) {
+          for (const a of t.assertions) {
+            totalAssertions++;
+            passedAssertions++;
+            console.log(`    ${green("✓")} ${dim("[dry-run]")} ${a.description}`);
+          }
+        }
+        if (e.kind === "multi") {
+          for (const a of e.final_assertions ?? []) {
+            totalAssertions++;
+            passedAssertions++;
+            console.log(`    ${green("✓")} ${dim("[dry-run, final]")} ${a.description}`);
+          }
         }
         passedEvals++;
         continue;
       }
 
-      const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-${timestamp}.md`);
-      const { stdout, stderr, exitCode, failure } = runClaude(e.prompt);
-
-      if (failure || exitCode !== 0) {
-        totalAssertions += e.assertions.length;
-        const reason = failure ?? `claude exited ${exitCode}: ${stderr.trim().split("\n")[0] ?? "(no stderr)"}`;
-        console.log(`    ${red("✗")} ${reason}`);
-        writeTranscript({
-          path: transcriptFile,
-          skillName,
-          evalName: e.name,
-          prompt: e.prompt,
-          signals: null,
-          rawStdout: stdout,
-          rawStderr: stderr,
-          exitCode,
-          failure: reason,
-        });
-        console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
-        continue;
+      if (e.kind === "multi") {
+        runMultiTurnEval(skillName, e);
+      } else {
+        runSingleTurnEval(skillName, e);
       }
-
-      const { events, skipped } = parseStreamJson(stdout);
-
-      // Exit 0 with no parseable events means the CLI returned without emitting
-      // the structured stream we rely on. Without this gate, every negative
-      // assertion (not_contains / not_regex / not_skill_invoked) would trivially
-      // pass against an empty signal set — a silent regression relative to v1.
-      if (events.length === 0) {
-        totalAssertions += e.assertions.length;
-        const reason = `no parseable stream-json events (exit 0, stdout=${stdout.length}B, skipped=${skipped})`;
-        console.log(`    ${red("✗")} ${reason}`);
-        writeTranscript({
-          path: transcriptFile,
-          skillName,
-          evalName: e.name,
-          prompt: e.prompt,
-          signals: null,
-          rawStdout: stdout,
-          rawStderr: stderr,
-          exitCode,
-          parsedEvents: 0,
-          skippedLines: skipped,
-          failure: reason,
-        });
-        console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
-        continue;
-      }
-
-      const signals = extractSignals(events);
-      writeTranscript({
-        path: transcriptFile,
-        skillName,
-        evalName: e.name,
-        prompt: e.prompt,
-        signals,
-        rawStdout: stdout,
-        rawStderr: stderr,
-        exitCode,
-        parsedEvents: events.length,
-        skippedLines: skipped,
-      });
-
-      let evalPassed = true;
-      for (const a of e.assertions) {
-        totalAssertions++;
-        const r = evaluate(a, signals);
-        if (r.ok) {
-          passedAssertions++;
-          console.log(`    ${green("✓")} ${r.description}`);
-        } else {
-          evalPassed = false;
-          console.log(`    ${red("✗")} ${r.description}`);
-          console.log(`        ${dim(r.detail)}`);
-        }
-      }
-      if (evalPassed) passedEvals++;
-      console.log(
-        dim(
-          `      transcript → ${transcriptFile.replace(repoDir + "/", "")}` +
-            ` (events=${events.length} skipped=${skipped} tools=${signals.toolUses.length} skills=${signals.skillInvocations.length})`,
-        ),
-      );
     }
     console.log("");
   }

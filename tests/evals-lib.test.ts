@@ -13,8 +13,13 @@ import { join } from "node:path";
 import {
   type Assertion,
   type Signals,
+  type ChainSignals,
+  type SkillInvocation,
+  aggregateChainSignals,
   brandForTest as v,
   evaluate,
+  evaluateChain,
+  extractSessionId,
   extractSignals,
   loadEvalFile,
   parseStreamJson,
@@ -167,7 +172,9 @@ describe("loadEvalFile()", () => {
         },
       ],
     });
-    expect(loadEvalFile(root, "skill-a")?.evals[0]?.assertions[0]?.type).toBe("skill_invoked");
+    const ev = loadEvalFile(root, "skill-a")?.evals[0];
+    expect(ev?.kind).toBe("single");
+    if (ev?.kind === "single") expect(ev.assertions[0]?.type).toBe("skill_invoked");
   });
 
   test("rejects skill_invoked with empty skill", () => {
@@ -369,6 +376,23 @@ describe("parseStreamJson()", () => {
   });
 });
 
+describe("validateAssertion() — multi-turn variants", () => {
+  test("skill_invoked_in_turn — requires positive integer turn and non-empty skill", () => {
+    expect(() => v({ type: "skill_invoked_in_turn", turn: 1, skill: "foo", description: "d" } as Assertion)).not.toThrow();
+    expect(() => v({ type: "skill_invoked_in_turn", turn: 0, skill: "foo", description: "d" } as Assertion)).toThrow(/turn/);
+    expect(() => v({ type: "skill_invoked_in_turn", turn: 1.5, skill: "foo", description: "d" } as Assertion)).toThrow(/turn/);
+    expect(() => v({ type: "skill_invoked_in_turn", turn: -1, skill: "foo", description: "d" } as Assertion)).toThrow(/turn/);
+    expect(() => v({ type: "skill_invoked_in_turn", turn: 1, skill: "", description: "d" } as Assertion)).toThrow(/skill/);
+  });
+
+  test("chain_order — requires non-empty array of non-empty skill names", () => {
+    expect(() => v({ type: "chain_order", skills: ["a", "b", "c"], description: "d" } as Assertion)).not.toThrow();
+    expect(() => v({ type: "chain_order", skills: [], description: "d" } as Assertion)).toThrow(/skills/);
+    expect(() => v({ type: "chain_order", skills: ["a", ""], description: "d" } as Assertion)).toThrow(/skills/);
+    expect(() => v({ type: "chain_order", skills: "a,b,c", description: "d" } as unknown as Assertion)).toThrow(/skills/);
+  });
+});
+
 describe("extractSignals()", () => {
   test("pulls finalText from result event and records terminalState=result", () => {
     const { events } = parseStreamJson(
@@ -468,5 +492,313 @@ describe("extractSignals()", () => {
     expect(s.terminalState).toBe("empty");
     expect(s.toolUses.length).toBe(0);
     expect(s.skillInvocations.length).toBe(0);
+  });
+});
+
+describe("extractSessionId()", () => {
+  test("returns session_id from the first system/init event", () => {
+    const events = [
+      { type: "system", subtype: "hook_started", session_id: "will-be-ignored" },
+      { type: "system", subtype: "init", session_id: "abc-123", model: "claude-opus-4-6" },
+      { type: "assistant", session_id: "abc-123", message: { content: [] } },
+    ];
+    expect(extractSessionId(events)).toBe("abc-123");
+  });
+
+  test("returns null when no init event exists", () => {
+    const events = [{ type: "assistant", message: { content: [] } }];
+    expect(extractSessionId(events)).toBeNull();
+  });
+
+  test("returns null when init event lacks a session_id", () => {
+    const events = [{ type: "system", subtype: "init" }];
+    expect(extractSessionId(events)).toBeNull();
+  });
+
+  test("init session_id takes precedence over earlier hook session_ids", () => {
+    // Regression: the CLI emits hook_started/hook_response system events with
+    // session_id BEFORE the canonical init event. The extractor must skip past
+    // those to the init event, not return the first system session_id it sees.
+    const events = [
+      { type: "system", subtype: "hook_started", session_id: "hook-sid" },
+      { type: "system", subtype: "hook_response", session_id: "hook-sid" },
+      { type: "system", subtype: "init", session_id: "real-sid" },
+    ];
+    expect(extractSessionId(events)).toBe("real-sid");
+  });
+});
+
+describe("loadEvalFile() — multi-turn schema", () => {
+  function writeEval(body: unknown): string {
+    const dir = mkdtempSync(join(tmpdir(), "evals-schema-"));
+    const skillDir = join(dir, "my-skill", "evals");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "evals.json"), JSON.stringify(body));
+    return dir;
+  }
+
+  test("loads a valid multi-turn eval with final_assertions", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "chained",
+        turns: [
+          { prompt: "t1", assertions: [{ type: "contains", value: "hi", description: "t1 ok" }] },
+          { prompt: "t2", assertions: [{ type: "contains", value: "bye", description: "t2 ok" }] },
+        ],
+        final_assertions: [
+          { type: "chain_order", skills: ["a", "b"], description: "chain order" },
+        ],
+      }],
+    });
+    const file = loadEvalFile(skillsDir, "my-skill");
+    expect(file).not.toBeNull();
+    const ev = file!.evals[0];
+    expect(ev.kind).toBe("multi");
+    if (ev.kind !== "multi") throw new Error("expected multi-turn eval");
+    expect(ev.turns).toHaveLength(2);
+    expect(ev.final_assertions).toHaveLength(1);
+  });
+
+  test("loads a single-turn eval (backward compat)", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "simple",
+        prompt: "hello",
+        assertions: [{ type: "contains", value: "hi", description: "ok" }],
+      }],
+    });
+    const file = loadEvalFile(skillsDir, "my-skill");
+    const ev = file!.evals[0];
+    expect(ev.kind).toBe("single");
+    if (ev.kind !== "single") throw new Error("expected single-turn eval");
+    expect(ev.prompt).toBe("hello");
+  });
+
+  test("rejects an eval with both prompt and turns", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "ambiguous",
+        prompt: "x",
+        turns: [{ prompt: "y", assertions: [{ type: "contains", value: "z", description: "d" }] }],
+        assertions: [{ type: "contains", value: "z", description: "d" }],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/prompt.*turns|turns.*prompt/i);
+  });
+
+  test("rejects a multi-turn eval with an empty turns array", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{ name: "empty-turns", turns: [] }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/turns/i);
+  });
+
+  test("rejects a multi-turn eval where a turn lacks prompt or assertions", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "bad-turn",
+        turns: [{ prompt: "t1" }],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/turn|assertions/i);
+  });
+
+  test("allows multi-turn eval with no final_assertions", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "no-final",
+        turns: [
+          { prompt: "t1", assertions: [{ type: "contains", value: "a", description: "d" }] },
+        ],
+      }],
+    });
+    const file = loadEvalFile(skillsDir, "my-skill");
+    const ev = file!.evals[0];
+    expect(ev.kind).toBe("multi");
+    if (ev.kind !== "multi") throw new Error("expected multi-turn eval");
+    expect(ev.final_assertions ?? []).toEqual([]);
+  });
+
+  test("rejects chain_order inside a per-turn assertions array", () => {
+    // chain_order is a final-level assertion — it operates on the whole chain,
+    // not a single turn. Putting it on a per-turn assertion is a user error.
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "misplaced-chain-order",
+        turns: [{
+          prompt: "t1",
+          assertions: [{ type: "chain_order", skills: ["a"], description: "d" }],
+        }],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/chain_order|per-turn/i);
+  });
+
+  test("rejects skill_invoked_in_turn inside a per-turn assertions array", () => {
+    // skill_invoked_in_turn targets a specific turn by index — using it inside
+    // a turn's own assertions is redundant and wrong; use skill_invoked instead.
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "misplaced-in-turn",
+        turns: [{
+          prompt: "t1",
+          assertions: [{ type: "skill_invoked_in_turn", turn: 1, skill: "x", description: "d" }],
+        }],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/skill_invoked_in_turn|per-turn/i);
+  });
+
+  test("rejects skill_invoked_in_turn with turn index > number of turns", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "oob-turn",
+        turns: [
+          { prompt: "t1", assertions: [{ type: "contains", value: "a", description: "d" }] },
+        ],
+        final_assertions: [
+          { type: "skill_invoked_in_turn", turn: 3, skill: "x", description: "d" },
+        ],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/turn.*3|out of range/i);
+  });
+});
+
+describe("aggregateChainSignals()", () => {
+  function inv(skill: string): SkillInvocation {
+    return { skill, raw: { name: "Skill" as const, input: { skill } } };
+  }
+
+  test("per_turn preserves the full signal for each turn", () => {
+    const t1: Signals = { finalText: "one", toolUses: [], skillInvocations: [inv("a")], terminalState: "result" };
+    const t2: Signals = { finalText: "two", toolUses: [], skillInvocations: [inv("b"), inv("c")], terminalState: "result" };
+    const chain = aggregateChainSignals([t1, t2]);
+    expect(chain.per_turn).toHaveLength(2);
+    expect(chain.per_turn[0]).toBe(t1);
+  });
+
+  test("per_turn_winner returns the first skill invocation per turn, or undefined if none fired", () => {
+    const t1: Signals = { finalText: "", toolUses: [], skillInvocations: [inv("a"), inv("b")], terminalState: "result" };
+    const t2: Signals = { finalText: "", toolUses: [], skillInvocations: [], terminalState: "result" };
+    const t3: Signals = { finalText: "", toolUses: [], skillInvocations: [inv("c")], terminalState: "result" };
+    const chain = aggregateChainSignals([t1, t2, t3]);
+    expect(chain.per_turn_winner).toEqual(["a", undefined, "c"]);
+  });
+
+  test("empty chain returns empty per_turn and per_turn_winner", () => {
+    // Edge case: aggregateChainSignals([]) must not throw and must produce a
+    // well-formed ChainSignals with two empty arrays. evaluateChain relies on
+    // this for chain_order expected-vs-actual length comparisons.
+    const chain = aggregateChainSignals([]);
+    expect(chain.per_turn).toEqual([]);
+    expect(chain.per_turn_winner).toEqual([]);
+  });
+});
+
+describe("evaluateChain()", () => {
+  function inv(skill: string) { return { skill, raw: { name: "Skill" as const, input: { skill } } }; }
+  function chainOf(winners: (string | undefined)[]): ChainSignals {
+    return {
+      per_turn: winners.map((w) => ({
+        finalText: "",
+        toolUses: [],
+        skillInvocations: w ? [inv(w)] : [],
+        terminalState: "result" as const,
+      })),
+      per_turn_winner: winners,
+    };
+  }
+
+  test("skill_invoked_in_turn — passes when the turn's winner matches", () => {
+    const a = v({ type: "skill_invoked_in_turn", turn: 2, skill: "systems-analysis", description: "d" });
+    expect(evaluateChain(a, chainOf(["define-the-problem", "systems-analysis", "superpowers:brainstorming"])).ok).toBe(true);
+  });
+
+  test("skill_invoked_in_turn — also passes when the skill appears as a non-winner in the turn", () => {
+    // A turn may invoke helpers besides the winner. If the target skill fired
+    // in that turn at all, the assertion passes — the "in_turn" contract is
+    // membership, not winnership. (chain_order uses winners; this does not.)
+    const a = v({ type: "skill_invoked_in_turn", turn: 1, skill: "helper", description: "d" });
+    const cs: ChainSignals = {
+      per_turn: [{
+        finalText: "",
+        toolUses: [],
+        skillInvocations: [inv("winner"), inv("helper")],
+        terminalState: "result" as const,
+      }],
+      per_turn_winner: ["winner"],
+    };
+    expect(evaluateChain(a, cs).ok).toBe(true);
+  });
+
+  test("skill_invoked_in_turn — fails when the skill did not fire in that turn", () => {
+    const a = v({ type: "skill_invoked_in_turn", turn: 2, skill: "fat-marker-sketch", description: "d" });
+    const r = evaluateChain(a, chainOf(["define-the-problem", "systems-analysis"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/turn 2|systems-analysis/);
+  });
+
+  test("skill_invoked_in_turn — turn index beyond chain length reports distinct error", () => {
+    const a = v({ type: "skill_invoked_in_turn", turn: 5, skill: "x", description: "d" });
+    const r = evaluateChain(a, chainOf(["a", "b"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/out of range|only 2 turns/i);
+  });
+
+  test("chain_order — passes when per-turn winners match exactly", () => {
+    const a = v({ type: "chain_order", skills: ["define-the-problem", "systems-analysis", "superpowers:brainstorming"], description: "d" });
+    expect(evaluateChain(a, chainOf(["define-the-problem", "systems-analysis", "superpowers:brainstorming"])).ok).toBe(true);
+  });
+
+  test("chain_order — fails when order differs", () => {
+    const a = v({ type: "chain_order", skills: ["define-the-problem", "systems-analysis"], description: "d" });
+    const r = evaluateChain(a, chainOf(["systems-analysis", "define-the-problem"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/expected|actual/i);
+  });
+
+  test("chain_order — fails when a turn has no winner", () => {
+    const a = v({ type: "chain_order", skills: ["a", "b"], description: "d" });
+    const r = evaluateChain(a, chainOf(["a", undefined]));
+    expect(r.ok).toBe(false);
+  });
+
+  test("chain_order — fails when chain length differs from expected length", () => {
+    const a = v({ type: "chain_order", skills: ["a", "b", "c"], description: "d" });
+    const r = evaluateChain(a, chainOf(["a", "b"]));
+    expect(r.ok).toBe(false);
+  });
+
+  test("routing bug: called with per-turn assertion returns a runner-bug failure, not silent pass", () => {
+    // Per-turn assertion types (e.g. skill_invoked) should go through
+    // evaluate(), not evaluateChain(). If the runner ever routes them wrong,
+    // we want an explicit failure that surfaces the bug rather than a
+    // silently-passing chain. Guards against a future default-case relaxation.
+    const a = v({ type: "skill_invoked", skill: "x", description: "d" });
+    const r = evaluateChain(a, chainOf(["x"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/runner bug|non-chain/i);
+  });
+});
+
+describe("evaluate() — routing guard", () => {
+  test("called with chain-level assertion type returns a runner-bug failure", () => {
+    // chain_order / skill_invoked_in_turn must be routed to evaluateChain, not
+    // evaluate(). Guards against the single-turn runner accidentally consuming
+    // a chain-level assertion if a schema validator bug ever let one through.
+    const a = v({ type: "chain_order", skills: ["a"], description: "d" });
+    const r = evaluate(a, { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/runner bug|chain-level/i);
   });
 });
