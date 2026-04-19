@@ -108,6 +108,30 @@ export interface Signals {
   readonly terminalState: "result" | "assistant" | "empty";
 }
 
+/**
+ * Container for per-turn signals in a multi-turn eval run, plus aggregations
+ * that chain-level assertions consume.
+ *
+ * `per_turn_winner[i]` is the first skill invocation seen in turn `i+1`
+ * (1-indexed in the schema), or `undefined` if no skill fired. This is the
+ * "winner" — the skill the model chose to run for that turn. `chain_order`
+ * assertions compare their expected sequence against this array (filtering
+ * out turns with no winner to keep the contract intuitive: a chain like
+ * `[DTP, SA, brainstorming]` should still pass even if one of the turns
+ * also emits an incidental helper skill, as long as the winners line up).
+ */
+export interface ChainSignals {
+  readonly per_turn: readonly Signals[];
+  readonly per_turn_winner: readonly (string | undefined)[];
+  readonly union_skill_invocations: readonly SkillInvocation[];
+}
+
+export function aggregateChainSignals(per_turn: readonly Signals[]): ChainSignals {
+  const per_turn_winner = per_turn.map((s) => s.skillInvocations[0]?.skill);
+  const union_skill_invocations = per_turn.flatMap((s) => s.skillInvocations);
+  return { per_turn, per_turn_winner, union_skill_invocations };
+}
+
 function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
   if (!a.type || !a.description) {
     throw new Error(`${loc}: assertion missing 'type' or 'description'`);

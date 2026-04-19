@@ -13,6 +13,10 @@ import { join } from "node:path";
 import {
   type Assertion,
   type Signals,
+  type ChainSignals,
+  type SkillInvocation,
+  type ToolUse,
+  aggregateChainSignals,
   brandForTest as v,
   evaluate,
   extractSessionId,
@@ -658,5 +662,28 @@ describe("loadEvalFile() — multi-turn schema", () => {
       }],
     });
     expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/turn.*3|out of range/i);
+  });
+});
+
+describe("aggregateChainSignals()", () => {
+  function inv(skill: string): SkillInvocation {
+    return { skill, raw: { name: "Skill" as const, input: { skill } } };
+  }
+
+  test("per_turn preserves the full signal for each turn; union is all invocations", () => {
+    const t1: Signals = { finalText: "one", toolUses: [], skillInvocations: [inv("a")], terminalState: "result" };
+    const t2: Signals = { finalText: "two", toolUses: [], skillInvocations: [inv("b"), inv("c")], terminalState: "result" };
+    const chain = aggregateChainSignals([t1, t2]);
+    expect(chain.per_turn).toHaveLength(2);
+    expect(chain.per_turn[0]).toBe(t1);
+    expect(chain.union_skill_invocations.map((s) => s.skill)).toEqual(["a", "b", "c"]);
+  });
+
+  test("per_turn_winner returns the first skill invocation per turn, or undefined if none fired", () => {
+    const t1: Signals = { finalText: "", toolUses: [], skillInvocations: [inv("a"), inv("b")], terminalState: "result" };
+    const t2: Signals = { finalText: "", toolUses: [], skillInvocations: [], terminalState: "result" };
+    const t3: Signals = { finalText: "", toolUses: [], skillInvocations: [inv("c")], terminalState: "result" };
+    const chain = aggregateChainSignals([t1, t2, t3]);
+    expect(chain.per_turn_winner).toEqual(["a", undefined, "c"]);
   });
 });
