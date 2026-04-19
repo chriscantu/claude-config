@@ -44,14 +44,28 @@ export interface ValidatedTurn {
   readonly assertions: readonly ValidatedAssertion[];
 }
 
-export interface ValidatedEval {
-  readonly name: string;
-  readonly summary?: string;
-  readonly prompt?: string;
-  readonly assertions?: readonly ValidatedAssertion[];
-  readonly turns?: readonly ValidatedTurn[];
-  readonly final_assertions?: readonly ValidatedAssertion[];
-}
+/**
+ * After `loadEvalFile`, every eval is known to be exactly one of single-turn
+ * or multi-turn — the xor invariant that the raw JSON schema can only express
+ * procedurally is lifted into the type system here. `kind` discriminates;
+ * narrowing on it gives callers access to the shape-specific fields without
+ * `!` assertions or runtime key checks.
+ */
+export type ValidatedEval =
+  | {
+      readonly kind: "single";
+      readonly name: string;
+      readonly summary?: string;
+      readonly prompt: string;
+      readonly assertions: readonly ValidatedAssertion[];
+    }
+  | {
+      readonly kind: "multi";
+      readonly name: string;
+      readonly summary?: string;
+      readonly turns: readonly ValidatedTurn[];
+      readonly final_assertions?: readonly ValidatedAssertion[];
+    };
 
 export interface EvalFile {
   skill: string;
@@ -109,8 +123,7 @@ export interface Signals {
 }
 
 /**
- * Container for per-turn signals in a multi-turn eval run, plus aggregations
- * that chain-level assertions consume.
+ * Container for per-turn signals in a multi-turn eval run.
  *
  * `per_turn_winner[i]` is the first skill invocation seen in turn `i+1`
  * (1-indexed in the schema), or `undefined` if no skill fired. This is the
@@ -124,13 +137,11 @@ export interface Signals {
 export interface ChainSignals {
   readonly per_turn: readonly Signals[];
   readonly per_turn_winner: readonly (string | undefined)[];
-  readonly union_skill_invocations: readonly SkillInvocation[];
 }
 
 export function aggregateChainSignals(per_turn: readonly Signals[]): ChainSignals {
   const per_turn_winner = per_turn.map((s) => s.skillInvocations[0]?.skill);
-  const union_skill_invocations = per_turn.flatMap((s) => s.skillInvocations);
-  return { per_turn, per_turn_winner, union_skill_invocations };
+  return { per_turn, per_turn_winner };
 }
 
 function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
@@ -223,7 +234,7 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
         }
         validated.push(validateAssertion(a, `${file}: eval '${e.name}'`));
       }
-      validatedEvals.push({ name: e.name, summary: e.summary, prompt: e.prompt, assertions: validated });
+      validatedEvals.push({ kind: "single", name: e.name, summary: e.summary, prompt: e.prompt!, assertions: validated });
       continue;
     }
 
@@ -267,6 +278,7 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
     }
 
     validatedEvals.push({
+      kind: "multi",
       name: e.name,
       summary: e.summary,
       turns: validatedTurns,

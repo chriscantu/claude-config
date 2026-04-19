@@ -348,11 +348,7 @@ async function main() {
   // Shared helpers captured by the two branches below so the report counters
   // and transcript paths come from one place.
 
-  function runSingleTurnEval(skillName: string, e: EvalFile["evals"][number]): void {
-    if (!e.prompt || !e.assertions) {
-      throw new Error(`runner bug: runSingleTurnEval called on non-single-turn eval '${e.name}' (skill=${skillName})`);
-    }
-
+  function runSingleTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "single" }>): void {
     const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-${timestamp}.md`);
     const { stdout, stderr, exitCode, failure } = runClaude(e.prompt);
 
@@ -438,8 +434,8 @@ async function main() {
     );
   }
 
-  function runMultiTurnEval(skillName: string, e: EvalFile["evals"][number]): void {
-    const turns = e.turns!;
+  function runMultiTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "multi" }>): void {
+    const turns = e.turns;
     const turnPrompts = turns.map((t) => t.prompt);
     const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-multiturn-${timestamp}.md`);
     const { turns: runs, sessionId, chainFailure } = runClaudeChain(turnPrompts);
@@ -547,7 +543,7 @@ async function main() {
       console.log(`  ${bold("▸")} ${e.name}${e.summary ? dim(" — " + e.summary) : ""}`);
 
       if (dryRun) {
-        const turns = e.turns ?? [{ prompt: e.prompt!, assertions: e.assertions! }];
+        const turns = e.kind === "multi" ? e.turns : [{ prompt: e.prompt, assertions: e.assertions }];
         for (const t of turns) {
           for (const a of t.assertions) {
             totalAssertions++;
@@ -555,16 +551,18 @@ async function main() {
             console.log(`    ${green("✓")} ${dim("[dry-run]")} ${a.description}`);
           }
         }
-        for (const a of e.final_assertions ?? []) {
-          totalAssertions++;
-          passedAssertions++;
-          console.log(`    ${green("✓")} ${dim("[dry-run, final]")} ${a.description}`);
+        if (e.kind === "multi") {
+          for (const a of e.final_assertions ?? []) {
+            totalAssertions++;
+            passedAssertions++;
+            console.log(`    ${green("✓")} ${dim("[dry-run, final]")} ${a.description}`);
+          }
         }
         passedEvals++;
         continue;
       }
 
-      if (e.turns) {
+      if (e.kind === "multi") {
         runMultiTurnEval(skillName, e);
       } else {
         runSingleTurnEval(skillName, e);
