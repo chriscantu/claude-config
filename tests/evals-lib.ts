@@ -115,10 +115,11 @@ export interface Signals {
  * `per_turn_winner[i]` is the first skill invocation seen in turn `i+1`
  * (1-indexed in the schema), or `undefined` if no skill fired. This is the
  * "winner" — the skill the model chose to run for that turn. `chain_order`
- * assertions compare their expected sequence against this array (filtering
- * out turns with no winner to keep the contract intuitive: a chain like
- * `[DTP, SA, brainstorming]` should still pass even if one of the turns
- * also emits an incidental helper skill, as long as the winners line up).
+ * assertions compare their expected sequence against this array by strict
+ * element-wise equality: length must match `skills[]`, and a turn with no
+ * winner (`undefined`) fails the assertion for that position. Keep this
+ * contract tight — a future "tolerate missing winners" variant should be a
+ * new assertion type, not a silent relaxation of `chain_order`.
  */
 export interface ChainSignals {
   readonly per_turn: readonly Signals[];

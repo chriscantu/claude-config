@@ -354,7 +354,9 @@ async function main() {
   // and transcript paths come from one place.
 
   function runSingleTurnEval(skillName: string, e: EvalFile["evals"][number]): void {
-    if (!e.prompt || !e.assertions) return;
+    if (!e.prompt || !e.assertions) {
+      throw new Error(`runner bug: runSingleTurnEval called on non-single-turn eval '${e.name}' (skill=${skillName})`);
+    }
 
     const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-${timestamp}.md`);
     const { stdout, stderr, exitCode, failure } = runClaude(e.prompt);
