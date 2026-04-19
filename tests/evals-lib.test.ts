@@ -521,3 +521,142 @@ describe("extractSessionId()", () => {
     expect(extractSessionId(events)).toBe("real-sid");
   });
 });
+
+describe("loadEvalFile() — multi-turn schema", () => {
+  function writeEval(body: unknown): string {
+    const dir = mkdtempSync(join(tmpdir(), "evals-schema-"));
+    const skillDir = join(dir, "my-skill", "evals");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "evals.json"), JSON.stringify(body));
+    return dir;
+  }
+
+  test("loads a valid multi-turn eval with final_assertions", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "chained",
+        turns: [
+          { prompt: "t1", assertions: [{ type: "contains", value: "hi", description: "t1 ok" }] },
+          { prompt: "t2", assertions: [{ type: "contains", value: "bye", description: "t2 ok" }] },
+        ],
+        final_assertions: [
+          { type: "chain_order", skills: ["a", "b"], description: "chain order" },
+        ],
+      }],
+    });
+    const file = loadEvalFile(skillsDir, "my-skill");
+    expect(file).not.toBeNull();
+    expect(file!.evals[0].turns).toHaveLength(2);
+    expect(file!.evals[0].final_assertions).toHaveLength(1);
+    expect(file!.evals[0].prompt).toBeUndefined();
+  });
+
+  test("loads a single-turn eval (backward compat)", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "simple",
+        prompt: "hello",
+        assertions: [{ type: "contains", value: "hi", description: "ok" }],
+      }],
+    });
+    const file = loadEvalFile(skillsDir, "my-skill");
+    expect(file!.evals[0].prompt).toBe("hello");
+    expect(file!.evals[0].turns).toBeUndefined();
+  });
+
+  test("rejects an eval with both prompt and turns", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "ambiguous",
+        prompt: "x",
+        turns: [{ prompt: "y", assertions: [{ type: "contains", value: "z", description: "d" }] }],
+        assertions: [{ type: "contains", value: "z", description: "d" }],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/prompt.*turns|turns.*prompt/i);
+  });
+
+  test("rejects a multi-turn eval with an empty turns array", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{ name: "empty-turns", turns: [] }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/turns/i);
+  });
+
+  test("rejects a multi-turn eval where a turn lacks prompt or assertions", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "bad-turn",
+        turns: [{ prompt: "t1" }],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/turn|assertions/i);
+  });
+
+  test("allows multi-turn eval with no final_assertions", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "no-final",
+        turns: [
+          { prompt: "t1", assertions: [{ type: "contains", value: "a", description: "d" }] },
+        ],
+      }],
+    });
+    const file = loadEvalFile(skillsDir, "my-skill");
+    expect(file!.evals[0].final_assertions ?? []).toEqual([]);
+  });
+
+  test("rejects chain_order inside a per-turn assertions array", () => {
+    // chain_order is a final-level assertion — it operates on the whole chain,
+    // not a single turn. Putting it on a per-turn assertion is a user error.
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "misplaced-chain-order",
+        turns: [{
+          prompt: "t1",
+          assertions: [{ type: "chain_order", skills: ["a"], description: "d" }],
+        }],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/chain_order|per-turn/i);
+  });
+
+  test("rejects skill_invoked_in_turn inside a per-turn assertions array", () => {
+    // skill_invoked_in_turn targets a specific turn by index — using it inside
+    // a turn's own assertions is redundant and wrong; use skill_invoked instead.
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "misplaced-in-turn",
+        turns: [{
+          prompt: "t1",
+          assertions: [{ type: "skill_invoked_in_turn", turn: 1, skill: "x", description: "d" }],
+        }],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/skill_invoked_in_turn|per-turn/i);
+  });
+
+  test("rejects skill_invoked_in_turn with turn index > number of turns", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "oob-turn",
+        turns: [
+          { prompt: "t1", assertions: [{ type: "contains", value: "a", description: "d" }] },
+        ],
+        final_assertions: [
+          { type: "skill_invoked_in_turn", turn: 3, skill: "x", description: "d" },
+        ],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/turn.*3|out of range/i);
+  });
+});

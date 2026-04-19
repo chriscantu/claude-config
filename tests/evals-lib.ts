@@ -23,17 +23,45 @@ declare const validatedBrand: unique symbol;
  */
 export type ValidatedAssertion = Assertion & { readonly [validatedBrand]: true };
 
+export interface Turn {
+  prompt: string;
+  assertions: Assertion[];
+}
+
 export interface Eval {
   name: string;
   summary?: string;
-  prompt: string;
-  assertions: Assertion[];
+  /** Single-turn shape: either `prompt` + `assertions`, or … */
+  prompt?: string;
+  assertions?: Assertion[];
+  /** … multi-turn shape: `turns[]` and optional `final_assertions`. */
+  turns?: Turn[];
+  final_assertions?: Assertion[];
+}
+
+export interface ValidatedTurn {
+  readonly prompt: string;
+  readonly assertions: readonly ValidatedAssertion[];
+}
+
+export interface ValidatedEval {
+  readonly name: string;
+  readonly summary?: string;
+  readonly prompt?: string;
+  /**
+   * Non-empty for single-turn evals; empty array for multi-turn evals.
+   * Always present so the existing test `?.assertions[0]?.type` compiles.
+   * Use `turns` to distinguish multi-turn vs single-turn.
+   */
+  readonly assertions: readonly ValidatedAssertion[];
+  readonly turns?: readonly ValidatedTurn[];
+  readonly final_assertions?: readonly ValidatedAssertion[];
 }
 
 export interface EvalFile {
   skill: string;
   description?: string;
-  evals: Array<Omit<Eval, "assertions"> & { assertions: ValidatedAssertion[] }>;
+  evals: ValidatedEval[];
 }
 
 export type AssertionResult =
@@ -149,15 +177,85 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
   if (!Array.isArray(parsed.evals) || parsed.evals.length === 0) {
     throw new Error(`${file}: 'evals' must be a non-empty array`);
   }
+
+  const validatedEvals: ValidatedEval[] = [];
   for (const e of parsed.evals) {
-    if (!e.name || !e.prompt || !Array.isArray(e.assertions) || e.assertions.length === 0) {
+    if (!e.name) {
       throw new Error(`${file}: eval '${e.name ?? "(unnamed)"}' missing name/prompt/assertions`);
     }
-    for (const a of e.assertions) {
-      validateAssertion(a, `${file}: eval '${e.name}'`);
+    const hasPrompt = typeof e.prompt === "string" && e.prompt.length > 0;
+    const hasTurns = Array.isArray(e.turns);
+    if (hasPrompt && hasTurns) {
+      throw new Error(`${file}: eval '${e.name}' has both 'prompt' and 'turns' — pick one`);
     }
+    if (!hasPrompt && !hasTurns) {
+      throw new Error(`${file}: eval '${e.name}' missing name/prompt/assertions`);
+    }
+
+    if (hasPrompt) {
+      if (!Array.isArray(e.assertions) || e.assertions.length === 0) {
+        throw new Error(`${file}: eval '${e.name}' missing name/prompt/assertions`);
+      }
+      const validated: ValidatedAssertion[] = [];
+      for (const a of e.assertions) {
+        if (a.type === "chain_order" || a.type === "skill_invoked_in_turn") {
+          throw new Error(`${file}: eval '${e.name}': '${a.type}' is a chain-level assertion; use it in 'final_assertions' on a multi-turn eval`);
+        }
+        validated.push(validateAssertion(a, `${file}: eval '${e.name}'`));
+      }
+      validatedEvals.push({ name: e.name, summary: e.summary, prompt: e.prompt, assertions: validated });
+      continue;
+    }
+
+    // multi-turn
+    const turns = e.turns as Turn[];
+    if (turns.length === 0) {
+      throw new Error(`${file}: eval '${e.name}' has empty 'turns' array`);
+    }
+    const validatedTurns: ValidatedTurn[] = [];
+    turns.forEach((t, idx) => {
+      const turnLoc = `${file}: eval '${e.name}' turn ${idx + 1}`;
+      if (typeof t.prompt !== "string" || t.prompt.length === 0) {
+        throw new Error(`${turnLoc}: missing non-empty 'prompt'`);
+      }
+      if (!Array.isArray(t.assertions) || t.assertions.length === 0) {
+        throw new Error(`${turnLoc}: missing non-empty 'assertions'`);
+      }
+      const va: ValidatedAssertion[] = [];
+      for (const a of t.assertions) {
+        if (a.type === "chain_order" || a.type === "skill_invoked_in_turn") {
+          throw new Error(`${turnLoc}: '${a.type}' is a chain-level assertion; move it to 'final_assertions' on the eval`);
+        }
+        va.push(validateAssertion(a, turnLoc));
+      }
+      validatedTurns.push({ prompt: t.prompt, assertions: va });
+    });
+
+    let validatedFinal: ValidatedAssertion[] | undefined;
+    if (e.final_assertions !== undefined) {
+      if (!Array.isArray(e.final_assertions) || e.final_assertions.length === 0) {
+        throw new Error(`${file}: eval '${e.name}': 'final_assertions' must be a non-empty array if present (omit the field for none)`);
+      }
+      validatedFinal = [];
+      for (const a of e.final_assertions) {
+        const v = validateAssertion(a, `${file}: eval '${e.name}' final_assertions`);
+        if (a.type === "skill_invoked_in_turn" && a.turn > validatedTurns.length) {
+          throw new Error(`${file}: eval '${e.name}' final_assertions: skill_invoked_in_turn.turn=${a.turn} is out of range (only ${validatedTurns.length} turns)`);
+        }
+        validatedFinal.push(v);
+      }
+    }
+
+    validatedEvals.push({
+      name: e.name,
+      summary: e.summary,
+      assertions: [],
+      turns: validatedTurns,
+      final_assertions: validatedFinal,
+    });
   }
-  return parsed as EvalFile;
+
+  return { skill: parsed.skill, description: parsed.description, evals: validatedEvals };
 }
 
 export function discoverSkills(skillsDir: string): string[] {

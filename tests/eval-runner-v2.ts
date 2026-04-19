@@ -217,6 +217,10 @@ async function main() {
       totalEvals++;
       console.log(`  ${bold("▸")} ${e.name}${e.summary ? dim(" — " + e.summary) : ""}`);
 
+      // v2 runner only handles single-turn evals. Multi-turn evals (turns[]) are
+      // handled by the multi-turn runner (Task 8). Skip them here.
+      if (!e.prompt) continue;
+
       if (dryRun) {
         for (const a of e.assertions) {
           totalAssertions++;
