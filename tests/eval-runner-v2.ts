@@ -70,6 +70,33 @@ interface ChainRun {
   readonly chainFailure?: string;
 }
 
+const TURN_TIMEOUT_MS = 5 * 60 * 1000;
+const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions"] as const;
+
+/**
+ * Spawn `claude` with the given args, classify the exit reason, and return a
+ * normalized CliRun. Shared by the single-turn path and every turn of a chain
+ * so spawn-failure classification lives in exactly one place.
+ */
+function spawnClaudeCli(args: readonly string[], prompt: string, cwd: string): CliRun {
+  const res = spawnSync(claudeBin, [...args], {
+    input: prompt,
+    encoding: "utf8",
+    timeout: TURN_TIMEOUT_MS,
+    maxBuffer: 64 * 1024 * 1024,
+    cwd,
+  });
+  let failure: string | undefined;
+  if (res.error) {
+    failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
+  } else if (res.signal) {
+    failure = res.signal === "SIGTERM" ? `timed out after ${TURN_TIMEOUT_MS / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
+  } else if (res.status === null) {
+    failure = "process exited without status (no signal, no error)";
+  }
+  return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
+}
+
 /**
  * Spawn a single fresh `claude --print` turn in an isolated scratch cwd.
  * Used for single-turn evals and as turn 1 of a multi-turn chain.
@@ -78,29 +105,9 @@ interface ChainRun {
  * Otherwise we create and clean up a tmpdir in this function.
  */
 function runClaude(prompt: string, cwd?: string): CliRun {
-  const timeoutMs = 5 * 60 * 1000;
   const ownCwd = cwd ?? mkdtempSync(join(tmpdir(), "claude-eval-"));
   try {
-    const res = spawnSync(
-      claudeBin,
-      ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions"],
-      {
-        input: prompt,
-        encoding: "utf8",
-        timeout: timeoutMs,
-        maxBuffer: 64 * 1024 * 1024,
-        cwd: ownCwd,
-      },
-    );
-    let failure: string | undefined;
-    if (res.error) {
-      failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
-    } else if (res.signal) {
-      failure = res.signal === "SIGTERM" ? `timed out after ${timeoutMs / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
-    } else if (res.status === null) {
-      failure = "process exited without status (no signal, no error)";
-    }
-    return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
+    return spawnClaudeCli(CLI_BASE_ARGS, prompt, ownCwd);
   } finally {
     if (!cwd) {
       try {
@@ -148,38 +155,26 @@ function runClaudeChain(turnPrompts: readonly string[]): ChainRun {
 
     // Turns 2..N: resume
     for (let i = 1; i < turnPrompts.length; i++) {
-      const timeoutMs = 5 * 60 * 1000;
-      const res = spawnSync(
-        claudeBin,
-        [
-          "--resume", sessionId,
-          "--print",
-          "--output-format", "stream-json",
-          "--verbose",
-          "--permission-mode", "bypassPermissions",
-        ],
-        {
-          input: turnPrompts[i],
-          encoding: "utf8",
-          timeout: timeoutMs,
-          maxBuffer: 64 * 1024 * 1024,
-          cwd: scratchDir,
-        },
+      const turnRun = spawnClaudeCli(
+        ["--resume", sessionId, ...CLI_BASE_ARGS],
+        turnPrompts[i],
+        scratchDir,
       );
-      let failure: string | undefined;
-      if (res.error) {
-        failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
-      } else if (res.signal) {
-        failure = res.signal === "SIGTERM" ? `timed out after ${timeoutMs / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
-      } else if (res.status === null) {
-        failure = "process exited without status (no signal, no error)";
-      }
-      const turnRun: CliRun = { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
       runs.push(turnRun);
-      if (failure || res.status !== 0) {
-        chainFailure = `turn ${i + 1} failed: ${failure ?? `exit ${res.status}`}`;
+      if (turnRun.failure || turnRun.exitCode !== 0) {
+        chainFailure = `turn ${i + 1} failed: ${turnRun.failure ?? `exit ${turnRun.exitCode}`}`;
         // Stop the chain — turn N+1 depends on N succeeding. Assertions for
         // later turns will be counted as failures by the caller.
+        return { turns: runs, sessionId, chainFailure };
+      }
+      // Symmetric with the single-turn empty-events gate: a clean exit with
+      // zero parseable events means the CLI returned without the structured
+      // stream we need. Continuing would burn wall-time on a session that
+      // can't answer anything. Abort the chain here rather than quietly
+      // tolerating degenerate middle turns.
+      const { events } = parseStreamJson(turnRun.stdout);
+      if (events.length === 0) {
+        chainFailure = `turn ${i + 1} produced no parseable stream-json events (stdout=${turnRun.stdout.length}B)`;
         return { turns: runs, sessionId, chainFailure };
       }
     }
@@ -256,7 +251,7 @@ function writeTranscript(a: TranscriptArgs): void {
   try {
     writeFileSync(a.path, body.join("\n"));
   } catch (err) {
-    console.log(`    ${dim(`(transcript write failed: ${(err as Error).message})`)}`);
+    console.error(`    [eval-runner] transcript write failed (${a.path}): ${(err as Error).message}`);
   }
 }
 
@@ -307,7 +302,7 @@ function writeChainTranscript(a: ChainTranscriptArgs): void {
   try {
     writeFileSync(a.path, body.join("\n"));
   } catch (err) {
-    console.log(`    ${dim(`(transcript write failed: ${(err as Error).message})`)}`);
+    console.error(`    [eval-runner] transcript write failed (${a.path}): ${(err as Error).message}`);
   }
 }
 
