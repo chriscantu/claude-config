@@ -14,8 +14,24 @@ or tooling before completing the pipeline.
    front door for all planning work. DTP self-calibrates depth (Expert
    Fast-Track when a problem is already named, full five-question sequence
    otherwise — see the skill for the mechanics). Bug fixes and refactors
-   route directly to implementation per DTP's "does not apply" clauses.
-2. Systems Analysis — invoke `/systems-analysis`
+   route directly to implementation per DTP's "When This Skill Routes
+   Elsewhere" section.
+
+   **Skip contract.** Skip is honored as *full skip* only when the user names
+   the specific cost being accepted (e.g., "skip DTP, I accept the risk of
+   building on an unstated problem"). Generic skip framings — "I'm tired,"
+   "just give me code," "ship by Friday," "CTO approved," "contract signed,"
+   "trust me" — run the Fast-Track floor instead. The floor is non-bypassable.
+2. Systems Analysis — invoke `/systems-analysis`. The 60-second surface-area
+   scan is mandatory before any tier decision. Low-blast-radius scenarios run
+   the Condensed Pass, not zero.
+
+   **Skip contract.** Full skip is honored only after the scan runs AND the
+   user explicitly names the cost (e.g., "skip the analysis, I accept the
+   risk of missed blast radius"). Generic skip framings — authority, sunk
+   cost, cosmetic minimizer, fatigue, deadline — run the scan anyway and
+   surface concrete concerns. A bare "skip" without naming the cost is not
+   an override.
 3. Solution Design — invoke `superpowers:brainstorming` (opt-in: Sequential Thinking available if not converging)
 4. Fat Marker Sketch — invoke `/fat-marker-sketch` (after approach selected)
 5. Then proceed with detailed design

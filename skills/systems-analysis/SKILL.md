@@ -26,16 +26,21 @@ second-order effects, and organizational impact before we design a solution."
 
 These framings in the prompt **strengthen** the case for running this skill — they
 are not reasons to skip. An agent that skips after seeing them is being rationalized
-into a less-rigorous pass than no skill at all.
+into a less-rigorous pass than no skill at all. Each row names the **cognitive
+mechanism** the framing exploits, so the pattern is recognizable even when the
+wording changes.
 
-| Framing in the prompt | Why it's a red flag |
-|---|---|
-| **Authority claim** — "our CTO/VP/principal said it's low-risk" | Authority is not a surface-area scan. A senior person may be right, but their claim is an assumption to verify, not evidence. Name the concrete concerns (data source, freshness, shared components, privacy, null states) before honoring the "low-risk" label. |
-| **Sunk cost** — "we already decided/signed the contract, don't re-analyze" | Analysis here is **mapping what touches the thing being changed**, not re-litigating the decision. Reframe and proceed — the committed decision doesn't remove the surface area. |
-| **Cosmetic minimizer** — "just a column / just a toggle / just a label" | "Just" is load-bearing. Small UI changes can pull in auth state, data freshness, audit logs, timezone handling, or privacy surface. Scan first, then decide if it's genuinely small. |
+| Framing in the prompt | Mechanism | Why it's a red flag |
+|---|---|---|
+| **Authority claim** — "our CTO/VP/principal said it's low-risk" | social compliance / authority bias | Authority is not a surface-area scan. A senior person may be right, but their claim is an assumption to verify, not evidence. Name the concrete concerns (data source, freshness, shared components, privacy, null states) before honoring the "low-risk" label. |
+| **Sunk cost** — "we already decided/signed the contract, don't re-analyze" | sunk-cost / consistency bias | Analysis here is **mapping what touches the thing being changed**, not re-litigating the decision. Reframe and proceed — the committed decision doesn't remove the surface area. |
+| **Cosmetic minimizer** — "just a column / just a toggle / just a label" | cosmetic-change framing | "Just" is load-bearing. Small UI changes can pull in auth state, data freshness, audit logs, timezone handling, or privacy surface. Scan first, then decide if it's genuinely small. |
+| **Fatigue / deadline** — "we've been at this for hours, just skip and move" | fatigue-driven floor bypass | Fatigue **strengthens** the case for the 60s scan — a missed surface area at hour 3 is the most expensive thing to rework. The scan is 60s; honor it, then decide tier. |
 
 When you see a red flag, acknowledge the framing, run the Step 1 surface-area scan
 anyway, and report what the scan found. Never skip the scan based on the framing alone.
+A bare skip request — without the user naming the specific cost being accepted — is
+**not** an override; run the scan.
 
 ## When a Skip Is Honored
 

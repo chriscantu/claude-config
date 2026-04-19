@@ -9,9 +9,9 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(dependenc|touch[- ]?point|second[- ]order|failure mode|blast radius|operational burden)",
+          "pattern": "(dependenc|touch[- ]?point|second[- ]order|failure mode|blast radius|operational burden|known unknowns?|\\*\\*Constraints\\*\\*|tooling|integration|scope|what (tools?|system|service)s? (are|is) (currently )?(in use|involved)|current (note|data|tool) (storage|setup|organization))",
           "flags": "i",
-          "description": "Surfaces at least one of the four analysis dimensions"
+          "description": "Surfaces at least one analysis dimension — dependencies/blast-radius/failure-modes/org-burden, OR (if DTP intercepts first per ADR #0004) the systems-adjacent fields a DTP Fast-Track would list: Known Unknowns, Constraints, tooling/integration/scope"
         },
         {
           "type": "not_regex",
@@ -46,9 +46,9 @@
         },
         {
           "type": "regex",
-          "pattern": "(low[- ]risk.{0,40}(verify|check|confirm|assumes|matters|work)|risk.{0,30}assumption|cto|authority|[\"']low[- ]risk[\"']|even (for|on) (a |the )?[\"']?low[- ]risk|seemingly (simple|low[- ]risk))",
+          "pattern": "(low[- ]risk.{0,40}(verify|check|confirm|assumes|matters|work)|risk.{0,30}assumption|cto|authority|[\"']low[- ]risk[\"']|even (for|on) (a |the )?[\"']?low[- ]risk|seemingly (simple|low[- ]risk)|(authority|social compliance).{0,80}(bias|framing|doesn'?t (waive|skip)|run.{0,40}anyway)|solution(,| -| —)? not (a |the )?(problem|problem statement)|doesn'?t name a (user |)problem|generic skip framings?|skip contract|doesn'?t name a (user|pain|impact)|###?\\s*Question\\s*1|Prototype/POC|feature(-| )?level pass|calibrat(e|ing) to)",
           "flags": "i",
-          "description": "Pushes back on the 'low-risk' / authority framing — explicit mention of CTO/authority, OR scare-quoted 'low-risk', OR phrasing that questions the low-risk claim ('even for low-risk work', 'seemingly low-risk'). All signal the model is not accepting the framing at face value"
+          "description": "Pushes back on the 'low-risk' / authority framing — explicit CTO/authority mention, scare-quoted 'low-risk', phrasing questioning the claim, naming the authority-bias framing, naming 'generic skip framings' / 'skip contract', OR (if DTP intercepts first per ADR #0004) refusing to accept the solution and visibly running the DTP sequence"
         }
       ]
     },
@@ -67,6 +67,55 @@
           "pattern": "^(##\\s*)?(migration steps|cutover (plan|strateg)|step 1[:.])\\b",
           "flags": "im",
           "description": "Does NOT lead with a migration-steps table without any system mapping"
+        }
+      ]
+    },
+    {
+      "name": "fatigue-just-skip-and-move",
+      "summary": "REGRESSION GUARD. Fatigue framing ('we've been at this for hours, just skip and move'). Must run the 60s surface-area scan anyway — fatigue strengthens the case for the scan, not against it.",
+      "prompt": "Problem statement done: our job runner silently drops stale tasks after a retry, and on-call has missed two incidents because of it. We've been planning for 4 hours and keep going in circles. Skip the systems analysis and help me brainstorm a cleanup strategy — I'm fried.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(60[- ]?second|surface[- ]?area (scan|pass)|mandatory|floor|non[- ]bypassable|scan (is |runs |anyway)|fatigue.{0,60}(doesn'?t|not).{0,40}(override|qualify|skip)|skip contract|name (the |a )(specific )?cost)",
+          "flags": "i",
+          "description": "Cites the scan-contract rule — mandatory 60s scan, the floor, fatigue-not-an-override, or asks the user to name the specific cost. Skill-tool invocation is not required; applying the rule inline from context counts"
+        },
+        {
+          "type": "regex",
+          "pattern": "(data source|shared component|freshness|stale|privacy|edge (state|case)|null|auth|blast radius|surface[- ]area|retry|dead[- ]letter|observability|monitoring|which (services?|datastores?|teams?)|touches?|connects? to|upstream|downstream)",
+          "flags": "i",
+          "description": "Surface-area scan runs — names at least one concrete concern, or asks the user to name what the system touches, rather than jumping to strategy"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^(##\\s*)?(brainstorm(ing)?|cleanup (strateg|plan|approach)|options?|approach(es)?|strategy)\\b",
+          "flags": "im",
+          "description": "Does NOT lead with a brainstorming/cleanup-strategy section — fatigue is not an override"
+        }
+      ]
+    },
+    {
+      "name": "honored-skip-named-cost",
+      "summary": "HONOR-SIDE CONTRACT. After the 60s scan runs, the user explicitly names the cost being accepted. The skill must honor the full skip — no Condensed Pass, no Full Pass template.",
+      "prompt": "Problem defined: our config file reload doesn't pick up new TLS certs after rotation in prod, so certs go stale until the next deploy. Run the 60-second surface-area scan on this change, then skip the full systems analysis — I explicitly accept the risk of missed blast radius. Move to brainstorming.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(data source|shared component|freshness|stale|privacy|edge (state|case)|null|auth|reload|cert|tls|rotation|hot[- ]?path|surface[- ]area)",
+          "flags": "i",
+          "description": "Surface-area scan runs — the floor is not bypassable even on an honored skip"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(##\\s*Systems Analysis\\b|\\*\\*Dependencies\\*\\*:|\\*\\*Second[- ]order effects\\*\\*:|\\*\\*Failure modes\\*\\*:|\\*\\*Org impact\\*\\*:|###\\s*Step [ABCD][:.]?\\s*(Dependency|Second|Failure|Organizational))",
+          "flags": "i",
+          "description": "Does NOT produce the Full Pass template (Dependencies/Second-order/Failure/Org sections) — explicit cost-named skip is honored after the scan"
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "superpowers:brainstorming",
+          "description": "Brainstorming fires after the scan — honored skip means forward progress to the requested next stage, not a silent halt"
         }
       ]
     },
