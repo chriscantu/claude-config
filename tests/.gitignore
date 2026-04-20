@@ -4,4 +4,4 @@ results/*
 !results/systems-analysis-sunk-cost-migration-multi-turn-v2-multiturn-2026-04-19*.md
 !results/systems-analysis-sunk-cost-migration-multi-turn-v2-multiturn-2026-04-20*.md
 # Keep the named fail-case transcript proving the tiered-channel eval discriminates drift.
-!results/sunk-cost-drift-proof-fail-*.md
+!results/sunk-cost-drift-proof-*.md
