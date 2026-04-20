@@ -465,6 +465,23 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
       return signals.skillInvocations.some((s) => s.skill === assertion.skill)
         ? fail(`forbidden Skill('${assertion.skill}') was invoked`)
         : pass();
+    case "tool_input_matches": {
+      const matched = signals.toolUses.some(
+        (tu) =>
+          tu.name === assertion.tool &&
+          typeof tu.input[assertion.input_key] === "string" &&
+          tu.input[assertion.input_key] === assertion.input_value,
+      );
+      if (matched) return pass();
+      const seen = signals.toolUses
+        .filter((tu) => tu.name === assertion.tool)
+        .map((tu) => JSON.stringify(tu.input[assertion.input_key]))
+        .join(", ");
+      return fail(
+        `tool_input_matches: no ${assertion.tool} tool_use had ${assertion.input_key}=${JSON.stringify(assertion.input_value)}. ` +
+          `Saw ${assertion.tool}.${assertion.input_key} values: ${seen || "(no matching tool)"}`,
+      );
+    }
     default:
       return fail(`evaluate called with chain-level assertion type '${(assertion as { type: string }).type}' — this is a runner bug`);
   }

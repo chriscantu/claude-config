@@ -898,3 +898,76 @@ describe("validateAssertion() — tool_input_matches", () => {
     } as Assertion)).toThrow(/input_value/);
   });
 });
+
+describe("evaluate() — tool_input_matches", () => {
+  function sigWithTools(tools: Array<{ name: string; input: Record<string, unknown> }>): Signals {
+    return { finalText: "", toolUses: tools, skillInvocations: [], terminalState: "result" };
+  }
+
+  test("passes when a tool_use has the matching tool name + input key/value", () => {
+    const a = v({
+      type: "tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "define-the-problem",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([{ name: "Skill", input: { skill: "define-the-problem" } }]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("fails when tool name matches but input_value differs", () => {
+    const a = v({
+      type: "tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "define-the-problem",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([{ name: "Skill", input: { skill: "systems-analysis" } }]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toContain("define-the-problem");
+  });
+
+  test("fails when no tool_use has the matching tool name", () => {
+    const a = v({
+      type: "tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "x",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([{ name: "Bash", input: { command: "ls" } }]);
+    expect(evaluate(a, s).ok).toBe(false);
+  });
+
+  test("passes when ANY of multiple tool_uses matches (membership, not uniqueness)", () => {
+    const a = v({
+      type: "tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "define-the-problem",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "Skill", input: { skill: "other" } },
+      { name: "Skill", input: { skill: "define-the-problem" } },
+    ]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("fails when the input_key is present but not a string", () => {
+    // Defensive: if the CLI ever emits input.skill as a non-string (e.g., null),
+    // we must NOT coerce silently. Treat it as a mismatch.
+    const a = v({
+      type: "tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "x",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([{ name: "Skill", input: { skill: null as unknown as string } }]);
+    expect(evaluate(a, s).ok).toBe(false);
+  });
+});
