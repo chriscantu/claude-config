@@ -31,6 +31,7 @@ import { fileURLToPath } from "node:url";
 import {
   type ChainSignals,
   type EvalFile,
+  type MetaDecision,
   type Signals,
   aggregateChainSignals,
   discoverSkills,
@@ -39,6 +40,7 @@ import {
   extractSessionId,
   extractSignals,
   loadEvalFile,
+  metaCheck,
   parseStreamJson,
 } from "./evals-lib.ts";
 
@@ -196,6 +198,22 @@ const green = (s: string) => colour(s, "32");
 const red = (s: string) => colour(s, "31");
 const dim = (s: string) => colour(s, "2");
 const bold = (s: string) => colour(s, "1");
+
+function renderDecisions(decisions: readonly MetaDecision[], turnLabel: string | null): void {
+  for (const d of decisions) {
+    const prefix = turnLabel ? `${turnLabel}: ` : "";
+    const tierSuffix = d.tier === "diagnostic" ? dim(" [diagnostic]") : "";
+    if (d.kind === "pass") {
+      console.log(`    ${green("✓")} ${prefix}${d.description}${tierSuffix}`);
+    } else if (d.kind === "silent_fire") {
+      console.log(`    ${red("SILENT-FIRE FAILURE")} ${prefix}${d.description}${tierSuffix}`);
+      console.log(`        ${dim(d.detail)}`);
+    } else {
+      console.log(`    ${red("✗")} ${prefix}${d.description}${tierSuffix}`);
+      console.log(`        ${dim(d.detail)}`);
+    }
+  }
+}
 
 interface TranscriptArgs {
   readonly path: string;
@@ -412,20 +430,15 @@ async function main() {
       skippedLines: skipped,
     });
 
-    let evalPassed = true;
+    const perTurn: Array<{ assertion: typeof e.assertions[number]; result: ReturnType<typeof evaluate>; signals: Signals | null; turnIndex: number }> = [];
     for (const a of e.assertions) {
-      totalAssertions++;
-      const r = evaluate(a, signals);
-      if (r.ok) {
-        passedAssertions++;
-        console.log(`    ${green("✓")} ${r.description}`);
-      } else {
-        evalPassed = false;
-        console.log(`    ${red("✗")} ${r.description}`);
-        console.log(`        ${dim(r.detail)}`);
-      }
+      perTurn.push({ assertion: a, result: evaluate(a, signals), signals, turnIndex: 0 });
     }
-    if (evalPassed) passedEvals++;
+    const meta = metaCheck({ perTurn, final: [] });
+    renderDecisions(meta.decisions, /* turnLabel */ null);
+    totalAssertions += e.assertions.length;
+    passedAssertions += meta.decisions.filter((d) => d.kind === "pass").length;
+    if (meta.requiredOk) passedEvals++;
     console.log(
       dim(
         `      transcript → ${transcriptFile.replace(repoDir + "/", "")}` +
@@ -470,7 +483,6 @@ async function main() {
       chainFailure,
     });
 
-    let evalPassed = true;
     if (chainFailure) {
       console.log(`    ${red("✗")} ${chainFailure}`);
       // All assertions still count — mark them failed so the summary is honest.
@@ -480,47 +492,45 @@ async function main() {
       return;
     }
 
-    // Per-turn assertions
+    const perTurn: Array<{ assertion: (typeof turns)[number]["assertions"][number]; result: ReturnType<typeof evaluate>; signals: Signals | null; turnIndex: number }> = [];
     for (let i = 0; i < turns.length; i++) {
       const signals = turnSignals[i];
       for (const a of turns[i].assertions) {
-        totalAssertions++;
-        if (!signals) {
-          evalPassed = false;
-          console.log(`    ${red("✗")} turn ${i + 1}: ${a.description}`);
-          console.log(`        ${dim("no signals for this turn")}`);
-          continue;
-        }
-        const r = evaluate(a, signals);
-        if (r.ok) {
-          passedAssertions++;
-          console.log(`    ${green("✓")} turn ${i + 1}: ${r.description}`);
-        } else {
-          evalPassed = false;
-          console.log(`    ${red("✗")} turn ${i + 1}: ${r.description}`);
-          console.log(`        ${dim(r.detail)}`);
-        }
+        const result = signals
+          ? evaluate(a, signals)
+          : { ok: false as const, description: a.description, detail: "no signals for this turn" };
+        perTurn.push({ assertion: a, result, signals, turnIndex: i });
       }
     }
 
-    // Chain-level final assertions
-    if (e.final_assertions && e.final_assertions.length > 0) {
-      const chain = aggregateChainSignals(turnSignals.map((s) => s ?? { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" as const }));
-      for (const a of e.final_assertions) {
-        totalAssertions++;
-        const r = evaluateChain(a, chain);
-        if (r.ok) {
-          passedAssertions++;
-          console.log(`    ${green("✓")} final: ${r.description}`);
-        } else {
-          evalPassed = false;
-          console.log(`    ${red("✗")} final: ${r.description}`);
-          console.log(`        ${dim(r.detail)}`);
-        }
-      }
+    const chain = aggregateChainSignals(
+      turnSignals.map((s) => s ?? { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" as const }),
+    );
+    const final = (e.final_assertions ?? []).map((a) => ({
+      assertion: a,
+      result: evaluateChain(a, chain),
+      chainSignals: chain,
+    }));
+
+    const meta = metaCheck({ perTurn, final });
+
+    // Render per-turn and final decisions in their original order
+    let decisionIdx = 0;
+    for (let i = 0; i < turns.length; i++) {
+      const n = turns[i].assertions.length;
+      renderDecisions(meta.decisions.slice(decisionIdx, decisionIdx + n), `turn ${i + 1}`);
+      decisionIdx += n;
+    }
+    if (final.length > 0) {
+      renderDecisions(meta.decisions.slice(decisionIdx), "final");
     }
 
-    if (evalPassed) passedEvals++;
+    totalAssertions += perTurn.length + final.length;
+    passedAssertions += meta.decisions.filter((d) => d.kind === "pass").length;
+    if (meta.requiredOk) passedEvals++;
+    if (meta.silentFireCount > 0) {
+      console.log(red(`      ${meta.silentFireCount} SILENT-FIRE FAILURE(S) — required-tier negative assertions trivially passed against empty signals`));
+    }
     const union = turnSignals.reduce((sum, s) => sum + (s?.skillInvocations.length ?? 0), 0);
     console.log(
       dim(
