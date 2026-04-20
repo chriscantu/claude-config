@@ -6,12 +6,17 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
+export type AssertionTier = "required" | "diagnostic";
+
+type AssertionBase = { description: string; tier?: AssertionTier };
+
 export type Assertion =
-  | { type: "contains" | "not_contains"; value: string; description: string }
-  | { type: "regex" | "not_regex"; pattern: string; flags?: string; description: string }
-  | { type: "skill_invoked" | "not_skill_invoked"; skill: string; description: string }
-  | { type: "skill_invoked_in_turn"; turn: number; skill: string; description: string }
-  | { type: "chain_order"; skills: string[]; description: string };
+  | (AssertionBase & { type: "contains" | "not_contains"; value: string })
+  | (AssertionBase & { type: "regex" | "not_regex"; pattern: string; flags?: string })
+  | (AssertionBase & { type: "skill_invoked" | "not_skill_invoked"; skill: string })
+  | (AssertionBase & { type: "tool_input_matches"; tool: string; input_key: string; input_value: string })
+  | (AssertionBase & { type: "skill_invoked_in_turn"; turn: number; skill: string })
+  | (AssertionBase & { type: "chain_order"; skills: string[] });
 
 declare const validatedBrand: unique symbol;
 
@@ -19,9 +24,13 @@ declare const validatedBrand: unique symbol;
  * An assertion that has passed `validateAssertion` (directly or via
  * `loadEvalFile`). `evaluate` only accepts this branded form so that the
  * non-empty-string / regex-compiles invariants cannot be bypassed at the
- * type level.
+ * type level. The `tier` field is narrowed to non-optional here — validation
+ * always fills in the default, so downstream code never needs `?? "required"`.
  */
-export type ValidatedAssertion = Assertion & { readonly [validatedBrand]: true };
+export type ValidatedAssertion = Assertion & {
+  readonly [validatedBrand]: true;
+  readonly tier: AssertionTier;
+};
 
 export interface Turn {
   prompt: string;
@@ -76,6 +85,50 @@ export interface EvalFile {
 export type AssertionResult =
   | { ok: true; description: string }
   | { ok: false; description: string; detail: string };
+
+/**
+ * One decision per required-tier assertion after per-turn/chain evaluation.
+ *   - "pass":           assertion passed with evidence
+ *   - "fail":           assertion failed with a concrete mismatch detail
+ *   - "silent_fire":    negative assertion (not_*) reported ok, but the signal
+ *                       it was checking was empty — trivially true, no evidence.
+ *                       Distinct failure label; fails the eval.
+ */
+export type MetaDecision =
+  | { kind: "pass"; description: string; tier: AssertionTier }
+  | { kind: "fail"; description: string; tier: AssertionTier; detail: string }
+  | { kind: "silent_fire"; description: string; tier: AssertionTier; detail: string };
+
+export interface MetaCheckInput {
+  /** Per-turn assertion results in the same order the runner evaluated them.
+   *  Each entry pairs the validated assertion, the AssertionResult, and the
+   *  Signals it ran against (null if the turn had no signals — e.g., spawn
+   *  failure). */
+  readonly perTurn: ReadonlyArray<{
+    readonly assertion: ValidatedAssertion;
+    readonly result: AssertionResult;
+    readonly signals: Signals | null;
+    readonly turnIndex: number;
+  }>;
+  /** Chain-level assertion results. Silent-fire detection only applies to
+   *  per-turn entries (it depends on per-turn signal emptiness), so the
+   *  aggregated ChainSignals isn't needed here — only the validated assertion
+   *  and its result. */
+  readonly final: ReadonlyArray<{
+    readonly assertion: ValidatedAssertion;
+    readonly result: AssertionResult;
+  }>;
+}
+
+export interface MetaCheckOutput {
+  readonly decisions: readonly MetaDecision[];
+  /** True iff every required-tier decision is `pass`. Diagnostic decisions
+   *  never flip this. */
+  readonly requiredOk: boolean;
+  /** True iff any required decision is `silent_fire`. Reporter highlights this
+   *  separately from a plain mismatch. */
+  readonly silentFireCount: number;
+}
 
 /**
  * One parsed entry from `claude --print --output-format stream-json`.
@@ -148,6 +201,11 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
   if (!a.type || !a.description) {
     throw new Error(`${loc}: assertion missing 'type' or 'description'`);
   }
+  const rawTier = (a as { tier?: unknown }).tier;
+  if (rawTier !== undefined && rawTier !== "required" && rawTier !== "diagnostic") {
+    throw new Error(`${loc}: tier must be 'required' or 'diagnostic' if present, got ${JSON.stringify(rawTier)}`);
+  }
+  const tier: AssertionTier = rawTier === "diagnostic" ? "diagnostic" : "required";
   switch (a.type) {
     case "contains":
     case "not_contains":
@@ -167,6 +225,17 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
     case "not_skill_invoked":
       if (typeof a.skill !== "string" || a.skill.length === 0) {
         throw new Error(`${loc}: ${a.type} assertion requires non-empty 'skill' string`);
+      }
+      break;
+    case "tool_input_matches":
+      if (typeof a.tool !== "string" || a.tool.length === 0) {
+        throw new Error(`${loc}: tool_input_matches requires non-empty 'tool' string`);
+      }
+      if (typeof a.input_key !== "string" || a.input_key.length === 0) {
+        throw new Error(`${loc}: tool_input_matches requires non-empty 'input_key' string`);
+      }
+      if (typeof a.input_value !== "string" || a.input_value.length === 0) {
+        throw new Error(`${loc}: tool_input_matches requires non-empty 'input_value' string`);
       }
       break;
     case "skill_invoked_in_turn":
@@ -189,7 +258,7 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
       throw new Error(`${loc}: unknown assertion type '${(exhaustive as { type: string }).type}'`);
     }
   }
-  return a as ValidatedAssertion;
+  return { ...a, tier } as ValidatedAssertion;
 }
 
 export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | null {
@@ -269,6 +338,11 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
       }
       validatedFinal = [];
       for (const a of e.final_assertions) {
+        if (a.type === "tool_input_matches" || a.type === "contains" || a.type === "not_contains" ||
+            a.type === "regex" || a.type === "not_regex" ||
+            a.type === "skill_invoked" || a.type === "not_skill_invoked") {
+          throw new Error(`${file}: eval '${e.name}' final_assertions: '${a.type}' is a per-turn assertion; put it on a turn's assertions array instead`);
+        }
         const v = validateAssertion(a, `${file}: eval '${e.name}' final_assertions`);
         if (a.type === "skill_invoked_in_turn" && a.turn > validatedTurns.length) {
           throw new Error(`${file}: eval '${e.name}' final_assertions: skill_invoked_in_turn.turn=${a.turn} is out of range (only ${validatedTurns.length} turns)`);
@@ -444,8 +518,34 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
       return signals.skillInvocations.some((s) => s.skill === assertion.skill)
         ? fail(`forbidden Skill('${assertion.skill}') was invoked`)
         : pass();
-    default:
-      return fail(`evaluate called with chain-level assertion type '${(assertion as { type: string }).type}' — this is a runner bug`);
+    case "tool_input_matches": {
+      const matched = signals.toolUses.some(
+        (tu) =>
+          tu.name === assertion.tool &&
+          typeof tu.input[assertion.input_key] === "string" &&
+          tu.input[assertion.input_key] === assertion.input_value,
+      );
+      if (matched) return pass();
+      const seen = signals.toolUses
+        .filter((tu) => tu.name === assertion.tool)
+        .map((tu) => JSON.stringify(tu.input[assertion.input_key]))
+        .join(", ");
+      return fail(
+        `tool_input_matches: no ${assertion.tool} tool_use had ${assertion.input_key}=${JSON.stringify(assertion.input_value)}. ` +
+          `Saw ${assertion.tool}.${assertion.input_key} values: ${seen || "(no matching tool)"}`,
+      );
+    }
+    case "skill_invoked_in_turn":
+    case "chain_order":
+      // Routing guard: chain-level assertions belong in `evaluateChain`, not
+      // here. Explicit cases (rather than a bare default) let the compiler
+      // enforce exhaustiveness — a new Assertion variant must be handled here
+      // or it won't type-check.
+      return fail(`evaluate called with chain-level assertion type '${assertion.type}' — this is a runner bug`);
+    default: {
+      const exhaustive: never = assertion;
+      return fail(`evaluate: impossible assertion type: ${JSON.stringify(exhaustive)}`);
+    }
   }
 }
 
@@ -482,10 +582,21 @@ export function evaluateChain(assertion: ValidatedAssertion, chain: ChainSignals
       if (same) return pass();
       return fail(`chain_order mismatch. expected=[${expected.join(", ")}] actual=[${actual.map((s) => s ?? "(none)").join(", ")}]`);
     }
-    default:
-      // Other assertion variants are per-turn; the runner should route them to
-      // `evaluate`, not here. Reaching this branch is a runner bug.
-      return fail(`evaluateChain called with non-chain assertion type '${(assertion as { type: string }).type}' — this is a runner bug`);
+    case "contains":
+    case "not_contains":
+    case "regex":
+    case "not_regex":
+    case "skill_invoked":
+    case "not_skill_invoked":
+    case "tool_input_matches":
+      // Routing guard: per-turn assertions belong in `evaluate`, not here.
+      // Explicit cases let the compiler enforce exhaustiveness — a new
+      // Assertion variant must be handled here or it won't type-check.
+      return fail(`evaluateChain called with non-chain assertion type '${assertion.type}' — this is a runner bug`);
+    default: {
+      const exhaustive: never = assertion;
+      return fail(`evaluateChain: impossible assertion type: ${JSON.stringify(exhaustive)}`);
+    }
   }
 }
 
@@ -496,4 +607,130 @@ export function evaluateChain(assertion: ValidatedAssertion, chain: ChainSignals
  */
 export function brandForTest(a: Assertion): ValidatedAssertion {
   return validateAssertion(a, "test");
+}
+
+/**
+ * Policy over per-turn and chain-level assertion results: a required-tier
+ * negative assertion that passes against an empty signal is a silent-fire
+ * failure (trivially true, no evidence). Everything else is decided by the
+ * AssertionResult alone, gated by tier.
+ */
+export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
+  const decisions: MetaDecision[] = [];
+  let silentFireCount = 0;
+  let requiredOk = true;
+
+  const isNegative = (a: ValidatedAssertion): boolean =>
+    a.type === "not_contains" || a.type === "not_regex" || a.type === "not_skill_invoked";
+
+  /**
+   * Is the signal the assertion ran against empty, in the sense that a
+   * negative assertion would trivially pass against it? Per-turn callers
+   * should only invoke this when the assertion reported `ok: true` — in
+   * particular, the null-signals case is handled by the runner emitting
+   * `{ok: false, detail: "no signals for this turn"}` before reaching
+   * metaCheck. We still accept `null` defensively so a future refactor
+   * routing through here doesn't silently silent-fire.
+   *
+   * Exhaustive on purpose: a new per-turn variant added to `Assertion`
+   * must choose whether it counts as "empty-signal-trivially-passable"
+   * or not, rather than silently falling through.
+   */
+  const signalIsEmptyFor = (a: ValidatedAssertion, s: Signals | null): boolean => {
+    if (!s) return true;
+    switch (a.type) {
+      case "not_contains":
+      case "not_regex":
+        return s.terminalState === "empty";
+      case "not_skill_invoked":
+        return s.skillInvocations.length === 0;
+      case "contains":
+      case "regex":
+      case "skill_invoked":
+      case "tool_input_matches":
+      case "skill_invoked_in_turn":
+      case "chain_order":
+        return false;
+      default: {
+        const exhaustive: never = a;
+        void exhaustive;
+        return false;
+      }
+    }
+  };
+
+  for (const { assertion, result, signals } of input.perTurn) {
+    const tier = assertion.tier;
+    if (result.ok) {
+      if (tier === "required" && isNegative(assertion) && signalIsEmptyFor(assertion, signals)) {
+        silentFireCount++;
+        requiredOk = false;
+        decisions.push({
+          kind: "silent_fire",
+          description: result.description,
+          tier,
+          detail: `negative assertion trivially passed against empty signal — no evidence to judge`,
+        });
+      } else {
+        decisions.push({ kind: "pass", description: result.description, tier });
+      }
+    } else {
+      if (tier === "required") requiredOk = false;
+      decisions.push({ kind: "fail", description: result.description, tier, detail: result.detail });
+    }
+  }
+
+  for (const { assertion, result } of input.final) {
+    const tier = assertion.tier;
+    if (result.ok) {
+      decisions.push({ kind: "pass", description: result.description, tier });
+    } else {
+      if (tier === "required") requiredOk = false;
+      decisions.push({ kind: "fail", description: result.description, tier, detail: result.detail });
+    }
+  }
+
+  return { decisions, requiredOk, silentFireCount };
+}
+
+/**
+ * Per-eval tally derived from a `metaCheck` result. Extracts the three
+ * runner-level counters in one place so both the single-turn and multi-turn
+ * paths aggregate the same way.
+ *
+ *   - `evalPassed`: the eval's required-tier gate (`meta.requiredOk`). The
+ *     decision-doc exit-code contract aggregates these across evals.
+ *   - `passedAssertionCount`: for the per-assertion progress line — diagnostic
+ *     fails DO decrement this, which is why it's reported separately from
+ *     `evalPassed` and must NOT gate the exit code.
+ *   - `silentFireCount`: surfaced in the transcript so a reader can tell a
+ *     plain fail apart from a required-negative-on-empty-signal fail, even
+ *     though `requiredOk` already implies it for exit purposes.
+ */
+export interface EvalTally {
+  readonly evalPassed: boolean;
+  readonly assertionCount: number;
+  readonly passedAssertionCount: number;
+  readonly silentFireCount: number;
+}
+
+export function tallyEval(meta: MetaCheckOutput, assertionCount: number): EvalTally {
+  const passedAssertionCount = meta.decisions.filter((d) => d.kind === "pass").length;
+  return {
+    evalPassed: meta.requiredOk,
+    assertionCount,
+    passedAssertionCount,
+    silentFireCount: meta.silentFireCount,
+  };
+}
+
+/**
+ * Suite-level pass/fail per the decision-doc contract: exit 0 iff every eval's
+ * required-tier gate passed. Silent-fire implies `evalPassed: false` (the
+ * `metaCheck` branch that records a silent_fire also sets `requiredOk = false`),
+ * so a separate silent-fire check here would be redundant — but we expose it
+ * as a named function so the contract is documented in one place.
+ */
+export function suiteOk(tallies: readonly EvalTally[]): boolean {
+  return tallies.every((t) => t.evalPassed);
 }
