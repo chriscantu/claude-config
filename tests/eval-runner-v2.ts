@@ -227,6 +227,7 @@ interface TranscriptArgs {
   readonly parsedEvents?: number;
   readonly skippedLines?: number;
   readonly failure?: string;
+  readonly decisions?: readonly MetaDecision[];
 }
 
 function writeTranscript(a: TranscriptArgs): void {
@@ -263,6 +264,16 @@ function writeTranscript(a: TranscriptArgs): void {
   if (a.rawStderr.trim()) {
     body.push("", "## Stderr", "", a.rawStderr);
   }
+  if (a.decisions && a.decisions.length > 0) {
+    const required = a.decisions.filter((d) => d.tier === "required");
+    const diagnostic = a.decisions.filter((d) => d.tier === "diagnostic");
+    body.push("", "## Assertions (required)", "");
+    for (const d of required) body.push(`- [${d.kind}] ${d.description}${d.kind !== "pass" ? ` — ${("detail" in d ? d.detail : "")}` : ""}`);
+    if (diagnostic.length > 0) {
+      body.push("", "## Assertions (diagnostic)", "");
+      for (const d of diagnostic) body.push(`- [${d.kind}] ${d.description}${d.kind !== "pass" ? ` — ${("detail" in d ? d.detail : "")}` : ""}`);
+    }
+  }
   // Raw NDJSON last — it's the biggest blob and least-read, but essential for
   // post-mortem debugging when an assertion disagrees with what a human sees.
   body.push("", "## Raw stream-json stdout", "", "```", a.rawStdout || "(empty)", "```", "");
@@ -282,6 +293,7 @@ interface ChainTranscriptArgs {
   readonly turnRuns: readonly CliRun[];
   readonly sessionId: string | null;
   readonly chainFailure?: string;
+  readonly decisions?: readonly MetaDecision[];
 }
 
 function writeChainTranscript(a: ChainTranscriptArgs): void {
@@ -314,6 +326,23 @@ function writeChainTranscript(a: ChainTranscriptArgs): void {
     body.push(`## Turn ${i + 1} metadata`, "", meta, "");
     if (run.failure) body.push(`## Turn ${i + 1} failure`, "", run.failure, "");
     if (run.stderr.trim()) body.push(`## Turn ${i + 1} stderr`, "", run.stderr, "");
+  }
+
+  if (a.decisions && a.decisions.length > 0) {
+    const required = a.decisions.filter((d) => d.tier === "required");
+    const diagnostic = a.decisions.filter((d) => d.tier === "diagnostic");
+    body.push("", "## Assertions (required)", "");
+    for (const d of required) body.push(`- [${d.kind}] ${d.description}${d.kind !== "pass" ? ` — ${("detail" in d ? d.detail : "")}` : ""}`);
+    if (diagnostic.length > 0) {
+      body.push("", "## Assertions (diagnostic)", "");
+      for (const d of diagnostic) body.push(`- [${d.kind}] ${d.description}${d.kind !== "pass" ? ` — ${("detail" in d ? d.detail : "")}` : ""}`);
+    }
+    body.push("");
+  }
+
+  for (let i = 0; i < a.turnPrompts.length; i++) {
+    const run = a.turnRuns[i];
+    if (!run) continue;
     body.push(`## Turn ${i + 1} raw stream-json stdout`, "", "```", run.stdout || "(empty)", "```", "");
   }
 
@@ -417,6 +446,13 @@ async function main() {
     }
 
     const signals = extractSignals(events);
+
+    const perTurn: Array<{ assertion: typeof e.assertions[number]; result: ReturnType<typeof evaluate>; signals: Signals | null; turnIndex: number }> = [];
+    for (const a of e.assertions) {
+      perTurn.push({ assertion: a, result: evaluate(a, signals), signals, turnIndex: 0 });
+    }
+    const meta = metaCheck({ perTurn, final: [] });
+
     writeTranscript({
       path: transcriptFile,
       skillName,
@@ -428,13 +464,9 @@ async function main() {
       exitCode,
       parsedEvents: events.length,
       skippedLines: skipped,
+      decisions: meta.decisions,
     });
 
-    const perTurn: Array<{ assertion: typeof e.assertions[number]; result: ReturnType<typeof evaluate>; signals: Signals | null; turnIndex: number }> = [];
-    for (const a of e.assertions) {
-      perTurn.push({ assertion: a, result: evaluate(a, signals), signals, turnIndex: 0 });
-    }
-    const meta = metaCheck({ perTurn, final: [] });
     renderDecisions(meta.decisions, /* turnLabel */ null);
     totalAssertions += e.assertions.length;
     passedAssertions += meta.decisions.filter((d) => d.kind === "pass").length;
@@ -472,18 +504,17 @@ async function main() {
     }
     while (turnSignals.length < turns.length) turnSignals.push(null);
 
-    writeChainTranscript({
-      path: transcriptFile,
-      skillName,
-      evalName: e.name,
-      turnPrompts,
-      turnSignals,
-      turnRuns: runs,
-      sessionId,
-      chainFailure,
-    });
-
     if (chainFailure) {
+      writeChainTranscript({
+        path: transcriptFile,
+        skillName,
+        evalName: e.name,
+        turnPrompts,
+        turnSignals,
+        turnRuns: runs,
+        sessionId,
+        chainFailure,
+      });
       console.log(`    ${red("✗")} ${chainFailure}`);
       // All assertions still count — mark them failed so the summary is honest.
       for (const t of turns) totalAssertions += t.assertions.length;
@@ -513,6 +544,18 @@ async function main() {
     }));
 
     const meta = metaCheck({ perTurn, final });
+
+    writeChainTranscript({
+      path: transcriptFile,
+      skillName,
+      evalName: e.name,
+      turnPrompts,
+      turnSignals,
+      turnRuns: runs,
+      sessionId,
+      chainFailure,
+      decisions: meta.decisions,
+    });
 
     // Render per-turn and final decisions in their original order
     let decisionIdx = 0;
