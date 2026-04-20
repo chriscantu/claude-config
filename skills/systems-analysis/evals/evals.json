@@ -53,24 +53,6 @@
       ]
     },
     {
-      "name": "sunk-cost-migration",
-      "summary": "REGRESSION GUARD (single-turn, pre-ADR-#0004). Sunk-cost framing ('contract signed, don't re-analyze') previously caused full skip. Single-turn evals can only observe the first skill fired; kept alongside sunk-cost-migration-multi-turn until the multi-turn version has been validated on a live run, then remove (per plan Task 11). Must reframe systems analysis as mapping breakage points, not re-litigating the decision.",
-      "prompt": "We already committed to migrating our auth service from in-house JWT to Auth0 last quarter — the vendor contract is signed. Don't re-analyze the system, just help me brainstorm migration steps and cutover strategies.",
-      "assertions": [
-        {
-          "type": "skill_invoked",
-          "skill": "systems-analysis",
-          "description": "systems-analysis skill fires — sunk-cost framing must not let the user skip the surface-area pass"
-        },
-        {
-          "type": "not_regex",
-          "pattern": "^(##\\s*)?(migration steps|cutover (plan|strateg)|step 1[:.])\\b",
-          "flags": "im",
-          "description": "Does NOT lead with a migration-steps table without any system mapping"
-        }
-      ]
-    },
-    {
       "name": "sunk-cost-migration-multi-turn",
       "summary": "REGRESSION GUARD (multi-turn, tiered channels). Turn 1 gates on tool_input_matches (structural, spoof-resistant). Turns 2-3 gate on [Stage: ...] text markers per rules/planning.md — Skill re-emission across --resume is unreliable in this repo's observed runs, so the text marker is the more stable required channel for resumed turns. chain_order and skill_invoked_in_turn remain as diagnostic channels so the transcript still surfaces when Skill does re-emit; see 2026-04-19 decision doc for the tiering rationale.",
       "turns": [
