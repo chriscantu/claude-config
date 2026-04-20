@@ -802,3 +802,57 @@ describe("evaluate() — routing guard", () => {
     if (!r.ok) expect(r.detail).toMatch(/runner bug|chain-level/i);
   });
 });
+
+describe("assertion tier metadata", () => {
+  function scratch(): string {
+    return mkdtempSync(join(tmpdir(), "evals-tier-"));
+  }
+  function writeEval(root: string, skill: string, json: unknown): void {
+    const dir = join(root, skill, "evals");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "evals.json"), JSON.stringify(json));
+  }
+
+  test("default tier is 'required' when omitted", () => {
+    const root = scratch();
+    writeEval(root, "skill-a", {
+      skill: "skill-a",
+      evals: [{
+        name: "e1",
+        prompt: "p",
+        assertions: [{ type: "contains", value: "x", description: "d" }],
+      }],
+    });
+    const ev = loadEvalFile(root, "skill-a")!.evals[0];
+    if (ev.kind !== "single") throw new Error("expected single");
+    expect(ev.assertions[0].tier).toBe("required");
+  });
+
+  test("explicit tier='diagnostic' is preserved", () => {
+    const root = scratch();
+    writeEval(root, "skill-a", {
+      skill: "skill-a",
+      evals: [{
+        name: "e1",
+        prompt: "p",
+        assertions: [{ type: "contains", value: "x", description: "d", tier: "diagnostic" }],
+      }],
+    });
+    const ev = loadEvalFile(root, "skill-a")!.evals[0];
+    if (ev.kind !== "single") throw new Error("expected single");
+    expect(ev.assertions[0].tier).toBe("diagnostic");
+  });
+
+  test("rejects unknown tier value", () => {
+    const root = scratch();
+    writeEval(root, "skill-a", {
+      skill: "skill-a",
+      evals: [{
+        name: "e1",
+        prompt: "p",
+        assertions: [{ type: "contains", value: "x", description: "d", tier: "advisory" }],
+      }],
+    });
+    expect(() => loadEvalFile(root, "skill-a")).toThrow(/tier/);
+  });
+});

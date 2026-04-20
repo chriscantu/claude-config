@@ -6,12 +6,16 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
+export type AssertionTier = "required" | "diagnostic";
+
+type AssertionBase = { description: string; tier?: AssertionTier };
+
 export type Assertion =
-  | { type: "contains" | "not_contains"; value: string; description: string }
-  | { type: "regex" | "not_regex"; pattern: string; flags?: string; description: string }
-  | { type: "skill_invoked" | "not_skill_invoked"; skill: string; description: string }
-  | { type: "skill_invoked_in_turn"; turn: number; skill: string; description: string }
-  | { type: "chain_order"; skills: string[]; description: string };
+  | (AssertionBase & { type: "contains" | "not_contains"; value: string })
+  | (AssertionBase & { type: "regex" | "not_regex"; pattern: string; flags?: string })
+  | (AssertionBase & { type: "skill_invoked" | "not_skill_invoked"; skill: string })
+  | (AssertionBase & { type: "skill_invoked_in_turn"; turn: number; skill: string })
+  | (AssertionBase & { type: "chain_order"; skills: string[] });
 
 declare const validatedBrand: unique symbol;
 
@@ -148,6 +152,11 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
   if (!a.type || !a.description) {
     throw new Error(`${loc}: assertion missing 'type' or 'description'`);
   }
+  const rawTier = (a as { tier?: unknown }).tier;
+  if (rawTier !== undefined && rawTier !== "required" && rawTier !== "diagnostic") {
+    throw new Error(`${loc}: tier must be 'required' or 'diagnostic' if present, got ${JSON.stringify(rawTier)}`);
+  }
+  const tier: AssertionTier = rawTier === "diagnostic" ? "diagnostic" : "required";
   switch (a.type) {
     case "contains":
     case "not_contains":
@@ -189,7 +198,7 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
       throw new Error(`${loc}: unknown assertion type '${(exhaustive as { type: string }).type}'`);
     }
   }
-  return a as ValidatedAssertion;
+  return { ...a, tier } as ValidatedAssertion;
 }
 
 export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | null {
