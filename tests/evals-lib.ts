@@ -14,6 +14,7 @@ export type Assertion =
   | (AssertionBase & { type: "contains" | "not_contains"; value: string })
   | (AssertionBase & { type: "regex" | "not_regex"; pattern: string; flags?: string })
   | (AssertionBase & { type: "skill_invoked" | "not_skill_invoked"; skill: string })
+  | (AssertionBase & { type: "tool_input_matches"; tool: string; input_key: string; input_value: string })
   | (AssertionBase & { type: "skill_invoked_in_turn"; turn: number; skill: string })
   | (AssertionBase & { type: "chain_order"; skills: string[] });
 
@@ -176,6 +177,17 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
     case "not_skill_invoked":
       if (typeof a.skill !== "string" || a.skill.length === 0) {
         throw new Error(`${loc}: ${a.type} assertion requires non-empty 'skill' string`);
+      }
+      break;
+    case "tool_input_matches":
+      if (typeof a.tool !== "string" || a.tool.length === 0) {
+        throw new Error(`${loc}: tool_input_matches requires non-empty 'tool' string`);
+      }
+      if (typeof a.input_key !== "string" || a.input_key.length === 0) {
+        throw new Error(`${loc}: tool_input_matches requires non-empty 'input_key' string`);
+      }
+      if (typeof a.input_value !== "string" || a.input_value.length === 0) {
+        throw new Error(`${loc}: tool_input_matches requires non-empty 'input_value' string`);
       }
       break;
     case "skill_invoked_in_turn":

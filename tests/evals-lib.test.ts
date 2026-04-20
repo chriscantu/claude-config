@@ -856,3 +856,45 @@ describe("assertion tier metadata", () => {
     expect(() => loadEvalFile(root, "skill-a")).toThrow(/tier/);
   });
 });
+
+describe("validateAssertion() — tool_input_matches", () => {
+  test("accepts a well-formed tool_input_matches assertion", () => {
+    expect(() => v({
+      type: "tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "define-the-problem",
+      description: "d",
+    } as Assertion)).not.toThrow();
+  });
+
+  test("rejects empty tool", () => {
+    expect(() => v({
+      type: "tool_input_matches",
+      tool: "",
+      input_key: "skill",
+      input_value: "x",
+      description: "d",
+    } as Assertion)).toThrow(/tool/);
+  });
+
+  test("rejects empty input_key", () => {
+    expect(() => v({
+      type: "tool_input_matches",
+      tool: "Skill",
+      input_key: "",
+      input_value: "x",
+      description: "d",
+    } as Assertion)).toThrow(/input_key/);
+  });
+
+  test("rejects empty input_value", () => {
+    expect(() => v({
+      type: "tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "",
+      description: "d",
+    } as Assertion)).toThrow(/input_value/);
+  });
+});
