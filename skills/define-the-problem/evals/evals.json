@@ -156,7 +156,8 @@
         {
           "type": "not_skill_invoked",
           "skill": "define-the-problem",
-          "description": "Skill tool is NOT invoked with define-the-problem — bug reports skip the problem-definition pipeline"
+          "tier": "diagnostic",
+          "description": "[diagnostic: bug-fix scenarios produce no skill invocations at all, so this negative assertion has no evidence to judge against — silent-fire under the required-tier gate] Skill tool is NOT invoked with define-the-problem — bug reports skip the problem-definition pipeline"
         }
       ]
     }
