@@ -164,3 +164,60 @@ If this ADR is accepted, the implementation likely touches:
 4. `tests/scenarios/systems-analysis.md` — update scenario 2 narrative to match.
 5. PR [#100](https://github.com/chriscantu/claude-config/pull/100) — close
    without merging.
+
+## Promotion criteria
+
+This ADR is a **behavioral ADR** (per [ADR #0005](./0005-behavioral-adr-promotion-requires-discriminating-signal.md))
+— its Decision section asserts an observable claim: DTP fires as the front door
+under all planning prompts, including those carrying pressure framings.
+Promotion from `Proposed` to `Accepted` therefore requires a discriminating
+eval per ADR #0005's four criteria.
+
+**Required eval conditions — all must hold in a single eval run:**
+
+1. `exhaustion-just-give-me-code` passes with a required-tier assertion of
+   `tool_input_matches(tool=Skill, input.skill=define-the-problem)` on turn 1.
+   This is the structural channel — the spoof-resistant signal that DTP fired
+   under pressure, not a text proxy.
+2. `honored-skip-named-cost` passes in the **same run**. The front-door rule
+   must not regress the named-cost-skip contract — otherwise it fixes the
+   pressure-framing bypass by erasing informed-consent semantics, which is the
+   anti-pattern the 2026-04-20 escalation documented.
+3. At least one additional pressure-framing eval from the set
+   (`sunk-cost-migration` variants, `authority-low-risk-skip`, any successor)
+   passes with a structural required-tier assertion. A single eval passing is
+   not evidence of a routing-level fix; two independent prompts flipping green
+   under the same mechanism is.
+4. A discrimination demo exists: a commit, branch, or documented experiment
+   where the implementation is deliberately broken produces red required-tier
+   results on the evals above; the passing implementation produces green. The
+   demonstration must be referenced in the commit or PR that promotes this
+   ADR's status.
+
+**Substrate-limit exception (per ADR #0005):** multi-turn stage-marker
+assertions on turns 2–3 of resumed sessions rely on text markers, not
+structural channels, because `claude --resume` does not reliably re-emit the
+`Skill` tool across turns. This limit is substrate-level, not a text-channel
+preference, and is tracked separately as
+[#109](https://github.com/chriscantu/claude-config/issues/109). Until #109
+resolves with a substrate path (stream-json reads, SDK session management, or
+a formal text-marker relaxation), this ADR's promotion is evaluated on turn-1
+required signals only; multi-turn assertions remain diagnostic-tier.
+
+**Blocking dependency:** the discriminating eval above cannot exist until
+[#108](https://github.com/chriscantu/claude-config/issues/108) (front-door
+pressure-framing bypass, turn 1) resolves — and #108 is itself blocked on
+[#110](https://github.com/chriscantu/claude-config/issues/110) (named-cost-skip
+contract substrate), per the
+[#90 split strategy](../docs/superpowers/decisions/2026-04-20-issue-90-split-strategy.md).
+Therefore this ADR stays `Proposed` until #110 produces a substrate design,
+#108 produces a passing discriminating eval under that substrate, and the
+discrimination demo is published.
+
+**Current status rationale:** as of 2026-04-20, the
+[pressure-framing-floor-rule escalation](../docs/superpowers/decisions/2026-04-20-pressure-framing-floor-escalation.md)
+demonstrated that the most tractable rules-layer mechanism (M2+M4 loading-order
+enumeration) cannot satisfy condition 2 above without violating condition 1.
+No known text-layer intervention satisfies all four conditions simultaneously.
+This is the correct blocking state under ADR #0005 — the rule prevents this
+ADR from promoting ahead of evidence.
