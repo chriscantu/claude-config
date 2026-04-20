@@ -22,6 +22,7 @@ import {
   extractSessionId,
   extractSignals,
   loadEvalFile,
+  metaCheck,
   parseStreamJson,
 } from "./evals-lib.ts";
 
@@ -985,5 +986,103 @@ describe("evaluate() — tool_input_matches", () => {
     } as Assertion);
     const s = sigWithTools([{ name: "Skill", input: { skill: null as unknown as string } }]);
     expect(evaluate(a, s).ok).toBe(false);
+  });
+});
+
+describe("metaCheck()", () => {
+  function emptySig(): Signals {
+    return { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" };
+  }
+  function nonEmptySig(text = "hello"): Signals {
+    return { finalText: text, toolUses: [], skillInvocations: [], terminalState: "result" };
+  }
+
+  test("required-tier positive pass → decisions=[pass], requiredOk=true", () => {
+    const a = v({ type: "contains", value: "hi", description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{ assertion: a, result: { ok: true, description: "d" }, signals: nonEmptySig("hi there"), turnIndex: 0 }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(true);
+    expect(out.silentFireCount).toBe(0);
+    expect(out.decisions[0].kind).toBe("pass");
+  });
+
+  test("required-tier fail → decisions=[fail], requiredOk=false", () => {
+    const a = v({ type: "contains", value: "hi", description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{ assertion: a, result: { ok: false, description: "d", detail: "missed" }, signals: nonEmptySig("bye"), turnIndex: 0 }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(false);
+    expect(out.decisions[0].kind).toBe("fail");
+  });
+
+  test("required-tier not_contains that passes against EMPTY signals → silent_fire", () => {
+    const a = v({ type: "not_contains", value: "forbidden", description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{ assertion: a, result: { ok: true, description: "d" }, signals: emptySig(), turnIndex: 0 }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(false);
+    expect(out.silentFireCount).toBe(1);
+    expect(out.decisions[0].kind).toBe("silent_fire");
+  });
+
+  test("required-tier not_skill_invoked that passes against zero skill invocations → silent_fire", () => {
+    const a = v({ type: "not_skill_invoked", skill: "bad", description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{ assertion: a, result: { ok: true, description: "d" }, signals: nonEmptySig("no tool uses"), turnIndex: 0 }],
+      final: [],
+    });
+    expect(out.silentFireCount).toBe(1);
+    expect(out.decisions[0].kind).toBe("silent_fire");
+  });
+
+  test("required-tier not_contains that passes against NON-empty signals → pass (real evidence)", () => {
+    const a = v({ type: "not_contains", value: "forbidden", description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{ assertion: a, result: { ok: true, description: "d" }, signals: nonEmptySig("safe content"), turnIndex: 0 }],
+      final: [],
+    });
+    expect(out.silentFireCount).toBe(0);
+    expect(out.decisions[0].kind).toBe("pass");
+  });
+
+  test("diagnostic-tier fail does NOT flip requiredOk", () => {
+    const a = v({ type: "contains", value: "x", description: "d", tier: "diagnostic" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{ assertion: a, result: { ok: false, description: "d", detail: "x missing" }, signals: nonEmptySig("y"), turnIndex: 0 }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(true);
+    expect(out.decisions[0].kind).toBe("fail");
+    expect(out.decisions[0].tier).toBe("diagnostic");
+  });
+
+  test("diagnostic-tier not_contains against empty signals is NOT labelled silent_fire", () => {
+    // Silent-fire relabelling is specifically a required-tier gate. Diagnostic
+    // assertions are advisory; whether they fired is informational, not a gate.
+    const a = v({ type: "not_contains", value: "forbidden", description: "d", tier: "diagnostic" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{ assertion: a, result: { ok: true, description: "d" }, signals: emptySig(), turnIndex: 0 }],
+      final: [],
+    });
+    expect(out.silentFireCount).toBe(0);
+    expect(out.decisions[0].kind).toBe("pass");
+  });
+
+  test("final chain assertions are passed through the same tier policy", () => {
+    const a = v({ type: "chain_order", skills: ["a"], description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [],
+      final: [{
+        assertion: a,
+        result: { ok: false, description: "d", detail: "mismatch" },
+        chainSignals: { per_turn: [], per_turn_winner: [] },
+      }],
+    });
+    expect(out.requiredOk).toBe(false);
+    expect(out.decisions[0].kind).toBe("fail");
   });
 });

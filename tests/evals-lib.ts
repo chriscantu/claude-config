@@ -83,6 +83,48 @@ export type AssertionResult =
   | { ok: false; description: string; detail: string };
 
 /**
+ * One decision per required-tier assertion after per-turn/chain evaluation.
+ *   - "pass":           assertion passed with evidence
+ *   - "fail":           assertion failed with a concrete mismatch detail
+ *   - "silent_fire":    negative assertion (not_*) reported ok, but the signal
+ *                       it was checking was empty — trivially true, no evidence.
+ *                       Distinct failure label; fails the eval.
+ */
+export type MetaDecision =
+  | { kind: "pass"; description: string; tier: AssertionTier }
+  | { kind: "fail"; description: string; tier: AssertionTier; detail: string }
+  | { kind: "silent_fire"; description: string; tier: AssertionTier; detail: string };
+
+export interface MetaCheckInput {
+  /** Per-turn assertion results in the same order the runner evaluated them.
+   *  Each entry pairs the validated assertion, the AssertionResult, and the
+   *  Signals it ran against (null if the turn had no signals — e.g., spawn
+   *  failure). */
+  readonly perTurn: ReadonlyArray<{
+    readonly assertion: ValidatedAssertion;
+    readonly result: AssertionResult;
+    readonly signals: Signals | null;
+    readonly turnIndex: number;
+  }>;
+  /** Chain-level assertion results. `signals` is the aggregated ChainSignals. */
+  readonly final: ReadonlyArray<{
+    readonly assertion: ValidatedAssertion;
+    readonly result: AssertionResult;
+    readonly chainSignals: ChainSignals;
+  }>;
+}
+
+export interface MetaCheckOutput {
+  readonly decisions: readonly MetaDecision[];
+  /** True iff every required-tier decision is `pass`. Diagnostic decisions
+   *  never flip this. */
+  readonly requiredOk: boolean;
+  /** True iff any required decision is `silent_fire`. Reporter highlights this
+   *  separately from a plain mismatch. */
+  readonly silentFireCount: number;
+}
+
+/**
  * One parsed entry from `claude --print --output-format stream-json`.
  * Loosely typed because the CLI emits heterogeneous events — consumers
  * pick out the fields they care about via narrowing.
@@ -539,4 +581,59 @@ export function evaluateChain(assertion: ValidatedAssertion, chain: ChainSignals
  */
 export function brandForTest(a: Assertion): ValidatedAssertion {
   return validateAssertion(a, "test");
+}
+
+/**
+ * Policy over per-turn and chain-level assertion results: a required-tier
+ * negative assertion that passes against an empty signal is a silent-fire
+ * failure (trivially true, no evidence). Everything else is decided by the
+ * AssertionResult alone, gated by tier.
+ */
+export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
+  const decisions: MetaDecision[] = [];
+  let silentFireCount = 0;
+  let requiredOk = true;
+
+  const isNegative = (a: ValidatedAssertion): boolean =>
+    a.type === "not_contains" || a.type === "not_regex" || a.type === "not_skill_invoked";
+
+  const signalIsEmptyFor = (a: ValidatedAssertion, s: Signals | null): boolean => {
+    if (!s) return true;
+    if (a.type === "not_contains" || a.type === "not_regex") return s.terminalState === "empty";
+    if (a.type === "not_skill_invoked") return s.skillInvocations.length === 0;
+    return false;
+  };
+
+  for (const { assertion, result, signals } of input.perTurn) {
+    const tier = assertion.tier ?? "required";
+    if (result.ok) {
+      if (tier === "required" && isNegative(assertion) && signalIsEmptyFor(assertion, signals)) {
+        silentFireCount++;
+        requiredOk = false;
+        decisions.push({
+          kind: "silent_fire",
+          description: result.description,
+          tier,
+          detail: `negative assertion trivially passed against empty signal — no evidence to judge`,
+        });
+      } else {
+        decisions.push({ kind: "pass", description: result.description, tier });
+      }
+    } else {
+      if (tier === "required") requiredOk = false;
+      decisions.push({ kind: "fail", description: result.description, tier, detail: result.detail });
+    }
+  }
+
+  for (const { assertion, result } of input.final) {
+    const tier = assertion.tier ?? "required";
+    if (result.ok) {
+      decisions.push({ kind: "pass", description: result.description, tier });
+    } else {
+      if (tier === "required") requiredOk = false;
+      decisions.push({ kind: "fail", description: result.description, tier, detail: result.detail });
+    }
+  }
+
+  return { decisions, requiredOk, silentFireCount };
 }
