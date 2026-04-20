@@ -29,10 +29,11 @@ import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import {
-  type ChainSignals,
   type EvalFile,
+  type EvalTally,
   type MetaDecision,
   type Signals,
+  type ValidatedAssertion,
   aggregateChainSignals,
   discoverSkills,
   evaluate,
@@ -42,6 +43,8 @@ import {
   loadEvalFile,
   metaCheck,
   parseStreamJson,
+  suiteOk,
+  tallyEval,
 } from "./evals-lib.ts";
 
 const repoDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -228,6 +231,50 @@ interface TranscriptArgs {
   readonly skippedLines?: number;
   readonly failure?: string;
   readonly decisions?: readonly MetaDecision[];
+  /** The eval's assertions, used to render an "Assertions (not evaluated)"
+   *  stub when the run failed before metaCheck could produce decisions.
+   *  Keeps transcript shape consistent between pass and fail cases. */
+  readonly unevaluatedAssertions?: readonly ValidatedAssertion[];
+}
+
+/**
+ * Render the Assertions section with the same structure in pass and fail
+ * transcripts. A run that fails before assertions are evaluated still emits
+ * a section — labeled "not evaluated" — listing each assertion so a reader
+ * doesn't have to infer from silence why there's no decision list.
+ */
+function renderAssertionsSection(
+  body: string[],
+  decisions?: readonly MetaDecision[],
+  unevaluated?: readonly ValidatedAssertion[],
+  notEvaluatedReason?: string,
+): void {
+  if (decisions && decisions.length > 0) {
+    const required = decisions.filter((d) => d.tier === "required");
+    const diagnostic = decisions.filter((d) => d.tier === "diagnostic");
+    body.push("", "## Assertions (required)", "");
+    for (const d of required) body.push(`- [${d.kind}] ${d.description}${d.kind !== "pass" ? ` — ${("detail" in d ? d.detail : "")}` : ""}`);
+    if (diagnostic.length > 0) {
+      body.push("", "## Assertions (diagnostic)", "");
+      for (const d of diagnostic) body.push(`- [${d.kind}] ${d.description}${d.kind !== "pass" ? ` — ${("detail" in d ? d.detail : "")}` : ""}`);
+    }
+    return;
+  }
+  if (unevaluated && unevaluated.length > 0) {
+    body.push("", "## Assertions (not evaluated)", "");
+    const reason = notEvaluatedReason ?? "run failed before assertions were evaluated";
+    body.push(`_Reason: ${reason}_`, "");
+    const required = unevaluated.filter((a) => a.tier === "required");
+    const diagnostic = unevaluated.filter((a) => a.tier === "diagnostic");
+    if (required.length > 0) {
+      body.push("**Required:**");
+      for (const a of required) body.push(`- [not_evaluated] ${a.description}`);
+    }
+    if (diagnostic.length > 0) {
+      body.push("", "**Diagnostic:**");
+      for (const a of diagnostic) body.push(`- [not_evaluated] ${a.description}`);
+    }
+  }
 }
 
 function writeTranscript(a: TranscriptArgs): void {
@@ -264,16 +311,7 @@ function writeTranscript(a: TranscriptArgs): void {
   if (a.rawStderr.trim()) {
     body.push("", "## Stderr", "", a.rawStderr);
   }
-  if (a.decisions && a.decisions.length > 0) {
-    const required = a.decisions.filter((d) => d.tier === "required");
-    const diagnostic = a.decisions.filter((d) => d.tier === "diagnostic");
-    body.push("", "## Assertions (required)", "");
-    for (const d of required) body.push(`- [${d.kind}] ${d.description}${d.kind !== "pass" ? ` — ${("detail" in d ? d.detail : "")}` : ""}`);
-    if (diagnostic.length > 0) {
-      body.push("", "## Assertions (diagnostic)", "");
-      for (const d of diagnostic) body.push(`- [${d.kind}] ${d.description}${d.kind !== "pass" ? ` — ${("detail" in d ? d.detail : "")}` : ""}`);
-    }
-  }
+  renderAssertionsSection(body, a.decisions, a.unevaluatedAssertions, a.failure);
   // Raw NDJSON last — it's the biggest blob and least-read, but essential for
   // post-mortem debugging when an assertion disagrees with what a human sees.
   body.push("", "## Raw stream-json stdout", "", "```", a.rawStdout || "(empty)", "```", "");
@@ -294,6 +332,10 @@ interface ChainTranscriptArgs {
   readonly sessionId: string | null;
   readonly chainFailure?: string;
   readonly decisions?: readonly MetaDecision[];
+  /** Full flat list of assertions (per-turn + final), used to render an
+   *  "Assertions (not evaluated)" stub when the chain failed before
+   *  metaCheck could produce decisions. */
+  readonly unevaluatedAssertions?: readonly ValidatedAssertion[];
 }
 
 function writeChainTranscript(a: ChainTranscriptArgs): void {
@@ -328,17 +370,8 @@ function writeChainTranscript(a: ChainTranscriptArgs): void {
     if (run.stderr.trim()) body.push(`## Turn ${i + 1} stderr`, "", run.stderr, "");
   }
 
-  if (a.decisions && a.decisions.length > 0) {
-    const required = a.decisions.filter((d) => d.tier === "required");
-    const diagnostic = a.decisions.filter((d) => d.tier === "diagnostic");
-    body.push("", "## Assertions (required)", "");
-    for (const d of required) body.push(`- [${d.kind}] ${d.description}${d.kind !== "pass" ? ` — ${("detail" in d ? d.detail : "")}` : ""}`);
-    if (diagnostic.length > 0) {
-      body.push("", "## Assertions (diagnostic)", "");
-      for (const d of diagnostic) body.push(`- [${d.kind}] ${d.description}${d.kind !== "pass" ? ` — ${("detail" in d ? d.detail : "")}` : ""}`);
-    }
-    body.push("");
-  }
+  renderAssertionsSection(body, a.decisions, a.unevaluatedAssertions, a.chainFailure);
+  body.push("");
 
   for (let i = 0; i < a.turnPrompts.length; i++) {
     const run = a.turnRuns[i];
@@ -391,6 +424,12 @@ async function main() {
   let passedEvals = 0;
   let totalAssertions = 0;
   let passedAssertions = 0;
+  // Per-eval tallies. `suiteOk(tallies)` decides the exit code per the
+  // decision-doc contract: exit 0 iff every eval's required-tier gate passed
+  // (silent_fire already implies requiredOk=false). Assertion counts drive the
+  // human-readable "X/Y assertions passed" line but MUST NOT flip exit —
+  // diagnostic-tier fails decrement the assertion count without being a gate.
+  const tallies: EvalTally[] = [];
 
   // Shared helpers captured by the two branches below so the report counters
   // and transcript paths come from one place.
@@ -413,8 +452,10 @@ async function main() {
         rawStderr: stderr,
         exitCode,
         failure: reason,
+        unevaluatedAssertions: e.assertions,
       });
       console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+      tallies.push({ evalPassed: false, assertionCount: e.assertions.length, passedAssertionCount: 0, silentFireCount: 0 });
       return;
     }
 
@@ -440,8 +481,10 @@ async function main() {
         parsedEvents: 0,
         skippedLines: skipped,
         failure: reason,
+        unevaluatedAssertions: e.assertions,
       });
       console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+      tallies.push({ evalPassed: false, assertionCount: e.assertions.length, passedAssertionCount: 0, silentFireCount: 0 });
       return;
     }
 
@@ -452,6 +495,7 @@ async function main() {
       perTurn.push({ assertion: a, result: evaluate(a, signals), signals, turnIndex: 0 });
     }
     const meta = metaCheck({ perTurn, final: [] });
+    const tally = tallyEval(meta, e.assertions.length);
 
     writeTranscript({
       path: transcriptFile,
@@ -468,9 +512,13 @@ async function main() {
     });
 
     renderDecisions(meta.decisions, /* turnLabel */ null);
-    totalAssertions += e.assertions.length;
-    passedAssertions += meta.decisions.filter((d) => d.kind === "pass").length;
-    if (meta.requiredOk) passedEvals++;
+    totalAssertions += tally.assertionCount;
+    passedAssertions += tally.passedAssertionCount;
+    if (tally.evalPassed) passedEvals++;
+    if (tally.silentFireCount > 0) {
+      console.log(red(`      ${tally.silentFireCount} SILENT-FIRE FAILURE(S) — required-tier negative assertions trivially passed against empty signals`));
+    }
+    tallies.push(tally);
     console.log(
       dim(
         `      transcript → ${transcriptFile.replace(repoDir + "/", "")}` +
@@ -504,6 +552,11 @@ async function main() {
     }
     while (turnSignals.length < turns.length) turnSignals.push(null);
 
+    const allAssertions: ValidatedAssertion[] = [
+      ...turns.flatMap((t) => t.assertions),
+      ...(e.final_assertions ?? []),
+    ];
+
     if (chainFailure) {
       writeChainTranscript({
         path: transcriptFile,
@@ -514,12 +567,13 @@ async function main() {
         turnRuns: runs,
         sessionId,
         chainFailure,
+        unevaluatedAssertions: allAssertions,
       });
       console.log(`    ${red("✗")} ${chainFailure}`);
       // All assertions still count — mark them failed so the summary is honest.
-      for (const t of turns) totalAssertions += t.assertions.length;
-      totalAssertions += e.final_assertions?.length ?? 0;
+      totalAssertions += allAssertions.length;
       console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+      tallies.push({ evalPassed: false, assertionCount: allAssertions.length, passedAssertionCount: 0, silentFireCount: 0 });
       return;
     }
 
@@ -540,10 +594,10 @@ async function main() {
     const final = (e.final_assertions ?? []).map((a) => ({
       assertion: a,
       result: evaluateChain(a, chain),
-      chainSignals: chain,
     }));
 
     const meta = metaCheck({ perTurn, final });
+    const tally = tallyEval(meta, allAssertions.length);
 
     writeChainTranscript({
       path: transcriptFile,
@@ -568,12 +622,13 @@ async function main() {
       renderDecisions(meta.decisions.slice(decisionIdx), "final");
     }
 
-    totalAssertions += perTurn.length + final.length;
-    passedAssertions += meta.decisions.filter((d) => d.kind === "pass").length;
-    if (meta.requiredOk) passedEvals++;
-    if (meta.silentFireCount > 0) {
-      console.log(red(`      ${meta.silentFireCount} SILENT-FIRE FAILURE(S) — required-tier negative assertions trivially passed against empty signals`));
+    totalAssertions += tally.assertionCount;
+    passedAssertions += tally.passedAssertionCount;
+    if (tally.evalPassed) passedEvals++;
+    if (tally.silentFireCount > 0) {
+      console.log(red(`      ${tally.silentFireCount} SILENT-FIRE FAILURE(S) — required-tier negative assertions trivially passed against empty signals`));
     }
+    tallies.push(tally);
     const union = turnSignals.reduce((sum, s) => sum + (s?.skillInvocations.length ?? 0), 0);
     console.log(
       dim(
@@ -629,8 +684,18 @@ async function main() {
   const assertionLine = `${passedAssertions}/${totalAssertions} assertions passed`;
   console.log(passedEvals === totalEvals ? green(evalLine) : red(evalLine));
   console.log(passedAssertions === totalAssertions ? green(assertionLine) : red(assertionLine));
+  const totalSilentFires = tallies.reduce((n, t) => n + t.silentFireCount, 0);
+  if (totalSilentFires > 0) {
+    console.log(red(`${totalSilentFires} SILENT-FIRE FAILURE(S) across suite`));
+  }
 
-  const ok = passedEvals === totalEvals && passedAssertions === totalAssertions;
+  // Exit-code contract (per decision doc): exit 0 iff every eval's
+  // required-tier gate passed. Do NOT gate on passedAssertions — a diagnostic
+  // fail would otherwise flip the exit, contradicting the tiered design.
+  // Dry-run is special-cased: it mock-passes every assertion so the tallies
+  // list is empty and `suiteOk` trivially holds, which is the intended
+  // behavior (dry-run only validates JSON schema, not model output).
+  const ok = dryRun || suiteOk(tallies);
   process.exit(ok ? 0 : 1);
 }
 

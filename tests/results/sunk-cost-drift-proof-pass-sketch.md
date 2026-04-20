@@ -39,12 +39,12 @@ Turn 2 required text-marker: announces [Stage: Systems Analysis]
   ✓ regex match: [Stage: Systems Analysis]
 ```
 
-On `claude --resume`, the `Skill` tool is not re-emitted for an
-already-loaded skill (by CLI design — see PR #106 spec). The
-`[Stage: ...]` marker is the rule-file-prescribed pipeline-transition
-signal and is therefore the correct *required* channel for resumed
-turns. This is the "structural where possible, text-marker where
-necessary" caveat called out in the decision doc.
+On `claude --resume`, Skill re-emission for an already-loaded skill is
+unreliable across observed runs — sometimes the tool re-fires, sometimes
+it does not. The `[Stage: ...]` marker is the rule-file-prescribed
+pipeline-transition signal and is therefore the stable *required* channel
+for resumed turns. This is the "structural where possible, text-marker
+where necessary" caveat called out in the decision doc.
 
 ### Turn 3 — text-marker gate
 
@@ -62,14 +62,14 @@ pass and *which* collapsed to `(none)` under `--resume`.
 | Channel | Expected state on a pass | Why diagnostic |
 |---|---|---|
 | Turn 1 `skill_invoked` on DTP | `[pass]` | Redundant with turn 1's structural gate |
-| `chain_order` [DTP, SA, BS] | likely `[fail]` — actual collapses to `[DTP, (none), (none)]` | `--resume` doesn't re-emit Skill. Promotable to required once substrate reads more event types. |
-| Turn 2 `skill_invoked_in_turn` on SA | likely `[fail]` — `(none)` | Same `--resume` constraint |
-| Turn 3 `skill_invoked_in_turn` on BS | likely `[fail]` — `(none)` | Same `--resume` constraint |
+| `chain_order` [DTP, SA, BS] | variable — `[pass]` when Skill re-emits, `[fail]` with `[DTP, (none), (none)]` when it does not | `--resume` re-emission is unreliable. Promotable to required once re-emission is reliable or substrate reads more event types. |
+| Turn 2 `skill_invoked_in_turn` on SA | variable — `[pass]` or `(none)` depending on re-emission | Same `--resume` unreliability |
+| Turn 3 `skill_invoked_in_turn` on BS | variable — `[pass]` or `(none)` depending on re-emission | Same `--resume` unreliability |
 
-A green transcript with three passing required-tier channels and three
-failing diagnostic channels is *still a pass* under Approach D. The
-diagnostic fails are expected under current CLI behavior and carry no
-signal about pipeline health.
+A green transcript with three passing required-tier channels is *still a
+pass* under Approach D regardless of the diagnostic state. The diagnostic
+channels are informational because `--resume` Skill re-emission is
+unreliable — they carry no signal about pipeline health.
 
 ## Meta-check
 

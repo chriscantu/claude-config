@@ -24,9 +24,13 @@ declare const validatedBrand: unique symbol;
  * An assertion that has passed `validateAssertion` (directly or via
  * `loadEvalFile`). `evaluate` only accepts this branded form so that the
  * non-empty-string / regex-compiles invariants cannot be bypassed at the
- * type level.
+ * type level. The `tier` field is narrowed to non-optional here — validation
+ * always fills in the default, so downstream code never needs `?? "required"`.
  */
-export type ValidatedAssertion = Assertion & { readonly [validatedBrand]: true };
+export type ValidatedAssertion = Assertion & {
+  readonly [validatedBrand]: true;
+  readonly tier: AssertionTier;
+};
 
 export interface Turn {
   prompt: string;
@@ -106,11 +110,13 @@ export interface MetaCheckInput {
     readonly signals: Signals | null;
     readonly turnIndex: number;
   }>;
-  /** Chain-level assertion results. `signals` is the aggregated ChainSignals. */
+  /** Chain-level assertion results. Silent-fire detection only applies to
+   *  per-turn entries (it depends on per-turn signal emptiness), so the
+   *  aggregated ChainSignals isn't needed here — only the validated assertion
+   *  and its result. */
   readonly final: ReadonlyArray<{
     readonly assertion: ValidatedAssertion;
     readonly result: AssertionResult;
-    readonly chainSignals: ChainSignals;
   }>;
 }
 
@@ -529,8 +535,17 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
           `Saw ${assertion.tool}.${assertion.input_key} values: ${seen || "(no matching tool)"}`,
       );
     }
-    default:
-      return fail(`evaluate called with chain-level assertion type '${(assertion as { type: string }).type}' — this is a runner bug`);
+    case "skill_invoked_in_turn":
+    case "chain_order":
+      // Routing guard: chain-level assertions belong in `evaluateChain`, not
+      // here. Explicit cases (rather than a bare default) let the compiler
+      // enforce exhaustiveness — a new Assertion variant must be handled here
+      // or it won't type-check.
+      return fail(`evaluate called with chain-level assertion type '${assertion.type}' — this is a runner bug`);
+    default: {
+      const exhaustive: never = assertion;
+      return fail(`evaluate: impossible assertion type: ${JSON.stringify(exhaustive)}`);
+    }
   }
 }
 
@@ -567,10 +582,21 @@ export function evaluateChain(assertion: ValidatedAssertion, chain: ChainSignals
       if (same) return pass();
       return fail(`chain_order mismatch. expected=[${expected.join(", ")}] actual=[${actual.map((s) => s ?? "(none)").join(", ")}]`);
     }
-    default:
-      // Other assertion variants are per-turn; the runner should route them to
-      // `evaluate`, not here. Reaching this branch is a runner bug.
-      return fail(`evaluateChain called with non-chain assertion type '${(assertion as { type: string }).type}' — this is a runner bug`);
+    case "contains":
+    case "not_contains":
+    case "regex":
+    case "not_regex":
+    case "skill_invoked":
+    case "not_skill_invoked":
+    case "tool_input_matches":
+      // Routing guard: per-turn assertions belong in `evaluate`, not here.
+      // Explicit cases let the compiler enforce exhaustiveness — a new
+      // Assertion variant must be handled here or it won't type-check.
+      return fail(`evaluateChain called with non-chain assertion type '${assertion.type}' — this is a runner bug`);
+    default: {
+      const exhaustive: never = assertion;
+      return fail(`evaluateChain: impossible assertion type: ${JSON.stringify(exhaustive)}`);
+    }
   }
 }
 
@@ -597,15 +623,44 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
   const isNegative = (a: ValidatedAssertion): boolean =>
     a.type === "not_contains" || a.type === "not_regex" || a.type === "not_skill_invoked";
 
+  /**
+   * Is the signal the assertion ran against empty, in the sense that a
+   * negative assertion would trivially pass against it? Per-turn callers
+   * should only invoke this when the assertion reported `ok: true` — in
+   * particular, the null-signals case is handled by the runner emitting
+   * `{ok: false, detail: "no signals for this turn"}` before reaching
+   * metaCheck. We still accept `null` defensively so a future refactor
+   * routing through here doesn't silently silent-fire.
+   *
+   * Exhaustive on purpose: a new per-turn variant added to `Assertion`
+   * must choose whether it counts as "empty-signal-trivially-passable"
+   * or not, rather than silently falling through.
+   */
   const signalIsEmptyFor = (a: ValidatedAssertion, s: Signals | null): boolean => {
     if (!s) return true;
-    if (a.type === "not_contains" || a.type === "not_regex") return s.terminalState === "empty";
-    if (a.type === "not_skill_invoked") return s.skillInvocations.length === 0;
-    return false;
+    switch (a.type) {
+      case "not_contains":
+      case "not_regex":
+        return s.terminalState === "empty";
+      case "not_skill_invoked":
+        return s.skillInvocations.length === 0;
+      case "contains":
+      case "regex":
+      case "skill_invoked":
+      case "tool_input_matches":
+      case "skill_invoked_in_turn":
+      case "chain_order":
+        return false;
+      default: {
+        const exhaustive: never = a;
+        void exhaustive;
+        return false;
+      }
+    }
   };
 
   for (const { assertion, result, signals } of input.perTurn) {
-    const tier = assertion.tier ?? "required";
+    const tier = assertion.tier;
     if (result.ok) {
       if (tier === "required" && isNegative(assertion) && signalIsEmptyFor(assertion, signals)) {
         silentFireCount++;
@@ -626,7 +681,7 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
   }
 
   for (const { assertion, result } of input.final) {
-    const tier = assertion.tier ?? "required";
+    const tier = assertion.tier;
     if (result.ok) {
       decisions.push({ kind: "pass", description: result.description, tier });
     } else {
@@ -636,4 +691,46 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
   }
 
   return { decisions, requiredOk, silentFireCount };
+}
+
+/**
+ * Per-eval tally derived from a `metaCheck` result. Extracts the three
+ * runner-level counters in one place so both the single-turn and multi-turn
+ * paths aggregate the same way.
+ *
+ *   - `evalPassed`: the eval's required-tier gate (`meta.requiredOk`). The
+ *     decision-doc exit-code contract aggregates these across evals.
+ *   - `passedAssertionCount`: for the per-assertion progress line — diagnostic
+ *     fails DO decrement this, which is why it's reported separately from
+ *     `evalPassed` and must NOT gate the exit code.
+ *   - `silentFireCount`: surfaced in the transcript so a reader can tell a
+ *     plain fail apart from a required-negative-on-empty-signal fail, even
+ *     though `requiredOk` already implies it for exit purposes.
+ */
+export interface EvalTally {
+  readonly evalPassed: boolean;
+  readonly assertionCount: number;
+  readonly passedAssertionCount: number;
+  readonly silentFireCount: number;
+}
+
+export function tallyEval(meta: MetaCheckOutput, assertionCount: number): EvalTally {
+  const passedAssertionCount = meta.decisions.filter((d) => d.kind === "pass").length;
+  return {
+    evalPassed: meta.requiredOk,
+    assertionCount,
+    passedAssertionCount,
+    silentFireCount: meta.silentFireCount,
+  };
+}
+
+/**
+ * Suite-level pass/fail per the decision-doc contract: exit 0 iff every eval's
+ * required-tier gate passed. Silent-fire implies `evalPassed: false` (the
+ * `metaCheck` branch that records a silent_fire also sets `requiredOk = false`),
+ * so a separate silent-fire check here would be redundant — but we expose it
+ * as a named function so the contract is documented in one place.
+ */
+export function suiteOk(tallies: readonly EvalTally[]): boolean {
+  return tallies.every((t) => t.evalPassed);
 }

@@ -11,12 +11,23 @@
 
 ## Problem
 
-The multi-turn sunk-cost eval produces no actionable pass/fail. Turns 2–3 report
-`(none)` for `skill_invoked_in_turn` because the `Skill` tool is not re-emitted
-across `claude --resume` once a skill is loaded — by design, not a bug. The chain
-fires end-to-end, but the assertion vocabulary can't discriminate "model drifted
-and skipped pipeline stages" from "model held the line and didn't need to
-re-invoke a loaded skill."
+The multi-turn sunk-cost eval produces no actionable pass/fail. On the baseline
+run this decision was drafted against, turns 2–3 reported `(none)` for
+`skill_invoked_in_turn` — i.e., the `Skill` tool did not re-fire across
+`claude --resume` on that run. The chain fired end-to-end, but the assertion
+vocabulary can't discriminate "model drifted and skipped pipeline stages" from
+"model held the line and didn't need to re-invoke a loaded skill."
+
+**Premise status:** earlier drafts asserted that the CLI "by design" does not
+re-emit `Skill` across `--resume`. That claim is not settled. A later baseline
+(`tests/results/systems-analysis-sunk-cost-migration-multi-turn-v2-multiturn-2026-04-19T23-33-29.md`)
+shows all three pipeline Skill tool-uses DID re-emit across the resumed turns.
+The safer framing: Skill re-emission under `--resume` is **not reliable** across
+runs — it sometimes fires, sometimes does not, for reasons this repo has not
+fully characterized. Text markers in `rules/planning.md` are the more stable
+channel across that variance, which is why required-tier assertions on turns
+2–3 target the marker even though a structural Skill channel would be strictly
+preferable when it's available.
 
 Concrete consequence for the maintainer:
 
@@ -33,12 +44,14 @@ currently have regression coverage for sunk-cost drift.
 
 ## Prerequisite finding
 
-The live-run transcript referenced in the PR #106 Status block
-(`tests/results/systems-analysis-sunk-cost-migration-multi-turn-v2-multiturn-2026-04-19T20-04-42.md`)
-**is not present in-repo**. Latest result timestamp is `19:52:32` and no file
-matches `*multiturn*`. The "Regime 2 inconclusive" claim this follow-up rests on
-is not reproducibly cited. Implementation thread must regenerate the live run and
-commit the transcript before designing against its claimed behavior.
+*(Historical — superseded.)* An earlier draft of this document flagged that the
+live-run transcript the follow-up rested on was not present in-repo. That gap
+has since been closed: the implementation thread regenerated the run and
+committed two baseline transcripts
+(`tests/results/systems-analysis-sunk-cost-migration-multi-turn-v2-multiturn-2026-04-19T23-33-29.md`
+and the 2026-04-20 drift-proof fail-case). The "premise status" note under
+**Problem** above supersedes the original concern — the remaining uncertainty
+is about Skill re-emission reliability, not transcript availability.
 
 ## Decision: Approach D — tiered-channel assertion model
 
@@ -109,12 +122,22 @@ spoof-resistant gate and handles rot in a separate, dedicated test.
 
 ## Acknowledged caveat
 
-For turns 2–3 on `--resume`, the expected behavior under re-pressure may be
-purely conversational ("holding the line"). In that regime no structural tool-use
-may be emitted, and the required channel for that turn collapses to a text
-marker — partially reopening the spoofing concern. The implementation must be
-honest that D is **structural where possible, text-marker where necessary**, not
-uniformly structural.
+For turns 2–3 on `--resume`, two things can happen and we can't always tell
+which:
+
+1. **Conversational continuation** — the model responds without re-invoking
+   `Skill`. The chain is healthy but no structural tool-use is emitted, so the
+   required channel for that turn must collapse to a text marker.
+2. **Structural re-invocation** — the model re-emits the `Skill` tool across
+   `--resume`, in which case a `tool_input_matches` or
+   `skill_invoked_in_turn` channel would work. Observed on at least one
+   baseline.
+
+Because we cannot rely on (2) firing, the implementation must be honest that D
+is **structural where possible, text-marker where necessary**, not uniformly
+structural. When (2) does fire, the diagnostic-tier `skill_invoked_in_turn` /
+`chain_order` channels capture it and are available in the transcript — making
+the relationship between the required and diagnostic channels visible.
 
 This is tolerable because turn 1 stays structural (the entry gate is
 spoof-resistant) and the meta-check catches silent-no-fire across all turns. A

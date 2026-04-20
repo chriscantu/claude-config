@@ -689,6 +689,32 @@ describe("loadEvalFile() — multi-turn schema", () => {
     });
     expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/tool_input_matches|per-turn/i);
   });
+
+  // Regression guard: final_assertions must reject ALL per-turn assertion
+  // variants, not just the one the reviewer happened to catch. Each case below
+  // proves the guard fires for a distinct assertion type — a future refactor
+  // that adds a new per-turn variant must extend the guard AND this test, or
+  // the rejection regresses silently.
+  test.each([
+    ["contains",           { type: "contains",           value: "x",   description: "d" }],
+    ["not_contains",       { type: "not_contains",       value: "x",   description: "d" }],
+    ["regex",              { type: "regex",              pattern: "x", description: "d" }],
+    ["not_regex",          { type: "not_regex",          pattern: "x", description: "d" }],
+    ["skill_invoked",      { type: "skill_invoked",      skill: "x",   description: "d" }],
+    ["not_skill_invoked",  { type: "not_skill_invoked",  skill: "x",   description: "d" }],
+  ])("rejects %s inside final_assertions (per-turn assertion)", (typeName, bad) => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: `misplaced-${typeName}`,
+        turns: [
+          { prompt: "t1", assertions: [{ type: "contains", value: "a", description: "d" }] },
+        ],
+        final_assertions: [bad],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(new RegExp(`${typeName}|per-turn`, "i"));
+  });
 });
 
 describe("aggregateChainSignals()", () => {
@@ -1079,11 +1105,119 @@ describe("metaCheck()", () => {
       final: [{
         assertion: a,
         result: { ok: false, description: "d", detail: "mismatch" },
-        chainSignals: { per_turn: [], per_turn_winner: [] },
       }],
     });
     expect(out.requiredOk).toBe(false);
     expect(out.decisions[0].kind).toBe("fail");
+  });
+});
+
+describe("ValidatedAssertion tier invariant", () => {
+  test("every loaded assertion has a defined tier (no optional)", () => {
+    // Pin the invariant from the validator: after loadEvalFile, every
+    // assertion has tier set to "required" | "diagnostic" — never undefined.
+    // Downstream code (metaCheck, renderers) relies on this to avoid `??`
+    // fallbacks that would hide a forgotten default.
+    const root = mkdtempSync(join(tmpdir(), "evals-tier-invariant-"));
+    const skillDir = join(root, "skill-a", "evals");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "evals.json"), JSON.stringify({
+      skill: "skill-a",
+      evals: [{
+        name: "mixed",
+        turns: [{
+          prompt: "t1",
+          assertions: [
+            { type: "contains", value: "a", description: "d1" },
+            { type: "contains", value: "b", description: "d2", tier: "diagnostic" },
+          ],
+        }],
+        final_assertions: [
+          { type: "chain_order", skills: ["x"], description: "d3" },
+          { type: "skill_invoked_in_turn", turn: 1, skill: "y", description: "d4", tier: "diagnostic" },
+        ],
+      }],
+    }));
+    const file = loadEvalFile(root, "skill-a")!;
+    const ev = file.evals[0];
+    if (ev.kind !== "multi") throw new Error("expected multi-turn");
+    for (const a of ev.turns[0].assertions) {
+      expect(a.tier).toBeDefined();
+      expect(["required", "diagnostic"]).toContain(a.tier);
+    }
+    for (const a of ev.final_assertions ?? []) {
+      expect(a.tier).toBeDefined();
+      expect(["required", "diagnostic"]).toContain(a.tier);
+    }
+  });
+});
+
+describe("tallyEval() + suiteOk()", () => {
+  test("tallyEval reports evalPassed=true when requiredOk=true, counts pass decisions", () => {
+    const a1 = v({ type: "contains", value: "x", description: "d1" } as Assertion);
+    const a2 = v({ type: "contains", value: "y", description: "d2", tier: "diagnostic" } as Assertion);
+    const out = metaCheck({
+      perTurn: [
+        { assertion: a1, result: { ok: true, description: "d1" }, signals: { finalText: "x", toolUses: [], skillInvocations: [], terminalState: "result" }, turnIndex: 0 },
+        { assertion: a2, result: { ok: false, description: "d2", detail: "missed" }, signals: { finalText: "x", toolUses: [], skillInvocations: [], terminalState: "result" }, turnIndex: 0 },
+      ],
+      final: [],
+    });
+    const { tallyEval } = require("./evals-lib.ts") as typeof import("./evals-lib.ts");
+    const t = tallyEval(out, 2);
+    // Diagnostic-tier fail does NOT flip evalPassed — this is the load-bearing
+    // property behind the exit-code fix. If this ever regresses, the runner
+    // will start exiting 1 on diagnostic fails again.
+    expect(t.evalPassed).toBe(true);
+    expect(t.assertionCount).toBe(2);
+    expect(t.passedAssertionCount).toBe(1);
+    expect(t.silentFireCount).toBe(0);
+  });
+
+  test("tallyEval surfaces silentFireCount", () => {
+    const a = v({ type: "not_contains", value: "forbidden", description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    const { tallyEval } = require("./evals-lib.ts") as typeof import("./evals-lib.ts");
+    const t = tallyEval(out, 1);
+    expect(t.evalPassed).toBe(false);
+    expect(t.silentFireCount).toBe(1);
+    expect(t.passedAssertionCount).toBe(0);
+  });
+
+  test("suiteOk returns true only when every tally's evalPassed is true", () => {
+    const { suiteOk } = require("./evals-lib.ts") as typeof import("./evals-lib.ts");
+    expect(suiteOk([])).toBe(true);
+    expect(suiteOk([
+      { evalPassed: true,  assertionCount: 3, passedAssertionCount: 3, silentFireCount: 0 },
+      { evalPassed: true,  assertionCount: 2, passedAssertionCount: 1, silentFireCount: 0 },
+    ])).toBe(true);
+    expect(suiteOk([
+      { evalPassed: true,  assertionCount: 3, passedAssertionCount: 3, silentFireCount: 0 },
+      { evalPassed: false, assertionCount: 2, passedAssertionCount: 2, silentFireCount: 0 },
+    ])).toBe(false);
+  });
+
+  test("suiteOk(failing tally) is false — closes the decision-doc exit-code contract", () => {
+    // Regression guard for the original bug: the old runner used
+    // `passedAssertions === totalAssertions` which flipped exit 1 on diagnostic
+    // fails. The new contract — suiteOk(tallies) — must hold even when an
+    // eval has diagnostic fails but passed required-tier.
+    const { suiteOk } = require("./evals-lib.ts") as typeof import("./evals-lib.ts");
+    const diagnosticFailButRequiredPassed = {
+      evalPassed: true,
+      assertionCount: 5,
+      passedAssertionCount: 3,
+      silentFireCount: 0,
+    };
+    expect(suiteOk([diagnosticFailButRequiredPassed])).toBe(true);
   });
 });
 
