@@ -672,6 +672,22 @@ describe("loadEvalFile() — multi-turn schema", () => {
     });
     expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/turn.*3|out of range/i);
   });
+
+  test("rejects tool_input_matches inside final_assertions (it is a per-turn assertion)", () => {
+    const skillsDir = writeEval({
+      skill: "my-skill",
+      evals: [{
+        name: "misplaced-tool-input",
+        turns: [
+          { prompt: "t1", assertions: [{ type: "contains", value: "a", description: "d" }] },
+        ],
+        final_assertions: [
+          { type: "tool_input_matches", tool: "Skill", input_key: "skill", input_value: "x", description: "d" },
+        ],
+      }],
+    });
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/tool_input_matches|per-turn/i);
+  });
 });
 
 describe("aggregateChainSignals()", () => {

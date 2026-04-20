@@ -290,6 +290,11 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
       }
       validatedFinal = [];
       for (const a of e.final_assertions) {
+        if (a.type === "tool_input_matches" || a.type === "contains" || a.type === "not_contains" ||
+            a.type === "regex" || a.type === "not_regex" ||
+            a.type === "skill_invoked" || a.type === "not_skill_invoked") {
+          throw new Error(`${file}: eval '${e.name}' final_assertions: '${a.type}' is a per-turn assertion; put it on a turn's assertions array instead`);
+        }
         const v = validateAssertion(a, `${file}: eval '${e.name}' final_assertions`);
         if (a.type === "skill_invoked_in_turn" && a.turn > validatedTurns.length) {
           throw new Error(`${file}: eval '${e.name}' final_assertions: skill_invoked_in_turn.turn=${a.turn} is out of range (only ${validatedTurns.length} turns)`);
