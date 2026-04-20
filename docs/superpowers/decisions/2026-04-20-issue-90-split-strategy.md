@@ -1,9 +1,12 @@
 # Issue #90 split strategy — three problems at three layers
 
 **Date:** 2026-04-20
-**Status:** Proposed — awaiting user decision to file child issues
+**Status:** Filed — three child issues opened on GitHub (2026-04-20)
 **Related:**
 - [#90](https://github.com/chriscantu/claude-config/issues/90) — the monolith being split
+- [#108](https://github.com/chriscantu/claude-config/issues/108) — child A: front-door pressure-framing bypass (turn 1)
+- [#109](https://github.com/chriscantu/claude-config/issues/109) — child B: chain-progression signal across `--resume` (turns 2–3)
+- [#110](https://github.com/chriscantu/claude-config/issues/110) — child C: named-cost-skip honor contract (substrate)
 - [Escalation 2026-04-20](./2026-04-20-pressure-framing-floor-escalation.md) — evidence that motivated this split
 - [Decision doc 2026-04-19](./2026-04-19-multi-turn-eval-signal-channels.md) — tiered-channel model the splits depend on
 - [ADR #0004](../../../adrs/0004-define-the-problem-mandatory-front-door.md) — behavioral claim under test
@@ -130,11 +133,12 @@ blocked on 2 and 3."
 
 ## Next concrete step
 
-If this split is approved: file three GitHub issues referencing this document
-as the source, close #90 with a link to the split, and add the `Promotion
-criteria` section to ADR #0004 naming which child must resolve before promotion
-is possible.
+Children filed as #108, #109, #110. Remaining work:
 
-If not approved: continue working #90 as a monolith. The 04-20 escalation is
-the expected outcome in that world — another text-layer iteration will produce
-another escalation note.
+- Add a comment on #90 linking the three children and this doc.
+- Decide whether to close #90 as superseded or keep it as a meta-tracker. (The
+  split strategy doesn't require closing #90 — that's a separate call about
+  whether the meta-view has ongoing value.)
+- Add a `## Promotion criteria` section to [ADR #0004](../../../adrs/0004-define-the-problem-mandatory-front-door.md)
+  naming #108 as the child whose discriminating eval must resolve before
+  promotion is possible.
