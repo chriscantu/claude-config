@@ -7,7 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { mkdtempSync, writeFileSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
@@ -1084,5 +1084,17 @@ describe("metaCheck()", () => {
     });
     expect(out.requiredOk).toBe(false);
     expect(out.decisions[0].kind).toBe("fail");
+  });
+});
+
+describe("planning.md stage markers contract", () => {
+  test("rules/planning.md contains the canonical [Stage: ...] markers", () => {
+    const planning = readFileSync(
+      join(import.meta.dir, "..", "rules", "planning.md"),
+      "utf8",
+    );
+    expect(planning).toContain("[Stage: Problem Definition]");
+    expect(planning).toContain("[Stage: Systems Analysis]");
+    expect(planning).toContain("[Stage: Solution Design]");
   });
 });
