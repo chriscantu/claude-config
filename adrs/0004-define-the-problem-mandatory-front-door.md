@@ -213,14 +213,21 @@ eval per ADR #0005's four criteria.
    ADR's status.
 
 **Substrate-limit exception (per ADR #0005):** multi-turn stage-marker
-assertions on turns 2–3 of resumed sessions rely on text markers, not
-structural channels, because `claude --resume` does not reliably re-emit the
-`Skill` tool across turns. This limit is substrate-level, not a text-channel
-preference, and is tracked separately as
-[#109](https://github.com/chriscantu/claude-config/issues/109). Until #109
-resolves with a substrate path (stream-json reads, SDK session management, or
-a formal text-marker relaxation), this ADR's promotion is evaluated on turn-1
-required signals only; multi-turn assertions remain diagnostic-tier.
+assertions on turns 2–3 of resumed sessions are **permanently** classified as
+diagnostic-tier, not required-tier, because `claude --resume` does not
+reliably re-emit the `Skill` tool across turns and stage-marker text is the
+only fallback channel. This limit is substrate-level, not a text-channel
+preference. The
+[2026-04-21 chain-progression substrate path decision](../docs/superpowers/decisions/2026-04-21-chain-progression-substrate-path.md)
+evaluated three resolution paths and accepted path 3 (formal text-marker
+relaxation) over path 1 (extractor extension) and path 2 (SDK migration);
+the reasoning is preserved in that doc. This ADR's promotion is evaluated on
+turn-1 required signals only; multi-turn assertions remain diagnostic-tier
+permanently.
+[#109](https://github.com/chriscantu/claude-config/issues/109) is the
+acceptance record for this classification, not an open resolution path —
+future reconsideration requires a new decision doc proposing a different
+substrate path.
 
 **Blocking dependency:** [#110](https://github.com/chriscantu/claude-config/issues/110)
 Phase 1 has landed (see
