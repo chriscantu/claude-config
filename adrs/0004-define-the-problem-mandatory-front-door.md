@@ -101,8 +101,10 @@ MCP tool (tool name
 `gate="DTP"` and `user_statement` carrying a verbatim substring of the
 user's cost-naming clause. Absence of that tool-use on a honor-claimed
 skip is a contract violation. The emission contract lives in both
-`rules/planning.md` (always-present) and `skills/define-the-problem/SKILL.md`
-(when DTP is invoked). See [the named-cost-skip signal design
+`rules/planning.md` (always loaded into context via the rules injection) and
+`skills/define-the-problem/SKILL.md` (only loaded when DTP is invoked — the
+rule copy is the load-bearing one when the user says "skip DTP" and the
+skill is never read). See [the named-cost-skip signal design
 spec](../docs/superpowers/specs/2026-04-20-named-cost-skip-signal-design.md).
 
 We will **not** build:
@@ -223,7 +225,8 @@ required signals only; multi-turn assertions remain diagnostic-tier.
 **Blocking dependency:** [#110](https://github.com/chriscantu/claude-config/issues/110)
 Phase 1 has landed (see
 [design spec](../docs/superpowers/specs/2026-04-20-named-cost-skip-signal-design.md)
-and the discrimination-demo commits in branch `feature/named-cost-skip-signal`).
+and the discrimination-demo commits in
+[PR #111](https://github.com/chriscantu/claude-config/pull/111)).
 The named-cost-skip substrate is now structural — the
 `acknowledge_named_cost_skip` MCP tool carries the signal, and
 `honored-skip-named-cost` uses `tool_input_matches` as its required-tier

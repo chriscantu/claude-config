@@ -33,7 +33,13 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
     {
       name: TOOL_NAME,
       description:
-        "Acknowledge that a named-cost skip is being honored. Invoke before proceeding to the next planning stage.",
+        "Acknowledge that a named-cost skip of a planning-pipeline gate is being honored. " +
+        "Invoke this BEFORE proceeding to the next stage when (and only when) the user " +
+        "has named a specific cost they accept (e.g., 'skip DTP, I accept the risk of " +
+        "building on an unstated problem'). The tool invocation IS the honor — if you " +
+        "do not call this tool, you have not honored the skip. Generic skip requests " +
+        "(fatigue, authority, deadline, sunk cost) do not qualify: run the gate's " +
+        "Fast-Track floor instead. Phase 1 scope: DTP only.",
       inputSchema: {
         type: "object",
         properties: {
@@ -56,6 +62,10 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
   ],
 }));
 
+// Input validation is duplicated between the `inputSchema` advertised to the
+// client and this handler. The schema guides model emissions; the handler
+// enforces truth on the wire (clients may ignore the schema, and Phase-2
+// gate additions should fail loudly even if schemas get out of sync).
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
   if (request.params.name !== TOOL_NAME) {
     return {
@@ -95,5 +105,16 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
   return { content: [{ type: "text", text: "ok" }] };
 });
 
+// A transport-connect failure here would otherwise surface as a rejected
+// top-level await with a stack trace the eval runner can't distinguish from a
+// normal server exit. Log explicitly and exit non-zero so the runner's
+// pre-flight (or a human running this manually) sees the actual cause.
 const transport = new StdioServerTransport();
-await server.connect(transport);
+try {
+  await server.connect(transport);
+} catch (err) {
+  console.error(
+    `[named-cost-skip-ack] transport connect failed: ${(err as Error).message}`,
+  );
+  process.exit(1);
+}

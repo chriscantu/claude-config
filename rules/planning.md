@@ -28,10 +28,11 @@ or tooling before completing the pipeline.
    proceeding to the next stage. Call it with `gate="DTP"` and `user_statement`
    set to the verbatim substring of the user's cost-naming clause. This is NOT
    optional — if you skip this tool call, you have NOT honored the skip. Run
-   the Fast-Track floor instead. The tool invocation IS the honor. The tool is
-   a deferred MCP tool — use `ToolSearch` with
-   `query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"` to
-   load its schema before calling it.
+   the Fast-Track floor instead. The tool invocation IS the honor. If the
+   tool appears in the deferred-tool list rather than the active tool list,
+   load its schema first with `ToolSearch` using
+   `query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"`;
+   otherwise call it directly.
 2. Systems Analysis — invoke `/systems-analysis`. The 60-second surface-area
    scan is mandatory before any tier decision. Low-blast-radius scenarios run
    the Condensed Pass, not zero.

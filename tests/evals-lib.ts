@@ -519,12 +519,11 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
         ? fail(`forbidden Skill('${assertion.skill}') was invoked`)
         : pass();
     case "tool_input_matches": {
-      const matched = signals.toolUses.some(
-        (tu) =>
-          tu.name === assertion.tool &&
-          typeof tu.input[assertion.input_key] === "string" &&
-          (tu.input[assertion.input_key] as string).includes(assertion.input_value),
-      );
+      const matched = signals.toolUses.some((tu) => {
+        if (tu.name !== assertion.tool) return false;
+        const value = tu.input[assertion.input_key];
+        return typeof value === "string" && value.includes(assertion.input_value);
+      });
       if (matched) return pass();
       const seen = signals.toolUses
         .filter((tu) => tu.name === assertion.tool)
