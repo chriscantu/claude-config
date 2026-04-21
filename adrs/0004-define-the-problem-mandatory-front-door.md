@@ -298,8 +298,20 @@ and expected to flake.
 
 **Rollback procedure.** This ADR's Accepted status depends on commit
 `617c66a` (rules/planning.md pressure-framing floor). If that rules
-change regresses in user workflows, revert in this order to restore
-a coherent state:
+change regresses in user workflows, choose the recovery path that
+matches the regression severity.
+
+**Fast-path (preferred for floor regressions).** Create the sentinel
+file `./.claude/DISABLE_PRESSURE_FLOOR` (project-local) or
+`~/.claude/DISABLE_PRESSURE_FLOOR` (global). File existence disables
+the floor at DTP gate fire-time — no code change, no revert. See
+`rules/planning.md` "Emergency bypass" for details. Reversible with
+`rm`. Prefer this when the floor is functioning as designed but
+produces friction in a specific workflow, or when a regression is
+observed and a full fix is in progress.
+
+**Full revert (preferred for framework-level backout).** Three-commit
+revert chain, in order:
 
 1. Revert `d740e2b` (this ADR flip) → ADR returns to Proposed
 2. Revert `617c66a` (rules/planning.md floor) → pressure-framing
