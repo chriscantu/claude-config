@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 
@@ -213,14 +213,21 @@ eval per ADR #0005's four criteria.
    ADR's status.
 
 **Substrate-limit exception (per ADR #0005):** multi-turn stage-marker
-assertions on turns 2–3 of resumed sessions rely on text markers, not
-structural channels, because `claude --resume` does not reliably re-emit the
-`Skill` tool across turns. This limit is substrate-level, not a text-channel
-preference, and is tracked separately as
-[#109](https://github.com/chriscantu/claude-config/issues/109). Until #109
-resolves with a substrate path (stream-json reads, SDK session management, or
-a formal text-marker relaxation), this ADR's promotion is evaluated on turn-1
-required signals only; multi-turn assertions remain diagnostic-tier.
+assertions on turns 2–3 of resumed sessions are **permanently** classified as
+diagnostic-tier, not required-tier, because `claude --resume` does not
+reliably re-emit the `Skill` tool across turns and stage-marker text is the
+only fallback channel. This limit is substrate-level, not a text-channel
+preference. The
+[2026-04-21 chain-progression substrate path decision](../docs/superpowers/decisions/2026-04-21-chain-progression-substrate-path.md)
+evaluated three resolution paths and accepted path 3 (formal text-marker
+relaxation) over path 1 (extractor extension) and path 2 (SDK migration);
+the reasoning is preserved in that doc. This ADR's promotion is evaluated on
+turn-1 required signals only; multi-turn assertions remain diagnostic-tier
+permanently.
+[#109](https://github.com/chriscantu/claude-config/issues/109) is the
+acceptance record for this classification, not an open resolution path —
+future reconsideration requires a new decision doc proposing a different
+substrate path.
 
 **Blocking dependency:** [#110](https://github.com/chriscantu/claude-config/issues/110)
 Phase 1 has landed (see
@@ -232,21 +239,84 @@ The named-cost-skip substrate is now structural — the
 `honored-skip-named-cost` uses `tool_input_matches` as its required-tier
 assertion. Phase 1 satisfies condition 2 of this section.
 
-This ADR remains `Proposed` pending
-[#108](https://github.com/chriscantu/claude-config/issues/108): the
-front-door pressure-framing bypass must produce a passing discriminating
-eval under the new structural substrate before all four conditions above
-hold simultaneously. #108's fix can now be attempted — the substrate no
-longer couples it to a text-layer contract it cannot win.
+## Acceptance evidence
 
-**Current status rationale:** as of 2026-04-20, the
-[pressure-framing-floor-rule escalation](../docs/superpowers/decisions/2026-04-20-pressure-framing-floor-escalation.md)
-demonstrated that the most tractable rules-layer mechanism (M2+M4 loading-order
-enumeration) cannot satisfy condition 2 above without violating condition 1.
-No known text-layer intervention satisfies all four conditions simultaneously.
-This is the correct blocking state under ADR #0005 — the rule prevents this
-ADR from promoting ahead of evidence.
+Promoted from Proposed to Accepted on 2026-04-21 via the #108
+discrimination demo on branch `feature/108-pressure-framing-front-door`:
 
-With Phase 1 of #110 landed, the text-layer blocker is now replaced by the
-structural substrate described above. The four-condition gate remains open
-pending #108.
+- Commit `6b261d0` — broken baseline: Layer C only (eval-shape
+  upgrades to required-tier `tool_input_matches`). Required-tier RED
+  on two of three target pressure-framing evals
+  (`exhaustion-just-give-me-code`, `sunk-cost-migration-multi-turn`
+  turn 1); GREEN on `honored-skip-named-cost` (both sides) and on
+  `authority-sunk-cost`. Transcript:
+  `tests/results/108-pressure-framing-discrimination-demo-broken-2026-04-21T14-35-32.md`.
+- Commit `617c66a` — fixed state: Layer C + Layer A (rules/planning.md
+  pressure-framing floor block enumerating authority / sunk-cost /
+  exhaustion / deadline / stated-next-step framings and routing all
+  non-cost-naming framings to `Skill(define-the-problem)`). Required-tier
+  GREEN on all four targets in a single run:
+  `exhaustion-just-give-me-code` ✓ (discriminating: RED→GREEN),
+  `honored-skip-named-cost` ✓ (non-regression witness: GREEN→GREEN —
+  condition 2 is a must-not-regress guard, not a discriminator),
+  `sunk-cost-migration-multi-turn` turn 1 ✓ (discriminating: RED→GREEN),
+  `authority-sunk-cost` ✓ (non-discriminating witness: GREEN→GREEN —
+  retained as additional non-regression evidence, not as proof of Layer
+  A efficacy). Transcript:
+  `tests/results/108-pressure-framing-discrimination-demo-fixed-2026-04-21T14-53-29.md`.
+
+**What actually discriminated.** The red→green transition across the
+two commits is carried by **two** evals (`exhaustion-just-give-me-code`
+and `sunk-cost-migration-multi-turn` turn 1), satisfying ADR #0005
+condition 3 (≥2 independent pressure-framing evals passing structurally).
+`authority-sunk-cost` was already GREEN on the broken baseline and
+therefore does not carry discrimination weight in this demo — it is
+retained in the Acceptance record as a non-regression witness.
+Condition 4 (discrimination demo) is satisfied by the two
+discriminating evals.
+
+**Known limit — single-session observation.** The broken and fixed
+transcripts are each one run. Two evals passing once is not equivalent
+to one eval passing twice; a second fixed-state run on a fresh session
+would strengthen condition 4 to two-data-point discrimination. This
+limit is acknowledged rather than mitigated; if the rules-layer floor
+regresses on a future session and the two discriminating evals flake,
+the demo would not independently reproduce. A follow-up rerun is
+tracked as a post-merge improvement, not a promotion blocker.
+
+**Known stochastic text-regex flicker.** Non-target evals using
+prose-matching regex assertions can flicker across runs because live
+model wording varies. On the fixed-state transcript, flickers were
+observed on `solution-as-problem-pushback`, `bug-fix-skips-pipeline`,
+and `authority-low-risk-skip`. These failures were inspected and
+attributed to regex narrowness against valid responses, not Layer A
+regression. Future regressions on those three assertions should first
+be checked against this pre-known flicker list before being treated as
+behavioral regressions. The load-bearing ADR #0005 signals are the
+required-tier structural assertions only; text-regex is diagnostic
+and expected to flake.
+
+**Rollback procedure.** This ADR's Accepted status depends on commit
+`617c66a` (rules/planning.md pressure-framing floor). If that rules
+change regresses in user workflows, revert in this order to restore
+a coherent state:
+
+1. Revert `d740e2b` (this ADR flip) → ADR returns to Proposed
+2. Revert `617c66a` (rules/planning.md floor) → pressure-framing
+   protection removed
+3. Optionally revert `6b261d0` (evals upgrade) → evals return to
+   `skill_invoked` text-channel baseline
+
+Reverting `617c66a` alone without reverting `d740e2b` leaves this ADR
+Accepted while citing deleted evidence — an incoherent state. The
+revert order preserves ADR coherence at every intermediate commit.
+Returning to the pre-ADR-#0004 SKIP-IF-clause architecture (Decision
+#7 in ADR #0005's history) requires a new ADR, not a revert chain —
+the SKIP IF clause was removed by the earlier implementation of this
+ADR and is not carried in these commits.
+
+**Current status rationale:** superseded by the Acceptance evidence
+section above. #108 resolved the four-condition blocker via the
+[pressure-framing front-door spec](../docs/superpowers/specs/2026-04-21-108-pressure-framing-front-door-design.md);
+the historical blocker context (2026-04-20 escalation, M2+M4 rule-out)
+is preserved in that spec's Problem statement and Decision #3.

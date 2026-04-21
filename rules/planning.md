@@ -33,6 +33,39 @@ or tooling before completing the pipeline.
    load its schema first with `ToolSearch` using
    `query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"`;
    otherwise call it directly.
+
+   **Pressure-framing floor.** Framings below are pressure signals, not
+   cost-naming skips. They DO NOT bypass DTP — they *strengthen* the
+   case for Fast-Track. Categories are semantic; example phrases are
+   illustrative, not exhaustive — match on the underlying mechanism, not
+   the literal wording:
+   - **Authority** — external-approval invocation ("CTO/VP/lead approved",
+     "contract signed", "budget approved", "the board voted", "legal signed off")
+   - **Sunk cost** — commitment-consistency framing ("already committed",
+     "don't re-analyze", "decision is made", "we've already chosen")
+   - **Exhaustion** — fatigue framing ("I'm tired", "we've been at this
+     for hours", "just give me", "stop asking questions")
+   - **Deadline** — time-pressure framing ("ship by Friday", "meeting in
+     10 minutes", "needs to ship today")
+   - **Stated-next-step** — skip-DTP framing that names a later stage as
+     the destination ("skip DTP and X", "don't do problem definition",
+     "bypass the pipeline"). A bare "just brainstorm" from a user who has
+     already satisfied DTP inputs in-thread (named problem + stakes +
+     evidence) is Expert Fast-Track, not a pressure framing — validate
+     understanding and proceed.
+
+   Honor full skip ONLY via the Emission contract above (MCP
+   `acknowledge_named_cost_skip` tool-use with verbatim cost-naming
+   clause). Anything else — even combinations of pressure framings —
+   invokes `Skill(define-the-problem)` first. When routing a pressure
+   framing to DTP, include a one-line example of valid skip phrasing in
+   the response (e.g., "To skip DTP, name the cost: `skip DTP, I accept
+   <specific risk>`") so the user can exit cleanly if they genuinely want
+   to bypass.
+
+   **Architectural invariant.** Front-door enforcement lives in the rules
+   layer because it fires BEFORE any skill loads — a skill cannot catch
+   its own failure-to-load. Within-skill behavior lives in SKILL.md.
 2. Systems Analysis — invoke `/systems-analysis`. The 60-second surface-area
    scan is mandatory before any tier decision. Low-blast-radius scenarios run
    the Condensed Pass, not zero.

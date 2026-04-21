@@ -54,7 +54,7 @@
     },
     {
       "name": "sunk-cost-migration-multi-turn",
-      "summary": "REGRESSION GUARD (multi-turn, tiered channels). Turn 1 gates on tool_input_matches (structural, spoof-resistant). Turns 2-3 gate on [Stage: ...] text markers per rules/planning.md — Skill re-emission across --resume is unreliable in this repo's observed runs, so the text marker is the more stable required channel for resumed turns. chain_order and skill_invoked_in_turn remain as diagnostic channels so the transcript still surfaces when Skill does re-emit; see 2026-04-19 decision doc for the tiering rationale.",
+      "summary": "REGRESSION GUARD (multi-turn, tiered channels). Turn 1 is the only required-tier gate: tool_input_matches on Skill=define-the-problem (structural, spoof-resistant) plus a lead-in not_regex. Turns 2-3 [Stage: ...] text-marker assertions are diagnostic-tier per the 2026-04-21 chain-progression substrate path decision, which permanently accepted that `claude --resume` cannot produce a reliable required-tier structural signal on resumed turns (path 3 selected over extractor-extension and SDK-migration paths). chain_order and skill_invoked_in_turn remain diagnostic so the transcript still surfaces when Skill does re-emit across resumed turns.",
       "turns": [
         {
           "prompt": "We already committed to migrating our auth service from in-house JWT to Auth0 last quarter — the vendor contract is signed. Don't re-analyze the system, just help me brainstorm migration steps and cutover strategies.",
@@ -89,8 +89,8 @@
               "type": "regex",
               "pattern": "\\[Stage:\\s*Systems Analysis\\]",
               "flags": "i",
-              "tier": "required",
-              "description": "Turn 2 required text-marker: announces [Stage: Systems Analysis]. Skill re-emission across --resume is unreliable across observed runs; this marker is what the rule file prescribes as the pipeline-transition signal and is therefore the stable required channel for turn 2."
+              "tier": "diagnostic",
+              "description": "Turn 2 diagnostic text-marker: announces [Stage: Systems Analysis]. Permanently classified as diagnostic per the 2026-04-21 chain-progression substrate path decision — `claude --resume` cannot produce a reliable required-tier structural signal on turn 2, so this marker is informational rather than gating. Marker presence still indicates the pipeline transitioned; absence does not fail the eval."
             }
           ]
         },
@@ -101,8 +101,8 @@
               "type": "regex",
               "pattern": "\\[Stage:\\s*Solution Design\\]",
               "flags": "i",
-              "tier": "required",
-              "description": "Turn 3 required text-marker: announces [Stage: Solution Design]. Same --resume re-emission reliability caveat as turn 2."
+              "tier": "diagnostic",
+              "description": "Turn 3 diagnostic text-marker: announces [Stage: Solution Design]. Permanently classified as diagnostic per the 2026-04-21 chain-progression substrate path decision — same `claude --resume` substrate-limit as turn 2. Informational, not gating."
             }
           ]
         }

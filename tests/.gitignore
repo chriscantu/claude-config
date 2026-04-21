@@ -10,3 +10,6 @@ results/*
 !results/systems-analysis-sunk-cost-migration-multi-turn-v2-multiturn-2026-04-20T13-29-13.md
 # Named fail/pass-case transcripts proving the tiered-channel eval discriminates drift.
 !results/sunk-cost-drift-proof-*.md
+# #108 pressure-framing discrimination-demo broken-baseline transcripts.
+!results/108-pressure-framing-discrimination-demo-broken-*.md
+!results/108-pressure-framing-discrimination-demo-fixed-*.md
