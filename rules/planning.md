@@ -67,26 +67,32 @@ or tooling before completing the pipeline.
    layer because it fires BEFORE any skill loads — a skill cannot catch
    its own failure-to-load. Within-skill behavior lives in SKILL.md.
 
-   **Emergency bypass — MANDATORY pre-check.** BEFORE applying the
-   pressure-framing floor above to any prompt, you MUST check for a
-   bypass sentinel file via Bash tool:
+   **Emergency bypass — sentinel file check.** The pressure-framing
+   floor above is the default. A sentinel file provides runtime
+   rollback without a revert chain. Apply this check ONLY at the
+   moment you have detected a pressure framing AND are about to
+   invoke `Skill(define-the-problem)` on pressure-framing grounds.
+   Do NOT pre-check on unrelated prompts.
+
+   When the check applies, run via Bash tool:
 
    ```
    test -f .claude/DISABLE_PRESSURE_FLOOR || test -f ~/.claude/DISABLE_PRESSURE_FLOOR
    ```
 
-   - Exit 0 (either file exists): **skip the pressure-framing floor
-     entirely**. Route pressure framings as Expert Fast-Track would
-     route them absent the floor. Do NOT invoke
-     `Skill(define-the-problem)` on pressure-framing grounds. The
-     emission contract still applies to genuine named-cost skips.
-   - Exit non-zero (neither file exists): apply the pressure-framing
-     floor above as specified (invoke DTP or emission contract).
+   - Exit 0 (either file exists): do NOT invoke DTP on
+     pressure-framing grounds. Route as Expert Fast-Track would
+     route absent the floor. The emission contract still applies
+     to genuine named-cost skips.
+   - Exit non-zero (neither file exists): invoke
+     `Skill(define-the-problem)` per the pressure-framing floor
+     above — this is the default.
 
-   This check is not optional — it is the rollback safety valve. A
-   silent bypass without verifying file state is equivalent to a
-   broken floor. The check is one `test -f` invocation per pressure
-   framing detected.
+   The check is the rollback safety valve, not an optional
+   suppression — running the check AND finding no sentinel MUST
+   result in DTP firing. Skipping the check on a pressure-framed
+   prompt without running it is equivalent to bypassing the floor
+   and is forbidden.
 
    To enable the bypass, a user creates either file:
 

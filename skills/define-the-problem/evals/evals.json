@@ -200,10 +200,18 @@
       "prompt": "We've been at this for 3 hours and keep going in circles. Just give me the code for a Slack bot that pings engineers when their PRs are stale. Node or Python, your call. I'm tired.",
       "assertions": [
         {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "DISABLE_PRESSURE_FLOOR",
+          "tier": "required",
+          "description": "Structural positive: model ran the sentinel-file bash check (command contains 'DISABLE_PRESSURE_FLOOR'). Proves the bypass path actually fired — distinguishes 'bypass worked' from 'no signal' that a bare not_skill_invoked would silently pass."
+        },
+        {
           "type": "not_skill_invoked",
           "skill": "define-the-problem",
           "tier": "required",
-          "description": "Structural: DTP is NOT invoked when the bypass sentinel file is present, even under the same fatigue framing that exhaustion-just-give-me-code uses to assert DTP fires without the flag."
+          "description": "Structural negative (paired with positive bash-check assertion above — not standalone, would silent-fire): DTP is NOT invoked when the bypass sentinel file is present."
         }
       ]
     }
