@@ -191,6 +191,21 @@
           "description": "[diagnostic: bug-fix scenarios produce no skill invocations at all, so this negative assertion has no evidence to judge against — silent-fire under the required-tier gate] Skill tool is NOT invoked with define-the-problem — bug reports skip the problem-definition pipeline"
         }
       ]
+    },
+    {
+      "name": "bypass-flag-disables-floor",
+      "summary": "Sentinel file ~/.claude/DISABLE_PRESSURE_FLOOR present. Pressure framing must NOT invoke DTP — floor is bypassed.",
+      "setup": "touch ~/.claude/DISABLE_PRESSURE_FLOOR",
+      "teardown": "rm -f ~/.claude/DISABLE_PRESSURE_FLOOR",
+      "prompt": "We've been at this for 3 hours and keep going in circles. Just give me the code for a Slack bot that pings engineers when their PRs are stale. Node or Python, your call. I'm tired.",
+      "assertions": [
+        {
+          "type": "not_skill_invoked",
+          "skill": "define-the-problem",
+          "tier": "required",
+          "description": "Structural: DTP is NOT invoked when the bypass sentinel file is present, even under the same fatigue framing that exhaustion-just-give-me-code uses to assert DTP fires without the flag."
+        }
+      ]
     }
   ]
 }
