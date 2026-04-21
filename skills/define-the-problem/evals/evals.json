@@ -210,8 +210,8 @@
         {
           "type": "not_skill_invoked",
           "skill": "define-the-problem",
-          "tier": "required",
-          "description": "Structural negative (paired with positive bash-check assertion above — not standalone, would silent-fire): DTP is NOT invoked when the bypass sentinel file is present."
+          "tier": "diagnostic",
+          "description": "Diagnostic pair (positive tool_input_matches above is the required signal; this negative would silent-fire on its own since bypass path has no skill invocations): DTP is NOT invoked when the bypass sentinel file is present."
         }
       ]
     }

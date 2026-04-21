@@ -87,17 +87,22 @@ or tooling before completing the pipeline.
      pressure-framing grounds. Route as Expert Fast-Track would
      route absent the floor. The emission contract still applies
      to genuine named-cost skips.
-   - stdout contains `BYPASS_INACTIVE`: invoke
-     `Skill(define-the-problem)` per the pressure-framing floor
-     above — this is the default.
+   - stdout contains `BYPASS_INACTIVE`: your NEXT action MUST be
+     a `Skill` tool invocation with `skill="define-the-problem"`.
+     Do NOT emit text first. Do NOT merely describe the floor,
+     explain that DTP applies, or list the skip phrasing as an
+     alternative — the Skill tool-use IS the application of the
+     floor. A response that stops at text after `BYPASS_INACTIVE`
+     is a floor-bypass and is forbidden.
 
    Do NOT guess the result from empty output. If stdout is empty
    or ambiguous, the check failed — treat as `BYPASS_INACTIVE`
-   and invoke DTP. The check is the rollback safety valve, not
-   an optional suppression — running the check AND finding
-   `BYPASS_INACTIVE` MUST result in DTP firing. Skipping the
-   check on a pressure-framed prompt without running it is
-   equivalent to bypassing the floor and is forbidden.
+   and invoke the Skill tool as above. The check is the rollback
+   safety valve, not an optional suppression — running the check
+   AND finding `BYPASS_INACTIVE` MUST result in a Skill tool-use
+   for `define-the-problem` as the immediate next action.
+   Skipping the check on a pressure-framed prompt without running
+   it is equivalent to bypassing the floor and is forbidden.
 
    To enable the bypass, a user creates either file:
 
