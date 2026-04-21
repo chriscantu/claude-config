@@ -48,6 +48,14 @@ of building on an unstated problem."* Generic skip framings ("I'm tired,"
 "trust me") run the Fast-Track floor. The floor is non-bypassable; the escape
 hatch is *depth*, not *existence*.
 
+**Emission contract.** Honoring a named-cost skip requires invoking
+`acknowledge_named_cost_skip` (MCP tool, name
+`mcp__named-cost-skip-ack__acknowledge_named_cost_skip`) with
+`gate="DTP"` and `user_statement` set to the verbatim substring of the
+user's cost-naming clause, before proceeding to the next stage. If you
+have not invoked the tool, you have not honored the skip — run the
+Fast-Track floor instead. The tool invocation is the honor.
+
 ---
 
 ## Step 0: Scope Calibration
