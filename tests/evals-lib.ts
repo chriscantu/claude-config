@@ -46,6 +46,10 @@ export interface Eval {
   /** … multi-turn shape: `turns[]` and optional `final_assertions`. */
   turns?: Turn[];
   final_assertions?: Assertion[];
+  /** Optional shell command run before the prompt is sent. Single-turn evals only. */
+  setup?: string;
+  /** Optional shell command run after assertions complete. Single-turn evals only. */
+  teardown?: string;
 }
 
 export interface ValidatedTurn {
@@ -67,6 +71,8 @@ export type ValidatedEval =
       readonly summary?: string;
       readonly prompt: string;
       readonly assertions: readonly ValidatedAssertion[];
+      readonly setup?: string;
+      readonly teardown?: string;
     }
   | {
       readonly kind: "multi";
@@ -303,11 +309,24 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
         }
         validated.push(validateAssertion(a, `${file}: eval '${e.name}'`));
       }
-      validatedEvals.push({ kind: "single", name: e.name, summary: e.summary, prompt: e.prompt!, assertions: validated });
+      validatedEvals.push({
+        kind: "single",
+        name: e.name,
+        summary: e.summary,
+        prompt: e.prompt!,
+        assertions: validated,
+        setup: e.setup,
+        teardown: e.teardown,
+      });
       continue;
     }
 
     // multi-turn
+    if (e.setup || e.teardown) {
+      throw new Error(
+        `${file}: eval '${e.name}' declares setup/teardown but is multi-turn; setup/teardown is single-turn only`,
+      );
+    }
     const turns = e.turns as Turn[];
     if (turns.length === 0) {
       throw new Error(`${file}: eval '${e.name}' has empty 'turns' array`);

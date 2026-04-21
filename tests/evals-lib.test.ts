@@ -1221,6 +1221,34 @@ describe("tallyEval() + suiteOk()", () => {
   });
 });
 
+test("loadEvalFile preserves setup and teardown shell commands", () => {
+  const root = mkdtempSync(join(tmpdir(), "evals-setup-"));
+  const skillDir = join(root, "test-skill", "evals");
+  mkdirSync(skillDir, { recursive: true });
+  writeFileSync(
+    join(skillDir, "evals.json"),
+    JSON.stringify({
+      skill: "test-skill",
+      evals: [
+        {
+          name: "with-setup",
+          prompt: "hello",
+          setup: "touch /tmp/flag",
+          teardown: "rm -f /tmp/flag",
+          assertions: [{ type: "regex", pattern: "hi", description: "d" }],
+        },
+      ],
+    }),
+  );
+  const file = loadEvalFile(root, "test-skill");
+  expect(file).not.toBeNull();
+  const ev = file!.evals[0];
+  expect(ev.kind).toBe("single");
+  if (ev.kind !== "single") throw new Error("unreachable");
+  expect(ev.setup).toBe("touch /tmp/flag");
+  expect(ev.teardown).toBe("rm -f /tmp/flag");
+});
+
 describe("planning.md stage markers contract", () => {
   test("rules/planning.md contains the canonical [Stage: ...] markers", () => {
     const planning = readFileSync(
