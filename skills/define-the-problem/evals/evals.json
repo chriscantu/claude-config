@@ -54,6 +54,14 @@
           "pattern": "((authoriz|sign[- ]?off|approv(ed|al)|budget).{0,120}(doesn'?t|don'?t|isn'?t|aren'?t|not\\s+(the same|equivalent|a problem|the problem|tell(ing)? (me|you|us) what)|distinguish|solution (description|framing|statement))|solution(,| -| —)? not (a |the )?(problem|problem (statement|definition))|(authority|sunk[- ]?cost|sunk cost).{0,80}(framing|bias|run.{0,40}(anyway|regardless)|skip contract|doesn'?t waive)|per the skip contract|run (the |DTP |)(process |)anyway)",
           "flags": "i",
           "description": "Distinguishes authorization/approval from problem definition — either by naming the distinction explicitly, framing 'X' as 'a solution, not a problem', or naming the authority/sunk-cost framing and running the skill anyway"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "define-the-problem",
+          "tier": "required",
+          "description": "Structural: DTP fires under authority+sunk-cost framing (ADR #0004 promotion condition 3 candidate). Required-tier tool-use signal."
         }
       ]
     },
@@ -75,9 +83,12 @@
           "description": "Does NOT dump Slack-bot implementation code immediately — catches Node.js, Python (slack_sdk, slack_bolt), or run-instructions for a bot implementation"
         },
         {
-          "type": "skill_invoked",
-          "skill": "define-the-problem",
-          "description": "DTP fires under fatigue framing — this is the #84 regression guard; generic 'I'm tired' must not bypass the floor"
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "define-the-problem",
+          "tier": "required",
+          "description": "Structural: DTP fires under fatigue framing (ADR #0004 promotion condition 1). Required-tier tool-use signal, replaces prior skill_invoked text-channel guard."
         },
         {
           "type": "regex",
