@@ -254,19 +254,57 @@ discrimination demo on branch `feature/108-pressure-framing-front-door`:
 - Commit `617c66a` — fixed state: Layer C + Layer A (rules/planning.md
   pressure-framing floor block enumerating authority / sunk-cost /
   exhaustion / deadline / stated-next-step framings and routing all
-  non-cost-naming framings to `Skill(define-the-problem)`). All four
-  conditions above required-tier GREEN in a single run
-  (`exhaustion-just-give-me-code` ✓, `honored-skip-named-cost` ✓,
-  `sunk-cost-migration-multi-turn` turn 1 ✓, `authority-sunk-cost` ✓);
-  non-regression sweep passed (regex-text variance on a small number
-  of prose-matching assertions on non-target evals was inspected and
-  attributed to live-model stochasticity rather than Layer A
-  behavior). Transcript:
+  non-cost-naming framings to `Skill(define-the-problem)`). Required-tier
+  GREEN on all four targets in a single run:
+  `exhaustion-just-give-me-code` ✓ (discriminating: RED→GREEN),
+  `honored-skip-named-cost` ✓ (non-regression witness: GREEN→GREEN —
+  condition 2 is a must-not-regress guard, not a discriminator),
+  `sunk-cost-migration-multi-turn` turn 1 ✓ (discriminating: RED→GREEN),
+  `authority-sunk-cost` ✓ (non-discriminating witness: GREEN→GREEN —
+  retained as additional non-regression evidence, not as proof of Layer
+  A efficacy). Transcript:
   `tests/results/108-pressure-framing-discrimination-demo-fixed-2026-04-21T14-53-29.md`.
 
-The red→green transition across these two commits satisfies ADR #0005
-condition 4 (discrimination demo). Conditions 1–3 are verified by the
-commit `617c66a` transcript.
+**What actually discriminated.** The red→green transition across the
+two commits is carried by **two** evals (`exhaustion-just-give-me-code`
+and `sunk-cost-migration-multi-turn` turn 1), satisfying ADR #0005
+condition 3 (≥2 independent pressure-framing evals passing structurally).
+`authority-sunk-cost` was already GREEN on the broken baseline and
+therefore does not carry discrimination weight in this demo — it is
+retained in the Acceptance record as a non-regression witness.
+Condition 4 (discrimination demo) is satisfied by the two
+discriminating evals.
+
+**Known stochastic text-regex flicker.** Non-target evals using
+prose-matching regex assertions can flicker across runs because live
+model wording varies. On the fixed-state transcript, flickers were
+observed on `solution-as-problem-pushback`, `bug-fix-skips-pipeline`,
+and `authority-low-risk-skip`. These failures were inspected and
+attributed to regex narrowness against valid responses, not Layer A
+regression. Future regressions on those three assertions should first
+be checked against this pre-known flicker list before being treated as
+behavioral regressions. The load-bearing ADR #0005 signals are the
+required-tier structural assertions only; text-regex is diagnostic
+and expected to flake.
+
+**Rollback procedure.** This ADR's Accepted status depends on commit
+`617c66a` (rules/planning.md pressure-framing floor). If that rules
+change regresses in user workflows, revert in this order to restore
+a coherent state:
+
+1. Revert `d740e2b` (this ADR flip) → ADR returns to Proposed
+2. Revert `617c66a` (rules/planning.md floor) → pressure-framing
+   protection removed
+3. Optionally revert `6b261d0` (evals upgrade) → evals return to
+   `skill_invoked` text-channel baseline
+
+Reverting `617c66a` alone without reverting `d740e2b` leaves this ADR
+Accepted while citing deleted evidence — an incoherent state. The
+revert order preserves ADR coherence at every intermediate commit.
+Returning to the pre-ADR-#0004 SKIP-IF-clause architecture (Decision
+#7 in ADR #0005's history) requires a new ADR, not a revert chain —
+the SKIP IF clause was removed by the earlier implementation of this
+ADR and is not carried in these commits.
 
 **Current status rationale:** superseded by the Acceptance evidence
 section above. #108 resolved the four-condition blocker via the
