@@ -30,6 +30,14 @@
           "type": "skill_invoked",
           "skill": "define-the-problem",
           "description": "Skill tool is invoked with define-the-problem — solution-first pressure is exactly the trigger"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "DISABLE_PRESSURE_FLOOR",
+          "tier": "required",
+          "description": "Mirror of bypass-flag-disables-floor positive assertion: under the pressure-framing floor (deadline variant), the model MUST run the sentinel-file check before invoking DTP. Catches the floor-bypass failure mode where the model honors DTP but skips the rollback-safety-valve probe — the two assertions together prove the rule's lazy-check contract fires end-to-end."
         }
       ]
     },
@@ -63,6 +71,14 @@
           "input_value": "define-the-problem",
           "tier": "required",
           "description": "Structural: DTP fires under authority+sunk-cost framing (ADR #0004 promotion condition 3 candidate). Required-tier tool-use signal."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "DISABLE_PRESSURE_FLOOR",
+          "tier": "required",
+          "description": "Mirror of bypass-flag-disables-floor positive assertion: under the pressure-framing floor (authority+sunk-cost variant), the model MUST run the sentinel-file check before invoking DTP. Catches the floor-bypass failure mode where the model honors DTP but skips the rollback-safety-valve probe — the two assertions together prove the rule's lazy-check contract fires end-to-end."
         }
       ]
     },
