@@ -86,14 +86,28 @@ or tooling before completing the pipeline.
    - stdout contains `BYPASS_ACTIVE`: do NOT invoke DTP on
      pressure-framing grounds. Route as Expert Fast-Track would
      route absent the floor. The emission contract still applies
-     to genuine named-cost skips.
-   - stdout contains `BYPASS_INACTIVE`: your NEXT action MUST be
-     a `Skill` tool invocation with `skill="define-the-problem"`.
-     Do NOT emit text first. Do NOT merely describe the floor,
-     explain that DTP applies, or list the skip phrasing as an
-     alternative — the Skill tool-use IS the application of the
-     floor. A response that stops at text after `BYPASS_INACTIVE`
-     is a floor-bypass and is forbidden.
+     to genuine named-cost skips. Because bypass silently removes
+     a safety rail, you MUST emit a visible banner on the FIRST
+     pressure-framed prompt of the session where the bypass is
+     observed — literal form:
+     `⚠️ Pressure-framing floor BYPASSED (sentinel file present). Delete ~/.claude/DISABLE_PRESSURE_FLOOR or ./.claude/DISABLE_PRESSURE_FLOOR to restore.`
+     The banner goes BEFORE any routing response. Subsequent
+     pressure-framed prompts in the same session may omit the
+     banner to reduce noise, but the bypass behavior still
+     applies.
+   - stdout contains `BYPASS_INACTIVE`: your NEXT tool invocation
+     MUST be a `Skill` tool-use with `skill="define-the-problem"`.
+     You MAY emit at most one short preface line before that
+     tool-use: either the canonical `[Stage: Problem Definition]`
+     marker required by Stage Visibility, or a single routing
+     sentence (e.g., "Pressure framing detected — routing to
+     DTP."). Do NOT describe the floor mechanics, do NOT explain
+     that DTP applies, and do NOT list the skip phrasing as an
+     alternative in lieu of invoking the tool — the `Skill`
+     tool-use IS the application of the floor. A response that
+     stops at text after `BYPASS_INACTIVE`, or uses the preface
+     allowance to narrate the floor instead of invoking the
+     skill, is a floor-bypass and is forbidden.
 
    Do NOT guess the result from empty output. If stdout is empty
    or ambiguous, the check failed — treat as `BYPASS_INACTIVE`

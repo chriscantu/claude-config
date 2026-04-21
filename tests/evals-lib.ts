@@ -752,3 +752,60 @@ export function tallyEval(meta: MetaCheckOutput, assertionCount: number): EvalTa
 export function suiteOk(tallies: readonly EvalTally[]): boolean {
   return tallies.every((t) => t.evalPassed);
 }
+
+/**
+ * Result of `runLifecycle`. Distinguishes the setup-failed path (teardown
+ * did NOT run — setup is atomic, nothing to undo) from the ok path where
+ * `work` produced a value and teardown has already fired in the finally.
+ * If `work` throws, `runLifecycle` re-throws after running teardown, so
+ * callers see the original error and do NOT need to branch on a "work
+ * threw" case here.
+ */
+export type LifecycleResult<T> =
+  | { kind: "ok"; value: T }
+  | { kind: "setup_failed"; error: Error };
+
+/**
+ * Run `work()` with optional setup/teardown shell commands.
+ *
+ * Contract:
+ *   - `setup` runs BEFORE `work`. Setup failure short-circuits with
+ *     `setup_failed`; teardown is NOT invoked (nothing to tear down).
+ *   - `teardown` runs in a finally. It fires when `work` returns AND
+ *     when `work` throws. Teardown failures are reported via
+ *     `onTeardownError` and swallowed so they do not mask the original
+ *     outcome.
+ *   - If `work` throws, teardown runs, then the original error
+ *     propagates out of `runLifecycle`.
+ *
+ * `exec` is injectable so unit tests can run without spawning real
+ * shells. The runner passes an `execSync`-backed wrapper; tests pass a
+ * recording stub.
+ */
+export function runLifecycle<T>(opts: {
+  setup?: string;
+  teardown?: string;
+  work: () => T;
+  exec: (cmd: string) => void;
+  onTeardownError?: (msg: string) => void;
+}): LifecycleResult<T> {
+  if (opts.setup) {
+    try {
+      opts.exec(opts.setup);
+    } catch (err) {
+      return { kind: "setup_failed", error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  }
+  try {
+    return { kind: "ok", value: opts.work() };
+  } finally {
+    if (opts.teardown) {
+      try {
+        opts.exec(opts.teardown);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        opts.onTeardownError?.(msg);
+      }
+    }
+  }
+}

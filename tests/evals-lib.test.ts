@@ -24,6 +24,7 @@ import {
   loadEvalFile,
   metaCheck,
   parseStreamJson,
+  runLifecycle,
 } from "./evals-lib.ts";
 
 function sig(finalText: string, extra?: Partial<Signals>): Signals {
@@ -1285,6 +1286,105 @@ describe("loadEvalFile rejects multi-turn evals with setup/teardown", () => {
       );
     });
   }
+});
+
+describe("runLifecycle()", () => {
+  test("runs setup → work → teardown in order", () => {
+    const calls: string[] = [];
+    const exec = (cmd: string) => {
+      calls.push(`exec:${cmd}`);
+    };
+    const res = runLifecycle<string>({
+      setup: "setup-cmd",
+      teardown: "teardown-cmd",
+      exec,
+      work: () => {
+        calls.push("work");
+        return "done";
+      },
+    });
+    expect(res).toEqual({ kind: "ok", value: "done" });
+    expect(calls).toEqual(["exec:setup-cmd", "work", "exec:teardown-cmd"]);
+  });
+
+  test("teardown runs even when work throws — sentinel cannot leak on crash", () => {
+    // Regression guard for the review finding: sentinel files created by
+    // `setup` must always be cleaned up, including when the spawned
+    // `runClaude` (or any other work) throws mid-eval. If teardown skipped
+    // the throw path, a crashed eval would leave ~/.claude/DISABLE_PRESSURE_FLOOR
+    // on disk and silently bypass the floor in every subsequent session.
+    const calls: string[] = [];
+    const exec = (cmd: string) => {
+      calls.push(`exec:${cmd}`);
+    };
+    expect(() =>
+      runLifecycle<void>({
+        setup: "touch sentinel",
+        teardown: "rm sentinel",
+        exec,
+        work: () => {
+          calls.push("work-throwing");
+          throw new Error("simulated crash");
+        },
+      }),
+    ).toThrow("simulated crash");
+    expect(calls).toEqual(["exec:touch sentinel", "work-throwing", "exec:rm sentinel"]);
+  });
+
+  test("setup failure short-circuits — work and teardown do NOT run", () => {
+    const calls: string[] = [];
+    const exec = (cmd: string) => {
+      calls.push(`exec:${cmd}`);
+      if (cmd === "bad-setup") throw new Error("setup boom");
+    };
+    const res = runLifecycle<void>({
+      setup: "bad-setup",
+      teardown: "teardown-cmd",
+      exec,
+      work: () => {
+        calls.push("work");
+      },
+    });
+    expect(res.kind).toBe("setup_failed");
+    if (res.kind !== "setup_failed") throw new Error("unreachable");
+    expect(res.error.message).toContain("setup boom");
+    expect(calls).toEqual(["exec:bad-setup"]);
+  });
+
+  test("teardown failure is reported via onTeardownError and swallowed", () => {
+    const teardownErrors: string[] = [];
+    const exec = (cmd: string) => {
+      if (cmd === "bad-teardown") throw new Error("teardown boom");
+    };
+    const res = runLifecycle<string>({
+      teardown: "bad-teardown",
+      exec,
+      onTeardownError: (msg) => teardownErrors.push(msg),
+      work: () => "ok",
+    });
+    expect(res).toEqual({ kind: "ok", value: "ok" });
+    expect(teardownErrors).toHaveLength(1);
+    expect(teardownErrors[0]).toContain("teardown boom");
+  });
+
+  test("work-throw + teardown-throw: original work error wins, teardown error is reported", () => {
+    const teardownErrors: string[] = [];
+    const exec = (cmd: string) => {
+      if (cmd === "bad-teardown") throw new Error("teardown boom");
+    };
+    expect(() =>
+      runLifecycle<void>({
+        teardown: "bad-teardown",
+        exec,
+        onTeardownError: (msg) => teardownErrors.push(msg),
+        work: () => {
+          throw new Error("work boom");
+        },
+      }),
+    ).toThrow("work boom");
+    expect(teardownErrors).toHaveLength(1);
+    expect(teardownErrors[0]).toContain("teardown boom");
+  });
 });
 
 describe("planning.md stage markers contract", () => {

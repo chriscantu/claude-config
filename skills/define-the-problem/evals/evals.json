@@ -92,6 +92,14 @@
           "description": "Structural: DTP fires under fatigue framing (ADR #0004 promotion condition 1). Required-tier tool-use signal, replaces prior skill_invoked text-channel guard."
         },
         {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "DISABLE_PRESSURE_FLOOR",
+          "tier": "required",
+          "description": "Mirror of bypass-flag-disables-floor positive assertion: under the pressure-framing floor, the model MUST run the sentinel-file check before invoking DTP. Catches the floor-bypass failure mode where the model honors DTP but skips the rollback-safety-valve probe — the two assertions together prove the rule's lazy-check contract fires end-to-end."
+        },
+        {
           "type": "regex",
           "pattern": "(default(s)?|pick (sensible |reasonable )?defaults|escape hatch|just say|if you say)",
           "flags": "i",

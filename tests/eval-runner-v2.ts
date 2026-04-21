@@ -43,6 +43,7 @@ import {
   loadEvalFile,
   metaCheck,
   parseStreamJson,
+  runLifecycle,
   suiteOk,
   tallyEval,
 } from "./evals-lib.ts";
@@ -467,6 +468,37 @@ async function main() {
   mkdirSync(resultsDir, { recursive: true });
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
+  // Abnormal-exit safety net for eval teardowns. The try/finally inside
+  // `runLifecycle` covers the common paths (work returns, work throws), but
+  // a SIGINT (Ctrl-C) or SIGTERM during a long claude spawn skips finally
+  // blocks entirely — leaving e.g. ~/.claude/DISABLE_PRESSURE_FLOOR on disk
+  // and silently bypassing the pressure-framing floor in subsequent
+  // sessions. We register each eval's teardown command in this Set before
+  // running it and clear it after; the signal/exit handlers drain whatever
+  // remains.
+  const pendingTeardowns = new Set<string>();
+  const drainTeardowns = () => {
+    for (const cmd of pendingTeardowns) {
+      try {
+        execSync(cmd, { stdio: "inherit" });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.error(dim(`      safety-net teardown failed (${cmd}): ${msg}`));
+      }
+    }
+    pendingTeardowns.clear();
+  };
+  const onSignal = (signal: NodeJS.Signals) => {
+    console.error(dim(`\n[eval-runner] received ${signal} — running pending teardowns`));
+    drainTeardowns();
+    process.exit(signal === "SIGINT" ? 130 : 143);
+  };
+  process.on("SIGINT", onSignal);
+  process.on("SIGTERM", onSignal);
+  // `exit` handler runs on normal process.exit(N) too; drainTeardowns is
+  // idempotent (clears the set), so running twice in the signal path is fine.
+  process.on("exit", drainTeardowns);
+
   let totalEvals = 0;
   let passedEvals = 0;
   let totalAssertions = 0;
@@ -484,19 +516,20 @@ async function main() {
   function runSingleTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "single" }>): void {
     const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-${timestamp}.md`);
 
-    if (e.setup) {
-      try {
-        execSync(e.setup, { stdio: "inherit" });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.log(`    ${red("✗")} ${skillName}/${e.name}: setup failed (${e.setup}): ${msg}`);
-        totalAssertions += e.assertions.length;
-        tallies.push({ evalPassed: false, assertionCount: e.assertions.length, passedAssertionCount: 0, silentFireCount: 0 });
-        return;
-      }
-    }
-
-    try {
+    if (e.teardown) pendingTeardowns.add(e.teardown);
+    const lifecycle = runLifecycle<void>({
+      setup: e.setup,
+      teardown: e.teardown,
+      exec: (cmd) => {
+        execSync(cmd, { stdio: "inherit" });
+        // Teardown just ran cleanly — drop it from the safety net so a
+        // later signal doesn't re-run it. (setup also flows through here;
+        // dropping a setup cmd is a no-op since we only `add` teardowns.)
+        if (cmd === e.teardown) pendingTeardowns.delete(cmd);
+      },
+      onTeardownError: (msg) =>
+        console.log(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`)),
+      work: () => {
     const { stdout, stderr, exitCode, failure } = runClaude(e.prompt);
 
     if (failure || exitCode !== 0) {
@@ -586,15 +619,17 @@ async function main() {
           ` (events=${events.length} skipped=${skipped} tools=${signals.toolUses.length} skills=${signals.skillInvocations.length})`,
       ),
     );
-    } finally {
-      if (e.teardown) {
-        try {
-          execSync(e.teardown, { stdio: "inherit" });
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.log(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`));
-        }
-      }
+      },
+    });
+
+    if (lifecycle.kind === "setup_failed") {
+      // Setup failed — nothing was created, so drop the teardown from the
+      // safety net to avoid running it against a clean system (which would
+      // produce a spurious "rm: No such file" on abnormal exit).
+      if (e.teardown) pendingTeardowns.delete(e.teardown);
+      console.log(`    ${red("✗")} ${skillName}/${e.name}: setup failed (${e.setup}): ${lifecycle.error.message}`);
+      totalAssertions += e.assertions.length;
+      tallies.push({ evalPassed: false, assertionCount: e.assertions.length, passedAssertionCount: 0, silentFireCount: 0 });
     }
   }
 
