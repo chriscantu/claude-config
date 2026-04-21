@@ -66,6 +66,24 @@ or tooling before completing the pipeline.
    **Architectural invariant.** Front-door enforcement lives in the rules
    layer because it fires BEFORE any skill loads — a skill cannot catch
    its own failure-to-load. Within-skill behavior lives in SKILL.md.
+
+   **Emergency bypass.** If the pressure-framing floor over-routes
+   legitimate Fast-Track-eligible prompts, disable it by creating a
+   sentinel file:
+
+   - Project-local: `./.claude/DISABLE_PRESSURE_FLOOR` (checked first)
+   - Global: `~/.claude/DISABLE_PRESSURE_FLOOR` (fallback)
+
+   File existence alone triggers bypass — content ignored. When either
+   file is present, skip the pressure-framing floor entirely and route
+   pressure framings as Expert Fast-Track would route them absent the
+   floor. The emission contract above still applies to genuine
+   named-cost skips.
+
+   Bypass is intentionally visible:
+   `ls ~/.claude/ .claude/ 2>/dev/null | grep DISABLE_PRESSURE_FLOOR`.
+   Prefer fixing regressions over leaving the flag on — a permanent
+   bypass defeats the floor entirely. Delete the file to restore.
 2. Systems Analysis — invoke `/systems-analysis`. The 60-second surface-area
    scan is mandatory before any tier decision. Low-blast-radius scenarios run
    the Condensed Pass, not zero.
