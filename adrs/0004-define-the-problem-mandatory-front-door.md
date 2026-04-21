@@ -275,6 +275,15 @@ retained in the Acceptance record as a non-regression witness.
 Condition 4 (discrimination demo) is satisfied by the two
 discriminating evals.
 
+**Known limit — single-session observation.** The broken and fixed
+transcripts are each one run. Two evals passing once is not equivalent
+to one eval passing twice; a second fixed-state run on a fresh session
+would strengthen condition 4 to two-data-point discrimination. This
+limit is acknowledged rather than mitigated; if the rules-layer floor
+regresses on a future session and the two discriminating evals flake,
+the demo would not independently reproduce. A follow-up rerun is
+tracked as a post-merge improvement, not a promotion blocker.
+
 **Known stochastic text-regex flicker.** Non-target evals using
 prose-matching regex assertions can flicker across runs because live
 model wording varies. On the fixed-state transcript, flickers were
