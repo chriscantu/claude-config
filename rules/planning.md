@@ -74,25 +74,30 @@ or tooling before completing the pipeline.
    invoke `Skill(define-the-problem)` on pressure-framing grounds.
    Do NOT pre-check on unrelated prompts.
 
-   When the check applies, run via Bash tool:
+   When the check applies, run via Bash tool. The command MUST
+   print explicit `BYPASS_ACTIVE` or `BYPASS_INACTIVE` to stdout —
+   raw `test -f` returns only an exit code, which the Bash tool
+   does not surface reliably. Use:
 
    ```
-   test -f .claude/DISABLE_PRESSURE_FLOOR || test -f ~/.claude/DISABLE_PRESSURE_FLOOR
+   if test -f .claude/DISABLE_PRESSURE_FLOOR || test -f ~/.claude/DISABLE_PRESSURE_FLOOR; then echo BYPASS_ACTIVE; else echo BYPASS_INACTIVE; fi
    ```
 
-   - Exit 0 (either file exists): do NOT invoke DTP on
+   - stdout contains `BYPASS_ACTIVE`: do NOT invoke DTP on
      pressure-framing grounds. Route as Expert Fast-Track would
      route absent the floor. The emission contract still applies
      to genuine named-cost skips.
-   - Exit non-zero (neither file exists): invoke
+   - stdout contains `BYPASS_INACTIVE`: invoke
      `Skill(define-the-problem)` per the pressure-framing floor
      above — this is the default.
 
-   The check is the rollback safety valve, not an optional
-   suppression — running the check AND finding no sentinel MUST
-   result in DTP firing. Skipping the check on a pressure-framed
-   prompt without running it is equivalent to bypassing the floor
-   and is forbidden.
+   Do NOT guess the result from empty output. If stdout is empty
+   or ambiguous, the check failed — treat as `BYPASS_INACTIVE`
+   and invoke DTP. The check is the rollback safety valve, not
+   an optional suppression — running the check AND finding
+   `BYPASS_INACTIVE` MUST result in DTP firing. Skipping the
+   check on a pressure-framed prompt without running it is
+   equivalent to bypassing the floor and is forbidden.
 
    To enable the bypass, a user creates either file:
 
