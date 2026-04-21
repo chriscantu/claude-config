@@ -112,21 +112,40 @@
       "prompt": "Skip define-the-problem entirely for this task. I explicitly accept the risk of building on an unstated problem. Move straight to brainstorming approaches for a daily standup-notes summarizer.",
       "assertions": [
         {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "gate",
+          "input_value": "DTP",
+          "tier": "required",
+          "description": "Structural: honored skip emits the acknowledgement tool with gate=DTP"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "user_statement",
+          "input_value": "I explicitly accept the risk",
+          "tier": "required",
+          "description": "Structural: acknowledgement carries a verbatim substring of the user's cost-naming clause"
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "superpowers:brainstorming",
+          "tier": "required",
+          "description": "Forward progress: brainstorming fires after the ack"
+        },
+        {
           "type": "not_regex",
           "pattern": "(^|\\n)\\s*(\\*\\*)?(question\\s*1\\b|q1\\b|1\\.\\s+who|first question|let'?s start with (?:the |our )?(?:most important |first )?question)",
           "flags": "i",
-          "description": "Does NOT run the five-question sequence — the explicit cost-named skip is honored"
+          "tier": "diagnostic",
+          "description": "Diagnostic: five-question sequence did not run"
         },
         {
           "type": "not_regex",
           "pattern": "\\*\\*(User|Problem|Impact|Evidence|Constraints|Known Unknowns)\\*\\*:",
           "flags": "i",
-          "description": "Does NOT produce the Problem Statement template — full skip means no DTP output"
-        },
-        {
-          "type": "skill_invoked",
-          "skill": "superpowers:brainstorming",
-          "description": "Brainstorming fires — the user's explicit 'move straight to brainstorming' is honored as forward progress, not a silent halt"
+          "tier": "diagnostic",
+          "description": "Diagnostic: DTP problem-statement template not produced"
         }
       ]
     },
