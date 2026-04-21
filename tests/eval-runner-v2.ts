@@ -489,7 +489,7 @@ async function main() {
         execSync(e.setup, { stdio: "inherit" });
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
-        console.log(`    ${red("✗")} setup failed: ${msg}`);
+        console.log(`    ${red("✗")} ${skillName}/${e.name}: setup failed (${e.setup}): ${msg}`);
         totalAssertions += e.assertions.length;
         tallies.push({ evalPassed: false, assertionCount: e.assertions.length, passedAssertionCount: 0, silentFireCount: 0 });
         return;
@@ -592,7 +592,7 @@ async function main() {
           execSync(e.teardown, { stdio: "inherit" });
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err);
-          console.log(dim(`      teardown failed: ${msg}`));
+          console.log(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`));
         }
       }
     }
