@@ -10,6 +10,7 @@ tests/results/*
 !tests/results/named-cost-skip-discrimination-demo-*.md
 # Keep the #108 pressure-framing discrimination-demo broken-baseline transcripts.
 !tests/results/108-pressure-framing-discrimination-demo-broken-*.md
+!tests/results/108-pressure-framing-discrimination-demo-fixed-*.md
 node_modules/
 
 # Stakeholder-map / 1on1-prep offline writes — sensitive assessments, never commit.
