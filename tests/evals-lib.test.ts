@@ -1249,6 +1249,44 @@ test("loadEvalFile preserves setup and teardown shell commands", () => {
   expect(ev.teardown).toBe("rm -f /tmp/flag");
 });
 
+describe("loadEvalFile rejects multi-turn evals with setup/teardown", () => {
+  const cases: Array<{ label: string; extra: Record<string, string> }> = [
+    { label: "setup", extra: { setup: "touch /tmp/flag" } },
+    { label: "teardown", extra: { teardown: "rm -f /tmp/flag" } },
+  ];
+
+  for (const { label, extra } of cases) {
+    test(`throws when multi-turn eval declares ${label}`, () => {
+      const root = mkdtempSync(join(tmpdir(), `evals-multi-${label}-`));
+      const skillDir = join(root, "test-skill", "evals");
+      mkdirSync(skillDir, { recursive: true });
+      writeFileSync(
+        join(skillDir, "evals.json"),
+        JSON.stringify({
+          skill: "test-skill",
+          evals: [
+            {
+              name: `multi-with-${label}`,
+              ...extra,
+              turns: [
+                {
+                  prompt: "turn 1",
+                  assertions: [
+                    { type: "regex", pattern: "hi", description: "d" },
+                  ],
+                },
+              ],
+            },
+          ],
+        }),
+      );
+      expect(() => loadEvalFile(root, "test-skill")).toThrow(
+        /setup\/teardown is single-turn only/,
+      );
+    });
+  }
+});
+
 describe("planning.md stage markers contract", () => {
   test("rules/planning.md contains the canonical [Stage: ...] markers", () => {
     const planning = readFileSync(
