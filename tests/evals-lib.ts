@@ -46,6 +46,10 @@ export interface Eval {
   /** … multi-turn shape: `turns[]` and optional `final_assertions`. */
   turns?: Turn[];
   final_assertions?: Assertion[];
+  /** Optional shell command run before the prompt is sent. Single-turn evals only. */
+  setup?: string;
+  /** Optional shell command run after assertions complete. Single-turn evals only. */
+  teardown?: string;
 }
 
 export interface ValidatedTurn {
@@ -67,6 +71,8 @@ export type ValidatedEval =
       readonly summary?: string;
       readonly prompt: string;
       readonly assertions: readonly ValidatedAssertion[];
+      readonly setup?: string;
+      readonly teardown?: string;
     }
   | {
       readonly kind: "multi";
@@ -303,11 +309,24 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
         }
         validated.push(validateAssertion(a, `${file}: eval '${e.name}'`));
       }
-      validatedEvals.push({ kind: "single", name: e.name, summary: e.summary, prompt: e.prompt!, assertions: validated });
+      validatedEvals.push({
+        kind: "single",
+        name: e.name,
+        summary: e.summary,
+        prompt: e.prompt!,
+        assertions: validated,
+        setup: e.setup,
+        teardown: e.teardown,
+      });
       continue;
     }
 
     // multi-turn
+    if (e.setup || e.teardown) {
+      throw new Error(
+        `${file}: eval '${e.name}' declares setup/teardown but is multi-turn; setup/teardown is single-turn only`,
+      );
+    }
     const turns = e.turns as Turn[];
     if (turns.length === 0) {
       throw new Error(`${file}: eval '${e.name}' has empty 'turns' array`);
@@ -732,4 +751,61 @@ export function tallyEval(meta: MetaCheckOutput, assertionCount: number): EvalTa
  */
 export function suiteOk(tallies: readonly EvalTally[]): boolean {
   return tallies.every((t) => t.evalPassed);
+}
+
+/**
+ * Result of `runLifecycle`. Distinguishes the setup-failed path (teardown
+ * did NOT run — setup is atomic, nothing to undo) from the ok path where
+ * `work` produced a value and teardown has already fired in the finally.
+ * If `work` throws, `runLifecycle` re-throws after running teardown, so
+ * callers see the original error and do NOT need to branch on a "work
+ * threw" case here.
+ */
+export type LifecycleResult<T> =
+  | { kind: "ok"; value: T }
+  | { kind: "setup_failed"; error: Error };
+
+/**
+ * Run `work()` with optional setup/teardown shell commands.
+ *
+ * Contract:
+ *   - `setup` runs BEFORE `work`. Setup failure short-circuits with
+ *     `setup_failed`; teardown is NOT invoked (nothing to tear down).
+ *   - `teardown` runs in a finally. It fires when `work` returns AND
+ *     when `work` throws. Teardown failures are reported via
+ *     `onTeardownError` and swallowed so they do not mask the original
+ *     outcome.
+ *   - If `work` throws, teardown runs, then the original error
+ *     propagates out of `runLifecycle`.
+ *
+ * `exec` is injectable so unit tests can run without spawning real
+ * shells. The runner passes an `execSync`-backed wrapper; tests pass a
+ * recording stub.
+ */
+export function runLifecycle<T>(opts: {
+  setup?: string;
+  teardown?: string;
+  work: () => T;
+  exec: (cmd: string) => void;
+  onTeardownError?: (msg: string) => void;
+}): LifecycleResult<T> {
+  if (opts.setup) {
+    try {
+      opts.exec(opts.setup);
+    } catch (err) {
+      return { kind: "setup_failed", error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  }
+  try {
+    return { kind: "ok", value: opts.work() };
+  } finally {
+    if (opts.teardown) {
+      try {
+        opts.exec(opts.teardown);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        opts.onTeardownError?.(msg);
+      }
+    }
+  }
 }

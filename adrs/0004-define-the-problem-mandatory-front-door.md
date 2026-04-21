@@ -284,6 +284,34 @@ regresses on a future session and the two discriminating evals flake,
 the demo would not independently reproduce. A follow-up rerun is
 tracked as a post-merge improvement, not a promotion blocker.
 
+**Lazy-check contract — end-to-end proof (added #114).** The
+sentinel-file fast-path (see Rollback procedure below) depends on
+a contract: on pressure-framed prompts the model runs the Bash
+sentinel check AND either invokes DTP (sentinel absent) or skips
+DTP (sentinel present). A single eval can only witness one half
+of this contract. Two evals, run as a pair, witness both halves:
+
+- `exhaustion-just-give-me-code` (sentinel absent): required-tier
+  `tool_input_matches` on Bash command containing
+  `DISABLE_PRESSURE_FLOOR` AND required-tier `tool_input_matches`
+  on `Skill` invocation for `define-the-problem`. Together prove
+  the check fires and DTP fires.
+- `bypass-flag-disables-floor` (sentinel present, created by eval
+  setup): same required-tier Bash assertion AND diagnostic-tier
+  `not_skill_invoked` for `define-the-problem`. Together prove
+  the check fires and DTP does NOT fire. The Bash assertion is
+  the load-bearing signal; the negative is diagnostic because
+  `not_skill_invoked` against an empty-signal run would silently
+  pass on its own (the eval runner flags this as silent-fire).
+
+A regression in either eval implicates the other — if the check
+stops firing, both evals fail the Bash assertion; if the
+sentinel stops gating DTP, `bypass-flag-disables-floor` fails
+the diagnostic negative while `exhaustion-just-give-me-code`
+stays green. This discriminates bypass-path regressions from
+floor-path regressions without running both sessions in the same
+transcript.
+
 **Known stochastic text-regex flicker.** Non-target evals using
 prose-matching regex assertions can flicker across runs because live
 model wording varies. On the fixed-state transcript, flickers were
@@ -298,8 +326,30 @@ and expected to flake.
 
 **Rollback procedure.** This ADR's Accepted status depends on commit
 `617c66a` (rules/planning.md pressure-framing floor). If that rules
-change regresses in user workflows, revert in this order to restore
-a coherent state:
+change regresses in user workflows, choose the recovery path that
+matches the regression severity.
+
+**Fast-path (preferred for floor regressions).** Create the sentinel
+file `./.claude/DISABLE_PRESSURE_FLOOR` (project-local) or
+`~/.claude/DISABLE_PRESSURE_FLOOR` (global). File existence disables
+the floor at DTP gate fire-time — no code change, no revert. See
+`rules/planning.md` "Emergency bypass" for details. Reversible with
+`rm`. Prefer this when the floor is functioning as designed but
+produces friction in a specific workflow, or when a regression is
+observed and a full fix is in progress.
+
+Bypass is **user-visible**: on the first pressure-framed prompt
+of a session where the sentinel is observed, the model emits a
+banner naming the sentinel file and the restoration command
+(`rm ~/.claude/DISABLE_PRESSURE_FLOOR` etc.). This prevents a
+forgotten sentinel from silently defeating the floor across
+future sessions — the banner is the "safety rail is off"
+notice. The banner requirement is documented in
+`rules/planning.md` under the `BYPASS_ACTIVE` branch of the
+Emergency bypass block.
+
+**Full revert (preferred for framework-level backout).** Three-commit
+revert chain, in order:
 
 1. Revert `d740e2b` (this ADR flip) → ADR returns to Proposed
 2. Revert `617c66a` (rules/planning.md floor) → pressure-framing
