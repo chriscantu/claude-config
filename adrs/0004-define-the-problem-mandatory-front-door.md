@@ -94,6 +94,19 @@ for all prompts. DTP's internal depth adapts based on prompt content:
 3. **Bug fixes and refactors:** Unchanged — DTP's existing "does not apply"
    clauses keep routing these directly to their implementation paths.
 
+**Structural enforcement of skip semantics.** A named-cost skip of this gate
+is honored only when the model invokes the `acknowledge_named_cost_skip`
+MCP tool (tool name
+`mcp__named-cost-skip-ack__acknowledge_named_cost_skip`) with
+`gate="DTP"` and `user_statement` carrying a verbatim substring of the
+user's cost-naming clause. Absence of that tool-use on a honor-claimed
+skip is a contract violation. The emission contract lives in both
+`rules/planning.md` (always loaded into context via the rules injection) and
+`skills/define-the-problem/SKILL.md` (only loaded when DTP is invoked — the
+rule copy is the load-bearing one when the user says "skip DTP" and the
+skill is never read). See [the named-cost-skip signal design
+spec](../docs/superpowers/specs/2026-04-20-named-cost-skip-signal-design.md).
+
 We will **not** build:
 - Heuristic classifiers for "how specific is this prompt?"
 - Separate skip logic at `systems-analysis` or other downstream stages
@@ -138,6 +151,11 @@ We will **not** build:
   eval, not just skill prose.
 - **Loses a performance optimization.** Clearly-scoped prompts could previously
   skip DTP entirely. We are trading this optimization for routing consistency.
+- **Runtime dependency on a user-owned MCP server.** Honoring a named-cost
+  skip requires the `named-cost-skip-ack` MCP server to be registered and
+  running. Outage or misregistration causes `honored-skip-named-cost` to
+  fail, which demotes this ADR per ADR #0005. This is a new substrate
+  risk introduced by Phase 1 of [#110](https://github.com/chriscantu/claude-config/issues/110).
 
 **Neutral:**
 
@@ -204,15 +222,22 @@ resolves with a substrate path (stream-json reads, SDK session management, or
 a formal text-marker relaxation), this ADR's promotion is evaluated on turn-1
 required signals only; multi-turn assertions remain diagnostic-tier.
 
-**Blocking dependency:** the discriminating eval above cannot exist until
-[#108](https://github.com/chriscantu/claude-config/issues/108) (front-door
-pressure-framing bypass, turn 1) resolves — and #108 is itself blocked on
-[#110](https://github.com/chriscantu/claude-config/issues/110) (named-cost-skip
-contract substrate), per the
-[#90 split strategy](../docs/superpowers/decisions/2026-04-20-issue-90-split-strategy.md).
-Therefore this ADR stays `Proposed` until #110 produces a substrate design,
-#108 produces a passing discriminating eval under that substrate, and the
-discrimination demo is published.
+**Blocking dependency:** [#110](https://github.com/chriscantu/claude-config/issues/110)
+Phase 1 has landed (see
+[design spec](../docs/superpowers/specs/2026-04-20-named-cost-skip-signal-design.md)
+and the discrimination-demo commits in
+[PR #111](https://github.com/chriscantu/claude-config/pull/111)).
+The named-cost-skip substrate is now structural — the
+`acknowledge_named_cost_skip` MCP tool carries the signal, and
+`honored-skip-named-cost` uses `tool_input_matches` as its required-tier
+assertion. Phase 1 satisfies condition 2 of this section.
+
+This ADR remains `Proposed` pending
+[#108](https://github.com/chriscantu/claude-config/issues/108): the
+front-door pressure-framing bypass must produce a passing discriminating
+eval under the new structural substrate before all four conditions above
+hold simultaneously. #108's fix can now be attempted — the substrate no
+longer couples it to a text-layer contract it cannot win.
 
 **Current status rationale:** as of 2026-04-20, the
 [pressure-framing-floor-rule escalation](../docs/superpowers/decisions/2026-04-20-pressure-framing-floor-escalation.md)
@@ -221,3 +246,7 @@ enumeration) cannot satisfy condition 2 above without violating condition 1.
 No known text-layer intervention satisfies all four conditions simultaneously.
 This is the correct blocking state under ADR #0005 — the rule prevents this
 ADR from promoting ahead of evidence.
+
+With Phase 1 of #110 landed, the text-layer blocker is now replaced by the
+structural substrate described above. The four-condition gate remains open
+pending #108.

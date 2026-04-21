@@ -24,7 +24,7 @@
  */
 
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -76,7 +76,33 @@ interface ChainRun {
 }
 
 const TURN_TIMEOUT_MS = 5 * 60 * 1000;
-const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions"] as const;
+
+/**
+ * MCP config for the named-cost-skip-ack server.
+ *
+ * Passed via --mcp-config on every turn. Stdio MCP servers registered in
+ * `~/.claude.json` are not connected by `--print` sessions (they sit at
+ * `"status": "pending"`), so the runner must pass the config explicitly.
+ *
+ * Why this matters for correctness: if the MCP server fails to start (missing
+ * file, `bun` not on PATH, syntax error in the server), Claude exits 0 with
+ * the tool simply unavailable — and every `not_regex` / `not_skill_invoked`
+ * assertion in the suite trivially passes against empty signals. A pre-flight
+ * check at runner startup (see `main`) catches these before spawning any
+ * eval turn.
+ */
+const NAMED_COST_SKIP_MCP_SERVER_PATH = join(repoDir, "mcp-servers", "named-cost-skip-ack.ts");
+const NAMED_COST_SKIP_MCP_CONFIG = JSON.stringify({
+  mcpServers: {
+    "named-cost-skip-ack": {
+      type: "stdio",
+      command: "bun",
+      args: [NAMED_COST_SKIP_MCP_SERVER_PATH],
+    },
+  },
+});
+
+const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions", "--mcp-config", NAMED_COST_SKIP_MCP_CONFIG] as const;
 
 /**
  * Spawn `claude` with the given args, classify the exit reason, and return a
@@ -413,6 +439,27 @@ async function main() {
     const probe = spawnSync(claudeBin, ["--version"], { encoding: "utf8" });
     if (probe.status !== 0) {
       console.error(red(`Error: '${claudeBin}' not runnable. Set CLAUDE_BIN or use --dry-run.`));
+      process.exit(1);
+    }
+
+    // MCP pre-flight: every eval turn is spawned with --mcp-config pointing at
+    // the named-cost-skip-ack server. If the server file is missing or `bun`
+    // is not on PATH, Claude still exits 0 — the tool is just silently
+    // unavailable — and every negative assertion in the suite trivially
+    // passes. Catch that here, before any turn burns wall-clock time.
+    if (!existsSync(NAMED_COST_SKIP_MCP_SERVER_PATH)) {
+      console.error(
+        red(`Error: MCP server not found at ${NAMED_COST_SKIP_MCP_SERVER_PATH}. `) +
+          "Every --mcp-config eval turn would run with the named-cost-skip tool silently unavailable.",
+      );
+      process.exit(1);
+    }
+    const bunProbe = spawnSync("bun", ["--version"], { encoding: "utf8" });
+    if (bunProbe.status !== 0) {
+      console.error(
+        red("Error: 'bun' not runnable on PATH. ") +
+          "--mcp-config spawns `bun` to run the named-cost-skip MCP server; without it the tool is silently unavailable.",
+      );
       process.exit(1);
     }
   }

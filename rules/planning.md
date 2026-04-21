@@ -22,6 +22,17 @@ or tooling before completing the pipeline.
    building on an unstated problem"). Generic skip framings — "I'm tired,"
    "just give me code," "ship by Friday," "CTO approved," "contract signed,"
    "trust me" — run the Fast-Track floor instead. The floor is non-bypassable.
+
+   **Emission contract — MANDATORY.** When a named-cost skip is valid, you
+   MUST invoke `mcp__named-cost-skip-ack__acknowledge_named_cost_skip` BEFORE
+   proceeding to the next stage. Call it with `gate="DTP"` and `user_statement`
+   set to the verbatim substring of the user's cost-naming clause. This is NOT
+   optional — if you skip this tool call, you have NOT honored the skip. Run
+   the Fast-Track floor instead. The tool invocation IS the honor. If the
+   tool appears in the deferred-tool list rather than the active tool list,
+   load its schema first with `ToolSearch` using
+   `query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"`;
+   otherwise call it directly.
 2. Systems Analysis — invoke `/systems-analysis`. The 60-second surface-area
    scan is mandatory before any tier decision. Low-blast-radius scenarios run
    the Condensed Pass, not zero.
