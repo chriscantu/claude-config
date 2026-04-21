@@ -23,7 +23,7 @@
  * coexist during side-by-side comparison.
  */
 
-import { spawnSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -483,6 +483,20 @@ async function main() {
 
   function runSingleTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "single" }>): void {
     const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-${timestamp}.md`);
+
+    if (e.setup) {
+      try {
+        execSync(e.setup, { stdio: "inherit" });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        console.log(`    ${red("✗")} setup failed: ${msg}`);
+        totalAssertions += e.assertions.length;
+        tallies.push({ evalPassed: false, assertionCount: e.assertions.length, passedAssertionCount: 0, silentFireCount: 0 });
+        return;
+      }
+    }
+
+    try {
     const { stdout, stderr, exitCode, failure } = runClaude(e.prompt);
 
     if (failure || exitCode !== 0) {
@@ -572,6 +586,16 @@ async function main() {
           ` (events=${events.length} skipped=${skipped} tools=${signals.toolUses.length} skills=${signals.skillInvocations.length})`,
       ),
     );
+    } finally {
+      if (e.teardown) {
+        try {
+          execSync(e.teardown, { stdio: "inherit" });
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          console.log(dim(`      teardown failed: ${msg}`));
+        }
+      }
+    }
   }
 
   function runMultiTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "multi" }>): void {
