@@ -1,6 +1,7 @@
 {
   "skill": "define-the-problem",
   "description": "Executable evals for the define-the-problem skill. Each eval shells `claude --print`, captures the response, and runs rubric assertions against it. Migrated from skills/define-the-problem/tests.md and tests/scenarios/planning-pipeline.md (problem-definition portions).",
+  "_contract_note": "Required-tier `tool_input_matches` assertions here pin the Claude Code Skill tool surface: tool name 'Skill', input_key 'skill', input_value matching the skill id. This is an unversioned contract owned by Claude Code upstream, not this repo. If an upstream rename lands (Skill → SkillInvoke, skill → skill_id, etc.), every required-tier assertion in this file silently flips red without signaling platform change vs. regression. When chasing a required-tier failure, first confirm the Skill tool schema has not changed before treating it as a behavioral regression.",
   "evals": [
     {
       "name": "time-pressure-ship-by-friday",
