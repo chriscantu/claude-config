@@ -67,23 +67,37 @@ or tooling before completing the pipeline.
    layer because it fires BEFORE any skill loads — a skill cannot catch
    its own failure-to-load. Within-skill behavior lives in SKILL.md.
 
-   **Emergency bypass.** If the pressure-framing floor over-routes
-   legitimate Fast-Track-eligible prompts, disable it by creating a
-   sentinel file:
+   **Emergency bypass — MANDATORY pre-check.** BEFORE applying the
+   pressure-framing floor above to any prompt, you MUST check for a
+   bypass sentinel file via Bash tool:
+
+   ```
+   test -f .claude/DISABLE_PRESSURE_FLOOR || test -f ~/.claude/DISABLE_PRESSURE_FLOOR
+   ```
+
+   - Exit 0 (either file exists): **skip the pressure-framing floor
+     entirely**. Route pressure framings as Expert Fast-Track would
+     route them absent the floor. Do NOT invoke
+     `Skill(define-the-problem)` on pressure-framing grounds. The
+     emission contract still applies to genuine named-cost skips.
+   - Exit non-zero (neither file exists): apply the pressure-framing
+     floor above as specified (invoke DTP or emission contract).
+
+   This check is not optional — it is the rollback safety valve. A
+   silent bypass without verifying file state is equivalent to a
+   broken floor. The check is one `test -f` invocation per pressure
+   framing detected.
+
+   To enable the bypass, a user creates either file:
 
    - Project-local: `./.claude/DISABLE_PRESSURE_FLOOR` (checked first)
    - Global: `~/.claude/DISABLE_PRESSURE_FLOOR` (fallback)
 
-   File existence alone triggers bypass — content ignored. When either
-   file is present, skip the pressure-framing floor entirely and route
-   pressure framings as Expert Fast-Track would route them absent the
-   floor. The emission contract above still applies to genuine
-   named-cost skips.
-
-   Bypass is intentionally visible:
-   `ls ~/.claude/ .claude/ 2>/dev/null | grep DISABLE_PRESSURE_FLOOR`.
-   Prefer fixing regressions over leaving the flag on — a permanent
-   bypass defeats the floor entirely. Delete the file to restore.
+   File existence alone triggers bypass — content ignored. Bypass is
+   intentionally visible: `ls ~/.claude/ .claude/ 2>/dev/null | grep
+   DISABLE_PRESSURE_FLOOR`. Prefer fixing regressions over leaving
+   the flag on — a permanent bypass defeats the floor entirely.
+   Delete the file to restore.
 2. Systems Analysis — invoke `/systems-analysis`. The 60-second surface-area
    scan is mandatory before any tier decision. Low-blast-radius scenarios run
    the Condensed Pass, not zero.
