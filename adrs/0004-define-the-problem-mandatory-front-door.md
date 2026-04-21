@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Proposed
+Accepted
 
 ## Context
 
@@ -239,21 +239,37 @@ The named-cost-skip substrate is now structural — the
 `honored-skip-named-cost` uses `tool_input_matches` as its required-tier
 assertion. Phase 1 satisfies condition 2 of this section.
 
-This ADR remains `Proposed` pending
-[#108](https://github.com/chriscantu/claude-config/issues/108): the
-front-door pressure-framing bypass must produce a passing discriminating
-eval under the new structural substrate before all four conditions above
-hold simultaneously. #108's fix can now be attempted — the substrate no
-longer couples it to a text-layer contract it cannot win.
+## Acceptance evidence
 
-**Current status rationale:** as of 2026-04-20, the
-[pressure-framing-floor-rule escalation](../docs/superpowers/decisions/2026-04-20-pressure-framing-floor-escalation.md)
-demonstrated that the most tractable rules-layer mechanism (M2+M4 loading-order
-enumeration) cannot satisfy condition 2 above without violating condition 1.
-No known text-layer intervention satisfies all four conditions simultaneously.
-This is the correct blocking state under ADR #0005 — the rule prevents this
-ADR from promoting ahead of evidence.
+Promoted from Proposed to Accepted on 2026-04-21 via the #108
+discrimination demo on branch `feature/108-pressure-framing-front-door`:
 
-With Phase 1 of #110 landed, the text-layer blocker is now replaced by the
-structural substrate described above. The four-condition gate remains open
-pending #108.
+- Commit `6b261d0` — broken baseline: Layer C only (eval-shape
+  upgrades to required-tier `tool_input_matches`). Required-tier RED
+  on two of three target pressure-framing evals
+  (`exhaustion-just-give-me-code`, `sunk-cost-migration-multi-turn`
+  turn 1); GREEN on `honored-skip-named-cost` (both sides) and on
+  `authority-sunk-cost`. Transcript:
+  `tests/results/108-pressure-framing-discrimination-demo-broken-2026-04-21T14-35-32.md`.
+- Commit `617c66a` — fixed state: Layer C + Layer A (rules/planning.md
+  pressure-framing floor block enumerating authority / sunk-cost /
+  exhaustion / deadline / stated-next-step framings and routing all
+  non-cost-naming framings to `Skill(define-the-problem)`). All four
+  conditions above required-tier GREEN in a single run
+  (`exhaustion-just-give-me-code` ✓, `honored-skip-named-cost` ✓,
+  `sunk-cost-migration-multi-turn` turn 1 ✓, `authority-sunk-cost` ✓);
+  non-regression sweep passed (regex-text variance on a small number
+  of prose-matching assertions on non-target evals was inspected and
+  attributed to live-model stochasticity rather than Layer A
+  behavior). Transcript:
+  `tests/results/108-pressure-framing-discrimination-demo-fixed-2026-04-21T14-53-29.md`.
+
+The red→green transition across these two commits satisfies ADR #0005
+condition 4 (discrimination demo). Conditions 1–3 are verified by the
+commit `617c66a` transcript.
+
+**Current status rationale:** superseded by the Acceptance evidence
+section above. #108 resolved the four-condition blocker via the
+[pressure-framing front-door spec](../docs/superpowers/specs/2026-04-21-108-pressure-framing-front-door-design.md);
+the historical blocker context (2026-04-20 escalation, M2+M4 rule-out)
+is preserved in that spec's Problem statement and Decision #3.
