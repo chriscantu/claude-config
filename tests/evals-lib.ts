@@ -523,7 +523,7 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
         (tu) =>
           tu.name === assertion.tool &&
           typeof tu.input[assertion.input_key] === "string" &&
-          tu.input[assertion.input_key] === assertion.input_value,
+          (tu.input[assertion.input_key] as string).includes(assertion.input_value),
       );
       if (matched) return pass();
       const seen = signals.toolUses

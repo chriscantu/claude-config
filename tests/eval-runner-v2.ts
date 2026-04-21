@@ -76,7 +76,23 @@ interface ChainRun {
 }
 
 const TURN_TIMEOUT_MS = 5 * 60 * 1000;
-const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions"] as const;
+
+/**
+ * MCP config for the named-cost-skip-ack server.
+ * Passed via --mcp-config so the tool is available as a deferred tool in
+ * --print sessions (stdio MCP servers require explicit config in batch mode).
+ */
+const NAMED_COST_SKIP_MCP_CONFIG = JSON.stringify({
+  mcpServers: {
+    "named-cost-skip-ack": {
+      type: "stdio",
+      command: "bun",
+      args: [join(repoDir, "mcp-servers", "named-cost-skip-ack.ts")],
+    },
+  },
+});
+
+const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions", "--mcp-config", NAMED_COST_SKIP_MCP_CONFIG] as const;
 
 /**
  * Spawn `claude` with the given args, classify the exit reason, and return a
