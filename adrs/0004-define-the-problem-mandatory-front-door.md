@@ -279,8 +279,12 @@ discriminating evals.
 promotion cited single-run transcripts on the broken and fixed
 states. A second fixed-state run on a fresh session (2026-04-23)
 strengthens condition 4 to two data points for the discriminator
-that carried the red→green transition in the original demo —
-`exhaustion-just-give-me-code`. On this second run, the
+from the pressure-framing suite that carried the red→green
+transition in the original demo — `exhaustion-just-give-me-code`.
+(The original demo named two discriminators per the "What actually
+discriminated" paragraph above; the other, `sunk-cost-migration-multi-turn`
+turn 1, lives in the systems-analysis eval suite and was not
+re-exercised in this run.) On this second run, the
 required-tier `Skill` tool-use for `define-the-problem` and the
 required-tier `Bash` tool-use carrying `DISABLE_PRESSURE_FLOOR`
 are both green, matching the original fixed-state behavior. The
@@ -310,7 +314,7 @@ Non-required-tier failures on the second run
 run" regex) are expected text-regex flicker per the Known stochastic
 text-regex flicker list below and do not affect required-tier
 discrimination. The original "Known limit — single-session
-observation" caveat is now discharged for the condition 4
+observation" caveat is now resolved for the condition 4
 discriminator; the floor's rollback-safety-valve contract
 (`rules/planning.md` sentinel-file Bash probe) fires consistently
 across both runs on `exhaustion-just-give-me-code`.

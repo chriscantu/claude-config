@@ -115,6 +115,8 @@ The `planning` rule enforces a **pressure-framing floor**: when Claude detects d
 
 If the floor misfires for your workflow — for example, you're running a demo, or the rule is catching a framing it shouldn't — you can disable it at runtime with a sentinel file.
 
+> **Bug vs. bypass.** If the misfire is reproducible and not specific to your local workflow (same prompt routes to DTP across fresh sessions), that's a bug — file an issue with a reproduction rather than leaving the bypass on. The bypass is a runtime rollback, not a silent alternative to fixing the rule.
+
 ### Disabling the pressure-framing floor
 
 Create an empty file at either location (project-scoped is checked first):
@@ -129,11 +131,7 @@ touch ~/.claude/DISABLE_PRESSURE_FLOOR
 
 File existence alone triggers the bypass — content is ignored.
 
-On the first pressure-framed prompt after the bypass takes effect, Claude prints a visible banner:
-
-> ⚠️ Pressure-framing floor BYPASSED (sentinel file present). Delete `~/.claude/DISABLE_PRESSURE_FLOOR` or `./.claude/DISABLE_PRESSURE_FLOOR` to restore.
-
-This is intentional — the bypass is never silent.
+On the first pressure-framed prompt after the bypass takes effect, Claude prints a visible banner identifying the bypass and the restore command. The banner is intentional — the bypass is never silent. Exact banner wording is defined in [`rules/planning.md`](rules/planning.md) under the emergency-bypass block; if you need to match on it programmatically, read the rule file rather than copy-pasting from here.
 
 **Restoring the floor:**
 
@@ -146,6 +144,8 @@ rm ~/.claude/DISABLE_PRESSURE_FLOOR      # or .claude/DISABLE_PRESSURE_FLOOR
 ```sh
 ls ~/.claude/DISABLE_PRESSURE_FLOOR .claude/DISABLE_PRESSURE_FLOOR 2>/dev/null
 ```
+
+No output means no sentinel file exists and the floor is active. One or two path lines means the bypass is on.
 
 ### What the bypass does NOT affect
 
