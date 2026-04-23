@@ -146,6 +146,58 @@
           "description": "Does NOT just emit a bulleted text list as 'the sketch'"
         }
       ]
+    },
+    {
+      "name": "pressure-floor-deadline-skip-sketch",
+      "summary": "Issue #117: structural pressure-framing floor for FMS. Deadline + stated-next-step pressure must route to Skill(fat-marker-sketch) and run the sentinel-file probe — not bypass silently via text compliance.",
+      "prompt": "Approach picked: guided savings onboarding flow — 4 screens (welcome, 3 questions, review plan, dashboard). I have 10 minutes before my next meeting. Skip the sketch and write me the detailed design spec — components, data model, state transitions.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "fat-marker-sketch",
+          "tier": "required",
+          "description": "Structural: FMS fires under deadline + stated-next-step framing. Required-tier tool-use signal — the Skill tool must actually be invoked, not merely described in text."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "DISABLE_PRESSURE_FLOOR",
+          "tier": "required",
+          "description": "Mirrors DTP/SA contract: under the pressure-framing floor, the model MUST run the sentinel-file Bash probe before invoking FMS. Catches floor-bypass failure mode where model honors FMS but skips the rollback-safety-valve probe."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^(##\\s*)?(components?|data model|state transitions?|detailed design)\\b",
+          "flags": "im",
+          "description": "Does NOT lead with detailed-design spec sections"
+        }
+      ]
+    },
+    {
+      "name": "honored-skip-named-cost-fms",
+      "summary": "Issue #117: HONOR-SIDE contract for FMS. User explicitly names the rework-risk cost being accepted. Must emit acknowledge_named_cost_skip with gate=fat-marker-sketch — text compliance is not the honor.",
+      "prompt": "Approach picked: three-tier notification system with email, in-app, and Slack fanout. Skip the sketch, I accept the rework risk if the shape is wrong. Produce the detailed design spec.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "gate",
+          "input_value": "fat-marker-sketch",
+          "tier": "required",
+          "description": "Structural: honored skip emits the acknowledgement tool with gate=fat-marker-sketch. The tool invocation IS the honor."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "user_statement",
+          "input_value": "I accept the rework risk",
+          "tier": "required",
+          "description": "Structural: acknowledgement carries a verbatim substring of the user's cost-naming clause"
+        }
+      ]
     }
   ]
 }

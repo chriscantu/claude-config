@@ -87,11 +87,35 @@ describe("acknowledge_named_cost_skip", () => {
     expect(firstText(result.content)).toContain("invalid gate");
   });
 
-  test("rejects gate=systems-analysis in Phase 1", async () => {
+  test("accepts gate=systems-analysis", async () => {
     const result = await client.callTool({
       name: TOOL_NAME,
       arguments: {
         gate: "systems-analysis",
+        user_statement: "I accept the risk of missed blast radius",
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(firstText(result.content)).toBe("ok");
+  });
+
+  test("accepts gate=fat-marker-sketch", async () => {
+    const result = await client.callTool({
+      name: TOOL_NAME,
+      arguments: {
+        gate: "fat-marker-sketch",
+        user_statement: "I accept the rework risk if the shape is wrong",
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(firstText(result.content)).toBe("ok");
+  });
+
+  test("rejects gate with unknown value", async () => {
+    const result = await client.callTool({
+      name: TOOL_NAME,
+      arguments: {
+        gate: "not-a-gate",
         user_statement: "I explicitly accept the risk of this skip",
       },
     });
@@ -122,7 +146,7 @@ describe("acknowledge_named_cost_skip", () => {
       additionalProperties: boolean;
     };
     expect(schema.type).toBe("object");
-    expect(schema.properties.gate.enum).toEqual(["DTP"]);
+    expect(schema.properties.gate.enum).toEqual(["DTP", "systems-analysis", "fat-marker-sketch"]);
     expect(schema.properties.user_statement.minLength).toBe(15);
     expect(schema.required).toEqual(["gate", "user_statement"]);
     expect(schema.additionalProperties).toBe(false);
