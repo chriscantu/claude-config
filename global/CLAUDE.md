@@ -54,13 +54,15 @@ Source: https://github.com/forrestchang/andrej-karpathy-skills — biases toward
 **Precedence on conflict.** User instructions > `rules/*.md` HARD-GATEs > Karpathy Coding Principles > general Communication Style / Verification rules above. The more specific rule wins.
 
 ### 1. Think Before Coding
-**Don't assume. Don't hide confusion. Surface tradeoffs.**
+**Don't assume. Don't hide confusion. Surface tradeoffs.** Promoted to a HARD-GATE rule — see `rules/think-before-coding.md` for the enforced version (three-part preamble: Assumptions / Interpretations / Simpler-Path Challenge; skip contract; pipeline placement).
+
+Quick reference:
 - State assumptions explicitly. If uncertain, ask.
 - If multiple interpretations exist, present them — don't pick silently.
 - If a simpler approach exists, say so. Push back when warranted.
 - If something is unclear, stop. Name what's confusing. Ask.
 
-> Extends `Communication Style` into the implementation phase.
+> Extends `Communication Style` into the implementation phase. Composes with `superpowers:brainstorming` — preamble sits at the top of the "Propose 2-3 approaches" step, not as a replacement for it.
 
 ### 2. Simplicity First
 **Minimum code that solves the problem. Nothing speculative.**
