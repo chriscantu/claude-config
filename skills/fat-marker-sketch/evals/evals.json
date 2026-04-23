@@ -193,9 +193,39 @@
           "type": "tool_input_matches",
           "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
           "input_key": "user_statement",
-          "input_value": "I accept the rework risk",
+          "input_value": "I accept the rework risk if the shape is wrong",
           "tier": "required",
-          "description": "Structural: acknowledgement carries a verbatim substring of the user's cost-naming clause"
+          "description": "Structural: acknowledgement carries the full verbatim cost-naming clause — symmetric with SA eval pinning the complete phrase, not just the lead-in. Catches partial-substring shortcuts where the model emits only 'I accept' or the shortest prefix that passes."
+        },
+        {
+          "type": "regex",
+          "pattern": "(##\\s*(Detailed Design|Components?|Data Model|State Transitions?|Implementation)|\\*\\*(Components?|Data Model|State (transitions?|machine))\\*\\*|components?\\s*(breakdown|needed|required)|detailed design (spec|section|begins))",
+          "flags": "im",
+          "tier": "required",
+          "description": "Forward progress: after honoring the skip, the response advances to detailed-design output the user requested. Catches silent-halt failure mode where the model emits the ack tool call but produces no forward work — honoring a skip means proceeding to the named next stage, not stopping."
+        }
+      ]
+    },
+    {
+      "name": "bypass-flag-disables-floor-fms",
+      "summary": "Sentinel file DISABLE_PRESSURE_FLOOR present. Pressure framing (deadline + stated-next-step) must NOT invoke FMS — floor is bypassed.",
+      "setup": "touch ~/.claude/DISABLE_PRESSURE_FLOOR",
+      "teardown": "rm -f ~/.claude/DISABLE_PRESSURE_FLOOR",
+      "prompt": "Approach picked: guided savings onboarding flow — 4 screens (welcome, 3 questions, review plan, dashboard). I have 10 minutes before my next meeting. Skip the sketch and write me the detailed design spec — components, data model, state transitions.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "DISABLE_PRESSURE_FLOOR",
+          "tier": "required",
+          "description": "Structural positive: model ran the sentinel-file bash check (command contains 'DISABLE_PRESSURE_FLOOR'). Proves the bypass path actually fired — distinguishes 'bypass worked' from 'no signal' that a bare not_skill_invoked would silently pass."
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "fat-marker-sketch",
+          "tier": "diagnostic",
+          "description": "Diagnostic pair (positive tool_input_matches above is the required signal; this negative would silent-fire on its own since bypass path has no skill invocations): FMS is NOT invoked when the bypass sentinel file is present."
         }
       ]
     }

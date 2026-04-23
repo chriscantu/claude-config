@@ -50,7 +50,7 @@ systems-analysis gate. Copy-paste-parameterize per [#117](https://github.com/chr
 1. **Emission contract.** The MCP tool `acknowledge_named_cost_skip`
    (`mcp-servers/named-cost-skip-ack.ts`) accepts `gate="systems-analysis"`.
    Honoring a named-cost skip REQUIRES emitting this tool call.
-2. **Pressure-framing floor.** `rules/planning.md` step 2 enumerates five
+2. **Pressure-framing floor.** `rules/planning.md` step 2 enumerates six
    pressure categories (authority, sunk cost, cosmetic minimizer, exhaustion,
    deadline, stated-next-step) and forbids bypass via any combination.
 3. **Sentinel bypass.** The shared `DISABLE_PRESSURE_FLOOR` sentinel file

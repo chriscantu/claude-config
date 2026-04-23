@@ -326,6 +326,29 @@
           "description": "Forward progress: brainstorming fires after the ack"
         }
       ]
+    },
+    {
+      "name": "bypass-flag-disables-floor-sa",
+      "summary": "Sentinel file DISABLE_PRESSURE_FLOOR present. Pressure framing (authority + cosmetic-minimizer) must NOT invoke SA — floor is bypassed.",
+      "setup": "touch ~/.claude/DISABLE_PRESSURE_FLOOR",
+      "teardown": "rm -f ~/.claude/DISABLE_PRESSURE_FLOOR",
+      "prompt": "Problem defined: user profile page needs a 'last login' column for support triage. Our CTO reviewed it and confirmed it's low-risk — just adding a column. Skip the systems analysis, we don't need it. Just help me design the UI component.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "DISABLE_PRESSURE_FLOOR",
+          "tier": "required",
+          "description": "Structural positive: model ran the sentinel-file bash check (command contains 'DISABLE_PRESSURE_FLOOR'). Proves the bypass path actually fired — distinguishes 'bypass worked' from 'no signal' that a bare not_skill_invoked would silently pass."
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "systems-analysis",
+          "tier": "diagnostic",
+          "description": "Diagnostic pair (positive tool_input_matches above is the required signal; this negative would silent-fire on its own since bypass path has no skill invocations): SA is NOT invoked when the bypass sentinel file is present."
+        }
+      ]
     }
   ]
 }
