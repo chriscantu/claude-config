@@ -275,14 +275,35 @@ retained in the Acceptance record as a non-regression witness.
 Condition 4 (discrimination demo) is satisfied by the two
 discriminating evals.
 
-**Known limit — single-session observation.** The broken and fixed
-transcripts are each one run. Two evals passing once is not equivalent
-to one eval passing twice; a second fixed-state run on a fresh session
-would strengthen condition 4 to two-data-point discrimination. This
-limit is acknowledged rather than mitigated; if the rules-layer floor
-regresses on a future session and the two discriminating evals flake,
-the demo would not independently reproduce. A follow-up rerun is
-tracked as a post-merge improvement, not a promotion blocker.
+**Two-data-point strengthening (added 2026-04-23).** The original
+promotion cited single-run transcripts on the broken and fixed
+states. A second fixed-state run on a fresh session (2026-04-23)
+confirms two-data-point discrimination on all four required-tier
+pressure-framing evals — `time-pressure-ship-by-friday`,
+`authority-sunk-cost`, `exhaustion-just-give-me-code`, and
+`honored-skip-named-cost`. Every required-tier structural assertion
+(the `Skill` tool-use for `define-the-problem`, the Bash tool-use
+carrying `DISABLE_PRESSURE_FLOOR` on the three pressure-framing
+evals, and the `acknowledge_named_cost_skip` MCP tool-use on the
+honor-side contract) is green on both runs.
+
+Second-run transcripts:
+
+- `tests/results/define-the-problem-time-pressure-ship-by-friday-v2-2026-04-23T19-08-18.md`
+- `tests/results/define-the-problem-authority-sunk-cost-v2-2026-04-23T19-08-18.md`
+- `tests/results/define-the-problem-exhaustion-just-give-me-code-v2-2026-04-23T19-08-18.md`
+- `tests/results/define-the-problem-honored-skip-named-cost-v2-2026-04-23T19-08-18.md`
+
+Non-required-tier failures on the second run
+(`exhaustion-just-give-me-code` "offers defaults" text-regex;
+`honored-skip-named-cost` diagnostic "five-question sequence did not
+run" regex) are expected text-regex flicker per the Known stochastic
+text-regex flicker list below and do not affect required-tier
+discrimination. The original "Known limit — single-session
+observation" caveat is now discharged for required-tier signals; the
+floor's rollback-safety-valve contract (`rules/planning.md`
+sentinel-file Bash probe) fires consistently across both runs on all
+three pressure-framing variants.
 
 **Lazy-check contract — end-to-end proof (added #114).** The
 sentinel-file fast-path (see Rollback procedure below) depends on
