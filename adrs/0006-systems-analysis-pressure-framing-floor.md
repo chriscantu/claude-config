@@ -101,6 +101,27 @@ promotion to `Accepted` requires the four-condition discrimination demo:
 
 Until all four land, this ADR stays Proposed.
 
+### Blocker ([#126](https://github.com/chriscantu/claude-config/issues/126))
+
+A RED experiment (commit dropped, not merged) showed the three new SA evals
+**do not discriminate step 2 in isolation**. Gutting `rules/planning.md` step 2
+(emission contract, pressure-framing floor, sentinel check) while leaving step 1
+(DTP) intact produced **11/11 evals pass, 38/40 assertions pass** — the
+required-tier structural signals all fired via DTP-pipeline subsumption:
+
+- `Skill(systems-analysis)` fires through DTP → SA pipeline progression
+- Bash `DISABLE_PRESSURE_FLOOR` probe fires from DTP's step 1 sentinel block
+- `acknowledge_named_cost_skip` with `gate="systems-analysis"` fires via model
+  generalization of DTP's emission contract (transcript shows the model picked
+  `gate="systems-analysis"` from the user's literal "skip the systems analysis"
+  target, independent of which floor block authored the contract)
+
+Condition (2) cannot be demonstrated until the evals isolate step 2 from step 1.
+Candidate resolutions (multi-turn re-author, SA-specific MCP gate, defense-in-depth
+reframe, SA-only failure-mode audit) are enumerated in
+[#126](https://github.com/chriscantu/claude-config/issues/126). This ADR stays
+`Proposed` until the blocker resolves.
+
 ## References
 
 - [ADR #0004](./0004-define-the-problem-mandatory-front-door.md) — pattern origin
