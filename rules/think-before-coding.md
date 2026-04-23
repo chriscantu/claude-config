@@ -99,6 +99,23 @@ trust you," "you know what I want," "ship it" — do NOT qualify.
 **Time pressure is not an override.** A rushed recommendation built on
 hidden assumptions is the most expensive to rework.
 
+### Emission contract — MANDATORY
+
+When a named-cost skip is valid (Expert Fast-Track condensed form OR
+explicit override), you MUST invoke
+`mcp__named-cost-skip-ack__acknowledge_named_cost_skip` BEFORE proceeding
+to the recommendation. Call it with `gate="think-before-coding"` and
+`user_statement` set to the verbatim substring of the user's cost-naming
+clause (or, for Fast-Track, the verbatim substring that established
+problem + stakes + chosen approach in-thread). This is NOT optional — if
+you skip this tool call, you have NOT honored the skip; produce the full
+preamble instead. The tool invocation IS the honor.
+
+If the tool appears in the deferred-tool list rather than the active
+tool list, load its schema first with `ToolSearch` using
+`query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"`;
+otherwise call it directly.
+
 ## Relationship to Other Rules
 
 - `planning.md` — DTP and Systems Analysis happen BEFORE this rule fires.
