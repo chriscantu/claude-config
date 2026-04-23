@@ -1,5 +1,6 @@
 default.profraw
 .vscode/
+.DS_Store
 excalidraw.log
 .claude/worktrees/
 tests/results/*
