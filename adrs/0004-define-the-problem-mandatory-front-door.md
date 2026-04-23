@@ -275,14 +275,49 @@ retained in the Acceptance record as a non-regression witness.
 Condition 4 (discrimination demo) is satisfied by the two
 discriminating evals.
 
-**Known limit — single-session observation.** The broken and fixed
-transcripts are each one run. Two evals passing once is not equivalent
-to one eval passing twice; a second fixed-state run on a fresh session
-would strengthen condition 4 to two-data-point discrimination. This
-limit is acknowledged rather than mitigated; if the rules-layer floor
-regresses on a future session and the two discriminating evals flake,
-the demo would not independently reproduce. A follow-up rerun is
-tracked as a post-merge improvement, not a promotion blocker.
+**Two-data-point strengthening (added 2026-04-23).** The original
+promotion cited single-run transcripts on the broken and fixed
+states. A second fixed-state run on a fresh session (2026-04-23)
+strengthens condition 4 to two data points for the discriminator
+from the pressure-framing suite that carried the red→green
+transition in the original demo — `exhaustion-just-give-me-code`.
+(The original demo named two discriminators per the "What actually
+discriminated" paragraph above; the other, `sunk-cost-migration-multi-turn`
+turn 1, lives in the systems-analysis eval suite and was not
+re-exercised in this run.) On this second run, the
+required-tier `Skill` tool-use for `define-the-problem` and the
+required-tier `Bash` tool-use carrying `DISABLE_PRESSURE_FLOOR`
+are both green, matching the original fixed-state behavior. The
+load-bearing transcript is preserved in-tree:
+
+- `tests/results/define-the-problem-exhaustion-just-give-me-code-v2-2026-04-23T19-08-18.md`
+
+Three other pressure-framing evals in the same run —
+`time-pressure-ship-by-friday`, `authority-sunk-cost`, and
+`honored-skip-named-cost` — were green→green across both runs
+(non-discriminators / non-regression witnesses) and are not
+preserved. Their green status on the second run is noted for
+completeness but does not carry discrimination weight:
+`time-pressure-ship-by-friday` is required-tier coverage added
+after the original demo (PR #119) and was not part of the condition
+4 discriminator set; `authority-sunk-cost` was already green on the
+broken baseline per the "What actually discriminated" paragraph
+above; `honored-skip-named-cost` is the condition 2 non-regression
+witness, not a discriminator. A single preserved transcript is
+the minimum viable evidence for two-data-point discrimination;
+the non-discriminators are intentionally not committed to keep
+the in-tree footprint minimal.
+
+Non-required-tier failures on the second run
+(`exhaustion-just-give-me-code` "offers defaults" text-regex;
+`honored-skip-named-cost` diagnostic "five-question sequence did not
+run" regex) are expected text-regex flicker per the Known stochastic
+text-regex flicker list below and do not affect required-tier
+discrimination. The original "Known limit — single-session
+observation" caveat is now resolved for the condition 4
+discriminator; the floor's rollback-safety-valve contract
+(`rules/planning.md` sentinel-file Bash probe) fires consistently
+across both runs on `exhaustion-just-give-me-code`.
 
 **Lazy-check contract — end-to-end proof (added #114).** The
 sentinel-file fast-path (see Rollback procedure below) depends on

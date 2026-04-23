@@ -11,6 +11,10 @@ tests/results/*
 # Keep the #108 pressure-framing discrimination-demo broken-baseline transcripts.
 !tests/results/108-pressure-framing-discrimination-demo-broken-*.md
 !tests/results/108-pressure-framing-discrimination-demo-fixed-*.md
+# Keep the ADR #0004 two-data-point strengthening transcript (second fixed-state run, 2026-04-23).
+# Only the load-bearing discriminator is preserved; the other three pressure-framing evals in
+# the same run were non-discriminators (green→green) and are cited by count in the ADR.
+!tests/results/define-the-problem-exhaustion-just-give-me-code-v2-2026-04-23T19-08-18.md
 node_modules/
 
 # Stakeholder-map / 1on1-prep offline writes — sensitive assessments, never commit.
