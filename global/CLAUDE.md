@@ -25,7 +25,7 @@
 
 ## Development Defaults
 - TypeScript is the default language unless the project dictates otherwise
-- TDD — pragmatic: tests accompany implementation, test-first for non-trivial logic
+- TDD — pragmatic: tests accompany implementation, test-first for non-trivial logic (`Coding Principles #4 — Goal-Driven Execution` produces the per-step verify criteria; `Verification (IMPORTANT)` enforces them at the end)
 - Follow industry best practice for package manager and runtime per project
 
 ## Verification (IMPORTANT)
@@ -34,9 +34,61 @@
 - If no test exists for changed behavior, write one
 - **PR Validation Gate** — Before declaring a PR ready for merge, execute every unchecked item in the PR description's test plan. Build and launch on each listed platform/simulator, take screenshots to verify, and only check off items that have been visually confirmed. If an item cannot be verified (e.g., requires a physical device or external service), flag it explicitly rather than silently skipping it.
 
+> **Related:** `Coding Principles #4 — Goal-Driven Execution` produces the per-step verify criteria; this section enforces them at the end. (One verb pair used throughout: #4 *produces*, Verification *enforces*.)
+
 ## Communication Style
 - Do NOT blindly agree — challenge assumptions and probe reasoning
 - Surface trade-offs explicitly: what are we gaining, what are we giving up?
 - Prefer root cause analysis over surface-level fixes
 - Back recommendations with data or evidence when possible
 - When I propose an approach, ask "why" before executing if the reasoning isn't clear
+
+> **Related:** `Coding Principles #1 — Think Before Coding` extends this section into implementation: surface multiple interpretations before picking, name confusion explicitly, push back when a simpler path exists. On overlap, the more specific rule wins.
+
+## Coding Principles (Karpathy Skills)
+
+Source: https://github.com/forrestchang/andrej-karpathy-skills — biases toward caution over speed. Use judgment on trivial tasks.
+
+**Scope.** Applies inside the tier chosen by `rules/planning.md` Scope Calibration — does not bypass DTP, Systems Analysis, or the Fat Marker Sketch gate. Karpathy governs *how* you write code once a tier is selected; planning rules govern *whether* you code yet.
+
+**Precedence on conflict.** User instructions > `rules/*.md` HARD-GATEs > Karpathy Coding Principles > general Communication Style / Verification rules above. The more specific rule wins.
+
+### 1. Think Before Coding
+**Don't assume. Don't hide confusion. Surface tradeoffs.** Promoted to a HARD-GATE rule — see `rules/think-before-coding.md` for the enforced version (three-part preamble: Assumptions / Interpretations / Simpler-Path Challenge; skip contract; pipeline placement).
+
+Quick reference:
+- State assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them — don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+> Extends `Communication Style` into the implementation phase. Composes with `superpowers:brainstorming` — preamble sits at the top of the "Propose 2-3 approaches" step, not as a replacement for it.
+
+### 2. Simplicity First
+**Minimum code that solves the problem. Nothing speculative.**
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If 200 lines could be 50, rewrite it.
+- Senior-engineer test: "Would they call this overcomplicated?" If yes, simplify.
+
+### 3. Surgical Changes
+**Touch only what you must. Clean up only your own mess.**
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- Mention unrelated dead code — don't delete it.
+- Remove imports/vars/functions YOUR changes orphaned. Leave pre-existing dead code unless asked.
+- Test: every changed line traces directly to the user's request.
+
+### 4. Goal-Driven Execution
+**Define success criteria. Loop until verified.** Promoted to a HARD-GATE rule — see `rules/goal-driven.md` for the enforced version (skip contract, required plan shape, loop semantics).
+
+Quick reference:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+- Multi-step work: brief plan, per-step verify check, no advancement until check passes.
+
+> Produces the per-step verify criteria referenced by `Verification (IMPORTANT)` and the TDD line in `Development Defaults`. `goal-driven.md` is the gate at the start (criteria defined); `Verification` is the gate at the finish (criteria enforced).
