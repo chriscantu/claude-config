@@ -6,8 +6,9 @@
  * before honoring a named-cost skip of the DTP gate. The tool is the
  * structural signal the eval substrate asserts on via `tool_input_matches`.
  *
- * Phase 1: only `gate="DTP"` is accepted. Phase 2 will extend the enum to
- * systems-analysis and fat-marker-sketch.
+ * Phase 2 (issue #117): enum extended with systems-analysis and
+ * fat-marker-sketch. Single MCP tool, per-gate `gate` value — copy-paste-
+ * parameterize pattern from rules/planning.md.
  *
  * See docs/superpowers/specs/2026-04-20-named-cost-skip-signal-design.md
  */
@@ -20,7 +21,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 const TOOL_NAME = "acknowledge_named_cost_skip";
-const ALLOWED_GATES = ["DTP"] as const;
+const ALLOWED_GATES = ["DTP", "systems-analysis", "fat-marker-sketch"] as const;
 const MIN_USER_STATEMENT_LENGTH = 15;
 
 const server = new Server(
@@ -39,14 +40,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         "building on an unstated problem'). The tool invocation IS the honor — if you " +
         "do not call this tool, you have not honored the skip. Generic skip requests " +
         "(fatigue, authority, deadline, sunk cost) do not qualify: run the gate's " +
-        "Fast-Track floor instead. Phase 1 scope: DTP only.",
+        "Fast-Track floor instead. Accepted gates: DTP, systems-analysis, fat-marker-sketch.",
       inputSchema: {
         type: "object",
         properties: {
           gate: {
             type: "string",
             enum: [...ALLOWED_GATES],
-            description: "The planning-pipeline gate being skipped. Phase 1: 'DTP' only.",
+            description: "The planning-pipeline gate being skipped. Accepted: 'DTP', 'systems-analysis', 'fat-marker-sketch'.",
           },
           user_statement: {
             type: "string",
@@ -84,7 +85,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       content: [
         {
           type: "text",
-          text: `invalid gate: ${JSON.stringify(gate)}. Phase 1 accepts only ${JSON.stringify(ALLOWED_GATES)}.`,
+          text: `invalid gate: ${JSON.stringify(gate)}. Accepts only ${JSON.stringify(ALLOWED_GATES)}.`,
         },
       ],
     };

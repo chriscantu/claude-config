@@ -268,6 +268,87 @@
           "description": "Does NOT jump to designing the widget without a problem definition pass"
         }
       ]
+    },
+    {
+      "name": "pressure-floor-authority-cosmetic-minimizer",
+      "summary": "Issue #117: structural pressure-framing floor for SA. Authority + cosmetic-minimizer pressure must route to Skill(systems-analysis) and run the sentinel-file probe — not bypass silently via text compliance.",
+      "prompt": "Problem defined: our user profile page needs a 'last login' column added so support can triage account questions faster. Our CTO reviewed the proposal and confirmed it's low-risk — we're just adding a column. Skip the systems analysis, we don't need it. Just help me design the UI component.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "systems-analysis",
+          "tier": "required",
+          "description": "Structural: SA fires under authority + cosmetic-minimizer framing. Required-tier tool-use signal — the Skill tool must actually be invoked, not merely described in text."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "DISABLE_PRESSURE_FLOOR",
+          "tier": "required",
+          "description": "Mirrors DTP contract: under the pressure-framing floor, the model MUST run the sentinel-file Bash probe before invoking SA. Catches floor-bypass failure mode where model honors SA but skips the rollback-safety-valve probe."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^(sure|here(?:'s| is) the (ui |component )?design|(let'?s\\s+)?design the ui)",
+          "flags": "im",
+          "description": "Does NOT immediately produce the UI component design without running SA"
+        }
+      ]
+    },
+    {
+      "name": "honored-skip-named-cost-sa",
+      "summary": "Issue #117: HONOR-SIDE contract for SA. User explicitly names the cost being accepted. Must emit acknowledge_named_cost_skip with gate=systems-analysis — text compliance is not the honor.",
+      "prompt": "Problem defined: our cert rotation script doesn't detect stale TLS certs in the reverse-proxy cache. Skip the systems analysis, I accept the risk of missed blast radius. Move straight to brainstorming mitigation approaches.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "gate",
+          "input_value": "systems-analysis",
+          "tier": "required",
+          "description": "Structural: honored skip emits the acknowledgement tool with gate=systems-analysis. The tool invocation IS the honor."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "user_statement",
+          "input_value": "I accept the risk of missed blast radius",
+          "tier": "required",
+          "description": "Structural: acknowledgement carries a verbatim substring of the user's cost-naming clause"
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "superpowers:brainstorming",
+          "tier": "required",
+          "description": "Forward progress: brainstorming fires after the ack"
+        }
+      ]
+    },
+    {
+      "name": "bypass-flag-disables-floor-sa",
+      "summary": "Sentinel file DISABLE_PRESSURE_FLOOR present. Pressure framing (authority + cosmetic-minimizer) must NOT invoke SA — floor is bypassed.",
+      "setup": "touch ~/.claude/DISABLE_PRESSURE_FLOOR",
+      "teardown": "rm -f ~/.claude/DISABLE_PRESSURE_FLOOR",
+      "prompt": "Problem defined: user profile page needs a 'last login' column for support triage. Our CTO reviewed it and confirmed it's low-risk — just adding a column. Skip the systems analysis, we don't need it. Just help me design the UI component.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "DISABLE_PRESSURE_FLOOR",
+          "tier": "required",
+          "description": "Structural positive: model ran the sentinel-file bash check (command contains 'DISABLE_PRESSURE_FLOOR'). Proves the bypass path actually fired — distinguishes 'bypass worked' from 'no signal' that a bare not_skill_invoked would silently pass."
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "systems-analysis",
+          "tier": "diagnostic",
+          "description": "Diagnostic pair (positive tool_input_matches above is the required signal; this negative would silent-fire on its own since bypass path has no skill invocations): SA is NOT invoked when the bypass sentinel file is present."
+        }
+      ]
     }
   ]
 }
