@@ -13,8 +13,7 @@ results/*
 # #108 pressure-framing discrimination-demo broken-baseline transcripts.
 !results/108-pressure-framing-discrimination-demo-broken-*.md
 !results/108-pressure-framing-discrimination-demo-fixed-*.md
-# ADR #0004 two-data-point strengthening transcripts (second fixed-state run, 2026-04-23).
-!results/define-the-problem-time-pressure-ship-by-friday-v2-2026-04-23T19-08-18.md
-!results/define-the-problem-authority-sunk-cost-v2-2026-04-23T19-08-18.md
+# ADR #0004 two-data-point strengthening transcript (second fixed-state run, 2026-04-23).
+# Only the load-bearing discriminator is preserved; the other three pressure-framing evals in
+# the same run were non-discriminators (green→green) and are cited by count in the ADR.
 !results/define-the-problem-exhaustion-just-give-me-code-v2-2026-04-23T19-08-18.md
-!results/define-the-problem-honored-skip-named-cost-v2-2026-04-23T19-08-18.md

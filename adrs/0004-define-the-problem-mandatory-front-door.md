@@ -278,21 +278,31 @@ discriminating evals.
 **Two-data-point strengthening (added 2026-04-23).** The original
 promotion cited single-run transcripts on the broken and fixed
 states. A second fixed-state run on a fresh session (2026-04-23)
-confirms two-data-point discrimination on all four required-tier
-pressure-framing evals — `time-pressure-ship-by-friday`,
-`authority-sunk-cost`, `exhaustion-just-give-me-code`, and
-`honored-skip-named-cost`. Every required-tier structural assertion
-(the `Skill` tool-use for `define-the-problem`, the Bash tool-use
-carrying `DISABLE_PRESSURE_FLOOR` on the three pressure-framing
-evals, and the `acknowledge_named_cost_skip` MCP tool-use on the
-honor-side contract) is green on both runs.
+strengthens condition 4 to two data points for the discriminator
+that carried the red→green transition in the original demo —
+`exhaustion-just-give-me-code`. On this second run, the
+required-tier `Skill` tool-use for `define-the-problem` and the
+required-tier `Bash` tool-use carrying `DISABLE_PRESSURE_FLOOR`
+are both green, matching the original fixed-state behavior. The
+load-bearing transcript is preserved in-tree:
 
-Second-run transcripts:
-
-- `tests/results/define-the-problem-time-pressure-ship-by-friday-v2-2026-04-23T19-08-18.md`
-- `tests/results/define-the-problem-authority-sunk-cost-v2-2026-04-23T19-08-18.md`
 - `tests/results/define-the-problem-exhaustion-just-give-me-code-v2-2026-04-23T19-08-18.md`
-- `tests/results/define-the-problem-honored-skip-named-cost-v2-2026-04-23T19-08-18.md`
+
+Three other pressure-framing evals in the same run —
+`time-pressure-ship-by-friday`, `authority-sunk-cost`, and
+`honored-skip-named-cost` — were green→green across both runs
+(non-discriminators / non-regression witnesses) and are not
+preserved. Their green status on the second run is noted for
+completeness but does not carry discrimination weight:
+`time-pressure-ship-by-friday` is required-tier coverage added
+after the original demo (PR #119) and was not part of the condition
+4 discriminator set; `authority-sunk-cost` was already green on the
+broken baseline per the "What actually discriminated" paragraph
+above; `honored-skip-named-cost` is the condition 2 non-regression
+witness, not a discriminator. A single preserved transcript is
+the minimum viable evidence for two-data-point discrimination;
+the non-discriminators are intentionally not committed to keep
+the in-tree footprint minimal.
 
 Non-required-tier failures on the second run
 (`exhaustion-just-give-me-code` "offers defaults" text-regex;
@@ -300,10 +310,10 @@ Non-required-tier failures on the second run
 run" regex) are expected text-regex flicker per the Known stochastic
 text-regex flicker list below and do not affect required-tier
 discrimination. The original "Known limit — single-session
-observation" caveat is now discharged for required-tier signals; the
-floor's rollback-safety-valve contract (`rules/planning.md`
-sentinel-file Bash probe) fires consistently across both runs on all
-three pressure-framing variants.
+observation" caveat is now discharged for the condition 4
+discriminator; the floor's rollback-safety-valve contract
+(`rules/planning.md` sentinel-file Bash probe) fires consistently
+across both runs on `exhaustion-just-give-me-code`.
 
 **Lazy-check contract — end-to-end proof (added #114).** The
 sentinel-file fast-path (see Rollback procedure below) depends on
