@@ -104,6 +104,10 @@ if test (count $rule_files) -eq 0; or not test -f "$rule_files[1]"
 else
     for rule in $rule_files
         set name (basename $rule .md)
+        # README is documentation, not a loadable rule
+        if test "$name" = README
+            continue
+        end
 
         set first_line (head -1 "$rule")
         if test $status -ne 0
@@ -212,6 +216,10 @@ end
 
 for rule in $repo_dir/rules/*.md
     set name (basename $rule)
+    # README is documentation, not a loadable rule
+    if test "$name" = README.md
+        continue
+    end
     if test -L "$claude_dir/rules/$name"
         pass "~/.claude/rules/$name symlinked"
     else
