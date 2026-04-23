@@ -87,5 +87,5 @@ will ping the user every step.
   test from TDD.
 - `planning.md` — DTP and Systems Analysis happen BEFORE this rule fires.
   Goal-driven execution governs the implementation phase only.
-- Karpathy Coding Principle #4 in `global/CLAUDE.md` — the soft form. This
-  file is the enforced form.
+- Karpathy Coding Principle #4 in `~/.claude/CLAUDE.md` — the soft form.
+  This file is the enforced form.

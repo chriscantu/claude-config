@@ -113,21 +113,25 @@ hidden assumptions is the most expensive to rework.
   (assumptions + interpretations + simpler path).
 - `fat-marker-sketch.md` — fires AFTER this rule; the preamble here
   establishes the approach; the sketch validates its shape.
-- Karpathy Coding Principle #1 in `global/CLAUDE.md` — the soft form. This
-  file is the enforced form.
+- Karpathy Coding Principle #1 in `~/.claude/CLAUDE.md` — the soft form.
+  This file is the enforced form.
 
 ## Order of Operations Across the Pipeline
 
+Matches the five numbered stages in `planning.md`, with Implementation and
+Verification as the execution phase that follows:
+
 ```
-DTP
-  → Systems Analysis
-    → Solution Design
-        → think-before-coding preamble (THIS RULE)
-        → brainstorming's 2-3 approaches
-        → recommendation
-      → Fat Marker Sketch
-    → Detailed Design
-  → goal-driven plan (per-step verify)
-  → Implementation
-  → Verification
+1. Problem Definition (DTP)
+2. Systems Analysis
+3. Solution Design
+     ├─ think-before-coding preamble (THIS RULE)
+     ├─ brainstorming 2-3 approaches
+     └─ recommendation
+4. Fat Marker Sketch
+5. Detailed Design
+──────────────────────────
+Implementation
+     └─ goal-driven plan opens here (per-step verify checks)
+Verification (end-of-work gate)
 ```

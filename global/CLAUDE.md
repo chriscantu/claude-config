@@ -25,7 +25,7 @@
 
 ## Development Defaults
 - TypeScript is the default language unless the project dictates otherwise
-- TDD — pragmatic: tests accompany implementation, test-first for non-trivial logic (operationalized by `Coding Principles #4 — Goal-Driven Execution`)
+- TDD — pragmatic: tests accompany implementation, test-first for non-trivial logic (`Coding Principles #4 — Goal-Driven Execution` produces the per-step verify criteria; `Verification (IMPORTANT)` enforces them at the end)
 - Follow industry best practice for package manager and runtime per project
 
 ## Verification (IMPORTANT)
@@ -34,7 +34,7 @@
 - If no test exists for changed behavior, write one
 - **PR Validation Gate** — Before declaring a PR ready for merge, execute every unchecked item in the PR description's test plan. Build and launch on each listed platform/simulator, take screenshots to verify, and only check off items that have been visually confirmed. If an item cannot be verified (e.g., requires a physical device or external service), flag it explicitly rather than silently skipping it.
 
-> **Related:** `Coding Principles #4 — Goal-Driven Execution` defines the per-step success-criteria framing that produces the verify commands enforced here. Verification is the gate; #4 is the planning discipline that feeds it.
+> **Related:** `Coding Principles #4 — Goal-Driven Execution` produces the per-step verify criteria; this section enforces them at the end. (One verb pair used throughout: #4 *produces*, Verification *enforces*.)
 
 ## Communication Style
 - Do NOT blindly agree — challenge assumptions and probe reasoning
@@ -91,4 +91,4 @@ Quick reference:
 - "Refactor X" → "Ensure tests pass before and after"
 - Multi-step work: brief plan, per-step verify check, no advancement until check passes.
 
-> Feeds `Verification (IMPORTANT)` and the TDD line in `Development Defaults`. `goal-driven.md` is the gate at the start (criteria defined); `Verification` is the gate at the finish (criteria enforced).
+> Produces the per-step verify criteria referenced by `Verification (IMPORTANT)` and the TDD line in `Development Defaults`. `goal-driven.md` is the gate at the start (criteria defined); `Verification` is the gate at the finish (criteria enforced).
