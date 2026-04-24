@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Proposed
+Rejected (2026-04-24)
 
 ## Context
 
@@ -83,17 +83,43 @@ per [#117](https://github.com/chriscantu/claude-config/issues/117):
   is intentional (single-flag emergency rollback) but users should prefer
   fixing regressions over leaving the flag on.
 
-## Promotion criteria
+## Rejection Rationale
 
-Per [ADR #0005](./0005-behavioral-adr-promotion-requires-discriminating-signal.md),
-promotion to `Accepted` requires the four-condition discrimination demo:
+Four-cell inverse-RED audit run 2026-04-24 against `rules/fat-marker-sketch.md`
+and `rules/planning.md`. Same substrate and method as [ADR #0006](./0006-systems-analysis-pressure-framing-floor.md)
+rejection ([issue #126](https://github.com/chriscantu/claude-config/issues/126)).
+SA evals (11 scenarios, 40 assertions) used as cross-gate guard — no FMS-specific
+eval suite existed; SA evals already cover the structural floor behavior.
 
-1. Eval substrate — ✅ landed with this PR.
-2. RED commit — intentionally broken FMS rules block; evals fail.
-3. GREEN commit — block restored; evals pass.
-4. Follow-up PR that lands the RED/GREEN pair and promotes to Accepted.
+| Config | SA evals | Assertions | Δ assertions |
+|--------|----------|------------|-------------|
+| Baseline (all floors intact) | 11/11 | 38/40 | — |
+| FMS gutted, DTP intact | 9/11 | 36/40 | **-2 (noise)** |
+| DTP gutted, FMS intact | 9/11 | 32/40 | **-6 (signal)** |
+| Both gutted | 7/11 | 29/40 | **-9** |
 
-Until all four land, this ADR stays Proposed.
+**Finding:** same substitutable pattern as SA. Gutting FMS block alone produces
+only noise-band degradation (−2 assertions, no structural required-tier failures
+introduced by FMS absence). Gutting DTP alone produces a clear signal (−6 assertions,
+`sunk-cost-migration` turn 1 required structural gate fails — DTP skill not invoked
+under sunk-cost pressure). The FMS per-gate block adds zero eval-measurable load
+given the DTP anchor already exists.
+
+**Mechanism.** Under FMS-gutted config, model still invoked `acknowledge_named_cost_skip`
+with correct gate, ran `DISABLE_PRESSURE_FLOOR` Bash probe, and invoked appropriate
+Skill — all via generalization from DTP block. Confirms ADR #0006 mechanism applies
+identically to FMS gate.
+
+**Decision.** Reject per Karpathy #2 (simplicity first). Revert `rules/fat-marker-sketch.md`
+per-gate block (~80 lines); replace with two-line pointer to DTP anchor. No FMS-specific
+eval suite needed: SA evals serve as cross-gate guard and pass 3/3 structural
+assertions under FMS-only config.
+
+**What would reopen this.** Evidence that the single-anchor pattern fails for FMS
+specifically — e.g., a prompt under sketch-specific pressure (prose-as-sketch,
+cosmetic minimizer) that routes past DTP but not through SA, where the model fails
+to generalize the floor contract. Reopening requires new evals that fail under
+DTP-only AND pass under DTP+FMS, not just the per-gate shape attempted here.
 
 ## References
 

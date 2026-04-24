@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Proposed
+Accepted (2026-04-24)
 
 ## Context
 
@@ -211,5 +211,11 @@ promotes from `Proposed` to `Accepted` once the author has applied it to at
 least one existing behavioral ADR (likely #0004) as a shakedown pass, and no
 issues surface that invalidate the rule's shape.
 
-Shakedown: applied to #0006 on 2026-04-23; one clarification added (above).
+Shakedown pass 1: applied to #0006 on 2026-04-23; one clarification added (above).
 Rule shape preserved — refinement is additive, not revisionary.
+
+Shakedown pass 2: applied to #0007 on 2026-04-24. Four-cell inverse-RED audit
+confirmed FMS per-gate block substitutable (same mechanism as #0006). ADR #0007
+rejected. Rule held without modification — discrimination criterion correctly
+blocked a spurious per-gate ADR for the second consecutive gate. Promoting to
+Accepted.
