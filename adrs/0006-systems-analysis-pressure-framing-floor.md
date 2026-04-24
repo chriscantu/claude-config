@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Proposed
+Rejected (2026-04-23)
 
 ## Context
 
@@ -85,21 +85,46 @@ independently readable and maintainable.
   even when user would have tolerated a fast path. Accepted per floor
   philosophy: correctness over speed under pressure.
 
-## Promotion criteria
+## Rejection Rationale
 
-Per [ADR #0005](./0005-behavioral-adr-promotion-requires-discriminating-signal.md),
-promotion to `Accepted` requires the four-condition discrimination demo:
+Attempted [ADR #0005](./0005-behavioral-adr-promotion-requires-discriminating-signal.md)
+four-condition promotion demo on 2026-04-23 (see
+[issue #126](https://github.com/chriscantu/claude-config/issues/126),
+[PR #127](https://github.com/chriscantu/claude-config/pull/127)).
+Four-cell inverse-RED matrix on `rules/planning.md` + `rules/fat-marker-sketch.md`:
 
-1. Eval substrate that reads structural signal (`tool_input_matches` on
-   `Skill(systems-analysis)` and on `acknowledge_named_cost_skip`) — ✅
-   landed with this PR.
-2. RED commit — an intentionally broken rules-layer block that fails the
-   new evals.
-3. GREEN commit — the rules-layer block restored; evals pass.
-4. Follow-up PR that lands the RED/GREEN pair and promotes this ADR to
-   Accepted.
+| Config | SA evals | Assertions |
+|--------|----------|------------|
+| Baseline (all floors) | 11/11 | 38/40 |
+| SA step 2 gutted, DTP step 1 intact | 11/11 | 38/40 |
+| DTP step 1 gutted, SA step 2 intact | 11/11 | 38/40 |
+| All floors gutted (DTP + SA + FMS) | 5/11 | 26/40 |
 
-Until all four land, this ADR stays Proposed.
+**Finding:** floors are substitutable, not layered. One anchor suffices —
+model generalizes emission-contract + Bash-probe + Skill invocation to the
+correct gate per user prompt. PR #125 SA-specific block adds zero
+eval-measurable load given the DTP block already exists.
+
+**Mechanism.** Under the SA-step-2-gutted RED, the model emitted
+`acknowledge_named_cost_skip` with `gate="systems-analysis"` and verbatim
+`user_statement`, ran the `DISABLE_PRESSURE_FLOOR` Bash probe, and invoked
+`Skill(systems-analysis)` — all three required-tier signals fired via
+generalization from the DTP step 1 block. The model treats the floor as one
+semantic template keyed to the active pipeline stage, not as three per-gate
+contracts.
+
+**Decision.** Reject per Karpathy #2 (simplicity first). The per-gate
+duplication introduced by this ADR is speculative robustness without
+evidence at the current eval substrate. Revert the rules-layer block;
+keep the new SA evals as cross-gate generalization regression guards
+(they pass 3/3 under DTP-only config, discriminate under minimal-rules).
+
+**What would reopen this.** Evidence that the single-anchor pattern fails
+under distribution shift not covered by current evals — e.g., a new
+pressure framing that routes to SA but does not satisfy DTP, or a model
+regression where the generalization breaks. Reopening requires new evals
+that fail under DTP-only AND pass under DTP+SA, not just the per-gate
+RED/GREEN shape attempted here.
 
 ## References
 
@@ -108,3 +133,5 @@ Until all four land, this ADR stays Proposed.
 - [PR #112](https://github.com/chriscantu/claude-config/pull/112) — DTP floor substrate
 - [PR #118](https://github.com/chriscantu/claude-config/pull/118) — sentinel bypass
 - [Issue #117](https://github.com/chriscantu/claude-config/issues/117) — this generalization
+- [Issue #126](https://github.com/chriscantu/claude-config/issues/126) — rejection finding
+- [PR #127](https://github.com/chriscantu/claude-config/pull/127) — original blocker doc (superseded by this rejection)

@@ -169,9 +169,47 @@ If this ADR is accepted, the implementation likely touches:
    governance rule, not a behavioral one — it applies to itself trivially
    (non-behavioral, so no discriminating eval required).
 
+## Clarification (2026-04-23): discrimination must be at the ADR's specific boundary
+
+Applied to [ADR #0006](./0006-systems-analysis-pressure-framing-floor.md) and
+discovered a loophole. #0006 claimed a per-gate behavioral guarantee
+("systems-analysis has its own pressure-framing floor block"). The four-cell
+inverse-RED matrix
+([#126](https://github.com/chriscantu/claude-config/issues/126)) revealed the
+claimed block was not discriminable: gutting the SA step 2 block alone produced
+11/11 pass; gutting DTP step 1 alone also produced 11/11 pass; only gutting all
+three floor blocks simultaneously produced 5/11. The model generalizes the
+floor template from any single anchor.
+
+Implication: a behavioral ADR that introduces a per-gate contract requires a
+discriminating signal **at that gate's specific boundary**, not just "somewhere
+in the rules layer." Under the original four-condition gate, #0006 would have
+been spuriously promotable by a RED that removed both DTP and SA blocks — a
+cross-cutting demo that proves the floor pattern load-bearing, not the per-gate
+block load-bearing.
+
+**Refined promotion rule for per-gate or per-scope behavioral ADRs:**
+
+- RED commit must target **only** the rules/skill state the ADR adds or
+  modifies. Removing adjacent or upstream state that happens to contribute to
+  the same assertion is false attribution.
+- If no such RED can be constructed because upstream state subsumes the new
+  state (as with #0006), the ADR cannot promote under the four-condition gate.
+  Either (a) re-author evals that discriminate at the ADR's boundary, (b)
+  restructure the ADR scope (e.g., make the claim cross-cutting rather than
+  per-gate), or (c) reject the ADR per Karpathy #2 — per-gate duplication
+  adding no eval-measurable load is speculative.
+
+This clarification does NOT change the four-condition gate; it tightens what
+"discriminating required-channel signal" means for ADRs whose scope is
+narrower than the nearest eval-visible anchor.
+
 ## Promotion criteria
 
 This ADR is non-behavioral and therefore not subject to its own rule. It
 promotes from `Proposed` to `Accepted` once the author has applied it to at
 least one existing behavioral ADR (likely #0004) as a shakedown pass, and no
 issues surface that invalidate the rule's shape.
+
+Shakedown: applied to #0006 on 2026-04-23; one clarification added (above).
+Rule shape preserved — refinement is additive, not revisionary.
