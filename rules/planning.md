@@ -139,73 +139,14 @@ or tooling before completing the pipeline.
    surface concrete concerns. A bare "skip" without naming the cost is not
    an override.
 
-   **Emission contract — MANDATORY.** When a named-cost skip is valid, you
-   MUST invoke `mcp__named-cost-skip-ack__acknowledge_named_cost_skip` BEFORE
-   proceeding to the next stage. Call it with `gate="systems-analysis"` and
-   `user_statement` set to the verbatim substring of the user's cost-naming
-   clause. This is NOT optional — if you skip this tool call, you have NOT
-   honored the skip. Run the scan instead. The tool invocation IS the honor.
-   If the tool appears in the deferred-tool list rather than the active tool
-   list, load its schema first with `ToolSearch` using
-   `query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"`;
-   otherwise call it directly.
-
-   **Pressure-framing floor.** Framings below are pressure signals, not
-   cost-naming skips. They DO NOT bypass systems-analysis — they *strengthen*
-   the case for running the scan. Categories are semantic; example phrases
-   are illustrative, not exhaustive — match on the underlying mechanism, not
-   the literal wording:
-   - **Authority** — external-approval invocation ("CTO said low-risk",
-     "VP approved", "architect already reviewed", "team lead signed off")
-   - **Sunk cost** — commitment-consistency framing ("already decided",
-     "contract signed", "don't re-analyze", "we've already chosen this path")
-   - **Cosmetic minimizer** — "just a column", "just a toggle", "just a
-     label", "tiny change", "small UI tweak" — "just" is load-bearing and
-     frequently hides auth state, data freshness, privacy surface
-   - **Exhaustion** — fatigue framing ("I'm tired", "we've been at this
-     for hours", "stop with the ceremony")
-   - **Deadline** — time-pressure framing ("ship by Friday", "meeting in
-     10 minutes", "no time for analysis")
-   - **Stated-next-step** — skip-SA framing that names a later stage as
-     the destination ("skip analysis and brainstorm", "just design the UI",
-     "go straight to the sketch")
-
-   Honor full skip ONLY via the Emission contract above (MCP
-   `acknowledge_named_cost_skip` tool-use with verbatim cost-naming clause).
-   Anything else — even combinations of pressure framings — invokes
-   `Skill(systems-analysis)` first. When routing a pressure framing to SA,
-   include a one-line example of valid skip phrasing in the response (e.g.,
-   "To skip the analysis, name the cost: `skip SA, I accept <specific risk>`")
-   so the user can exit cleanly if they genuinely want to bypass.
-
-   **Emergency bypass — sentinel file check.** Same sentinel as DTP
-   (`DISABLE_PRESSURE_FLOOR`) — single flag bypasses all pipeline gates.
-   Apply this check ONLY at the moment you have detected a pressure framing
-   AND are about to invoke `Skill(systems-analysis)` on pressure-framing
-   grounds. Do NOT pre-check on unrelated prompts.
-
-   When the check applies, run via Bash tool:
-
-   ```
-   if test -f .claude/DISABLE_PRESSURE_FLOOR || test -f ~/.claude/DISABLE_PRESSURE_FLOOR; then echo BYPASS_ACTIVE; else echo BYPASS_INACTIVE; fi
-   ```
-
-   - stdout contains `BYPASS_ACTIVE`: do NOT invoke SA on pressure-framing
-     grounds. Route as Expert Fast-Track would route absent the floor. The
-     emission contract still applies to genuine named-cost skips. Emit the
-     banner on the FIRST pressure-framed prompt of the session where the
-     bypass is observed (see DTP block for the banner literal).
-   - stdout contains `BYPASS_INACTIVE`: your NEXT tool invocation MUST be
-     a `Skill` tool-use with `skill="systems-analysis"`. You MAY emit at
-     most one short preface line (canonical `[Stage: Systems Analysis]`
-     marker or a single routing sentence). Do NOT narrate the floor
-     mechanics in lieu of invoking the tool — the `Skill` tool-use IS the
-     application of the floor.
-
-   Do NOT guess the result from empty output. If stdout is empty or
-   ambiguous, treat as `BYPASS_INACTIVE` and invoke the Skill tool.
-   Skipping the check on a pressure-framed prompt without running it is
-   equivalent to bypassing the floor and is forbidden.
+   Floor enforcement (pressure-framing routing, emission contract, sentinel
+   bypass) is anchored in the DTP per-gate block — see step 1 above. Per
+   [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md),
+   the model generalizes that anchor to the active pipeline stage, so an
+   SA per-gate block here adds no eval-measurable load given the DTP
+   anchor. Reopening requires new evals that fail under DTP-only AND pass
+   under DTP+SA — a per-gate block that merely adds text without producing
+   that discrimination signal is speculative.
 3. Solution Design — invoke `superpowers:brainstorming` (opt-in: Sequential Thinking available if not converging)
 4. Fat Marker Sketch — invoke `/fat-marker-sketch` (after approach selected).
    See `rules/fat-marker-sketch.md` for the HARD-GATE, pressure-framing
