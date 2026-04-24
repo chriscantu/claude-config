@@ -91,7 +91,10 @@ Attempted [ADR #0005](./0005-behavioral-adr-promotion-requires-discriminating-si
 four-condition promotion demo on 2026-04-23 (see
 [issue #126](https://github.com/chriscantu/claude-config/issues/126),
 [PR #127](https://github.com/chriscantu/claude-config/pull/127)).
-Four-cell inverse-RED matrix on `rules/planning.md` + `rules/fat-marker-sketch.md`:
+Four-cell inverse-RED matrix on `rules/planning.md` + `rules/fat-marker-sketch.md`.
+Legend: `SA evals` = count of passing evals in `skills/systems-analysis/evals/evals.json`
+(11 total). `Assertions` = count of passing assertion checks across all 11 evals
+(40 total, including diagnostic-tier).
 
 | Config | SA evals | Assertions |
 |--------|----------|------------|
@@ -100,18 +103,18 @@ Four-cell inverse-RED matrix on `rules/planning.md` + `rules/fat-marker-sketch.m
 | DTP step 1 gutted, SA step 2 intact | 11/11 | 38/40 |
 | All floors gutted (DTP + SA + FMS) | 5/11 | 26/40 |
 
-**Finding:** floors are substitutable, not layered. One anchor suffices —
+**Finding:** per-gate blocks are substitutable, not layered. One anchor suffices —
 model generalizes emission-contract + Bash-probe + Skill invocation to the
-correct gate per user prompt. PR #125 SA-specific block adds zero
-eval-measurable load given the DTP block already exists.
+correct gate per user prompt. PR #125 SA-specific per-gate block adds zero
+eval-measurable load given the DTP per-gate block already exists.
 
 **Mechanism.** Under the SA-step-2-gutted RED, the model emitted
 `acknowledge_named_cost_skip` with `gate="systems-analysis"` and verbatim
 `user_statement`, ran the `DISABLE_PRESSURE_FLOOR` Bash probe, and invoked
 `Skill(systems-analysis)` — all three required-tier signals fired via
-generalization from the DTP step 1 block. The model treats the floor as one
+generalization from the DTP per-gate block. The model treats the floor as one
 semantic template keyed to the active pipeline stage, not as three per-gate
-contracts.
+blocks.
 
 **Decision.** Reject per Karpathy #2 (simplicity first). The per-gate
 duplication introduced by this ADR is speculative robustness without

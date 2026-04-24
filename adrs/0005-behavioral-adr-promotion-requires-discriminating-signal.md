@@ -173,12 +173,12 @@ If this ADR is accepted, the implementation likely touches:
 
 Applied to [ADR #0006](./0006-systems-analysis-pressure-framing-floor.md) and
 discovered a loophole. #0006 claimed a per-gate behavioral guarantee
-("systems-analysis has its own pressure-framing floor block"). The four-cell
+("systems-analysis has its own pressure-framing per-gate block"). The four-cell
 inverse-RED matrix
 ([#126](https://github.com/chriscantu/claude-config/issues/126)) revealed the
 claimed block was not discriminable: gutting the SA step 2 block alone produced
 11/11 pass; gutting DTP step 1 alone also produced 11/11 pass; only gutting all
-three floor blocks simultaneously produced 5/11. The model generalizes the
+three per-gate blocks simultaneously produced 5/11. The model generalizes the
 floor template from any single anchor.
 
 Implication: a behavioral ADR that introduces a per-gate contract requires a
