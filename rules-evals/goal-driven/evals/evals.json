@@ -110,6 +110,14 @@
               "input_value": "clamp",
               "tier": "required",
               "description": "Structural: turn 2 edits the clamp implementation again (loop-until-verified body — fix, then re-verify). Failure mode caught: model talks about fixing without actually fixing, or jumps ahead to step 2."
+            },
+            {
+              "type": "tool_input_matches",
+              "tool": "Edit",
+              "input_key": "new_string",
+              "input_value": "NaN",
+              "tier": "required",
+              "description": "Structural: the edit's replacement substring contains a NaN guard (`isNaN`, `Number.isNaN`, or a literal `NaN` comparison). Ties the file edit to the specific verify failure — proves loop-until-verified semantics, not just 'model edited a file when prodded'. Failure mode caught: model edits an unrelated line (e.g., a comment, an import) and claims the fix is done."
             }
           ]
         }

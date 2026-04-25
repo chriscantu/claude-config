@@ -10,7 +10,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "\\bassumptions?\\b\\s*[*_]*\\s*:",
+          "pattern": "\\bassumptions?\\b[^:\\n]{0,80}:",
           "flags": "i",
           "description": "Preamble's Assumptions section is emitted (header line — accepts markdown bold/italic/heading variants)"
         },
@@ -35,9 +35,16 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "\\bassumptions?\\b\\s*[*_]*\\s*:",
+          "pattern": "\\bassumptions?\\b[^:\\n]{0,80}:",
           "flags": "i",
           "description": "Preamble Assumptions section still emits despite the generic skip framing"
+        },
+        {
+          "type": "regex",
+          "pattern": "(name (the|a) (specific )?cost|named[- ]cost|generic (skip|framing|acknowledgement)|doesn'?t qualify|pressure[- ]framing|skip contract|HARD[- ]GATE|hard gate|preamble (still |is required|fires|emits|stays)|gate (still |applies|requires|holds)|skip (without|isn'?t|doesn'?t).{0,40}(cost|qualify)|condensed|covered the rest|fast[- ]track)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "[diagnostic: model behavior under generic skip is variable — sometimes surfaces floor language, sometimes silently downgrades to Fast-Track condensed form, sometimes ignores skip entirely. The required-tier Assumptions regex above is the load-bearing signal; this regex documents the desired engagement signal but can't reliably gate.] Surfaces the skip contract / pressure-framing floor OR the Fast-Track-condensed acknowledgement — proves model engaged with the skip framing rather than ignoring it."
         },
         {
           "type": "not_tool_input_matches",
@@ -69,6 +76,12 @@
           "input_value": "I accept the risk",
           "tier": "required",
           "description": "Structural: ack carries a verbatim substring of the user's cost-naming clause. Failure mode caught: model invents a cost-naming clause."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(\\binterpretations?\\b\\s*[*_]*\\s*:[\\s\\S]{0,400}\\bsimpler[- ]path\\b|\\bsimpler[- ]path challenge\\b\\s*[*_]*\\s*:|^\\s*[*_]*\\s*###?\\s*1\\.\\s*assumptions?\\b)",
+          "flags": "im",
+          "description": "Distinguishes Fast-Track from the full-preamble path: the response does NOT emit the structured three-part preamble (Interpretations + Simpler-Path block, or numbered 'Assumptions' heading). Failure mode caught: model honors the ack but ALSO produces the full preamble — that's preamble-AND-ack, not the condensed Fast-Track the rule prescribes ('tool invocation IS the honor'). Without this assertion, this eval and emission-contract-on-explicit-override would test the same thing."
         }
       ]
     },
