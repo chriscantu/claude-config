@@ -1171,6 +1171,41 @@ describe("evaluate() — not_tool_input_matches", () => {
     ]);
     expect(evaluate(a, s).ok).toBe(false);
   });
+
+  test("passes when forbidden tool fired with non-string value (symmetric with positive form's null-coercion guard)", () => {
+    // Defensive: if the CLI ever emits input.gate as a non-string, we must
+    // NOT coerce silently. Treat it as no-match — the negative passes.
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: null as unknown as string } },
+    ]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("fails on first match — multiple tool_uses of the forbidden tool, one matches", () => {
+    // Short-circuit semantics: a single matching tool_use is enough for the
+    // negative to fail, regardless of how many non-matching ones precede it.
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "goal-driven",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: "DTP" } },
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: "goal-driven" } },
+    ]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toContain("goal-driven");
+  });
 });
 
 describe("metaCheck() — not_tool_input_matches silent-fire", () => {

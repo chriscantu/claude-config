@@ -204,7 +204,12 @@ export interface SkillInvocation {
 /**
  * `terminalState` records how the stream ended so a reader can tell a healthy
  * tool-use-terminal run apart from a crash that died before emitting `result`:
- *   - `result`     — a `result` event was present; `finalText` is its content.
+ *   - `result`     — a `result` event was present; `finalText` is the
+ *                    intermediate assistant text (if any) concatenated with
+ *                    the result event's payload, separated by `\n`. Concat
+ *                    is intentional: regex assertions need to see plans /
+ *                    preambles the model emits before tool uses, which
+ *                    otherwise wouldn't appear in the result event.
  *   - `assistant`  — no `result` event; `finalText` is concatenated assistant text.
  *   - `empty`      — neither; `finalText` is "".
  */
@@ -723,6 +728,12 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
         // tools fired (even unrelated ones), the absence of the forbidden tool
         // is meaningful information — the model engaged with tool-using
         // behavior and chose not to invoke the forbidden one.
+        //
+        // Symmetric with the `not_skill_invoked` branch above: empty-of-category,
+        // not empty-of-filtered. A filter-by-tool-name heuristic would collapse
+        // the metaCheck distinction by flagging every legitimate negative pass
+        // as silent-fire (the pass condition is precisely "no offending tool
+        // fired"). Don't re-litigate without rereading both cases together.
         return s.toolUses.length === 0;
       case "contains":
       case "regex":
