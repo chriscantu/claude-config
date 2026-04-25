@@ -134,9 +134,9 @@ export type AssertionResult =
  *                       Distinct failure label; fails the eval.
  */
 export type MetaDecision =
-  | { kind: "pass"; description: string; tier: AssertionTier }
-  | { kind: "fail"; description: string; tier: AssertionTier; detail: string }
-  | { kind: "silent_fire"; description: string; tier: AssertionTier; detail: string };
+  | { kind: "pass"; description: string; tier: AssertionTier; reliability: ReliabilityTier }
+  | { kind: "fail"; description: string; tier: AssertionTier; reliability: ReliabilityTier; detail: string }
+  | { kind: "silent_fire"; description: string; tier: AssertionTier; reliability: ReliabilityTier; detail: string };
 
 export interface MetaCheckInput {
   /** Per-turn assertion results in the same order the runner evaluated them.
@@ -712,6 +712,7 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
 
   for (const { assertion, result, signals } of input.perTurn) {
     const tier = assertion.tier;
+    const reliability = reliabilityOf(assertion.type);
     if (result.ok) {
       if (tier === "required" && isNegative(assertion) && signalIsEmptyFor(assertion, signals)) {
         silentFireCount++;
@@ -720,24 +721,26 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
           kind: "silent_fire",
           description: result.description,
           tier,
+          reliability,
           detail: `negative assertion trivially passed against empty signal — no evidence to judge`,
         });
       } else {
-        decisions.push({ kind: "pass", description: result.description, tier });
+        decisions.push({ kind: "pass", description: result.description, tier, reliability });
       }
     } else {
       if (tier === "required") requiredOk = false;
-      decisions.push({ kind: "fail", description: result.description, tier, detail: result.detail });
+      decisions.push({ kind: "fail", description: result.description, tier, reliability, detail: result.detail });
     }
   }
 
   for (const { assertion, result } of input.final) {
     const tier = assertion.tier;
+    const reliability = reliabilityOf(assertion.type);
     if (result.ok) {
-      decisions.push({ kind: "pass", description: result.description, tier });
+      decisions.push({ kind: "pass", description: result.description, tier, reliability });
     } else {
       if (tier === "required") requiredOk = false;
-      decisions.push({ kind: "fail", description: result.description, tier, detail: result.detail });
+      decisions.push({ kind: "fail", description: result.description, tier, reliability, detail: result.detail });
     }
   }
 

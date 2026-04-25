@@ -15,6 +15,7 @@ import {
   type Signals,
   type ChainSignals,
   type SkillInvocation,
+  type ValidatedAssertion,
   aggregateChainSignals,
   brandForTest as v,
   evaluate,
@@ -1237,6 +1238,20 @@ describe("tallyEval() + suiteOk()", () => {
       silentFireCount: 0,
     };
     expect(suiteOk([diagnosticFailButRequiredPassed])).toBe(true);
+  });
+
+  test("metaCheck decisions carry reliability derived from assertion type", () => {
+    const a1 = v({ type: "skill_invoked", skill: "x", description: "d1", tier: "required" });
+    const a2 = v({ type: "regex", pattern: "foo", description: "d2", tier: "required" });
+    const out = metaCheck({
+      perTurn: [
+        { assertion: a1, result: { ok: true, description: "d1" }, signals: sig("hello", { skillInvocations: [{ skill: "x" }] as SkillInvocation[] }), turnIndex: 0 },
+        { assertion: a2, result: { ok: false, description: "d2", detail: "no match" }, signals: sig("hello"), turnIndex: 0 },
+      ],
+      final: [],
+    });
+    expect(out.decisions[0].reliability).toBe("structural");
+    expect(out.decisions[1].reliability).toBe("text");
   });
 });
 
