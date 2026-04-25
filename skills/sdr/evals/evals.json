@@ -57,6 +57,7 @@
           "type": "regex",
           "pattern": "system.overview",
           "flags": "i",
+          "tier": "required",
           "description": "recommends the System Overview template for whole-system design"
         }
       ]
@@ -102,10 +103,10 @@
         },
         {
           "type": "regex",
-          "pattern": "service.{0,20}component",
+          "pattern": "(service.{0,20}component|service-component)",
           "flags": "i",
           "tier": "required",
-          "description": "recommends Service/Component Creation template"
+          "description": "recommends Service/Component Creation template (synonym-tolerant: matches 'Service/Component Creation' prose AND 'service-component' file ref)"
         }
       ]
     },
@@ -130,10 +131,10 @@
         },
         {
           "type": "regex",
-          "pattern": "data.design",
+          "pattern": "(data.design|data-design|schema (template|record|design))",
           "flags": "i",
           "tier": "required",
-          "description": "recommends Data Design template"
+          "description": "recommends Data Design template (synonym-tolerant: matches 'Data Design', file ref 'data-design', and schema-doc paraphrases)"
         }
       ]
     },
@@ -158,10 +159,10 @@
         },
         {
           "type": "regex",
-          "pattern": "blueprint",
+          "pattern": "\\bblueprint\\b",
           "flags": "i",
           "tier": "required",
-          "description": "recommends Blueprint template"
+          "description": "recommends Blueprint template (tight pattern intentional: 'Blueprint' is the template name; synonym alternation like 'reusable pattern|golden path' would risk matching prompt echo without proof of template recommendation)"
         }
       ]
     },
@@ -172,10 +173,10 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "tech.radar",
+          "pattern": "(\\b/?tech[- ]radar\\b|technology radar)",
           "flags": "i",
           "tier": "required",
-          "description": "positive anchor — response recommends /tech-radar (rules out empty-stream silent-fire)"
+          "description": "positive anchor — response recommends /tech-radar or names the technology radar (rules out empty-stream silent-fire); tight pattern symmetric with /adr anti-trigger"
         },
         {
           "type": "not_skill_invoked",
@@ -192,10 +193,10 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "tenet.exception",
+          "pattern": "(\\b/?tenet[- ]exception\\b|tenet exception (record|skill))",
           "flags": "i",
           "tier": "required",
-          "description": "positive anchor — response recommends /tenet-exception (rules out empty-stream silent-fire)"
+          "description": "positive anchor — response recommends /tenet-exception (rules out empty-stream silent-fire); tight pattern symmetric with /adr and /tech-radar anti-triggers"
         },
         {
           "type": "not_skill_invoked",
