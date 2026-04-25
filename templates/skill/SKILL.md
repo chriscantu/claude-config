@@ -1,9 +1,11 @@
 ---
 name: SKILL_NAME
 description: >
-  Use when the user says /SKILL_NAME, "<trigger phrase>", or wants to <verb>.
-  One sentence per trigger class. Avoid trigger overlap with existing skills —
-  audit `skills/*/SKILL.md` descriptions before merging (see #73).
+  Use when the user says /SKILL_NAME, "<trigger phrase>", or <situation that
+  warrants this skill>. One sentence per trigger class — name WHEN to invoke,
+  not WHAT the skill does. Do NOT use when <anti-trigger — situation where
+  another skill or no skill fits better>. Avoid trigger overlap with existing
+  skills (audit `skills/*/SKILL.md` per #73).
 status: experimental
 version: 0.1.0
 ---

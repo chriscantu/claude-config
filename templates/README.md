@@ -65,12 +65,17 @@ Authoring contract:
 
 ### After scaffolding
 
-`bin/new-skill` runs `validate.fish` on the new skill. If validation fails,
-the script exits non-zero and prints what's broken. Next steps the script
-prints:
+`bin/new-skill` runs `validate.fish --skill <slug>` on the new skill. If
+validation fails, the script exits non-zero and prints what's broken. Next
+steps the script prints:
 
-1. Fill the `description` triggers; audit overlap with adjacent skills.
+1. Fill the `description` triggers — model both **Use when** and **Do NOT
+   use when** clauses (see DTP, SA descriptions for the pattern). Audit
+   overlap vs adjacent skills (#73).
 2. Replace placeholder `<Skill Title>`, body paragraph, and section content.
-3. Write the first eval in `evals/evals.json`.
+   Delete the `TEMPLATE NOTES` HTML comment block before merging.
+3. Author the first eval: create `evals/evals.json` from the snippet in
+   `evals/README.md`. The runner rejects empty arrays, so the file is
+   intentionally not scaffolded.
 4. Run `fish validate.fish` and `bun run tests/eval-runner-v2.ts <slug>`.
 5. `bin/link-config.fish` to symlink into `~/.claude/skills/`.

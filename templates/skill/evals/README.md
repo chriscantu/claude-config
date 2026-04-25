@@ -10,7 +10,8 @@ rejects an empty `evals: []` array, so an empty stub would break
 `bun run tests/eval-runner-v2.ts` for every fresh skill.
 
 When you're ready to author the first eval, create `evals.json` next to
-this README:
+this README. The snippet below models the four structural-tier assertion
+types from ADR #0005 — copy and adapt:
 
 ```json
 {
@@ -21,17 +22,24 @@ this README:
     {
       "name": "first-eval",
       "summary": "what regression this guards",
-      "prompt": "<verbatim user prompt>",
+      "prompt": "<verbatim user prompt that should fire this skill>",
       "assertions": [
-        { "type": "skill_invoked", "skill": "SKILL_NAME", "description": "skill fires on the trigger" }
+        { "type": "skill_invoked", "skill": "SKILL_NAME", "description": "skill fires on the trigger" },
+        { "type": "tool_input_matches", "tool": "Skill", "input_key": "skill", "input_value": "SKILL_NAME", "tier": "required", "description": "Skill tool surface contract — pins name + input_key + input_value" },
+        { "type": "regex", "pattern": "<expected output shape>", "flags": "i", "description": "required output marker — distinguishes engaged-with-skill from drive-by mention" },
+        { "type": "not_regex", "pattern": "<forbidden bypass shape>", "flags": "i", "description": "forbids skip-the-skill failure mode" }
       ]
     }
   ]
 }
 ```
 
-`validate.fish` will warn on the missing file until then — that's the
-intended discovery path.
+For multi-turn behavioral evals (chained prompts via `claude --print
+--resume`), use the `turns[]` + `final_assertions` shape documented in
+[`tests/EVALS.md`](../../../tests/EVALS.md). DTP's evals are the reference.
+
+`validate.fish` will warn on the missing file until you create it —
+that's the intended discovery path.
 
 ## Run
 
