@@ -58,5 +58,6 @@ were added manually. The script and this README close the gap.
 | `goal-driven.md` | HARD-GATE | Per-step verify checks defined before code, loop-until-verified semantics |
 | `tdd-pragmatic.md` | Soft | Test-first for non-trivial logic; bug-repro test before fix |
 | `verification.md` | Soft | End-of-work gate: tests run, type-check runs, no "should work" |
+| `execution-mode.md` | HARD-GATE | Sizing guard for subagent-driven-development; controller announces mode before first dispatch |
 
 The `bin/link-config.fish` script will skip `README.md` files automatically.

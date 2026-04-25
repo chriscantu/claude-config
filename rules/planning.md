@@ -184,11 +184,34 @@ user may not have considered.
 Scale the depth of each stage to match the scope. This table sets the **minimum**
 depth — go deeper if the problem warrants it.
 
-| Scope           | Problem Def        | Systems Analysis        | Sketch         |
-|-----------------|--------------------|-------------------------|----------------|
-| Prototype / POC | 2-3 sentences      | 1 sentence each dim.    | Napkin-level   |
-| Feature         | Full pass          | Paragraph each          | Standard       |
-| System/Platform | Full pass          | Dedicated subsections   | Multi-component|
+| Scope               | Problem Def        | Systems Analysis        | Sketch         |
+|---------------------|--------------------|-------------------------|----------------|
+| Trivial / Mechanical| Skip               | 60s surface scan only   | Skip           |
+| Prototype / POC     | 2-3 sentences      | 1 sentence each dim.    | Napkin-level   |
+| Feature             | Full pass          | Paragraph each          | Standard       |
+| System/Platform     | Full pass          | Dedicated subsections   | Multi-component|
+
+### Trivial / Mechanical Tier — Criteria and Behavior
+
+Tier qualifies ONLY when ALL four criteria hold. Any one missing → next tier up.
+
+- ≤ ~200 LOC functional change
+- Single component / single-file primary surface
+- Unambiguous approach (one obvious design, no viable alternatives worth weighing)
+- Low blast radius (no cross-team / cross-system effects)
+
+Tier behavior (HARD):
+- DTP: skip (route directly to implementation, like bug fixes)
+- Systems Analysis: 60s surface-area scan only — NO Condensed Pass
+- Brainstorming: skip
+- Fat Marker Sketch: skip
+- Brainstorming and FMS HARD-GATEs treat Trivial-tier as a recognized non-applicable scope, same as bug fixes
+- Execution mode: prefer single-implementer + single final review (see `execution-mode.md`)
+- `goal-driven.md` and `verification.md` STILL apply — verify checks per step, end-of-work gate runs
+
+**Pressure-framing floor applies.** "Just a small change," "trivial fix," "quick edit" without the four criteria being demonstrable from the prompt or a cheap pre-check are pressure framings, NOT tier claims. Route to Prototype/POC tier and run the standard pipeline. The criteria are concrete (LOC, file count, blast radius) — verify before downgrading ceremony. A claim of Trivial without demonstrable criteria is the same shape as a claim of "skip DTP" without naming the cost: pressure framing, not skip.
+
+Honor full Trivial tier ONLY when criteria hold. The named-cost emission contract from step 1 (DTP) is NOT a tier-downgrade mechanism; it bypasses individual gates, not the entire pipeline.
 
 ## Decision Framework
 

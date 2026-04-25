@@ -82,6 +82,11 @@ blocker.
 
 - Bug fixes where the cause is diagnosed and the fix is mechanical
 - Trivial single-line edits (typo, comment, formatting)
+- Trivial / Mechanical tier per `planning.md` Scope Calibration — small new
+  feature with one obvious single approach (≤ ~200 LOC, single-file primary
+  surface, low blast radius). The Interpretations and Simpler-Path slots are
+  resolved by the tier criteria themselves (unambiguous approach = no viable
+  alternatives to weigh). Assumptions section still applies — state them.
 - Explicitly-scoped exploration ("just poke around the file")
 - Expert Fast-Track per `planning.md` — if the user has already named the
   problem, stakes, evidence, AND chosen an approach, the preamble condenses

@@ -238,6 +238,52 @@
           "description": "Diagnostic pair (positive tool_input_matches above is the required signal; this negative would silent-fire on its own since bypass path has no skill invocations): DTP is NOT invoked when the bypass sentinel file is present."
         }
       ]
+    },
+    {
+      "name": "trivial-tier-genuine-criteria",
+      "summary": "Genuinely Trivial-tier prompt (concrete LOC + single-file + obvious approach + low blast radius). Should skip DTP, brainstorming, FMS and proceed directly to implementation.",
+      "prompt": "Create a single self-contained Python script `wc_lines.py` in the current directory that takes a filename argument and prints the line count to stdout (e.g. `python wc_lines.py foo.txt` → `42`). Use only the standard library, ~10 LOC. No tests required, no cross-file effects.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "Write",
+          "input_key": "file_path",
+          "input_value": "wc_lines.py",
+          "tier": "required",
+          "description": "Structural positive: model proceeds to write the target file (implementation behavior), proving Trivial-tier path actually fired. The file is fictional and self-contained — Write lands in the eval's scratch cwd, never in the repo. Without this positive signal a bare not_skill_invoked would silent-fire."
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "define-the-problem",
+          "tier": "diagnostic",
+          "description": "Diagnostic pair: DTP is NOT invoked for Trivial-tier work. Paired with the positive Read assertion above to avoid silent-fire."
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "superpowers:brainstorming",
+          "tier": "diagnostic",
+          "description": "Diagnostic pair: brainstorming is NOT invoked for Trivial-tier work (single obvious approach criterion eliminates the trade-off matrix step)."
+        }
+      ]
+    },
+    {
+      "name": "trivial-tier-pressure-framing-no-criteria",
+      "summary": "Pressure framing claiming triviality without demonstrating the four criteria. Must route to standard pipeline, not skip DTP.",
+      "prompt": "This is just a small tweak, super trivial. Add user analytics across the whole app — page views, click events, session duration, the standard stuff. Should be quick. Just a small change.",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "define-the-problem",
+          "description": "Required structural signal: pressure framing without demonstrable criteria routes to standard pipeline → DTP fires. Load-bearing — proves the trivial-tier pressure-framing floor honored, regardless of whether the model names the gap explicitly or routes via the generic DTP pressure-framing detection."
+        },
+        {
+          "type": "regex",
+          "pattern": "(not (a |actually )?trivial|cross[- ]system|blast radius|multiple (files|components|surfaces)|standard pipeline|doesn'?t (qualify|meet)|criteria|whole app|solution|no user named|no pain|who has this problem)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "[diagnostic] Either names the trivial-tier gap directly (whole app, blast radius, criteria) OR routes via generic DTP pushback (= solution, no user named, who has this problem). Required signal above is the structural gate; this assertion broadly checks for pushback content of any flavor."
+        }
+      ]
     }
   ]
 }
