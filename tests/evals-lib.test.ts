@@ -24,8 +24,26 @@ import {
   loadEvalFile,
   metaCheck,
   parseStreamJson,
+  reliabilityOf,
   runLifecycle,
 } from "./evals-lib.ts";
+
+describe("reliabilityOf()", () => {
+  test("structural assertion types map to 'structural'", () => {
+    expect(reliabilityOf("skill_invoked")).toBe("structural");
+    expect(reliabilityOf("not_skill_invoked")).toBe("structural");
+    expect(reliabilityOf("skill_invoked_in_turn")).toBe("structural");
+    expect(reliabilityOf("chain_order")).toBe("structural");
+    expect(reliabilityOf("tool_input_matches")).toBe("structural");
+  });
+
+  test("text assertion types map to 'text'", () => {
+    expect(reliabilityOf("contains")).toBe("text");
+    expect(reliabilityOf("not_contains")).toBe("text");
+    expect(reliabilityOf("regex")).toBe("text");
+    expect(reliabilityOf("not_regex")).toBe("text");
+  });
+});
 
 function sig(finalText: string, extra?: Partial<Signals>): Signals {
   return {

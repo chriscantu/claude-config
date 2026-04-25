@@ -8,6 +8,39 @@ import { join } from "node:path";
 
 export type AssertionTier = "required" | "diagnostic";
 
+/**
+ * Reliability axis (orthogonal to AssertionTier).
+ *
+ *   - "structural" — assertion fires against parsed stream-json signals
+ *     (tool uses, skill invocations). Deterministic; spoof-resistant.
+ *   - "text" — assertion fires against model-generated prose (substring
+ *     or regex). Wording-sensitive; subject to run-to-run variance.
+ *
+ * Used only for reporting and for the `--text-nonblocking` exit-code
+ * softening. Derived from assertion type at report time; never stored.
+ */
+export type ReliabilityTier = "structural" | "text";
+
+/**
+ * Classify an assertion type by reliability. Exhaustive on AssertionType
+ * — adding a new variant fails compilation here.
+ */
+export function reliabilityOf(type: Assertion["type"]): ReliabilityTier {
+  switch (type) {
+    case "skill_invoked":
+    case "not_skill_invoked":
+    case "skill_invoked_in_turn":
+    case "chain_order":
+    case "tool_input_matches":
+      return "structural";
+    case "contains":
+    case "not_contains":
+    case "regex":
+    case "not_regex":
+      return "text";
+  }
+}
+
 type AssertionBase = { description: string; tier?: AssertionTier };
 
 export type Assertion =
