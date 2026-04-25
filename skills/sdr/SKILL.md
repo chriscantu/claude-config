@@ -9,8 +9,8 @@ description: >
   choice — use /adr instead. Do NOT use when evaluating a tool or framework
   for adoption — use /tech-radar instead. Do NOT use when documenting a
   deviation from a tenet — use /tenet-exception instead.
-status: stable
-version: 0.2.0
+status: experimental
+version: 0.1.1
 ---
 
 # System Design Records
