@@ -210,7 +210,10 @@ Tier behavior (HARD):
 
 **Pressure-framing floor.** Floor enforcement (pressure-framing routing, named-cost
 emission contract, sentinel bypass) is anchored in the DTP per-gate block — see step 1
-above. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+above. Sentinel bypass (`DISABLE_PRESSURE_FLOOR`) inherits to this tier: when the
+sentinel is active, "this is trivial" claims are honored without the four-criteria
+check, same as bypass disables DTP routing on pressure framings. Bypass remains
+intentionally visible per step 1's banner contract. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
 and memory note `per_gate_floor_blocks_substitutable.md`, the model generalizes that
 anchor to the active pipeline stage, so a Trivial-tier per-gate floor block adds no
 eval-measurable load given the DTP anchor. Concrete signals here: "just a small
