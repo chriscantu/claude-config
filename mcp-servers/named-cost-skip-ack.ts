@@ -10,6 +10,9 @@
  * fat-marker-sketch. Single MCP tool, per-gate `gate` value — copy-paste-
  * parameterize pattern from rules/planning.md.
  *
+ * Phase 3 (issue #136): enum extended with think-before-coding and
+ * goal-driven, matching the HARD-GATE promotions in rules/.
+ *
  * See docs/superpowers/specs/2026-04-20-named-cost-skip-signal-design.md
  */
 
@@ -21,7 +24,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 
 const TOOL_NAME = "acknowledge_named_cost_skip";
-const ALLOWED_GATES = ["DTP", "systems-analysis", "fat-marker-sketch"] as const;
+const ALLOWED_GATES = ["DTP", "systems-analysis", "fat-marker-sketch", "think-before-coding", "goal-driven"] as const;
 const MIN_USER_STATEMENT_LENGTH = 15;
 
 const server = new Server(
@@ -40,14 +43,14 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         "building on an unstated problem'). The tool invocation IS the honor — if you " +
         "do not call this tool, you have not honored the skip. Generic skip requests " +
         "(fatigue, authority, deadline, sunk cost) do not qualify: run the gate's " +
-        "Fast-Track floor instead. Accepted gates: DTP, systems-analysis, fat-marker-sketch.",
+        "Fast-Track floor instead. Accepted gates: DTP, systems-analysis, fat-marker-sketch, think-before-coding, goal-driven.",
       inputSchema: {
         type: "object",
         properties: {
           gate: {
             type: "string",
             enum: [...ALLOWED_GATES],
-            description: "The planning-pipeline gate being skipped. Accepted: 'DTP', 'systems-analysis', 'fat-marker-sketch'.",
+            description: "The planning-pipeline gate being skipped. Accepted: 'DTP', 'systems-analysis', 'fat-marker-sketch', 'think-before-coding', 'goal-driven'.",
           },
           user_statement: {
             type: "string",

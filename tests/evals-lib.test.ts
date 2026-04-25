@@ -428,6 +428,19 @@ describe("extractSignals()", () => {
       ].join("\n"),
     );
     const s = extractSignals(events);
+    // Intermediate assistant text concatenates ahead of the result event so
+    // regex assertions can match plans/preambles emitted before tool uses.
+    expect(s.finalText).toBe("hello\nfinal answer");
+    expect(s.terminalState).toBe("result");
+  });
+
+  test("uses just resultText when no intermediate assistant text exists", () => {
+    const { events } = parseStreamJson(
+      [
+        `{"type":"result","result":"final answer"}`,
+      ].join("\n"),
+    );
+    const s = extractSignals(events);
     expect(s.finalText).toBe("final answer");
     expect(s.terminalState).toBe("result");
   });

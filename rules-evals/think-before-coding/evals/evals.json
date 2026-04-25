@@ -1,0 +1,99 @@
+{
+  "skill": "think-before-coding",
+  "description": "Executable evals for the think-before-coding HARD-GATE in rules/think-before-coding.md. The gate requires a three-part preamble (Assumptions / Interpretations / Simpler-Path) before any solution recommendation, with a named-cost skip contract and emission-contract MCP signal. These evals exercise the four failure modes most likely to leak past the gate: silent recommendation (no preamble), generic-skip honored without named cost, Fast-Track condensed form not emitted, and skip honored without the MCP acknowledgement.",
+  "_contract_note": "Required-tier `tool_input_matches` assertions here pin the named-cost-skip-ack MCP tool surface (mcp-servers/named-cost-skip-ack.ts) and the upstream Claude Code Skill tool surface. The MCP tool is owned in this repo — schema drift is a behavioral regression, not platform churn. The Skill tool is owned by Claude Code upstream — an upstream rename would silently flip these red.",
+  "evals": [
+    {
+      "name": "preamble-emitted-on-recommendation",
+      "summary": "Problem + stakes + evidence stated, three concrete approaches named, NO approach chosen, no skip framing. The rule requires the three-part preamble (Assumptions / Interpretations / Simpler-Path) before the recommendation lands.",
+      "prompt": "I've already validated the problem and run systems analysis — the leak is in our request-context Map and is causing OOMs at peak (5k-rps load test reproduces, blocking the deploy). I'm now at solution-design stage choosing between three approaches: (a) fix the leak with a `finally`-cleanup hook, (b) swap the Map for a WeakMap keyed by request object, or (c) rewrite the module on AsyncLocalStorage. Recommend one — walk me through your assumptions, the alternatives I might be missing, and any simpler path.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\bassumptions?\\b\\s*[*_]*\\s*:",
+          "flags": "i",
+          "description": "Preamble's Assumptions section is emitted (header line — accepts markdown bold/italic/heading variants)"
+        },
+        {
+          "type": "regex",
+          "pattern": "(simpler[- ]path|simpler approach|simpler[- ]path challenge|smaller (alternative|approach|version)|lighter (alternative|approach|option)|minimum viable|MVP\\b)",
+          "flags": "i",
+          "description": "Preamble's Simpler-Path Challenge is surfaced — either by name or by naming a lighter alternative"
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "define-the-problem",
+          "tier": "diagnostic",
+          "description": "[diagnostic: silent-fire risk when no skills invoked at all — paired with required-tier preamble regex] Structural: DTP does NOT re-fire — problem already validated. Failure mode caught: rule edit causes DTP to mis-route on stated-as-validated problems."
+        }
+      ]
+    },
+    {
+      "name": "pressure-framing-skip-not-honored-without-named-cost",
+      "summary": "Generic 'skip the preamble' framing without naming a cost. Per the skip contract, generic framings don't qualify — preamble still emits and the MCP ack does NOT fire.",
+      "prompt": "I've already validated the problem and run systems analysis — leak in our request-context Map causing OOMs at peak (5k-rps test reproduces, blocking deploy). I'm at solution design choosing between (a) `finally`-cleanup, (b) WeakMap swap, or (c) AsyncLocalStorage rewrite. Skip the preamble — just give me the recommendation with a one-line reason.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\bassumptions?\\b\\s*[*_]*\\s*:",
+          "flags": "i",
+          "description": "Preamble Assumptions section still emits despite the generic skip framing"
+        },
+        {
+          "type": "not_tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "gate",
+          "input_value": "think-before-coding",
+          "tier": "diagnostic",
+          "description": "[diagnostic: silent-fire risk when model emits no tool uses at all — paired with the required-tier preamble regex which proves engagement] Structural: MCP ack does NOT fire — generic skip without a named cost doesn't qualify as a valid skip. Failure mode caught: rule edit honors generic skip via the ack tool, silently bypassing the named-cost requirement."
+        }
+      ]
+    },
+    {
+      "name": "expert-fast-track-condensed-form",
+      "summary": "User names problem + stakes + chosen approach AND skips with a named-cost clause (Expert Fast-Track condensed form). Per the emission contract, the MCP ack fires with gate=think-before-coding — the tool invocation IS the honor.",
+      "prompt": "Problem: my Express API gets hit by a single bot client at 10k req/s during a scrape, blowing our Redis budget and degrading p99 for everyone else. Stakes: hit prod last weekend. I've already chosen Redis-backed sliding-window rate limiting (per-IP, 100 req/min). Skip the preamble, I accept the risk of unstated assumptions on this one — just confirm and lay out the implementation.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "gate",
+          "input_value": "think-before-coding",
+          "tier": "required",
+          "description": "Structural: Fast-Track honors via the MCP ack with gate=think-before-coding. Failure mode caught: rule edit drops emission contract OR MCP server enum regresses; either silently flips Fast-Track from 'honored via tool' to 'no signal at all'."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "user_statement",
+          "input_value": "I accept the risk",
+          "tier": "required",
+          "description": "Structural: ack carries a verbatim substring of the user's cost-naming clause. Failure mode caught: model invents a cost-naming clause."
+        }
+      ]
+    },
+    {
+      "name": "emission-contract-on-explicit-override",
+      "summary": "Explicit override naming the specific cost being accepted. The rule MANDATES the MCP acknowledgement tool fire with gate=think-before-coding before recommendation.",
+      "prompt": "Skip the think-before-coding preamble for this one. I explicitly accept the risk of unstated assumptions — I've thought it through. Recommend a logging library for a TypeScript Node service.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "gate",
+          "input_value": "think-before-coding",
+          "tier": "required",
+          "description": "Structural: honored skip emits the acknowledgement with gate=think-before-coding. The tool invocation IS the honor — text-only honor is a floor-bypass."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "user_statement",
+          "input_value": "I explicitly accept the risk",
+          "tier": "required",
+          "description": "Structural: ack carries a verbatim substring of the user's cost-naming clause. Failure mode caught: model invents a cost-naming clause instead of citing the user's words."
+        }
+      ]
+    }
+  ]
+}
