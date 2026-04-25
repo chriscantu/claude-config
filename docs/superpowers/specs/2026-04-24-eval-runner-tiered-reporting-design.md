@@ -33,13 +33,25 @@ score = trustworthy. Text score = flaky-aware. Total = sanity check.
 
 ## Approach
 
-Type-based grouping inside the v2 runner. Zero schema change. Assertion type
-maps directly to tier:
+Type-based reliability grouping inside the v2 runner. Zero schema change.
 
-| Tier | Assertion types |
+**Two axes already / now in play:**
+
+- **Exit-gating axis (existing):** `AssertionTier = "required" | "diagnostic"`.
+  `required` failures fail the suite. `diagnostic` failures are reported but
+  do not gate exit code. Already implemented.
+- **Reliability axis (new):** `ReliabilityTier = "structural" | "text"`.
+  Computed from assertion type — no schema field. Used only for reporting.
+
+Assertion type → reliability:
+
+| Reliability | Assertion types |
 |---|---|
 | Structural | `skill_invoked`, `not_skill_invoked`, `skill_invoked_in_turn`, `chain_order` |
 | Text | `contains`, `not_contains`, `regex`, `not_regex` |
+
+The two axes cross: a `regex` assertion can be `required` (gates exit, flaky)
+or `diagnostic` (non-gating, flaky). Both axes are reported.
 
 ## Design
 
@@ -52,12 +64,14 @@ maps directly to tier:
 
 v1 runner and all eval files untouched.
 
-### Tier classifier
+### Reliability classifier
+
+New type added alongside existing `AssertionTier`:
 
 ```ts
-type AssertionTier = "structural" | "text";
+export type ReliabilityTier = "structural" | "text";
 
-function tierOf(type: AssertionType): AssertionTier {
+export function reliabilityOf(type: AssertionType): ReliabilityTier {
   switch (type) {
     case "skill_invoked":
     case "not_skill_invoked":
@@ -73,17 +87,35 @@ function tierOf(type: AssertionType): AssertionTier {
 }
 ```
 
-Exhaustive switch — TypeScript flags new assertion types at compile time.
+Exhaustive switch — TypeScript flags new assertion types at compile time. Lives
+in `tests/evals-lib.ts` near `AssertionTier`.
 
 ### Result aggregation
 
-Existing per-assertion result struct gains tier (computed at print time or
-stored). Aggregate counters at skill-level and run-level:
+`MetaDecision` already carries `tier: AssertionTier` (required/diagnostic) and
+`description`. Reliability is derived at report time from the originating
+assertion's `type`. Two paths:
+
+1. **Add `reliability` field to `MetaDecision`** at decision-creation time in
+   `metaCheck` (line ~637 of `evals-lib.ts`). Cleaner — no re-lookup at print.
+2. **Pass assertion type alongside** in a parallel array used only for reporting.
+
+Use option 1 — the type is already in scope where the decision is created and
+storage cost is one string per assertion.
+
+Aggregate counters per skill and run:
 
 ```ts
-type TierCounts = { pass: number; fail: number };
-type TierAgg = { structural: TierCounts; text: TierCounts };
+type ReliabilityCounts = { pass: number; fail: number };
+type ReliabilityAgg = {
+  requiredStructural: ReliabilityCounts;
+  requiredText: ReliabilityCounts;
+  diagnostic: ReliabilityCounts; // structural+text combined; diagnostic never gates
+};
 ```
+
+Diagnostic isn't split by reliability — diagnostic doesn't gate, so the
+reliability split there adds noise without value.
 
 ### Output format
 
@@ -91,26 +123,32 @@ Per-eval line stays compact (existing format). Final summary block:
 
 ```
 ─── Summary ───
-Structural:  17/18  (reliable)
-Text:         9/12  (flaky — wording-sensitive)
-Total:       26/30
+Structural (required):   17/18  (reliable, gates exit)
+Text (required):          9/12  (flaky, gates exit)
+Diagnostic:              27/29  (reported, no gate)
+Total:                   53/59
 
 Failures:
-  ✗ [structural] systems-analysis/sunk-cost-migration: skill_invoked systems-analysis
-  ✗ [text]       systems-analysis/rush-to-brainstorm: regex /surface area/i
+  ✗ [req-structural] systems-analysis/sunk-cost-migration: skill_invoked systems-analysis
+  ✗ [req-text]       systems-analysis/rush-to-brainstorm: regex /surface area/i
+  ✗ [diagnostic]     systems-analysis/foo: contains "..."
 ```
 
-Failure list groups by tier; tier prefix in brackets identifies each line.
+Failure list groups by tier; bracket prefix identifies each line.
 
 ### Exit code
 
-- Default: any failure → exit 1.
-- Flag `--text-nonblocking` (or env `EVAL_TEXT_NONBLOCKING=1`): structural fail
-  forces exit 1; text-only fail prints warning banner, exit 0.
+Existing semantics preserved: any required-tier failure → exit 1; diagnostic
+failures never gate. New flag adds reliability-based softening:
 
-The flag exists for audit workflows where text variance is expected and
-structural is the source of truth. Not the default — text fails should still
-get attention.
+- Default: any required failure (structural or text) → exit 1.
+- Flag `--text-nonblocking` (or env `EVAL_TEXT_NONBLOCKING=1`): required-text
+  failures print warning banner + exit 0; required-structural failures still
+  → exit 1.
+
+The flag is for audit workflows where text variance is expected and structural
+is the source of truth. Not the default — required-text fails should still get
+attention by default.
 
 ### Documentation
 
@@ -125,14 +163,18 @@ get attention.
 
 `tests/evals-lib.test.ts` additions:
 
-1. **Classifier exhaustiveness** — `tierOf` returns correct tier for each
-   `AssertionType` member. Compile-time exhaustive check + runtime assertion.
-2. **Aggregation** — mixed pass/fail input produces correct tier counts and
-   total.
-3. **Exit-code logic**:
-   - Structural fail + text pass → exit 1.
-   - Structural pass + text fail (default) → exit 1.
-   - Structural pass + text fail (`--text-nonblocking`) → exit 0 + warning.
+1. **Classifier exhaustiveness** — `reliabilityOf` returns correct tier for
+   each `AssertionType` member.
+2. **MetaDecision carries reliability** — `metaCheck` outputs include the
+   reliability field for each decision.
+3. **Aggregation** — mixed pass/fail input produces correct counts for
+   `requiredStructural`, `requiredText`, `diagnostic`.
+4. **Exit-code logic** (new helper, e.g. `suiteExit`):
+   - Required-structural fail + rest pass → exit 1.
+   - Required-text fail (default) + rest pass → exit 1.
+   - Required-text fail (`--text-nonblocking`) + rest pass → exit 0 + warning flag.
+   - Required-structural fail + `--text-nonblocking` → still exit 1.
+   - Diagnostic-only fail → exit 0.
    - All pass → exit 0.
 
 ## Risks
@@ -146,12 +188,15 @@ get attention.
 
 ## Acceptance Criteria
 
-- Running v2 runner prints structural / text / total tiers in summary.
-- Failure list prefixes each line with tier.
-- Default exit code unchanged (any fail → 1).
-- `--text-nonblocking` flag demotes text-only failures to warnings.
-- `EVALS.md` documents the tiers.
-- New tests pass.
+- Running v2 runner prints `Required Structural` / `Required Text` /
+  `Diagnostic` / `Total` lines in summary.
+- Failure list prefixes each line with `[req-structural]` / `[req-text]` /
+  `[diagnostic]`.
+- Default exit code unchanged (any required fail → 1; diagnostic-only → 0).
+- `--text-nonblocking` flag demotes required-text failures to warnings while
+  keeping required-structural blocking.
+- `EVALS.md` documents the reliability axis and the flag.
+- New tests pass; existing tests unchanged.
 
 ## Out of Scope / Follow-Ups
 
