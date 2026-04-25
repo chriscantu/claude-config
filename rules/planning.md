@@ -53,6 +53,17 @@ or tooling before completing the pipeline.
      already satisfied DTP inputs in-thread (named problem + stakes +
      evidence) is Expert Fast-Track, not a pressure framing — validate
      understanding and proceed.
+   - **Slash-prefix planning skill** — invoking a planning-shaped skill
+     by slash prefix without a problem statement in args. Concrete
+     examples: `/sdr <bare description>`, `/adr <bare description>`,
+     `/tech-radar <tool name>`, `/tenet-exception <bare description>`,
+     `/cross-project <repo name>`. The slash is a routing convenience,
+     NOT a named-cost skip — same DTP front-door applies as plain-English
+     prompts. If the args ALREADY satisfy DTP inputs (named problem +
+     user + stakes), this is Expert Fast-Track per the bare-brainstorm
+     carve-out above; otherwise, route to DTP first, then hand off to
+     the named skill. The skill's `description` field is NOT a license
+     to bypass the gate.
 
    Honor full skip ONLY via the Emission contract above (MCP
    `acknowledge_named_cost_skip` tool-use with verbatim cost-naming
