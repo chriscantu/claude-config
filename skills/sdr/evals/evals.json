@@ -1,64 +1,91 @@
 {
   "skill": "sdr",
   "description": "Executable evals for the sdr skill. Verifies the four-type routing surface and that the skill points at the canonical template path rather than inlining template content.",
-  "_contract_note": "The skill points at ~/repos/system-design-records/ as the canonical template source. That path is an external dependency NOT owned by this repo — drift in the upstream repo (renamed templates, restructured layout) will surface as eval drift here. Re-pin the regex if the upstream template filenames change. Per ADR #0005, structural assertions (skill_invoked + tool_input_matches) are the load-bearing signal; text regex is diagnostic-tier in spirit.",
+  "_contract_note": "The skill points at ~/repos/system-design-records/ as the canonical template source. That path is an external dependency NOT owned by this repo — drift in the upstream repo (renamed templates, restructured layout) will surface as eval drift here. Re-pin the regex if the upstream template filenames change. Per ADR #0005, structural assertions (skill_invoked + tool_input_matches) are the load-bearing signal; text regex is diagnostic-tier in spirit. EXCEPTION: the multi-turn evals below permanently classify chain_order and skill_invoked_in_turn as diagnostic-tier per the 2026-04-21 substrate-path decision documented in skills/systems-analysis/evals/evals.json sunk-cost-migration-multi-turn — `claude --resume` does not reliably re-emit Skill tool_use across resumed turns, so per-turn structural signals on turns 2..N cannot gate. Required-tier signal in those evals is regex on the model's [Stage: ...] markers and template-name prose, plus the turn-1 DTP structural gate (which IS reliable since turn 1 is fresh-session).",
   "evals": [
     {
       "name": "fires-on-create-sdr-trigger",
-      "summary": "skill fires on /sdr-style request and surfaces the four-type routing",
+      "summary": "skill fires on /sdr-style request and surfaces the four-type routing — Class B in-place demotion: skill_invoked / tool_input_matches demoted to diagnostic per observed Skill re-emit unreliability on slash-prefix prompts (model writes prose response without re-invoking Skill tool); regex remains the load-bearing required signal.",
       "prompt": "/sdr — I want to write a system design record for a new payments platform.",
       "assertions": [
         {
           "type": "skill_invoked",
           "skill": "sdr",
-          "description": "skill fires on the /sdr trigger phrase"
+          "tier": "diagnostic",
+          "description": "diagnostic: skill_invoked channel — Skill tool re-emit on slash-prefix prompts is unreliable; informational"
         },
         {
           "type": "tool_input_matches",
           "tool": "Skill",
           "input_key": "skill",
           "input_value": "sdr",
-          "tier": "required",
-          "description": "Skill tool surface contract — skill name passed as 'sdr'"
+          "tier": "diagnostic",
+          "description": "diagnostic: Skill tool surface contract — same re-emit unreliability as above"
         },
         {
           "type": "regex",
           "pattern": "(system overview|service.{0,20}component|data design|blueprint)",
           "flags": "i",
-          "description": "skill output references at least one of the four canonical SDR types"
+          "tier": "required",
+          "description": "required: skill output references at least one of the four canonical SDR types — load-bearing text signal per ADR #0005 channel-reliability framing"
         },
         {
           "type": "not_regex",
           "pattern": "^(?!.*(system.design.record|sdr|template))",
           "flags": "is",
-          "description": "skill engages with SDR concepts rather than answering generically"
+          "tier": "required",
+          "description": "required: skill engages with SDR concepts rather than answering generically"
         }
       ]
     },
     {
       "name": "routes-to-system-overview-for-platform-design",
-      "summary": "platform-scoped prompt routes toward System Overview, not service-creation",
-      "prompt": "/sdr I'm designing a whole new order fulfillment platform across multiple services. Which template should I use?",
-      "assertions": [
+      "summary": "Class A multi-turn rewrite: turn 1 pressure prompt (no problem statement) → DTP HARD-GATE intercepts; turn 2 user provides problem + stakes + scaffold ask → SDR routes to System Overview. Required-tier gates: turn 1 DTP fires (structural) + DTP stage marker (text); turn 2 template-name regex (text). chain_order / skill_invoked_in_turn are diagnostic per --resume re-emit unreliability.",
+      "turns": [
         {
-          "type": "skill_invoked",
+          "prompt": "/sdr I'm designing a whole new order fulfillment platform across multiple services. Which template should I use?",
+          "assertions": [
+            {
+              "type": "skill_invoked",
+              "skill": "define-the-problem",
+              "tier": "required",
+              "description": "Turn 1: DTP front-door fires per rules/planning.md HARD-GATE — no problem statement in prompt, so DTP must intercept before SDR routing"
+            },
+            {
+              "type": "regex",
+              "pattern": "\\[Stage:\\s*Problem Definition\\]",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 1: DTP stage marker emitted per planning.md Stage Visibility contract"
+            }
+          ]
+        },
+        {
+          "prompt": "Problem: our order fulfillment platform is split across 6 services with no shared landscape doc — new hires take ~2 weeks to onboard onto the platform. Stakes: every new engineer adds ~80 hours of ramp time, and oncall struggles to triage cross-service incidents. Now scaffold the SDR for this order fulfillment platform — I want a system overview covering all the services.",
+          "assertions": [
+            {
+              "type": "regex",
+              "pattern": "system.overview",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 2: skill recommends the System Overview template by name for whole-platform design"
+            }
+          ]
+        }
+      ],
+      "final_assertions": [
+        {
+          "type": "chain_order",
+          "skills": ["define-the-problem", "sdr"],
+          "tier": "diagnostic",
+          "description": "Diagnostic: ideal chain order DTP → sdr. Per --resume Skill re-emit unreliability documented in systems-analysis/evals/evals.json sunk-cost-migration-multi-turn, this channel is informational; absence does not gate the eval."
+        },
+        {
+          "type": "skill_invoked_in_turn",
+          "turn": 2,
           "skill": "sdr",
-          "description": "skill fires"
-        },
-        {
-          "type": "tool_input_matches",
-          "tool": "Skill",
-          "input_key": "skill",
-          "input_value": "sdr",
-          "tier": "required",
-          "description": "Skill surface contract"
-        },
-        {
-          "type": "regex",
-          "pattern": "system.overview",
-          "flags": "i",
-          "tier": "required",
-          "description": "recommends the System Overview template for whole-system design"
+          "tier": "diagnostic",
+          "description": "Diagnostic: turn 2 SDR fires when Skill re-emits across --resume. Re-emit is unreliable; informational only."
         }
       ]
     },
@@ -84,105 +111,212 @@
     },
     {
       "name": "routes-to-service-component-for-new-service",
-      "summary": "new-service prompt routes to Service/Component Creation template",
-      "prompt": "I'm building a new pricing service",
-      "assertions": [
+      "summary": "Class A multi-turn rewrite: turn 1 service-creation prompt → DTP HARD-GATE intercepts; turn 2 user provides problem + stakes + scaffold ask → SDR routes to Service/Component Creation. Required-tier gates: turn 1 DTP structural + stage marker; turn 2 template-name regex. chain_order / skill_invoked_in_turn diagnostic.",
+      "turns": [
         {
-          "type": "skill_invoked",
+          "prompt": "I'm building a new pricing service",
+          "assertions": [
+            {
+              "type": "skill_invoked",
+              "skill": "define-the-problem",
+              "tier": "required",
+              "description": "Turn 1: DTP front-door fires per rules/planning.md HARD-GATE — bare 'building X' is greenfield-no-problem-stated, DTP intercepts"
+            },
+            {
+              "type": "regex",
+              "pattern": "\\[Stage:\\s*Problem Definition\\]",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 1: DTP stage marker emitted"
+            }
+          ]
+        },
+        {
+          "prompt": "Problem: promo discounts are computed in 4 different services and drift in subtle ways depending on which service is hit first. Stakes: ~3% revenue leakage last quarter from inconsistent discount logic, plus 2 customer-facing incidents. Now scaffold the SDR for the new pricing service that will own discount computation.",
+          "assertions": [
+            {
+              "type": "regex",
+              "pattern": "(service.{0,20}component|service-component)",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 2: skill recommends Service/Component Creation template (matches 'Service/Component' prose with up to 20 chars between tokens, plus 'service-component' file ref)"
+            }
+          ]
+        }
+      ],
+      "final_assertions": [
+        {
+          "type": "chain_order",
+          "skills": ["define-the-problem", "sdr"],
+          "tier": "diagnostic",
+          "description": "Diagnostic: chain order DTP → sdr. Per --resume re-emit unreliability, informational."
+        },
+        {
+          "type": "skill_invoked_in_turn",
+          "turn": 2,
           "skill": "sdr",
-          "tier": "required",
-          "description": "skill fires on new-service intent"
-        },
-        {
-          "type": "tool_input_matches",
-          "tool": "Skill",
-          "input_key": "skill",
-          "input_value": "sdr",
-          "tier": "required",
-          "description": "Skill surface contract"
-        },
-        {
-          "type": "regex",
-          "pattern": "(service.{0,20}component|service-component)",
-          "flags": "i",
-          "tier": "required",
-          "description": "recommends Service/Component Creation template (matches 'Service/Component' prose with up to 20 chars between the tokens, plus the 'service-component' file ref)"
+          "tier": "diagnostic",
+          "description": "Diagnostic: turn 2 SDR fire — informational per --resume re-emit unreliability."
         }
       ]
     },
     {
       "name": "routes-to-data-design-for-schema",
-      "summary": "schema-design prompt routes to Data Design template",
-      "prompt": "I need to design the order schema",
-      "assertions": [
+      "summary": "Class A multi-turn rewrite: turn 1 schema-design prompt → DTP intercepts; turn 2 problem + stakes + scaffold → SDR routes to Data Design. Required-tier gates: turn 1 DTP structural + stage marker; turn 2 template-name regex. chain_order / skill_invoked_in_turn diagnostic.",
+      "turns": [
         {
-          "type": "skill_invoked",
+          "prompt": "I need to design the order schema",
+          "assertions": [
+            {
+              "type": "skill_invoked",
+              "skill": "define-the-problem",
+              "tier": "required",
+              "description": "Turn 1: DTP front-door fires per rules/planning.md HARD-GATE — no problem statement, DTP intercepts"
+            },
+            {
+              "type": "regex",
+              "pattern": "\\[Stage:\\s*Problem Definition\\]",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 1: DTP stage marker emitted"
+            }
+          ]
+        },
+        {
+          "prompt": "Problem: order data lives in 3 different tables with overlapping columns and no canonical access-pattern documentation. Stakes: every new feature triggers a 2-day data-modeling debate, and we've had 2 production incidents this quarter from picking the wrong table. Now scaffold the SDR for the order schema design — I need an access-pattern-first data design.",
+          "assertions": [
+            {
+              "type": "regex",
+              "pattern": "(data.design|data-design|schema (template|record|design))",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 2: skill recommends Data Design template (matches 'Data Design' prose, 'data-design' file ref, and three schema-X bigrams)"
+            }
+          ]
+        }
+      ],
+      "final_assertions": [
+        {
+          "type": "chain_order",
+          "skills": ["define-the-problem", "sdr"],
+          "tier": "diagnostic",
+          "description": "Diagnostic: chain order DTP → sdr. Per --resume re-emit unreliability, informational."
+        },
+        {
+          "type": "skill_invoked_in_turn",
+          "turn": 2,
           "skill": "sdr",
-          "tier": "required",
-          "description": "skill fires on schema-design intent"
-        },
-        {
-          "type": "tool_input_matches",
-          "tool": "Skill",
-          "input_key": "skill",
-          "input_value": "sdr",
-          "tier": "required",
-          "description": "Skill surface contract"
-        },
-        {
-          "type": "regex",
-          "pattern": "(data.design|data-design|schema (template|record|design))",
-          "flags": "i",
-          "tier": "required",
-          "description": "recommends Data Design template (matches 'Data Design' prose, file ref 'data-design', and three fixed schema-X bigrams: 'schema template', 'schema record', 'schema design')"
+          "tier": "diagnostic",
+          "description": "Diagnostic: turn 2 SDR fire — informational per --resume re-emit unreliability."
         }
       ]
     },
     {
       "name": "routes-to-blueprint-for-reusable-pattern",
-      "summary": "reusable-pattern prompt routes to Blueprint template",
-      "prompt": "Reusable golden path for new microservices",
-      "assertions": [
+      "summary": "Class A multi-turn rewrite: turn 1 reusable-pattern prompt → DTP intercepts; turn 2 problem + stakes + scaffold → SDR routes to Blueprint. Required-tier gates: turn 1 DTP structural + stage marker; turn 2 template-name regex. chain_order / skill_invoked_in_turn diagnostic.",
+      "turns": [
         {
-          "type": "skill_invoked",
+          "prompt": "Reusable golden path for new microservices",
+          "assertions": [
+            {
+              "type": "skill_invoked",
+              "skill": "define-the-problem",
+              "tier": "required",
+              "description": "Turn 1: DTP front-door fires per rules/planning.md HARD-GATE — no problem statement, DTP intercepts"
+            },
+            {
+              "type": "regex",
+              "pattern": "\\[Stage:\\s*Problem Definition\\]",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 1: DTP stage marker emitted"
+            }
+          ]
+        },
+        {
+          "prompt": "Problem: every team rolls their own microservice scaffold; we have ~12 variants of how teams wire metrics, logging, healthchecks, and config loading. Stakes: 3-4 weeks per new service to reach production-ready, and oncall pages because monitoring conventions diverge across services. Now scaffold the SDR for a reusable microservice blueprint — I want a Blueprint template with variation points.",
+          "assertions": [
+            {
+              "type": "regex",
+              "pattern": "\\bblueprint\\b",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 2: skill recommends Blueprint template (tight pattern: 'Blueprint' is the template name; alternation with 'reusable pattern|golden path' would risk matching prompt echo)"
+            }
+          ]
+        }
+      ],
+      "final_assertions": [
+        {
+          "type": "chain_order",
+          "skills": ["define-the-problem", "sdr"],
+          "tier": "diagnostic",
+          "description": "Diagnostic: chain order DTP → sdr. Per --resume re-emit unreliability, informational."
+        },
+        {
+          "type": "skill_invoked_in_turn",
+          "turn": 2,
           "skill": "sdr",
-          "tier": "required",
-          "description": "skill fires on reusable-pattern intent"
-        },
-        {
-          "type": "tool_input_matches",
-          "tool": "Skill",
-          "input_key": "skill",
-          "input_value": "sdr",
-          "tier": "required",
-          "description": "Skill surface contract"
-        },
-        {
-          "type": "regex",
-          "pattern": "\\bblueprint\\b",
-          "flags": "i",
-          "tier": "required",
-          "description": "recommends Blueprint template (tight pattern intentional: 'Blueprint' is the template name; synonym alternation like 'reusable pattern|golden path' would risk matching prompt echo without proof of template recommendation)"
+          "tier": "diagnostic",
+          "description": "Diagnostic: turn 2 SDR fire — informational per --resume re-emit unreliability."
         }
       ]
     },
     {
       "name": "does-not-fire-for-tool-adoption",
-      "summary": "tool-adoption prompt routes to /tech-radar, not sdr — anti-trigger guardrail paired with positive anchor",
-      "prompt": "Should we adopt Temporal for workflow orchestration?",
-      "assertions": [
+      "summary": "Class A multi-turn rewrite (anti-trigger): turn 1 tool-adoption prompt → DTP intercepts (or routes directly to /tech-radar); turn 2 user explicitly clarifies tool-comparison framing → /tech-radar mention required, sdr must NOT fire. final_assertions chain_order is [define-the-problem, tech-radar] (diagnostic per --resume re-emit unreliability).",
+      "turns": [
         {
-          "type": "regex",
-          "pattern": "(\\b/?tech[- ]radar\\b|technology radar)",
-          "flags": "i",
-          "tier": "required",
-          "description": "positive anchor — response recommends /tech-radar or names the technology radar (rules out empty-stream silent-fire); tight pattern symmetric with /adr anti-trigger"
+          "prompt": "Should we adopt Temporal for workflow orchestration?",
+          "assertions": [
+            {
+              "type": "skill_invoked",
+              "skill": "define-the-problem",
+              "tier": "required",
+              "description": "Turn 1: DTP front-door fires per rules/planning.md HARD-GATE — no problem statement, DTP intercepts before any routing decision"
+            },
+            {
+              "type": "regex",
+              "pattern": "\\[Stage:\\s*Problem Definition\\]",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 1: DTP stage marker emitted"
+            }
+          ]
         },
         {
-          "type": "not_skill_invoked",
-          "skill": "sdr",
+          "prompt": "To clarify: I'm not designing a new system. I'm evaluating whether to adopt Temporal as a tool against alternatives like Cadence and AWS Step Functions for our workflow orchestration needs. The problem is that we have 3 ad-hoc workflow systems today and want to consolidate on a single tool. Help me run a tool comparison.",
+          "assertions": [
+            {
+              "type": "regex",
+              "pattern": "(\\b/?tech[- ]radar\\b|technology radar)",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 2: response recommends /tech-radar or names the technology radar — explicit tool-comparison framing routes to tech-radar, not sdr"
+            },
+            {
+              "type": "not_regex",
+              "pattern": "(system overview|service.{0,20}component|data design|\\bblueprint\\b)",
+              "flags": "i",
+              "tier": "required",
+              "description": "Turn 2: response does NOT recommend any of the four SDR template types — anti-trigger contract"
+            }
+          ]
+        }
+      ],
+      "final_assertions": [
+        {
+          "type": "chain_order",
+          "skills": ["define-the-problem", "tech-radar"],
           "tier": "diagnostic",
-          "description": "sdr does NOT fire on tool-adoption framing (diagnostic — paired with positive regex above)"
+          "description": "Diagnostic: ideal chain order DTP → tech-radar. Per --resume re-emit unreliability, informational. [define-the-problem] alone (no tech-radar re-emit) is acceptable."
+        },
+        {
+          "type": "skill_invoked_in_turn",
+          "turn": 2,
+          "skill": "tech-radar",
+          "tier": "diagnostic",
+          "description": "Diagnostic: turn 2 tech-radar fire when Skill re-emits across --resume. Informational."
         }
       ]
     },
@@ -264,21 +398,21 @@
     },
     {
       "name": "interactive-mode-asks-which-type",
-      "summary": "/sdr with no args triggers interactive disambiguation across the four types — must NOT scaffold during the ask",
+      "summary": "/sdr with no args triggers interactive disambiguation across the four types — must NOT scaffold during the ask. Class B in-place demotion: skill_invoked demoted to diagnostic per Skill re-emit unreliability on slash-prefix prompts; regex (positive question detection) and not_tool_input_matches (negative scaffold check) remain required.",
       "prompt": "/sdr",
       "assertions": [
         {
           "type": "skill_invoked",
           "skill": "sdr",
-          "tier": "required",
-          "description": "skill fires on bare /sdr"
+          "tier": "diagnostic",
+          "description": "diagnostic: skill_invoked channel — Skill tool re-emit on slash-prefix prompts is unreliable; informational"
         },
         {
           "type": "regex",
           "pattern": "(which.{0,20}(type|template)|whole system|landscape|service or component)",
           "flags": "i",
           "tier": "required",
-          "description": "skill asks a disambiguation question rather than scaffolding silently"
+          "description": "required: skill asks a disambiguation question rather than scaffolding silently — load-bearing positive signal"
         },
         {
           "type": "not_tool_input_matches",
@@ -286,7 +420,7 @@
           "input_key": "file_path",
           "input_value": "sdr",
           "tier": "required",
-          "description": "negative anchor — proves the skill is asking, not scaffolding: no Write tool_use with an 'sdr' path during disambiguation. Silent-fires if no tools used at all (acceptable: 'asks AND zero tool uses' is still correct behavior; 'asks AND scaffolds' is the failure mode this guards against)"
+          "description": "required: negative anchor — proves skill is asking, not scaffolding: no Write tool_use with an 'sdr' path during disambiguation. Silent-fires if no tools used at all (acceptable: 'asks AND zero tool uses' is still correct behavior; 'asks AND scaffolds' is the failure mode this guards against)"
         }
       ]
     }
