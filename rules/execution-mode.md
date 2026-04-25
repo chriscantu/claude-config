@@ -1,3 +1,12 @@
+---
+description: >
+  Sizing guard for `superpowers:subagent-driven-development`. Requires the
+  controller to choose and announce execution mode (subagent-driven vs.
+  single-implementer) before the first implementer dispatch, based on plan
+  size and integration coupling. Wraps the plugin-cached skill rather than
+  editing it. Composes with `planning.md` Trivial-tier carve-out.
+---
+
 # Execution Mode Selection
 
 <HARD-GATE>
