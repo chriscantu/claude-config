@@ -789,6 +789,46 @@ export function suiteOk(tallies: readonly EvalTally[]): boolean {
   return tallies.every((t) => t.evalPassed);
 }
 
+export interface ReliabilityCounts {
+  pass: number;
+  fail: number;
+}
+
+export interface ReliabilityAgg {
+  requiredStructural: ReliabilityCounts;
+  requiredText: ReliabilityCounts;
+  /**
+   * Diagnostic decisions are NOT split by reliability. Diagnostic never
+   * gates exit, so the structural-vs-text distinction adds noise without
+   * decision value at this tier.
+   */
+  diagnostic: ReliabilityCounts;
+}
+
+/**
+ * Bucket meta decisions across one or more evals by required×reliability.
+ * silent_fire counts as a failure in its bucket; pass and fail count as
+ * themselves.
+ */
+export function tallyReliability(decisions: readonly MetaDecision[]): ReliabilityAgg {
+  const agg: ReliabilityAgg = {
+    requiredStructural: { pass: 0, fail: 0 },
+    requiredText: { pass: 0, fail: 0 },
+    diagnostic: { pass: 0, fail: 0 },
+  };
+  for (const d of decisions) {
+    const bucket =
+      d.tier === "diagnostic"
+        ? agg.diagnostic
+        : d.reliability === "structural"
+          ? agg.requiredStructural
+          : agg.requiredText;
+    if (d.kind === "pass") bucket.pass += 1;
+    else bucket.fail += 1;
+  }
+  return agg;
+}
+
 /**
  * Result of `runLifecycle`. Distinguishes the setup-failed path (teardown
  * did NOT run — setup is atomic, nothing to undo) from the ok path where

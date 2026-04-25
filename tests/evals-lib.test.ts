@@ -12,6 +12,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type Assertion,
+  type MetaDecision,
+  type ReliabilityAgg,
   type Signals,
   type ChainSignals,
   type SkillInvocation,
@@ -27,6 +29,7 @@ import {
   parseStreamJson,
   reliabilityOf,
   runLifecycle,
+  tallyReliability,
 } from "./evals-lib.ts";
 
 describe("reliabilityOf()", () => {
@@ -1429,5 +1432,38 @@ describe("planning.md stage markers contract", () => {
     expect(planning).toContain("[Stage: Problem Definition]");
     expect(planning).toContain("[Stage: Systems Analysis]");
     expect(planning).toContain("[Stage: Solution Design]");
+  });
+});
+
+describe("tallyReliability()", () => {
+  test("buckets decisions by required×reliability with diagnostic combined", () => {
+    const decisions: MetaDecision[] = [
+      { kind: "pass", description: "a", tier: "required", reliability: "structural" },
+      { kind: "fail", description: "b", tier: "required", reliability: "structural", detail: "x" },
+      { kind: "pass", description: "c", tier: "required", reliability: "text" },
+      { kind: "fail", description: "d", tier: "required", reliability: "text", detail: "x" },
+      { kind: "pass", description: "e", tier: "diagnostic", reliability: "text" },
+      { kind: "fail", description: "f", tier: "diagnostic", reliability: "structural", detail: "x" },
+    ];
+    const agg = tallyReliability(decisions);
+    expect(agg.requiredStructural).toEqual({ pass: 1, fail: 1 });
+    expect(agg.requiredText).toEqual({ pass: 1, fail: 1 });
+    expect(agg.diagnostic).toEqual({ pass: 1, fail: 1 });
+  });
+
+  test("silent_fire counts as a fail in its bucket", () => {
+    const decisions: MetaDecision[] = [
+      { kind: "silent_fire", description: "a", tier: "required", reliability: "structural", detail: "x" },
+    ];
+    const agg = tallyReliability(decisions);
+    expect(agg.requiredStructural).toEqual({ pass: 0, fail: 1 });
+  });
+
+  test("empty input → all zero", () => {
+    expect(tallyReliability([])).toEqual({
+      requiredStructural: { pass: 0, fail: 0 },
+      requiredText: { pass: 0, fail: 0 },
+      diagnostic: { pass: 0, fail: 0 },
+    });
   });
 });
