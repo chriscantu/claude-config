@@ -1,0 +1,77 @@
+{
+  "skill": "sdr",
+  "description": "Executable evals for the sdr skill. Verifies the four-type routing surface and that the skill points at the canonical template path rather than inlining template content.",
+  "_contract_note": "The skill points at ~/repos/system-design-records/ as the canonical template source. That path is an external dependency NOT owned by this repo — drift in the upstream repo (renamed templates, restructured layout) will surface as eval drift here. Re-pin the regex if the upstream template filenames change. Per ADR #0005, structural assertions (skill_invoked + tool_input_matches) are the load-bearing signal; text regex is diagnostic-tier in spirit.",
+  "evals": [
+    {
+      "name": "fires-on-create-sdr-trigger",
+      "summary": "skill fires on /sdr-style request and surfaces the four-type routing",
+      "prompt": "/sdr — I want to write a system design record for a new payments platform.",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "sdr",
+          "description": "skill fires on the /sdr trigger phrase"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "sdr",
+          "tier": "required",
+          "description": "Skill tool surface contract — skill name passed as 'sdr'"
+        },
+        {
+          "type": "regex",
+          "pattern": "(system overview|service.{0,20}component|data design|blueprint)",
+          "flags": "i",
+          "description": "skill output references at least one of the four canonical SDR types"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^(?!.*(system.design.record|sdr|template))",
+          "flags": "is",
+          "description": "skill engages with SDR concepts rather than answering generically"
+        }
+      ]
+    },
+    {
+      "name": "routes-to-system-overview-for-platform-design",
+      "summary": "platform-scoped prompt routes toward System Overview, not service-creation",
+      "prompt": "/sdr I'm designing a whole new order fulfillment platform across multiple services. Which template should I use?",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "sdr",
+          "description": "skill fires"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "sdr",
+          "tier": "required",
+          "description": "Skill surface contract"
+        },
+        {
+          "type": "regex",
+          "pattern": "system.overview",
+          "flags": "i",
+          "description": "recommends the System Overview template for whole-system design"
+        }
+      ]
+    },
+    {
+      "name": "does-not-fire-for-single-architectural-choice",
+      "summary": "/adr-shaped prompt should NOT trigger sdr — anti-trigger guardrail",
+      "prompt": "I need to record a single architectural decision: we're choosing Postgres over MySQL for the user service. What should I do?",
+      "assertions": [
+        {
+          "type": "not_skill_invoked",
+          "skill": "sdr",
+          "description": "sdr does NOT fire on a single-decision /adr-shaped request"
+        }
+      ]
+    }
+  ]
+}
