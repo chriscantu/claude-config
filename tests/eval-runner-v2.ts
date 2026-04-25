@@ -44,8 +44,10 @@ import {
   metaCheck,
   parseStreamJson,
   runLifecycle,
+  suiteExit,
   suiteOk,
   tallyEval,
+  tallyReliability,
 } from "./evals-lib.ts";
 
 const repoDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -55,6 +57,7 @@ const claudeBin = process.env.CLAUDE_BIN ?? "claude";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
+const textNonblocking = args.includes("--text-nonblocking") || process.env.EVAL_TEXT_NONBLOCKING === "1";
 const skillFilter = args.find((a) => !a.startsWith("--"));
 
 /**
@@ -509,6 +512,9 @@ async function main() {
   // human-readable "X/Y assertions passed" line but MUST NOT flip exit —
   // diagnostic-tier fails decrement the assertion count without being a gate.
   const tallies: EvalTally[] = [];
+  // All MetaDecisions across every eval — fed to tallyReliability for the
+  // tiered summary block (#129).
+  const allDecisions: MetaDecision[] = [];
 
   // Shared helpers captured by the two branches below so the report counters
   // and transcript paths come from one place.
@@ -590,6 +596,7 @@ async function main() {
     }
     const meta = metaCheck({ perTurn, final: [] });
     const tally = tallyEval(meta, e.assertions.length);
+    allDecisions.push(...meta.decisions);
 
     writeTranscript({
       path: transcriptFile,
@@ -704,6 +711,7 @@ async function main() {
 
     const meta = metaCheck({ perTurn, final });
     const tally = tallyEval(meta, allAssertions.length);
+    allDecisions.push(...meta.decisions);
 
     writeChainTranscript({
       path: transcriptFile,
@@ -790,19 +798,33 @@ async function main() {
   const assertionLine = `${passedAssertions}/${totalAssertions} assertions passed`;
   console.log(passedEvals === totalEvals ? green(evalLine) : red(evalLine));
   console.log(passedAssertions === totalAssertions ? green(assertionLine) : red(assertionLine));
+
+  // Reliability tier block (#129).
+  const agg = tallyReliability(allDecisions);
+  const fmt = (label: string, c: { pass: number; fail: number }, note: string) => {
+    const total = c.pass + c.fail;
+    const line = `${label.padEnd(24)} ${c.pass}/${total}  ${dim(note)}`;
+    return c.fail === 0 ? green(line) : red(line);
+  };
+  console.log(fmt("Structural (required):", agg.requiredStructural, "(reliable, gates exit)"));
+  console.log(fmt("Text (required):", agg.requiredText, "(flaky, gates exit)"));
+  console.log(fmt("Diagnostic:", agg.diagnostic, "(reported, no gate)"));
+
   const totalSilentFires = tallies.reduce((n, t) => n + t.silentFireCount, 0);
   if (totalSilentFires > 0) {
     console.log(red(`${totalSilentFires} SILENT-FIRE FAILURE(S) across suite`));
   }
 
-  // Exit-code contract (per decision doc): exit 0 iff every eval's
-  // required-tier gate passed. Do NOT gate on passedAssertions — a diagnostic
-  // fail would otherwise flip the exit, contradicting the tiered design.
-  // Dry-run is special-cased: it mock-passes every assertion so the tallies
-  // list is empty and `suiteOk` trivially holds, which is the intended
-  // behavior (dry-run only validates JSON schema, not model output).
-  const ok = dryRun || suiteOk(tallies);
-  process.exit(ok ? 0 : 1);
+  // Exit-code contract (per decision doc + #129):
+  //   - required-structural fail → exit 1
+  //   - required-text fail → exit 1 by default; warn + exit 0 with --text-nonblocking
+  //   - diagnostic fail → never gates
+  // Dry-run mock-passes everything; the agg is empty so suiteExit returns 0.
+  const exit = dryRun ? { exitCode: 0 as const } : suiteExit(agg, { textNonblocking });
+  if (exit.warning) {
+    console.log(red(`⚠ ${exit.warning}`));
+  }
+  process.exit(exit.exitCode);
 }
 
 main().catch((err) => {
