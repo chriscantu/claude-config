@@ -92,6 +92,38 @@ they don't collide with v1 when both are run back-to-back for comparison.
 - Every assertion is type-checked: required fields present, regex patterns precompiled.
 - A bad regex or missing required field fails fast with a file path in the error — the runner exits 1 before sending any prompt to claude.
 
+## Reporting Tiers (v2 runner)
+
+The v2 runner reports two independent axes:
+
+### Axis 1: Exit-gating (`tier`, set per assertion in JSON)
+
+- `required` (default): failure fails the suite (exit 1).
+- `diagnostic`: failure is reported but does not gate the exit code.
+
+### Axis 2: Reliability (derived from assertion type)
+
+- `structural`: `skill_invoked`, `not_skill_invoked`, `skill_invoked_in_turn`,
+  `chain_order`, `tool_input_matches`. Fires against parsed stream-json
+  signals. Deterministic, spoof-resistant.
+- `text`: `contains`, `not_contains`, `regex`, `not_regex`. Fires against
+  model prose. Wording-sensitive, subject to run-to-run variance.
+
+The two axes cross. Summary output:
+
+````
+Structural (required):   N/M  (reliable, gates exit)
+Text (required):         N/M  (flaky, gates exit)
+Diagnostic:              N/M  (reported, no gate)
+````
+
+### `--text-nonblocking`
+
+Flag (or env `EVAL_TEXT_NONBLOCKING=1`) demotes required-text failures to a
+warning and exits 0. Required-structural failures still force exit 1. Use
+when running audits where text variance is expected and structural is the
+source of truth.
+
 ## Multi-turn evals
 
 `claude --print` is single-turn. Some behavioural regressions — notably the
