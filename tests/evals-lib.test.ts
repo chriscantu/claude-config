@@ -12,9 +12,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type Assertion,
+  type MetaDecision,
+  type ReliabilityAgg,
   type Signals,
   type ChainSignals,
   type SkillInvocation,
+  type ValidatedAssertion,
+  type SuiteExitOptions,
   aggregateChainSignals,
   brandForTest as v,
   evaluate,
@@ -24,8 +28,28 @@ import {
   loadEvalFile,
   metaCheck,
   parseStreamJson,
+  reliabilityOf,
   runLifecycle,
+  suiteExit,
+  tallyReliability,
 } from "./evals-lib.ts";
+
+describe("reliabilityOf()", () => {
+  test("structural assertion types map to 'structural'", () => {
+    expect(reliabilityOf("skill_invoked")).toBe("structural");
+    expect(reliabilityOf("not_skill_invoked")).toBe("structural");
+    expect(reliabilityOf("skill_invoked_in_turn")).toBe("structural");
+    expect(reliabilityOf("chain_order")).toBe("structural");
+    expect(reliabilityOf("tool_input_matches")).toBe("structural");
+  });
+
+  test("text assertion types map to 'text'", () => {
+    expect(reliabilityOf("contains")).toBe("text");
+    expect(reliabilityOf("not_contains")).toBe("text");
+    expect(reliabilityOf("regex")).toBe("text");
+    expect(reliabilityOf("not_regex")).toBe("text");
+  });
+});
 
 function sig(finalText: string, extra?: Partial<Signals>): Signals {
   return {
@@ -404,7 +428,36 @@ describe("extractSignals()", () => {
       ].join("\n"),
     );
     const s = extractSignals(events);
+    // Intermediate assistant text concatenates ahead of the result event so
+    // regex assertions can match plans/preambles emitted before tool uses.
+    expect(s.finalText).toBe("hello\nfinal answer");
+    expect(s.terminalState).toBe("result");
+  });
+
+  test("uses just resultText when no intermediate assistant text exists", () => {
+    const { events } = parseStreamJson(
+      [
+        `{"type":"result","result":"final answer"}`,
+      ].join("\n"),
+    );
+    const s = extractSignals(events);
     expect(s.finalText).toBe("final answer");
+    expect(s.terminalState).toBe("result");
+  });
+
+  test("concatenates multiple intermediate assistant messages with the result event", () => {
+    // Guard the join shape: parts joined with "\n", then "\n" before resultText.
+    // Off-by-one or accidental-space bugs in the join would show up here.
+    const { events } = parseStreamJson(
+      [
+        `{"type":"assistant","message":{"content":[{"type":"text","text":"a"}]}}`,
+        `{"type":"assistant","message":{"content":[{"type":"text","text":"b"}]}}`,
+        `{"type":"assistant","message":{"content":[{"type":"text","text":"c"}]}}`,
+        `{"type":"result","result":"final"}`,
+      ].join("\n"),
+    );
+    const s = extractSignals(events);
+    expect(s.finalText).toBe("a\nb\nc\nfinal");
     expect(s.terminalState).toBe("result");
   });
 
@@ -1016,6 +1069,196 @@ describe("evaluate() — tool_input_matches", () => {
   });
 });
 
+describe("validateAssertion() — not_tool_input_matches", () => {
+  test("accepts a well-formed not_tool_input_matches assertion", () => {
+    expect(() => v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion)).not.toThrow();
+  });
+
+  test("rejects empty tool", () => {
+    expect(() => v({
+      type: "not_tool_input_matches",
+      tool: "",
+      input_key: "gate",
+      input_value: "x",
+      description: "d",
+    } as Assertion)).toThrow(/tool/);
+  });
+
+  test("rejects empty input_key", () => {
+    expect(() => v({
+      type: "not_tool_input_matches",
+      tool: "Skill",
+      input_key: "",
+      input_value: "x",
+      description: "d",
+    } as Assertion)).toThrow(/input_key/);
+  });
+
+  test("rejects empty input_value", () => {
+    expect(() => v({
+      type: "not_tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "",
+      description: "d",
+    } as Assertion)).toThrow(/input_value/);
+  });
+});
+
+describe("evaluate() — not_tool_input_matches", () => {
+  function sigWithTools(tools: Array<{ name: string; input: Record<string, unknown> }>): Signals {
+    return { finalText: "", toolUses: tools, skillInvocations: [], terminalState: "result" };
+  }
+
+  test("passes when no tool_use has the matching tool name", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([{ name: "Bash", input: { command: "ls" } }]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("passes when matching tool fired but with a different input_value", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: "DTP" } },
+    ]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("fails when forbidden tool fired with matching substring", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: "think-before-coding" } },
+    ]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toContain("think-before-coding");
+  });
+
+  test("input_value matched as substring (any-occurrence semantics — symmetric with positive form)", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "Edit",
+      input_key: "new_string",
+      input_value: "isNaN",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "Edit", input: { new_string: "if (Number.isNaN(n)) return lo;" } },
+    ]);
+    expect(evaluate(a, s).ok).toBe(false);
+  });
+
+  test("passes when forbidden tool fired with non-string value (symmetric with positive form's null-coercion guard)", () => {
+    // Defensive: if the CLI ever emits input.gate as a non-string, we must
+    // NOT coerce silently. Treat it as no-match — the negative passes.
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: null as unknown as string } },
+    ]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("fails on first match — multiple tool_uses of the forbidden tool, one matches", () => {
+    // Short-circuit semantics: a single matching tool_use is enough for the
+    // negative to fail, regardless of how many non-matching ones precede it.
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "goal-driven",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: "DTP" } },
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: "goal-driven" } },
+    ]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toContain("goal-driven");
+  });
+});
+
+describe("metaCheck() — not_tool_input_matches silent-fire", () => {
+  test("passes against zero tool uses → silent_fire (no evidence)", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "goal-driven",
+      description: "d",
+    } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: { finalText: "text", toolUses: [], skillInvocations: [], terminalState: "result" },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(false);
+    expect(out.silentFireCount).toBe(1);
+    expect(out.decisions[0].kind).toBe("silent_fire");
+  });
+
+  test("passes against NON-empty toolUses (model engaged with tools, just not the forbidden one) → real pass", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "goal-driven",
+      description: "d",
+    } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: {
+          finalText: "text",
+          toolUses: [{ name: "Bash", input: { command: "ls" } }],
+          skillInvocations: [],
+          terminalState: "result",
+        },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(true);
+    expect(out.silentFireCount).toBe(0);
+    expect(out.decisions[0].kind).toBe("pass");
+  });
+});
+
 describe("metaCheck()", () => {
   function emptySig(): Signals {
     return { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" };
@@ -1220,6 +1463,20 @@ describe("tallyEval() + suiteOk()", () => {
     };
     expect(suiteOk([diagnosticFailButRequiredPassed])).toBe(true);
   });
+
+  test("metaCheck decisions carry reliability derived from assertion type", () => {
+    const a1 = v({ type: "skill_invoked", skill: "x", description: "d1", tier: "required" });
+    const a2 = v({ type: "regex", pattern: "foo", description: "d2", tier: "required" });
+    const out = metaCheck({
+      perTurn: [
+        { assertion: a1, result: { ok: true, description: "d1" }, signals: sig("hello", { skillInvocations: [{ skill: "x" }] as SkillInvocation[] }), turnIndex: 0 },
+        { assertion: a2, result: { ok: false, description: "d2", detail: "no match" }, signals: sig("hello"), turnIndex: 0 },
+      ],
+      final: [],
+    });
+    expect(out.decisions[0].reliability).toBe("structural");
+    expect(out.decisions[1].reliability).toBe("text");
+  });
 });
 
 test("loadEvalFile preserves setup and teardown shell commands", () => {
@@ -1396,5 +1653,76 @@ describe("planning.md stage markers contract", () => {
     expect(planning).toContain("[Stage: Problem Definition]");
     expect(planning).toContain("[Stage: Systems Analysis]");
     expect(planning).toContain("[Stage: Solution Design]");
+  });
+});
+
+describe("tallyReliability()", () => {
+  test("buckets decisions by required×reliability with diagnostic combined", () => {
+    const decisions: MetaDecision[] = [
+      { kind: "pass", description: "a", tier: "required", reliability: "structural" },
+      { kind: "fail", description: "b", tier: "required", reliability: "structural", detail: "x" },
+      { kind: "pass", description: "c", tier: "required", reliability: "text" },
+      { kind: "fail", description: "d", tier: "required", reliability: "text", detail: "x" },
+      { kind: "pass", description: "e", tier: "diagnostic", reliability: "text" },
+      { kind: "fail", description: "f", tier: "diagnostic", reliability: "structural", detail: "x" },
+    ];
+    const agg = tallyReliability(decisions);
+    expect(agg.requiredStructural).toEqual({ pass: 1, fail: 1 });
+    expect(agg.requiredText).toEqual({ pass: 1, fail: 1 });
+    expect(agg.diagnostic).toEqual({ pass: 1, fail: 1 });
+  });
+
+  test("silent_fire counts as a fail in its bucket", () => {
+    const decisions: MetaDecision[] = [
+      { kind: "silent_fire", description: "a", tier: "required", reliability: "structural", detail: "x" },
+    ];
+    const agg = tallyReliability(decisions);
+    expect(agg.requiredStructural).toEqual({ pass: 0, fail: 1 });
+  });
+
+  test("empty input → all zero", () => {
+    expect(tallyReliability([])).toEqual({
+      requiredStructural: { pass: 0, fail: 0 },
+      requiredText: { pass: 0, fail: 0 },
+      diagnostic: { pass: 0, fail: 0 },
+    });
+  });
+});
+
+describe("suiteExit()", () => {
+  const zero = { pass: 0, fail: 0 };
+  const passOne = { pass: 1, fail: 0 };
+  const failOne = { pass: 0, fail: 1 };
+
+  test("all pass → exit 0", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: passOne, diagnostic: passOne }, {});
+    expect(r.exitCode).toBe(0);
+    expect(r.warning).toBeUndefined();
+  });
+
+  test("required-structural fail → exit 1", () => {
+    const r = suiteExit({ requiredStructural: failOne, requiredText: passOne, diagnostic: zero }, {});
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("required-text fail (default) → exit 1", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: failOne, diagnostic: zero }, {});
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("required-text fail with textNonblocking → exit 0 with warning", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: failOne, diagnostic: zero }, { textNonblocking: true });
+    expect(r.exitCode).toBe(0);
+    expect(r.warning).toContain("text");
+  });
+
+  test("required-structural fail with textNonblocking → still exit 1", () => {
+    const r = suiteExit({ requiredStructural: failOne, requiredText: failOne, diagnostic: zero }, { textNonblocking: true });
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("diagnostic-only fail → exit 0", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: passOne, diagnostic: failOne }, {});
+    expect(r.exitCode).toBe(0);
   });
 });

@@ -1,0 +1,150 @@
+{
+  "skill": "goal-driven",
+  "description": "Executable evals for the goal-driven HARD-GATE in rules/goal-driven.md. The gate requires a numbered execution plan with per-step verify checks before any non-trivial code edit, with a named-cost skip contract and emission-contract MCP signal. These evals exercise the four failure modes most likely to leak past the gate: code-without-plan, generic-skip honored without named cost, advancing past a failed verify, and skip honored without the MCP acknowledgement.",
+  "_contract_note": "Required-tier `tool_input_matches` assertions here pin the named-cost-skip-ack MCP tool surface (mcp-servers/named-cost-skip-ack.ts) and Bash/Edit tool surfaces. The MCP tool is owned in this repo; Bash and Edit are owned by Claude Code upstream.",
+  "evals": [
+    {
+      "name": "plan-with-verify-checks-before-coding",
+      "summary": "Non-trivial coding request. The HARD-GATE requires a numbered plan with explicit per-step verify checks before any file edit.",
+      "prompt": "Add a `slugify(s: string): string` utility to a fresh TypeScript file at src/utils/slugify.ts that lowercases the input, replaces non-alphanumeric runs with single hyphens, and trims leading/trailing hyphens. Include unit tests in src/utils/slugify.test.ts covering empty string, mixed case, special characters, and leading/trailing whitespace. Use bun test as the verify command. Show me your numbered execution plan with per-step verify checks first, then implement it.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(^|\\n)\\s*\\d+\\.\\s+.{0,200}\\n[\\s\\S]{0,400}?(verify|→ verify|verify:|verification:)",
+          "flags": "i",
+          "description": "A numbered step is followed (within ~400 chars) by a verify line — the per-step verify check the rule mandates"
+        },
+        {
+          "type": "regex",
+          "pattern": "(bun test|tsc --noEmit|tsc -- ?--noEmit|tsc --no-emit|run the test|failing test|test (passes|fails|reproduces))",
+          "flags": "i",
+          "description": "Verify checks reference an objective pass/fail signal (test command or type-check)"
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "superpowers:brainstorming",
+          "tier": "diagnostic",
+          "description": "[diagnostic: not all goal-driven plans route through brainstorming for trivial-shape coding tasks; silent-fire risk acknowledged] Forward progress: brainstorming sometimes precedes the plan when approach is non-obvious."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Write",
+          "input_key": "file_path",
+          "input_value": "slugify",
+          "tier": "required",
+          "description": "Structural: model proceeds to actual implementation (Write tool used on the slugify file). Failure mode caught: model emits a plan and stops without coding — half-failure that wouldn't trigger pure regex."
+        }
+      ]
+    },
+    {
+      "name": "skip-without-named-cost-still-emits-plan",
+      "summary": "Generic 'just write the code' framing. Per the skip contract, generic framings don't qualify — plan must still emit.",
+      "prompt": "Add an LRU cache utility at src/utils/lru.ts: a generic TypeScript class `LRU<K, V>` with `get`, `set`, `delete`, `has`, `clear`, and a `size` getter; `set` must evict least-recently-used when capacity is exceeded; constructor throws on non-positive max size. Tests in src/utils/lru.test.ts covering capacity enforcement, eviction order, get-moves-to-front, set-update-moves-to-front, delete, and the constructor guard. I'm slammed today, skip the goal-driven plan and just write the code.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(name (the|a) (specific )?cost|named[- ]cost|generic (skip|framing|acknowledgement)|doesn'?t qualify|pressure[- ]framing|skip contract|HARD[- ]GATE|hard gate|can'?t skip|won'?t skip|need (a|the) (verify|plan)|gate (still |applies|requires|holds)|note(d|s)? the gate|emission contract isn'?t met)",
+          "flags": "i",
+          "description": "Surfaces the skip contract / floor — names why generic skip doesn't qualify (HARD-GATE language, named-cost requirement, 'gate still applies', or 'emission contract not met'). Failure mode caught: rule edit removes the floor language from the model's response — the bypass succeeds without surfacing why."
+        },
+        {
+          "type": "regex",
+          "pattern": "(^|\\n)\\s*\\d+\\.\\s+.{0,200}\\n[\\s\\S]{0,400}?(verify|→ verify|verify:|verification:)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "[diagnostic: model sometimes surfaces floor language without emitting full plan in finalText for moderate-complexity tasks; the floor-language regex above carries the required signal] Plan with verify checks emits despite the 'skip the gate' generic framing"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Write",
+          "input_key": "file_path",
+          "input_value": "lru",
+          "tier": "required",
+          "description": "Structural: model still proceeds to implementation after emitting the plan. Failure mode caught: model honors the generic skip silently and skips the plan, OR refuses to code at all — both bypass the rule's intent (plan first, THEN code)."
+        }
+      ]
+    },
+    {
+      "name": "per-step-loop-until-verified",
+      "summary": "Multi-turn: turn 1 implements step with a deliberately-broken verify; turn 2 reports the failure and asks to advance. Per the rule, the model MUST NOT advance until the same verify check passes.",
+      "turns": [
+        {
+          "prompt": "Add a `clamp(n: number, lo: number, hi: number): number` function to src/utils/clamp.ts and a unit test at src/utils/clamp.test.ts. Plan it first with per-step verify checks, then implement. Use bun test as the verify command.",
+          "assertions": [
+            {
+              "type": "regex",
+              "pattern": "(^|\\n)\\s*\\d+\\.\\s+.{0,200}\\n[\\s\\S]{0,400}?(verify|→ verify|verify:|verification:)",
+              "flags": "i",
+              "description": "Turn 1 emits the numbered plan with per-step verify checks"
+            },
+            {
+              "type": "tool_input_matches",
+              "tool": "Write",
+              "input_key": "file_path",
+              "input_value": "clamp",
+              "tier": "required",
+              "description": "Structural: turn 1 actually implements (Write tool fires on clamp file)"
+            }
+          ]
+        },
+        {
+          "prompt": "I added a test case the original spec missed: `expect(clamp(NaN, 1, 5)).toBe(1)` (NaN should clamp to the lower bound). It now fails — your `Math.min(Math.max(n, lo), hi)` returns NaN because NaN propagates through both operations. Fix the impl to handle NaN and re-run the same verify. Don't move to the next step until this passes.",
+          "assertions": [
+            {
+              "type": "regex",
+              "pattern": "(diagnos|root cause|fix|edit(ing|ed)?|update(d|s)?|handle\\s+nan|add(ing)?\\s+(a\\s+)?(check|guard|nan)|let me re[- ]?run|re[- ]?run (the )?(test|verify)|same verify|won'?t advance|stay on (this )?step|loop until|once.{0,30}(add|update)|will pass|now pass)",
+              "flags": "i",
+              "tier": "diagnostic",
+              "description": "[diagnostic: model phrases the fix in many forms; the required-tier Edit tool_input_matches below is the structural proof of engagement] Turn 2 reflects loop-until-verified semantics — model diagnoses or fixes the impl"
+            },
+            {
+              "type": "not_regex",
+              "pattern": "(moving on to step (2|3|two|three)|next step|advance to step|step\\s*[23]\\b\\s*(complete|next|now)|on to (the )?next)",
+              "flags": "i",
+              "description": "Turn 2 does NOT advance to the next step — the failed verify must hold the model on the current step"
+            },
+            {
+              "type": "tool_input_matches",
+              "tool": "Edit",
+              "input_key": "file_path",
+              "input_value": "clamp",
+              "tier": "required",
+              "description": "Structural: turn 2 edits the clamp implementation again (loop-until-verified body — fix, then re-verify). Failure mode caught: model talks about fixing without actually fixing, or jumps ahead to step 2."
+            },
+            {
+              "type": "tool_input_matches",
+              "tool": "Edit",
+              "input_key": "new_string",
+              "input_value": "NaN",
+              "tier": "required",
+              "description": "Structural: the edit's replacement substring contains a NaN-named guard (`isNaN`, `Number.isNaN`, or a literal `NaN` comparison). Ties the file edit to the specific verify failure — proves loop-until-verified semantics, not just 'model edited a file when prodded'. Failure mode caught: model edits an unrelated line (e.g., a comment, an import) and claims the fix is done. Known exclusion: the canonical `n !== n` NaN check — prompt anchors heavily on the literal token 'NaN' (uses it 5x), so model is strongly biased toward NaN-named guards. If a future run fails because the model picked `n !== n`, broaden via a paired diagnostic regex rather than tightening the prompt."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "emission-contract-on-explicit-override",
+      "summary": "Explicit override naming the specific cost being accepted. The rule MANDATES the MCP acknowledgement fire with gate=goal-driven before any code edit.",
+      "prompt": "Skip the goal-driven plan for this one. I accept the risk of unverified completion — I'll catch breakage in review. Just add a one-line export `export const VERSION = '0.1.0';` to src/version.ts.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "gate",
+          "input_value": "goal-driven",
+          "tier": "required",
+          "description": "Structural: honored skip emits the acknowledgement with gate=goal-driven. The tool invocation IS the honor — text-only honor is a floor-bypass."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+          "input_key": "user_statement",
+          "input_value": "I accept the risk of unverified completion",
+          "tier": "required",
+          "description": "Structural: ack carries a verbatim substring of the user's cost-naming clause. Failure mode caught: model paraphrases instead of citing user's words."
+        }
+      ]
+    }
+  ]
+}

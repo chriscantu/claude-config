@@ -44,17 +44,20 @@ import {
   metaCheck,
   parseStreamJson,
   runLifecycle,
-  suiteOk,
+  suiteExit,
   tallyEval,
+  tallyReliability,
 } from "./evals-lib.ts";
 
 const repoDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const skillsDir = join(repoDir, "skills");
+const rulesEvalsDir = join(repoDir, "rules-evals");
 const resultsDir = join(repoDir, "tests", "results");
 const claudeBin = process.env.CLAUDE_BIN ?? "claude";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
+const textNonblocking = args.includes("--text-nonblocking") || process.env.EVAL_TEXT_NONBLOCKING === "1";
 const skillFilter = args.find((a) => !a.startsWith("--"));
 
 /**
@@ -414,7 +417,24 @@ function writeChainTranscript(a: ChainTranscriptArgs): void {
 }
 
 async function main() {
-  const skills = skillFilter ? [skillFilter] : discoverSkills(skillsDir);
+  // Discover from two roots: skills/ (skill-layer evals) and rules-evals/
+  // (rules-layer evals — HARD-GATEs in rules/ that have no skill counterpart).
+  // Both roots use identical <root>/<name>/evals/evals.json layout, so the
+  // schema and runner machinery are shared; only the discovery merges them.
+  const rootByName = new Map<string, string>();
+  const fromSkills = discoverSkills(skillsDir);
+  for (const n of fromSkills) rootByName.set(n, skillsDir);
+  if (existsSync(rulesEvalsDir)) {
+    for (const n of discoverSkills(rulesEvalsDir)) {
+      if (rootByName.has(n)) {
+        console.error(red(`✗ name collision: '${n}' exists under both skills/ and rules-evals/`));
+        process.exit(1);
+      }
+      rootByName.set(n, rulesEvalsDir);
+    }
+  }
+  const allNames = [...rootByName.keys()].sort();
+  const skills = skillFilter ? [skillFilter] : allNames;
   if (skills.length === 0) {
     console.error("No skills with evals/evals.json found.");
     process.exit(1);
@@ -423,8 +443,13 @@ async function main() {
   // Validate up-front — a bad JSON shouldn't waste CLI spawns on earlier skills.
   const loaded = new Map<string, EvalFile>();
   for (const skillName of skills) {
+    const root = rootByName.get(skillName);
+    if (!root) {
+      console.error(red(`✗ ${skillName}: not found under skills/ or rules-evals/`));
+      process.exit(1);
+    }
     try {
-      const file = loadEvalFile(skillsDir, skillName);
+      const file = loadEvalFile(root, skillName);
       if (!file) {
         console.error(red(`✗ ${skillName}: no evals/evals.json`));
         process.exit(1);
@@ -503,12 +528,15 @@ async function main() {
   let passedEvals = 0;
   let totalAssertions = 0;
   let passedAssertions = 0;
-  // Per-eval tallies. `suiteOk(tallies)` decides the exit code per the
-  // decision-doc contract: exit 0 iff every eval's required-tier gate passed
-  // (silent_fire already implies requiredOk=false). Assertion counts drive the
-  // human-readable "X/Y assertions passed" line but MUST NOT flip exit —
-  // diagnostic-tier fails decrement the assertion count without being a gate.
+  // Per-eval tallies. `suiteExit(agg, { textNonblocking })` decides the exit
+  // code per the decision-doc contract: exit 0 iff every required-tier gate
+  // passed (silent_fire already implies requiredOk=false). Assertion counts
+  // drive the human-readable "X/Y assertions passed" line but MUST NOT flip
+  // exit — diagnostic-tier fails decrement the assertion count without being a gate.
   const tallies: EvalTally[] = [];
+  // All MetaDecisions across every eval — fed to tallyReliability for the
+  // tiered summary block (#129).
+  const allDecisions: MetaDecision[] = [];
 
   // Shared helpers captured by the two branches below so the report counters
   // and transcript paths come from one place.
@@ -590,6 +618,7 @@ async function main() {
     }
     const meta = metaCheck({ perTurn, final: [] });
     const tally = tallyEval(meta, e.assertions.length);
+    allDecisions.push(...meta.decisions);
 
     writeTranscript({
       path: transcriptFile,
@@ -704,6 +733,7 @@ async function main() {
 
     const meta = metaCheck({ perTurn, final });
     const tally = tallyEval(meta, allAssertions.length);
+    allDecisions.push(...meta.decisions);
 
     writeChainTranscript({
       path: transcriptFile,
@@ -790,19 +820,51 @@ async function main() {
   const assertionLine = `${passedAssertions}/${totalAssertions} assertions passed`;
   console.log(passedEvals === totalEvals ? green(evalLine) : red(evalLine));
   console.log(passedAssertions === totalAssertions ? green(assertionLine) : red(assertionLine));
+
+  // Reliability tier block (#129).
+  const agg = tallyReliability(allDecisions);
+  const fmt = (label: string, c: { pass: number; fail: number }, note: string) => {
+    const total = c.pass + c.fail;
+    const line = `${label.padEnd(24)} ${c.pass}/${total}  ${dim(note)}`;
+    return c.fail === 0 ? green(line) : red(line);
+  };
+  console.log(fmt("Structural (required):", agg.requiredStructural, "(reliable, gates exit)"));
+  console.log(fmt("Text (required):", agg.requiredText, "(flaky, gates exit)"));
+  console.log(fmt("Diagnostic:", agg.diagnostic, "(reported, no gate)"));
+  const totalPass = agg.requiredStructural.pass + agg.requiredText.pass + agg.diagnostic.pass;
+  const totalFail = agg.requiredStructural.fail + agg.requiredText.fail + agg.diagnostic.fail;
+  console.log(fmt("Total:", { pass: totalPass, fail: totalFail }, ""));
+
   const totalSilentFires = tallies.reduce((n, t) => n + t.silentFireCount, 0);
   if (totalSilentFires > 0) {
     console.log(red(`${totalSilentFires} SILENT-FIRE FAILURE(S) across suite`));
   }
 
-  // Exit-code contract (per decision doc): exit 0 iff every eval's
-  // required-tier gate passed. Do NOT gate on passedAssertions — a diagnostic
-  // fail would otherwise flip the exit, contradicting the tiered design.
-  // Dry-run is special-cased: it mock-passes every assertion so the tallies
-  // list is empty and `suiteOk` trivially holds, which is the intended
-  // behavior (dry-run only validates JSON schema, not model output).
-  const ok = dryRun || suiteOk(tallies);
-  process.exit(ok ? 0 : 1);
+  const failedDecisions = allDecisions.filter((d): d is Extract<MetaDecision, { kind: "fail" | "silent_fire" }> => d.kind !== "pass");
+  if (failedDecisions.length > 0) {
+    console.log("");
+    console.log(bold("Failures:"));
+    for (const d of failedDecisions) {
+      const label =
+        d.tier === "diagnostic"
+          ? "diagnostic"
+          : d.reliability === "structural"
+            ? "req-structural"
+            : "req-text";
+      console.log(red(`  ✗ [${label}] ${d.description} — ${d.detail}`));
+    }
+  }
+
+  // Exit-code contract (per decision doc + #129):
+  //   - required-structural fail → exit 1
+  //   - required-text fail → exit 1 by default; warn + exit 0 with --text-nonblocking
+  //   - diagnostic fail → never gates
+  // Dry-run mock-passes everything; the agg is empty so suiteExit returns 0.
+  const exit = dryRun ? { exitCode: 0 as const } : suiteExit(agg, { textNonblocking });
+  if (exit.warning) {
+    console.log(red(`⚠ ${exit.warning}`));
+  }
+  process.exit(exit.exitCode);
 }
 
 main().catch((err) => {

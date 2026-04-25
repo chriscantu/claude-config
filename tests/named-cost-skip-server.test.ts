@@ -111,6 +111,30 @@ describe("acknowledge_named_cost_skip", () => {
     expect(firstText(result.content)).toBe("ok");
   });
 
+  test("accepts gate=think-before-coding", async () => {
+    const result = await client.callTool({
+      name: TOOL_NAME,
+      arguments: {
+        gate: "think-before-coding",
+        user_statement: "I accept the risk of unstated assumptions",
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(firstText(result.content)).toBe("ok");
+  });
+
+  test("accepts gate=goal-driven", async () => {
+    const result = await client.callTool({
+      name: TOOL_NAME,
+      arguments: {
+        gate: "goal-driven",
+        user_statement: "I accept the risk of unverified completion",
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(firstText(result.content)).toBe("ok");
+  });
+
   test("rejects gate with unknown value", async () => {
     const result = await client.callTool({
       name: TOOL_NAME,
@@ -146,7 +170,7 @@ describe("acknowledge_named_cost_skip", () => {
       additionalProperties: boolean;
     };
     expect(schema.type).toBe("object");
-    expect(schema.properties.gate.enum).toEqual(["DTP", "systems-analysis", "fat-marker-sketch"]);
+    expect(schema.properties.gate.enum).toEqual(["DTP", "systems-analysis", "fat-marker-sketch", "think-before-coding", "goal-driven"]);
     expect(schema.properties.user_statement.minLength).toBe(15);
     expect(schema.required).toEqual(["gate", "user_statement"]);
     expect(schema.additionalProperties).toBe(false);

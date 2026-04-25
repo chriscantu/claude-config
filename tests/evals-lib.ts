@@ -8,13 +8,47 @@ import { join } from "node:path";
 
 export type AssertionTier = "required" | "diagnostic";
 
+/**
+ * Reliability axis (orthogonal to AssertionTier).
+ *
+ *   - "structural" — assertion fires against parsed stream-json signals
+ *     (tool uses, skill invocations). Deterministic; spoof-resistant.
+ *   - "text" — assertion fires against model-generated prose (substring
+ *     or regex). Wording-sensitive; subject to run-to-run variance.
+ *
+ * Used only for reporting and for the `--text-nonblocking` exit-code
+ * softening. Derived from assertion type at report time; never stored.
+ */
+export type ReliabilityTier = "structural" | "text";
+
+/**
+ * Classify an assertion type by reliability. Exhaustive on AssertionType
+ * — adding a new variant fails compilation here.
+ */
+export function reliabilityOf(type: Assertion["type"]): ReliabilityTier {
+  switch (type) {
+    case "skill_invoked":
+    case "not_skill_invoked":
+    case "skill_invoked_in_turn":
+    case "chain_order":
+    case "tool_input_matches":
+    case "not_tool_input_matches":
+      return "structural";
+    case "contains":
+    case "not_contains":
+    case "regex":
+    case "not_regex":
+      return "text";
+  }
+}
+
 type AssertionBase = { description: string; tier?: AssertionTier };
 
 export type Assertion =
   | (AssertionBase & { type: "contains" | "not_contains"; value: string })
   | (AssertionBase & { type: "regex" | "not_regex"; pattern: string; flags?: string })
   | (AssertionBase & { type: "skill_invoked" | "not_skill_invoked"; skill: string })
-  | (AssertionBase & { type: "tool_input_matches"; tool: string; input_key: string; input_value: string })
+  | (AssertionBase & { type: "tool_input_matches" | "not_tool_input_matches"; tool: string; input_key: string; input_value: string })
   | (AssertionBase & { type: "skill_invoked_in_turn"; turn: number; skill: string })
   | (AssertionBase & { type: "chain_order"; skills: string[] });
 
@@ -101,9 +135,9 @@ export type AssertionResult =
  *                       Distinct failure label; fails the eval.
  */
 export type MetaDecision =
-  | { kind: "pass"; description: string; tier: AssertionTier }
-  | { kind: "fail"; description: string; tier: AssertionTier; detail: string }
-  | { kind: "silent_fire"; description: string; tier: AssertionTier; detail: string };
+  | { kind: "pass"; description: string; tier: AssertionTier; reliability: ReliabilityTier }
+  | { kind: "fail"; description: string; tier: AssertionTier; reliability: ReliabilityTier; detail: string }
+  | { kind: "silent_fire"; description: string; tier: AssertionTier; reliability: ReliabilityTier; detail: string };
 
 export interface MetaCheckInput {
   /** Per-turn assertion results in the same order the runner evaluated them.
@@ -170,7 +204,12 @@ export interface SkillInvocation {
 /**
  * `terminalState` records how the stream ended so a reader can tell a healthy
  * tool-use-terminal run apart from a crash that died before emitting `result`:
- *   - `result`     — a `result` event was present; `finalText` is its content.
+ *   - `result`     — a `result` event was present; `finalText` is the
+ *                    intermediate assistant text (if any) concatenated with
+ *                    the result event's payload, separated by `\n`. Concat
+ *                    is intentional: regex assertions need to see plans /
+ *                    preambles the model emits before tool uses, which
+ *                    otherwise wouldn't appear in the result event.
  *   - `assistant`  — no `result` event; `finalText` is concatenated assistant text.
  *   - `empty`      — neither; `finalText` is "".
  */
@@ -234,14 +273,15 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
       }
       break;
     case "tool_input_matches":
+    case "not_tool_input_matches":
       if (typeof a.tool !== "string" || a.tool.length === 0) {
-        throw new Error(`${loc}: tool_input_matches requires non-empty 'tool' string`);
+        throw new Error(`${loc}: ${a.type} requires non-empty 'tool' string`);
       }
       if (typeof a.input_key !== "string" || a.input_key.length === 0) {
-        throw new Error(`${loc}: tool_input_matches requires non-empty 'input_key' string`);
+        throw new Error(`${loc}: ${a.type} requires non-empty 'input_key' string`);
       }
       if (typeof a.input_value !== "string" || a.input_value.length === 0) {
-        throw new Error(`${loc}: tool_input_matches requires non-empty 'input_value' string`);
+        throw new Error(`${loc}: ${a.type} requires non-empty 'input_value' string`);
       }
       break;
     case "skill_invoked_in_turn":
@@ -357,7 +397,8 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
       }
       validatedFinal = [];
       for (const a of e.final_assertions) {
-        if (a.type === "tool_input_matches" || a.type === "contains" || a.type === "not_contains" ||
+        if (a.type === "tool_input_matches" || a.type === "not_tool_input_matches" ||
+            a.type === "contains" || a.type === "not_contains" ||
             a.type === "regex" || a.type === "not_regex" ||
             a.type === "skill_invoked" || a.type === "not_skill_invoked") {
           throw new Error(`${file}: eval '${e.name}' final_assertions: '${a.type}' is a per-turn assertion; put it on a turn's assertions array instead`);
@@ -485,7 +526,13 @@ export function extractSignals(events: StreamEvent[]): Signals {
   let finalText: string;
   let terminalState: Signals["terminalState"];
   if (resultText !== undefined) {
-    finalText = resultText;
+    // Concatenate intermediate assistant text (emitted before tool uses) with
+    // the final result event. Without this, plans the model emits BEFORE
+    // running tools (a common goal-driven shape) are invisible to regex
+    // assertions because the result event only carries the final summary.
+    finalText = assistantTextParts.length > 0
+      ? `${assistantTextParts.join("\n")}\n${resultText}`
+      : resultText;
     terminalState = "result";
   } else if (assistantTextParts.length > 0) {
     finalText = assistantTextParts.join("\n");
@@ -553,6 +600,19 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
           `Saw ${assertion.tool}.${assertion.input_key} values: ${seen || "(no matching tool)"}`,
       );
     }
+    case "not_tool_input_matches": {
+      const offending = signals.toolUses.find((tu) => {
+        if (tu.name !== assertion.tool) return false;
+        const value = tu.input[assertion.input_key];
+        return typeof value === "string" && value.includes(assertion.input_value);
+      });
+      if (!offending) return pass();
+      return fail(
+        `not_tool_input_matches: forbidden ${assertion.tool} tool_use had ` +
+          `${assertion.input_key}=${JSON.stringify(offending.input[assertion.input_key])} ` +
+          `(matched substring ${JSON.stringify(assertion.input_value)})`,
+      );
+    }
     case "skill_invoked_in_turn":
     case "chain_order":
       // Routing guard: chain-level assertions belong in `evaluateChain`, not
@@ -607,6 +667,7 @@ export function evaluateChain(assertion: ValidatedAssertion, chain: ChainSignals
     case "skill_invoked":
     case "not_skill_invoked":
     case "tool_input_matches":
+    case "not_tool_input_matches":
       // Routing guard: per-turn assertions belong in `evaluate`, not here.
       // Explicit cases let the compiler enforce exhaustiveness — a new
       // Assertion variant must be handled here or it won't type-check.
@@ -639,7 +700,7 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
   let requiredOk = true;
 
   const isNegative = (a: ValidatedAssertion): boolean =>
-    a.type === "not_contains" || a.type === "not_regex" || a.type === "not_skill_invoked";
+    a.type === "not_contains" || a.type === "not_regex" || a.type === "not_skill_invoked" || a.type === "not_tool_input_matches";
 
   /**
    * Is the signal the assertion ran against empty, in the sense that a
@@ -662,6 +723,18 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
         return s.terminalState === "empty";
       case "not_skill_invoked":
         return s.skillInvocations.length === 0;
+      case "not_tool_input_matches":
+        // Silent-fire only when the model emitted no tool uses at all. If any
+        // tools fired (even unrelated ones), the absence of the forbidden tool
+        // is meaningful information — the model engaged with tool-using
+        // behavior and chose not to invoke the forbidden one.
+        //
+        // Symmetric with the `not_skill_invoked` branch above: empty-of-category,
+        // not empty-of-filtered. A filter-by-tool-name heuristic would collapse
+        // the metaCheck distinction by flagging every legitimate negative pass
+        // as silent-fire (the pass condition is precisely "no offending tool
+        // fired"). Don't re-litigate without rereading both cases together.
+        return s.toolUses.length === 0;
       case "contains":
       case "regex":
       case "skill_invoked":
@@ -679,6 +752,7 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
 
   for (const { assertion, result, signals } of input.perTurn) {
     const tier = assertion.tier;
+    const reliability = reliabilityOf(assertion.type);
     if (result.ok) {
       if (tier === "required" && isNegative(assertion) && signalIsEmptyFor(assertion, signals)) {
         silentFireCount++;
@@ -687,24 +761,26 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
           kind: "silent_fire",
           description: result.description,
           tier,
+          reliability,
           detail: `negative assertion trivially passed against empty signal — no evidence to judge`,
         });
       } else {
-        decisions.push({ kind: "pass", description: result.description, tier });
+        decisions.push({ kind: "pass", description: result.description, tier, reliability });
       }
     } else {
       if (tier === "required") requiredOk = false;
-      decisions.push({ kind: "fail", description: result.description, tier, detail: result.detail });
+      decisions.push({ kind: "fail", description: result.description, tier, reliability, detail: result.detail });
     }
   }
 
   for (const { assertion, result } of input.final) {
     const tier = assertion.tier;
+    const reliability = reliabilityOf(assertion.type);
     if (result.ok) {
-      decisions.push({ kind: "pass", description: result.description, tier });
+      decisions.push({ kind: "pass", description: result.description, tier, reliability });
     } else {
       if (tier === "required") requiredOk = false;
-      decisions.push({ kind: "fail", description: result.description, tier, detail: result.detail });
+      decisions.push({ kind: "fail", description: result.description, tier, reliability, detail: result.detail });
     }
   }
 
@@ -751,6 +827,79 @@ export function tallyEval(meta: MetaCheckOutput, assertionCount: number): EvalTa
  */
 export function suiteOk(tallies: readonly EvalTally[]): boolean {
   return tallies.every((t) => t.evalPassed);
+}
+
+export interface ReliabilityCounts {
+  pass: number;
+  fail: number;
+}
+
+export interface ReliabilityAgg {
+  requiredStructural: ReliabilityCounts;
+  requiredText: ReliabilityCounts;
+  /**
+   * Diagnostic decisions are NOT split by reliability. Diagnostic never
+   * gates exit, so the structural-vs-text distinction adds noise without
+   * decision value at this tier.
+   */
+  diagnostic: ReliabilityCounts;
+}
+
+/**
+ * Bucket meta decisions across one or more evals by required×reliability.
+ * silent_fire counts as a failure in its bucket; pass and fail count as
+ * themselves.
+ */
+export function tallyReliability(decisions: readonly MetaDecision[]): ReliabilityAgg {
+  const agg: ReliabilityAgg = {
+    requiredStructural: { pass: 0, fail: 0 },
+    requiredText: { pass: 0, fail: 0 },
+    diagnostic: { pass: 0, fail: 0 },
+  };
+  for (const d of decisions) {
+    const bucket =
+      d.tier === "diagnostic"
+        ? agg.diagnostic
+        : d.reliability === "structural"
+          ? agg.requiredStructural
+          : agg.requiredText;
+    if (d.kind === "pass") bucket.pass += 1;
+    else bucket.fail += 1;
+  }
+  return agg;
+}
+
+export interface SuiteExitOptions {
+  /** Demote required-text failures to warnings (still printed). */
+  textNonblocking?: boolean;
+}
+
+export interface SuiteExitResult {
+  exitCode: 0 | 1;
+  /** When set, print as a warning banner before exiting. */
+  warning?: string;
+}
+
+/**
+ * Exit-code policy by required×reliability:
+ *   - required-structural fail  → always exit 1
+ *   - required-text fail        → exit 1 by default; exit 0 + warning when textNonblocking
+ *   - diagnostic fail           → never gates exit
+ */
+export function suiteExit(agg: ReliabilityAgg, opts: SuiteExitOptions): SuiteExitResult {
+  if (agg.requiredStructural.fail > 0) {
+    return { exitCode: 1 };
+  }
+  if (agg.requiredText.fail > 0) {
+    if (opts.textNonblocking) {
+      return {
+        exitCode: 0,
+        warning: `${agg.requiredText.fail} required-text failure(s) demoted by --text-nonblocking`,
+      };
+    }
+    return { exitCode: 1 };
+  }
+  return { exitCode: 0 };
 }
 
 /**

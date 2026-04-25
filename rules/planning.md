@@ -184,11 +184,44 @@ user may not have considered.
 Scale the depth of each stage to match the scope. This table sets the **minimum**
 depth — go deeper if the problem warrants it.
 
-| Scope           | Problem Def        | Systems Analysis        | Sketch         |
-|-----------------|--------------------|-------------------------|----------------|
-| Prototype / POC | 2-3 sentences      | 1 sentence each dim.    | Napkin-level   |
-| Feature         | Full pass          | Paragraph each          | Standard       |
-| System/Platform | Full pass          | Dedicated subsections   | Multi-component|
+| Scope               | Problem Def        | Systems Analysis        | Sketch         |
+|---------------------|--------------------|-------------------------|----------------|
+| Trivial / Mechanical| Skip               | 60s surface scan only   | Skip           |
+| Prototype / POC     | 2-3 sentences      | 1 sentence each dim.    | Napkin-level   |
+| Feature             | Full pass          | Paragraph each          | Standard       |
+| System/Platform     | Full pass          | Dedicated subsections   | Multi-component|
+
+### Trivial / Mechanical Tier — Criteria and Behavior
+
+Tier qualifies ONLY when ALL four criteria hold. Any one missing → next tier up.
+
+- ≤ ~200 LOC functional change
+- Single component / single-file primary surface
+- Unambiguous approach (one obvious design, no viable alternatives worth weighing)
+- Low blast radius (no cross-team / cross-system effects)
+
+Tier behavior (HARD):
+- DTP: skip (route directly to implementation, like bug fixes)
+- Systems Analysis: 60s surface-area scan only — NO Condensed Pass
+- Brainstorming: skip (single obvious approach criterion eliminates the trade-off matrix step)
+- Fat Marker Sketch: skip (no shape question to validate)
+- Execution mode: prefer single-implementer + single final review (see `execution-mode.md`)
+- `goal-driven.md` and `verification.md` STILL apply — verify checks per step, end-of-work gate runs
+
+**Pressure-framing floor.** Floor enforcement (pressure-framing routing, named-cost
+emission contract, sentinel bypass) is anchored in the DTP per-gate block — see step 1
+above. Sentinel bypass (`DISABLE_PRESSURE_FLOOR`) inherits to this tier: when the
+sentinel is active, "this is trivial" claims are honored without the four-criteria
+check, same as bypass disables DTP routing on pressure framings. Bypass remains
+intentionally visible per step 1's banner contract. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+and memory note `per_gate_floor_blocks_substitutable.md`, the model generalizes that
+anchor to the active pipeline stage, so a Trivial-tier per-gate floor block adds no
+eval-measurable load given the DTP anchor. Concrete signals here: "just a small
+change," "trivial fix," "quick edit" without the four criteria being demonstrable
+from the prompt or a cheap pre-check are pressure framings, NOT tier claims — route
+to Prototype/POC tier and run the standard pipeline. The named-cost emission contract
+from step 1 (DTP) is NOT a tier-downgrade mechanism; it bypasses individual gates, not
+the entire pipeline.
 
 ## Decision Framework
 

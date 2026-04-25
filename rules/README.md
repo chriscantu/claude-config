@@ -33,12 +33,20 @@ and `commands/` (loaded from `~/.claude/commands/`).
 
 ```
 ./bin/link-config.fish --check
+./bin/check-rules-drift.fish
 ```
 
-Exits non-zero if any file in `rules/`, `agents/`, or `commands/` is missing
-its symlink, or if a stale symlink points to the wrong target. Use this in
-pre-push hooks or CI to catch the silent-failure mode that motivated this
-contract.
+`link-config.fish --check` exits non-zero if any file in `rules/`,
+`agents/`, or `commands/` is missing its symlink, or if a stale symlink
+points to the wrong target.
+
+`check-rules-drift.fish` exits non-zero if a canonical rule string (e.g.
+the Trivial/Mechanical tier criteria, defined in `planning.md`) is
+restated outside its canonical home. "Do not restate" markers in
+non-canonical files are editor hints; this script is the enforcement.
+
+Use both in pre-push hooks or CI to catch the silent-failure modes (rule
+not loaded; rule restated and drifted).
 
 ## Why the silent-failure mode matters
 
@@ -58,5 +66,6 @@ were added manually. The script and this README close the gap.
 | `goal-driven.md` | HARD-GATE | Per-step verify checks defined before code, loop-until-verified semantics |
 | `tdd-pragmatic.md` | Soft | Test-first for non-trivial logic; bug-repro test before fix |
 | `verification.md` | Soft | End-of-work gate: tests run, type-check runs, no "should work" |
+| `execution-mode.md` | HARD-GATE | Sizing guard for subagent-driven-development; controller announces mode before first dispatch |
 
 The `bin/link-config.fish` script will skip `README.md` files automatically.

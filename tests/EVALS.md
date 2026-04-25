@@ -77,12 +77,13 @@ they don't collide with v1 when both are run back-to-back for comparison.
 | `evals[].assertions` | required with `prompt` | non-empty array; per-turn assertion types only |
 | `evals[].turns` | one of `prompt` or `turns[]` | multi-turn: non-empty array of `{ prompt, assertions }` objects run as a chain |
 | `evals[].final_assertions` | optional with `turns[]` | non-empty array if present; runs against the chain after all turns (the only place `chain_order` / `skill_invoked_in_turn` are allowed) |
-| `assertion.type` | required | one of `contains` / `not_contains` / `regex` / `not_regex` / `skill_invoked` / `not_skill_invoked` / `skill_invoked_in_turn` / `chain_order` |
+| `assertion.type` | required | one of `contains` / `not_contains` / `regex` / `not_regex` / `skill_invoked` / `not_skill_invoked` / `tool_input_matches` / `not_tool_input_matches` / `skill_invoked_in_turn` / `chain_order` |
 | `assertion.description` | required | human-readable; what the assertion proves |
 | `assertion.value` | required for `contains` / `not_contains` | non-empty string |
 | `assertion.pattern` | required for `regex` / `not_regex` | non-empty string; must compile |
 | `assertion.flags` | optional for `regex` / `not_regex` | RegExp flags string (e.g. `"i"`, `"im"`) |
 | `assertion.skill` | required for `skill_invoked` / `not_skill_invoked` | non-empty string; matches the Skill tool's `input.skill` in the stream-json transcript (v2 runner only) |
+| `assertion.tool` / `input_key` / `input_value` | required for `tool_input_matches` / `not_tool_input_matches` | non-empty strings; positive form passes when *some* `tool_use` of the named tool has `input[input_key]` containing `input_value`; negative form passes when *no* such `tool_use` exists. `not_tool_input_matches` silent-fires only when the model emitted no tool uses at all — if any tools fired, the negative is meaningful evidence. |
 | `assertion.turn` | required for `skill_invoked_in_turn` | integer ≥ 1; refers to turn index in a multi-turn eval's `turns[]` array |
 | `assertion.skills` | required for `chain_order` | non-empty array of non-empty skill names; compared against the sequence of per-turn winner skills |
 
@@ -91,6 +92,42 @@ they don't collide with v1 when both are run back-to-back for comparison.
 - `evals` and each eval's `assertions` array must be non-empty.
 - Every assertion is type-checked: required fields present, regex patterns precompiled.
 - A bad regex or missing required field fails fast with a file path in the error — the runner exits 1 before sending any prompt to claude.
+
+## Reporting Tiers (v2 runner)
+
+The v2 runner reports two independent axes:
+
+### Axis 1: Exit-gating (`tier`, set per assertion in JSON)
+
+- `required` (default): failure fails the suite (exit 1).
+- `diagnostic`: failure is reported but does not gate the exit code.
+
+### Axis 2: Reliability (derived from assertion type)
+
+- `structural`: `skill_invoked`, `not_skill_invoked`, `skill_invoked_in_turn`,
+  `chain_order`, `tool_input_matches`. Fires against parsed stream-json
+  signals. Deterministic, spoof-resistant.
+- `text`: `contains`, `not_contains`, `regex`, `not_regex`. Fires against
+  model prose. Wording-sensitive, subject to run-to-run variance.
+
+The two axes cross. Summary output:
+
+````
+Structural (required):   N/M  (reliable, gates exit)
+Text (required):         N/M  (flaky, gates exit)
+Diagnostic:              N/M  (reported, no gate)
+````
+
+### `--text-nonblocking`
+
+Flag (or env `EVAL_TEXT_NONBLOCKING=1`) demotes required-text failures to a
+warning and exits 0. Required-structural failures still force exit 1. Use
+when running audits where text variance is expected and structural is the
+source of truth.
+
+Text assertions remain valuable as diagnostic signal even when flaky — run-to-run
+wording variance can hide real regressions where the model stops producing a phrase
+entirely, so tracking text coverage alongside structural results is worthwhile.
 
 ## Multi-turn evals
 
@@ -241,6 +278,36 @@ prompts and behavioral signals from each skill's `tests.md` and from
 `tests/scenarios/{planning-pipeline,systems-analysis}.md` (problem-definition and
 systems-analysis portions). Verification scenarios remain in `tests/scenarios/` for
 now — they cross multiple rules rather than a single skill.
+
+## Rules-layer evals
+
+Some HARD-GATEs live in `rules/*.md` rather than `skills/*/SKILL.md` —
+`think-before-coding` and `goal-driven` are the current examples (issue #136). They
+have no skill counterpart, but their behavioral contract (preamble, plan, named-cost
+skip, MCP emission) needs the same eval coverage as a skill.
+
+These evals live under `rules-evals/<gate-name>/evals/evals.json`, mirroring the
+`skills/<name>/evals/evals.json` shape exactly. The v2 runner discovers both roots
+at startup and merges them into one suite — the schema, lifecycle, and assertion
+types are identical. Naming collisions between roots fail fast at startup.
+
+Why a sibling root rather than `skills/`:
+
+- **install.fish symlinks every directory under `skills/`** as a real skill into
+  `~/.claude/skills/`. Adding `skills/think-before-coding/` would pollute the user's
+  skill list with a non-skill entry.
+- **`validate.fish` requires `SKILL.md` + frontmatter** for every directory under
+  `skills/`. A rules-layer eval directory has no skill body to point at — only
+  evals.
+- **Semantic clarity**: rules and skills are different first-class artifacts in the
+  config layout (`rules/` and `skills/`). Their evals belong in matching siblings.
+
+Authoring guidance for rules-layer evals is the same as skills-layer: structural
+assertions where the signal is in the tool stream, regex for content the model must
+produce, multi-turn when the behavior only emerges after a hand-off. The
+`not_tool_input_matches` assertion is particularly useful for emission-contract
+evals: a rules-layer skip eval often needs to assert that the named-cost-skip MCP
+ack tool did NOT fire.
 
 ## What this is NOT
 
