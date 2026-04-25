@@ -829,6 +829,39 @@ export function tallyReliability(decisions: readonly MetaDecision[]): Reliabilit
   return agg;
 }
 
+export interface SuiteExitOptions {
+  /** Demote required-text failures to warnings (still printed). */
+  textNonblocking?: boolean;
+}
+
+export interface SuiteExitResult {
+  exitCode: 0 | 1;
+  /** When set, print as a warning banner before exiting. */
+  warning?: string;
+}
+
+/**
+ * Exit-code policy by required×reliability:
+ *   - required-structural fail  → always exit 1
+ *   - required-text fail        → exit 1 by default; exit 0 + warning when textNonblocking
+ *   - diagnostic fail           → never gates exit
+ */
+export function suiteExit(agg: ReliabilityAgg, opts: SuiteExitOptions): SuiteExitResult {
+  if (agg.requiredStructural.fail > 0) {
+    return { exitCode: 1 };
+  }
+  if (agg.requiredText.fail > 0) {
+    if (opts.textNonblocking) {
+      return {
+        exitCode: 0,
+        warning: `${agg.requiredText.fail} required-text failure(s) demoted by --text-nonblocking`,
+      };
+    }
+    return { exitCode: 1 };
+  }
+  return { exitCode: 0 };
+}
+
 /**
  * Result of `runLifecycle`. Distinguishes the setup-failed path (teardown
  * did NOT run — setup is atomic, nothing to undo) from the ok path where

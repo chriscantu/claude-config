@@ -18,6 +18,7 @@ import {
   type ChainSignals,
   type SkillInvocation,
   type ValidatedAssertion,
+  type SuiteExitOptions,
   aggregateChainSignals,
   brandForTest as v,
   evaluate,
@@ -29,6 +30,7 @@ import {
   parseStreamJson,
   reliabilityOf,
   runLifecycle,
+  suiteExit,
   tallyReliability,
 } from "./evals-lib.ts";
 
@@ -1465,5 +1467,43 @@ describe("tallyReliability()", () => {
       requiredText: { pass: 0, fail: 0 },
       diagnostic: { pass: 0, fail: 0 },
     });
+  });
+});
+
+describe("suiteExit()", () => {
+  const zero = { pass: 0, fail: 0 };
+  const passOne = { pass: 1, fail: 0 };
+  const failOne = { pass: 0, fail: 1 };
+
+  test("all pass → exit 0", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: passOne, diagnostic: passOne }, {});
+    expect(r.exitCode).toBe(0);
+    expect(r.warning).toBeUndefined();
+  });
+
+  test("required-structural fail → exit 1", () => {
+    const r = suiteExit({ requiredStructural: failOne, requiredText: passOne, diagnostic: zero }, {});
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("required-text fail (default) → exit 1", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: failOne, diagnostic: zero }, {});
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("required-text fail with textNonblocking → exit 0 with warning", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: failOne, diagnostic: zero }, { textNonblocking: true });
+    expect(r.exitCode).toBe(0);
+    expect(r.warning).toContain("text");
+  });
+
+  test("required-structural fail with textNonblocking → still exit 1", () => {
+    const r = suiteExit({ requiredStructural: failOne, requiredText: failOne, diagnostic: zero }, { textNonblocking: true });
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("diagnostic-only fail → exit 0", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: passOne, diagnostic: failOne }, {});
+    expect(r.exitCode).toBe(0);
   });
 });
