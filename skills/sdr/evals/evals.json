@@ -228,6 +228,41 @@
       ]
     },
     {
+      "name": "arg-passing-routes-to-named-template",
+      "summary": "/sdr <type> <title> form routes directly to the named template, no disambiguation",
+      "prompt": "/sdr blueprint reusable-microservice-template",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "sdr",
+          "tier": "required",
+          "description": "skill fires on /sdr <type> arg-passing form"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "sdr",
+          "tier": "required",
+          "description": "Skill surface contract"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\bblueprint\\b",
+          "flags": "i",
+          "tier": "required",
+          "description": "skill routes to named template (Blueprint) without re-prompting for type"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(which.{0,20}(type|template)|whole system or single)",
+          "flags": "i",
+          "tier": "required",
+          "description": "negative anchor — proves skill does NOT ask disambiguation when type is already specified in args (would be a regression: ignoring the explicit arg)"
+        }
+      ]
+    },
+    {
       "name": "interactive-mode-asks-which-type",
       "summary": "/sdr with no args triggers interactive disambiguation across the four types — must NOT scaffold during the ask",
       "prompt": "/sdr",
