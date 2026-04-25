@@ -25,25 +25,6 @@ and MUST NOT be substituted when the canonical template is missing.
 
 **Announce at start:** "I'm using the sdr skill to scaffold a <type> System Design Record."
 
-## DTP Front-Door Defer
-
-Slash invocation does NOT bypass `rules/planning.md` DTP HARD-GATE.
-Before scaffolding a template, check whether the request carries a
-problem statement (named user + pain + stakes/evidence):
-
-- **Args satisfy DTP inputs** (e.g., `/sdr service checkout-api — cart
-  abandonment up 18% post-redirect; need single-page flow`) → Expert
-  Fast-Track applies; proceed to step 1 of Procedure.
-- **Args do NOT satisfy DTP inputs** (e.g., `/sdr I'm designing a new
-  platform`, `/sdr` with no args, `/sdr system-overview` with title only)
-  → defer to `Skill(define-the-problem)` BEFORE scaffolding. Resume this
-  skill at step 1 once DTP returns a problem statement and the user
-  confirms an SDR is the right artifact.
-
-This skill's `description` field activating on `/sdr` is a routing
-convenience, not a license to skip planning. Bug-fix and refactor scope
-do not apply — SDRs are design artifacts.
-
 ## When to Use
 
 - `/sdr` (no args) — interactive: ask which of the four types fits
