@@ -46,8 +46,14 @@ Template lays out the recommended progressive-disclosure pattern (see
 
 Template includes:
 
-- `evals/evals.json` — empty eval array with `_contract_note` stub
-- `evals/README.md` — links to `tests/EVALS.md` rubric
+- `evals/README.md` — links to `tests/EVALS.md` rubric and ships a copy-paste
+  starter snippet for `evals.json`
+
+`evals.json` itself is **not** scaffolded. The runner rejects an empty
+`evals: []` array, so an empty stub would break the all-skills eval run for
+every fresh skill. `validate.fish` warns on the missing file — that's the
+intended discovery path. Create `evals.json` from the snippet in
+`evals/README.md` when you author the first eval.
 
 Authoring contract:
 

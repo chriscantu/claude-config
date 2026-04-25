@@ -1,6 +1,0 @@
-{
-  "skill": "SKILL_NAME",
-  "description": "Executable evals for the SKILL_NAME skill. Each eval shells `claude --print` and runs assertions against the stream-json transcript. See tests/EVALS.md for the assertion-type rubric.",
-  "_contract_note": "If this skill enforces a HARD-GATE rule, target ≥4 structural assertions covering: skill-invoked, tool-input-matches (canonical surface), regex (required output shape), not_regex (forbidden bypass). See ADR #0005 for discriminating-signal coverage.",
-  "evals": []
-}

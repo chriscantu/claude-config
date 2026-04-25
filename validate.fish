@@ -23,13 +23,18 @@ set single_skill ""
 set i 1
 while test $i -le (count $argv)
     set arg $argv[$i]
-    if test "$arg" = --skill
-        set i (math $i + 1)
-        if test $i -gt (count $argv)
-            echo "ERROR: --skill requires a slug argument" >&2
+    switch $arg
+        case --skill
+            set i (math $i + 1)
+            if test $i -gt (count $argv)
+                echo "ERROR: --skill requires a slug argument" >&2
+                exit 2
+            end
+            set single_skill $argv[$i]
+        case '*'
+            echo "ERROR: unknown argument: $arg" >&2
+            echo "Usage: fish validate.fish [--skill <slug>]" >&2
             exit 2
-        end
-        set single_skill $argv[$i]
     end
     set i (math $i + 1)
 end

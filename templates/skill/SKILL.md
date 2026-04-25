@@ -30,6 +30,12 @@ version: 0.1.0
     - At least one eval in `evals/evals.json` before status: stable.
     - HARD-GATE-promoted skills target ≥4 structural assertions per ADR #0005.
     - Reference `tests/EVALS.md` for assertion-type rubric.
+    - `evals.json` is NOT scaffolded (the runner rejects empty arrays). Create
+      it from the snippet in `evals/README.md` when you author the first eval.
+
+  bin/new-skill substitutes the literal `SKILL_NAME` for the slug. Don't
+  introduce `SKILL_NAME` as real text in any future template body — it will
+  be rewritten in every spawned skill.
 -->
 
 One-paragraph statement of what this skill does and why it exists.
