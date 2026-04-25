@@ -10,7 +10,7 @@ description: >
   for adoption — use /tech-radar instead. Do NOT use when documenting a
   deviation from a tenet — use /tenet-exception instead.
 status: experimental
-version: 0.1.0
+version: 0.1.1
 ---
 
 # System Design Records
