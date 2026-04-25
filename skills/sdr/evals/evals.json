@@ -106,7 +106,7 @@
           "pattern": "(service.{0,20}component|service-component)",
           "flags": "i",
           "tier": "required",
-          "description": "recommends Service/Component Creation template (synonym-tolerant: matches 'Service/Component Creation' prose AND 'service-component' file ref)"
+          "description": "recommends Service/Component Creation template (matches 'Service/Component' prose with up to 20 chars between the tokens, plus the 'service-component' file ref)"
         }
       ]
     },
@@ -134,7 +134,7 @@
           "pattern": "(data.design|data-design|schema (template|record|design))",
           "flags": "i",
           "tier": "required",
-          "description": "recommends Data Design template (synonym-tolerant: matches 'Data Design', file ref 'data-design', and schema-doc paraphrases)"
+          "description": "recommends Data Design template (matches 'Data Design' prose, file ref 'data-design', and three fixed schema-X bigrams: 'schema template', 'schema record', 'schema design')"
         }
       ]
     },
@@ -229,7 +229,7 @@
     },
     {
       "name": "interactive-mode-asks-which-type",
-      "summary": "/sdr with no args triggers interactive disambiguation across the four types",
+      "summary": "/sdr with no args triggers interactive disambiguation across the four types — must NOT scaffold during the ask",
       "prompt": "/sdr",
       "assertions": [
         {
@@ -244,6 +244,14 @@
           "flags": "i",
           "tier": "required",
           "description": "skill asks a disambiguation question rather than scaffolding silently"
+        },
+        {
+          "type": "not_tool_input_matches",
+          "tool": "Write",
+          "input_key": "file_path",
+          "input_value": "sdr",
+          "tier": "required",
+          "description": "negative anchor — proves the skill is asking, not scaffolding: no Write tool_use with an 'sdr' path during disambiguation. Silent-fires if no tools used at all (acceptable: 'asks AND zero tool uses' is still correct behavior; 'asks AND scaffolds' is the failure mode this guards against)"
         }
       ]
     }
