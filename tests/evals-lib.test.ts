@@ -12,9 +12,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
   type Assertion,
+  type MetaDecision,
+  type ReliabilityAgg,
   type Signals,
   type ChainSignals,
   type SkillInvocation,
+  type ValidatedAssertion,
+  type SuiteExitOptions,
   aggregateChainSignals,
   brandForTest as v,
   evaluate,
@@ -24,8 +28,28 @@ import {
   loadEvalFile,
   metaCheck,
   parseStreamJson,
+  reliabilityOf,
   runLifecycle,
+  suiteExit,
+  tallyReliability,
 } from "./evals-lib.ts";
+
+describe("reliabilityOf()", () => {
+  test("structural assertion types map to 'structural'", () => {
+    expect(reliabilityOf("skill_invoked")).toBe("structural");
+    expect(reliabilityOf("not_skill_invoked")).toBe("structural");
+    expect(reliabilityOf("skill_invoked_in_turn")).toBe("structural");
+    expect(reliabilityOf("chain_order")).toBe("structural");
+    expect(reliabilityOf("tool_input_matches")).toBe("structural");
+  });
+
+  test("text assertion types map to 'text'", () => {
+    expect(reliabilityOf("contains")).toBe("text");
+    expect(reliabilityOf("not_contains")).toBe("text");
+    expect(reliabilityOf("regex")).toBe("text");
+    expect(reliabilityOf("not_regex")).toBe("text");
+  });
+});
 
 function sig(finalText: string, extra?: Partial<Signals>): Signals {
   return {
@@ -1220,6 +1244,20 @@ describe("tallyEval() + suiteOk()", () => {
     };
     expect(suiteOk([diagnosticFailButRequiredPassed])).toBe(true);
   });
+
+  test("metaCheck decisions carry reliability derived from assertion type", () => {
+    const a1 = v({ type: "skill_invoked", skill: "x", description: "d1", tier: "required" });
+    const a2 = v({ type: "regex", pattern: "foo", description: "d2", tier: "required" });
+    const out = metaCheck({
+      perTurn: [
+        { assertion: a1, result: { ok: true, description: "d1" }, signals: sig("hello", { skillInvocations: [{ skill: "x" }] as SkillInvocation[] }), turnIndex: 0 },
+        { assertion: a2, result: { ok: false, description: "d2", detail: "no match" }, signals: sig("hello"), turnIndex: 0 },
+      ],
+      final: [],
+    });
+    expect(out.decisions[0].reliability).toBe("structural");
+    expect(out.decisions[1].reliability).toBe("text");
+  });
 });
 
 test("loadEvalFile preserves setup and teardown shell commands", () => {
@@ -1396,5 +1434,76 @@ describe("planning.md stage markers contract", () => {
     expect(planning).toContain("[Stage: Problem Definition]");
     expect(planning).toContain("[Stage: Systems Analysis]");
     expect(planning).toContain("[Stage: Solution Design]");
+  });
+});
+
+describe("tallyReliability()", () => {
+  test("buckets decisions by required×reliability with diagnostic combined", () => {
+    const decisions: MetaDecision[] = [
+      { kind: "pass", description: "a", tier: "required", reliability: "structural" },
+      { kind: "fail", description: "b", tier: "required", reliability: "structural", detail: "x" },
+      { kind: "pass", description: "c", tier: "required", reliability: "text" },
+      { kind: "fail", description: "d", tier: "required", reliability: "text", detail: "x" },
+      { kind: "pass", description: "e", tier: "diagnostic", reliability: "text" },
+      { kind: "fail", description: "f", tier: "diagnostic", reliability: "structural", detail: "x" },
+    ];
+    const agg = tallyReliability(decisions);
+    expect(agg.requiredStructural).toEqual({ pass: 1, fail: 1 });
+    expect(agg.requiredText).toEqual({ pass: 1, fail: 1 });
+    expect(agg.diagnostic).toEqual({ pass: 1, fail: 1 });
+  });
+
+  test("silent_fire counts as a fail in its bucket", () => {
+    const decisions: MetaDecision[] = [
+      { kind: "silent_fire", description: "a", tier: "required", reliability: "structural", detail: "x" },
+    ];
+    const agg = tallyReliability(decisions);
+    expect(agg.requiredStructural).toEqual({ pass: 0, fail: 1 });
+  });
+
+  test("empty input → all zero", () => {
+    expect(tallyReliability([])).toEqual({
+      requiredStructural: { pass: 0, fail: 0 },
+      requiredText: { pass: 0, fail: 0 },
+      diagnostic: { pass: 0, fail: 0 },
+    });
+  });
+});
+
+describe("suiteExit()", () => {
+  const zero = { pass: 0, fail: 0 };
+  const passOne = { pass: 1, fail: 0 };
+  const failOne = { pass: 0, fail: 1 };
+
+  test("all pass → exit 0", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: passOne, diagnostic: passOne }, {});
+    expect(r.exitCode).toBe(0);
+    expect(r.warning).toBeUndefined();
+  });
+
+  test("required-structural fail → exit 1", () => {
+    const r = suiteExit({ requiredStructural: failOne, requiredText: passOne, diagnostic: zero }, {});
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("required-text fail (default) → exit 1", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: failOne, diagnostic: zero }, {});
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("required-text fail with textNonblocking → exit 0 with warning", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: failOne, diagnostic: zero }, { textNonblocking: true });
+    expect(r.exitCode).toBe(0);
+    expect(r.warning).toContain("text");
+  });
+
+  test("required-structural fail with textNonblocking → still exit 1", () => {
+    const r = suiteExit({ requiredStructural: failOne, requiredText: failOne, diagnostic: zero }, { textNonblocking: true });
+    expect(r.exitCode).toBe(1);
+  });
+
+  test("diagnostic-only fail → exit 0", () => {
+    const r = suiteExit({ requiredStructural: passOne, requiredText: passOne, diagnostic: failOne }, {});
+    expect(r.exitCode).toBe(0);
   });
 });

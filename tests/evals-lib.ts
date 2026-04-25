@@ -8,6 +8,39 @@ import { join } from "node:path";
 
 export type AssertionTier = "required" | "diagnostic";
 
+/**
+ * Reliability axis (orthogonal to AssertionTier).
+ *
+ *   - "structural" — assertion fires against parsed stream-json signals
+ *     (tool uses, skill invocations). Deterministic; spoof-resistant.
+ *   - "text" — assertion fires against model-generated prose (substring
+ *     or regex). Wording-sensitive; subject to run-to-run variance.
+ *
+ * Used only for reporting and for the `--text-nonblocking` exit-code
+ * softening. Derived from assertion type at report time; never stored.
+ */
+export type ReliabilityTier = "structural" | "text";
+
+/**
+ * Classify an assertion type by reliability. Exhaustive on AssertionType
+ * — adding a new variant fails compilation here.
+ */
+export function reliabilityOf(type: Assertion["type"]): ReliabilityTier {
+  switch (type) {
+    case "skill_invoked":
+    case "not_skill_invoked":
+    case "skill_invoked_in_turn":
+    case "chain_order":
+    case "tool_input_matches":
+      return "structural";
+    case "contains":
+    case "not_contains":
+    case "regex":
+    case "not_regex":
+      return "text";
+  }
+}
+
 type AssertionBase = { description: string; tier?: AssertionTier };
 
 export type Assertion =
@@ -101,9 +134,9 @@ export type AssertionResult =
  *                       Distinct failure label; fails the eval.
  */
 export type MetaDecision =
-  | { kind: "pass"; description: string; tier: AssertionTier }
-  | { kind: "fail"; description: string; tier: AssertionTier; detail: string }
-  | { kind: "silent_fire"; description: string; tier: AssertionTier; detail: string };
+  | { kind: "pass"; description: string; tier: AssertionTier; reliability: ReliabilityTier }
+  | { kind: "fail"; description: string; tier: AssertionTier; reliability: ReliabilityTier; detail: string }
+  | { kind: "silent_fire"; description: string; tier: AssertionTier; reliability: ReliabilityTier; detail: string };
 
 export interface MetaCheckInput {
   /** Per-turn assertion results in the same order the runner evaluated them.
@@ -679,6 +712,7 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
 
   for (const { assertion, result, signals } of input.perTurn) {
     const tier = assertion.tier;
+    const reliability = reliabilityOf(assertion.type);
     if (result.ok) {
       if (tier === "required" && isNegative(assertion) && signalIsEmptyFor(assertion, signals)) {
         silentFireCount++;
@@ -687,24 +721,26 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
           kind: "silent_fire",
           description: result.description,
           tier,
+          reliability,
           detail: `negative assertion trivially passed against empty signal — no evidence to judge`,
         });
       } else {
-        decisions.push({ kind: "pass", description: result.description, tier });
+        decisions.push({ kind: "pass", description: result.description, tier, reliability });
       }
     } else {
       if (tier === "required") requiredOk = false;
-      decisions.push({ kind: "fail", description: result.description, tier, detail: result.detail });
+      decisions.push({ kind: "fail", description: result.description, tier, reliability, detail: result.detail });
     }
   }
 
   for (const { assertion, result } of input.final) {
     const tier = assertion.tier;
+    const reliability = reliabilityOf(assertion.type);
     if (result.ok) {
-      decisions.push({ kind: "pass", description: result.description, tier });
+      decisions.push({ kind: "pass", description: result.description, tier, reliability });
     } else {
       if (tier === "required") requiredOk = false;
-      decisions.push({ kind: "fail", description: result.description, tier, detail: result.detail });
+      decisions.push({ kind: "fail", description: result.description, tier, reliability, detail: result.detail });
     }
   }
 
@@ -751,6 +787,79 @@ export function tallyEval(meta: MetaCheckOutput, assertionCount: number): EvalTa
  */
 export function suiteOk(tallies: readonly EvalTally[]): boolean {
   return tallies.every((t) => t.evalPassed);
+}
+
+export interface ReliabilityCounts {
+  pass: number;
+  fail: number;
+}
+
+export interface ReliabilityAgg {
+  requiredStructural: ReliabilityCounts;
+  requiredText: ReliabilityCounts;
+  /**
+   * Diagnostic decisions are NOT split by reliability. Diagnostic never
+   * gates exit, so the structural-vs-text distinction adds noise without
+   * decision value at this tier.
+   */
+  diagnostic: ReliabilityCounts;
+}
+
+/**
+ * Bucket meta decisions across one or more evals by required×reliability.
+ * silent_fire counts as a failure in its bucket; pass and fail count as
+ * themselves.
+ */
+export function tallyReliability(decisions: readonly MetaDecision[]): ReliabilityAgg {
+  const agg: ReliabilityAgg = {
+    requiredStructural: { pass: 0, fail: 0 },
+    requiredText: { pass: 0, fail: 0 },
+    diagnostic: { pass: 0, fail: 0 },
+  };
+  for (const d of decisions) {
+    const bucket =
+      d.tier === "diagnostic"
+        ? agg.diagnostic
+        : d.reliability === "structural"
+          ? agg.requiredStructural
+          : agg.requiredText;
+    if (d.kind === "pass") bucket.pass += 1;
+    else bucket.fail += 1;
+  }
+  return agg;
+}
+
+export interface SuiteExitOptions {
+  /** Demote required-text failures to warnings (still printed). */
+  textNonblocking?: boolean;
+}
+
+export interface SuiteExitResult {
+  exitCode: 0 | 1;
+  /** When set, print as a warning banner before exiting. */
+  warning?: string;
+}
+
+/**
+ * Exit-code policy by required×reliability:
+ *   - required-structural fail  → always exit 1
+ *   - required-text fail        → exit 1 by default; exit 0 + warning when textNonblocking
+ *   - diagnostic fail           → never gates exit
+ */
+export function suiteExit(agg: ReliabilityAgg, opts: SuiteExitOptions): SuiteExitResult {
+  if (agg.requiredStructural.fail > 0) {
+    return { exitCode: 1 };
+  }
+  if (agg.requiredText.fail > 0) {
+    if (opts.textNonblocking) {
+      return {
+        exitCode: 0,
+        warning: `${agg.requiredText.fail} required-text failure(s) demoted by --text-nonblocking`,
+      };
+    }
+    return { exitCode: 1 };
+  }
+  return { exitCode: 0 };
 }
 
 /**
