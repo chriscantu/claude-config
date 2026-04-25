@@ -80,6 +80,171 @@
           "description": "sdr does NOT fire on a single-decision /adr-shaped request (diagnostic — silent-fires on zero tool uses; paired with positive regex above)"
         }
       ]
+    },
+    {
+      "name": "routes-to-service-component-for-new-service",
+      "summary": "new-service prompt routes to Service/Component Creation template",
+      "prompt": "I'm building a new pricing service",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "sdr",
+          "tier": "required",
+          "description": "skill fires on new-service intent"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "sdr",
+          "tier": "required",
+          "description": "Skill surface contract"
+        },
+        {
+          "type": "regex",
+          "pattern": "service.{0,20}component",
+          "flags": "i",
+          "tier": "required",
+          "description": "recommends Service/Component Creation template"
+        }
+      ]
+    },
+    {
+      "name": "routes-to-data-design-for-schema",
+      "summary": "schema-design prompt routes to Data Design template",
+      "prompt": "I need to design the order schema",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "sdr",
+          "tier": "required",
+          "description": "skill fires on schema-design intent"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "sdr",
+          "tier": "required",
+          "description": "Skill surface contract"
+        },
+        {
+          "type": "regex",
+          "pattern": "data.design",
+          "flags": "i",
+          "tier": "required",
+          "description": "recommends Data Design template"
+        }
+      ]
+    },
+    {
+      "name": "routes-to-blueprint-for-reusable-pattern",
+      "summary": "reusable-pattern prompt routes to Blueprint template",
+      "prompt": "Reusable golden path for new microservices",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "sdr",
+          "tier": "required",
+          "description": "skill fires on reusable-pattern intent"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "sdr",
+          "tier": "required",
+          "description": "Skill surface contract"
+        },
+        {
+          "type": "regex",
+          "pattern": "blueprint",
+          "flags": "i",
+          "tier": "required",
+          "description": "recommends Blueprint template"
+        }
+      ]
+    },
+    {
+      "name": "does-not-fire-for-tool-adoption",
+      "summary": "tool-adoption prompt routes to /tech-radar, not sdr — anti-trigger guardrail paired with positive anchor",
+      "prompt": "Should we adopt Temporal for workflow orchestration?",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "tech.radar",
+          "flags": "i",
+          "tier": "required",
+          "description": "positive anchor — response recommends /tech-radar (rules out empty-stream silent-fire)"
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "sdr",
+          "tier": "diagnostic",
+          "description": "sdr does NOT fire on tool-adoption framing (diagnostic — paired with positive regex above)"
+        }
+      ]
+    },
+    {
+      "name": "does-not-fire-for-tenet-deviation",
+      "summary": "tenet-deviation prompt routes to /tenet-exception, not sdr — anti-trigger guardrail paired with positive anchor",
+      "prompt": "We need to deviate from the 'all services emit OpenTelemetry' tenet",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "tenet.exception",
+          "flags": "i",
+          "tier": "required",
+          "description": "positive anchor — response recommends /tenet-exception (rules out empty-stream silent-fire)"
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "sdr",
+          "tier": "diagnostic",
+          "description": "sdr does NOT fire on tenet-deviation framing (diagnostic — paired with positive regex above)"
+        }
+      ]
+    },
+    {
+      "name": "fires-on-plain-english-trigger",
+      "summary": "plain-English (non-slash-command) trigger fires the skill — confirms description-driven surface",
+      "prompt": "I want to create a system design record for our new payments platform",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "sdr",
+          "tier": "required",
+          "description": "skill fires on plain-English trigger phrase, no slash command"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "sdr",
+          "tier": "required",
+          "description": "Skill surface contract"
+        }
+      ]
+    },
+    {
+      "name": "interactive-mode-asks-which-type",
+      "summary": "/sdr with no args triggers interactive disambiguation across the four types",
+      "prompt": "/sdr",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "sdr",
+          "tier": "required",
+          "description": "skill fires on bare /sdr"
+        },
+        {
+          "type": "regex",
+          "pattern": "(which.{0,20}(type|template)|whole system|landscape|service or component)",
+          "flags": "i",
+          "tier": "required",
+          "description": "skill asks a disambiguation question rather than scaffolding silently"
+        }
+      ]
     }
   ]
 }
