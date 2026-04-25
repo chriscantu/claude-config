@@ -428,7 +428,36 @@ describe("extractSignals()", () => {
       ].join("\n"),
     );
     const s = extractSignals(events);
+    // Intermediate assistant text concatenates ahead of the result event so
+    // regex assertions can match plans/preambles emitted before tool uses.
+    expect(s.finalText).toBe("hello\nfinal answer");
+    expect(s.terminalState).toBe("result");
+  });
+
+  test("uses just resultText when no intermediate assistant text exists", () => {
+    const { events } = parseStreamJson(
+      [
+        `{"type":"result","result":"final answer"}`,
+      ].join("\n"),
+    );
+    const s = extractSignals(events);
     expect(s.finalText).toBe("final answer");
+    expect(s.terminalState).toBe("result");
+  });
+
+  test("concatenates multiple intermediate assistant messages with the result event", () => {
+    // Guard the join shape: parts joined with "\n", then "\n" before resultText.
+    // Off-by-one or accidental-space bugs in the join would show up here.
+    const { events } = parseStreamJson(
+      [
+        `{"type":"assistant","message":{"content":[{"type":"text","text":"a"}]}}`,
+        `{"type":"assistant","message":{"content":[{"type":"text","text":"b"}]}}`,
+        `{"type":"assistant","message":{"content":[{"type":"text","text":"c"}]}}`,
+        `{"type":"result","result":"final"}`,
+      ].join("\n"),
+    );
+    const s = extractSignals(events);
+    expect(s.finalText).toBe("a\nb\nc\nfinal");
     expect(s.terminalState).toBe("result");
   });
 
@@ -1037,6 +1066,196 @@ describe("evaluate() — tool_input_matches", () => {
     } as Assertion);
     const s = sigWithTools([{ name: "Skill", input: { skill: null as unknown as string } }]);
     expect(evaluate(a, s).ok).toBe(false);
+  });
+});
+
+describe("validateAssertion() — not_tool_input_matches", () => {
+  test("accepts a well-formed not_tool_input_matches assertion", () => {
+    expect(() => v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion)).not.toThrow();
+  });
+
+  test("rejects empty tool", () => {
+    expect(() => v({
+      type: "not_tool_input_matches",
+      tool: "",
+      input_key: "gate",
+      input_value: "x",
+      description: "d",
+    } as Assertion)).toThrow(/tool/);
+  });
+
+  test("rejects empty input_key", () => {
+    expect(() => v({
+      type: "not_tool_input_matches",
+      tool: "Skill",
+      input_key: "",
+      input_value: "x",
+      description: "d",
+    } as Assertion)).toThrow(/input_key/);
+  });
+
+  test("rejects empty input_value", () => {
+    expect(() => v({
+      type: "not_tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "",
+      description: "d",
+    } as Assertion)).toThrow(/input_value/);
+  });
+});
+
+describe("evaluate() — not_tool_input_matches", () => {
+  function sigWithTools(tools: Array<{ name: string; input: Record<string, unknown> }>): Signals {
+    return { finalText: "", toolUses: tools, skillInvocations: [], terminalState: "result" };
+  }
+
+  test("passes when no tool_use has the matching tool name", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([{ name: "Bash", input: { command: "ls" } }]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("passes when matching tool fired but with a different input_value", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: "DTP" } },
+    ]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("fails when forbidden tool fired with matching substring", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: "think-before-coding" } },
+    ]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toContain("think-before-coding");
+  });
+
+  test("input_value matched as substring (any-occurrence semantics — symmetric with positive form)", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "Edit",
+      input_key: "new_string",
+      input_value: "isNaN",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "Edit", input: { new_string: "if (Number.isNaN(n)) return lo;" } },
+    ]);
+    expect(evaluate(a, s).ok).toBe(false);
+  });
+
+  test("passes when forbidden tool fired with non-string value (symmetric with positive form's null-coercion guard)", () => {
+    // Defensive: if the CLI ever emits input.gate as a non-string, we must
+    // NOT coerce silently. Treat it as no-match — the negative passes.
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "think-before-coding",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: null as unknown as string } },
+    ]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("fails on first match — multiple tool_uses of the forbidden tool, one matches", () => {
+    // Short-circuit semantics: a single matching tool_use is enough for the
+    // negative to fail, regardless of how many non-matching ones precede it.
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "goal-driven",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: "DTP" } },
+      { name: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip", input: { gate: "goal-driven" } },
+    ]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toContain("goal-driven");
+  });
+});
+
+describe("metaCheck() — not_tool_input_matches silent-fire", () => {
+  test("passes against zero tool uses → silent_fire (no evidence)", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "goal-driven",
+      description: "d",
+    } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: { finalText: "text", toolUses: [], skillInvocations: [], terminalState: "result" },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(false);
+    expect(out.silentFireCount).toBe(1);
+    expect(out.decisions[0].kind).toBe("silent_fire");
+  });
+
+  test("passes against NON-empty toolUses (model engaged with tools, just not the forbidden one) → real pass", () => {
+    const a = v({
+      type: "not_tool_input_matches",
+      tool: "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      input_key: "gate",
+      input_value: "goal-driven",
+      description: "d",
+    } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: {
+          finalText: "text",
+          toolUses: [{ name: "Bash", input: { command: "ls" } }],
+          skillInvocations: [],
+          terminalState: "result",
+        },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(true);
+    expect(out.silentFireCount).toBe(0);
+    expect(out.decisions[0].kind).toBe("pass");
   });
 });
 

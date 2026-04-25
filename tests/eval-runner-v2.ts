@@ -51,6 +51,7 @@ import {
 
 const repoDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const skillsDir = join(repoDir, "skills");
+const rulesEvalsDir = join(repoDir, "rules-evals");
 const resultsDir = join(repoDir, "tests", "results");
 const claudeBin = process.env.CLAUDE_BIN ?? "claude";
 
@@ -416,7 +417,24 @@ function writeChainTranscript(a: ChainTranscriptArgs): void {
 }
 
 async function main() {
-  const skills = skillFilter ? [skillFilter] : discoverSkills(skillsDir);
+  // Discover from two roots: skills/ (skill-layer evals) and rules-evals/
+  // (rules-layer evals — HARD-GATEs in rules/ that have no skill counterpart).
+  // Both roots use identical <root>/<name>/evals/evals.json layout, so the
+  // schema and runner machinery are shared; only the discovery merges them.
+  const rootByName = new Map<string, string>();
+  const fromSkills = discoverSkills(skillsDir);
+  for (const n of fromSkills) rootByName.set(n, skillsDir);
+  if (existsSync(rulesEvalsDir)) {
+    for (const n of discoverSkills(rulesEvalsDir)) {
+      if (rootByName.has(n)) {
+        console.error(red(`✗ name collision: '${n}' exists under both skills/ and rules-evals/`));
+        process.exit(1);
+      }
+      rootByName.set(n, rulesEvalsDir);
+    }
+  }
+  const allNames = [...rootByName.keys()].sort();
+  const skills = skillFilter ? [skillFilter] : allNames;
   if (skills.length === 0) {
     console.error("No skills with evals/evals.json found.");
     process.exit(1);
@@ -425,8 +443,13 @@ async function main() {
   // Validate up-front — a bad JSON shouldn't waste CLI spawns on earlier skills.
   const loaded = new Map<string, EvalFile>();
   for (const skillName of skills) {
+    const root = rootByName.get(skillName);
+    if (!root) {
+      console.error(red(`✗ ${skillName}: not found under skills/ or rules-evals/`));
+      process.exit(1);
+    }
     try {
-      const file = loadEvalFile(skillsDir, skillName);
+      const file = loadEvalFile(root, skillName);
       if (!file) {
         console.error(red(`✗ ${skillName}: no evals/evals.json`));
         process.exit(1);

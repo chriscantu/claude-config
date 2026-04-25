@@ -32,6 +32,7 @@ export function reliabilityOf(type: Assertion["type"]): ReliabilityTier {
     case "skill_invoked_in_turn":
     case "chain_order":
     case "tool_input_matches":
+    case "not_tool_input_matches":
       return "structural";
     case "contains":
     case "not_contains":
@@ -47,7 +48,7 @@ export type Assertion =
   | (AssertionBase & { type: "contains" | "not_contains"; value: string })
   | (AssertionBase & { type: "regex" | "not_regex"; pattern: string; flags?: string })
   | (AssertionBase & { type: "skill_invoked" | "not_skill_invoked"; skill: string })
-  | (AssertionBase & { type: "tool_input_matches"; tool: string; input_key: string; input_value: string })
+  | (AssertionBase & { type: "tool_input_matches" | "not_tool_input_matches"; tool: string; input_key: string; input_value: string })
   | (AssertionBase & { type: "skill_invoked_in_turn"; turn: number; skill: string })
   | (AssertionBase & { type: "chain_order"; skills: string[] });
 
@@ -203,7 +204,12 @@ export interface SkillInvocation {
 /**
  * `terminalState` records how the stream ended so a reader can tell a healthy
  * tool-use-terminal run apart from a crash that died before emitting `result`:
- *   - `result`     — a `result` event was present; `finalText` is its content.
+ *   - `result`     — a `result` event was present; `finalText` is the
+ *                    intermediate assistant text (if any) concatenated with
+ *                    the result event's payload, separated by `\n`. Concat
+ *                    is intentional: regex assertions need to see plans /
+ *                    preambles the model emits before tool uses, which
+ *                    otherwise wouldn't appear in the result event.
  *   - `assistant`  — no `result` event; `finalText` is concatenated assistant text.
  *   - `empty`      — neither; `finalText` is "".
  */
@@ -267,14 +273,15 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
       }
       break;
     case "tool_input_matches":
+    case "not_tool_input_matches":
       if (typeof a.tool !== "string" || a.tool.length === 0) {
-        throw new Error(`${loc}: tool_input_matches requires non-empty 'tool' string`);
+        throw new Error(`${loc}: ${a.type} requires non-empty 'tool' string`);
       }
       if (typeof a.input_key !== "string" || a.input_key.length === 0) {
-        throw new Error(`${loc}: tool_input_matches requires non-empty 'input_key' string`);
+        throw new Error(`${loc}: ${a.type} requires non-empty 'input_key' string`);
       }
       if (typeof a.input_value !== "string" || a.input_value.length === 0) {
-        throw new Error(`${loc}: tool_input_matches requires non-empty 'input_value' string`);
+        throw new Error(`${loc}: ${a.type} requires non-empty 'input_value' string`);
       }
       break;
     case "skill_invoked_in_turn":
@@ -390,7 +397,8 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
       }
       validatedFinal = [];
       for (const a of e.final_assertions) {
-        if (a.type === "tool_input_matches" || a.type === "contains" || a.type === "not_contains" ||
+        if (a.type === "tool_input_matches" || a.type === "not_tool_input_matches" ||
+            a.type === "contains" || a.type === "not_contains" ||
             a.type === "regex" || a.type === "not_regex" ||
             a.type === "skill_invoked" || a.type === "not_skill_invoked") {
           throw new Error(`${file}: eval '${e.name}' final_assertions: '${a.type}' is a per-turn assertion; put it on a turn's assertions array instead`);
@@ -518,7 +526,13 @@ export function extractSignals(events: StreamEvent[]): Signals {
   let finalText: string;
   let terminalState: Signals["terminalState"];
   if (resultText !== undefined) {
-    finalText = resultText;
+    // Concatenate intermediate assistant text (emitted before tool uses) with
+    // the final result event. Without this, plans the model emits BEFORE
+    // running tools (a common goal-driven shape) are invisible to regex
+    // assertions because the result event only carries the final summary.
+    finalText = assistantTextParts.length > 0
+      ? `${assistantTextParts.join("\n")}\n${resultText}`
+      : resultText;
     terminalState = "result";
   } else if (assistantTextParts.length > 0) {
     finalText = assistantTextParts.join("\n");
@@ -586,6 +600,19 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
           `Saw ${assertion.tool}.${assertion.input_key} values: ${seen || "(no matching tool)"}`,
       );
     }
+    case "not_tool_input_matches": {
+      const offending = signals.toolUses.find((tu) => {
+        if (tu.name !== assertion.tool) return false;
+        const value = tu.input[assertion.input_key];
+        return typeof value === "string" && value.includes(assertion.input_value);
+      });
+      if (!offending) return pass();
+      return fail(
+        `not_tool_input_matches: forbidden ${assertion.tool} tool_use had ` +
+          `${assertion.input_key}=${JSON.stringify(offending.input[assertion.input_key])} ` +
+          `(matched substring ${JSON.stringify(assertion.input_value)})`,
+      );
+    }
     case "skill_invoked_in_turn":
     case "chain_order":
       // Routing guard: chain-level assertions belong in `evaluateChain`, not
@@ -640,6 +667,7 @@ export function evaluateChain(assertion: ValidatedAssertion, chain: ChainSignals
     case "skill_invoked":
     case "not_skill_invoked":
     case "tool_input_matches":
+    case "not_tool_input_matches":
       // Routing guard: per-turn assertions belong in `evaluate`, not here.
       // Explicit cases let the compiler enforce exhaustiveness — a new
       // Assertion variant must be handled here or it won't type-check.
@@ -672,7 +700,7 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
   let requiredOk = true;
 
   const isNegative = (a: ValidatedAssertion): boolean =>
-    a.type === "not_contains" || a.type === "not_regex" || a.type === "not_skill_invoked";
+    a.type === "not_contains" || a.type === "not_regex" || a.type === "not_skill_invoked" || a.type === "not_tool_input_matches";
 
   /**
    * Is the signal the assertion ran against empty, in the sense that a
@@ -695,6 +723,18 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
         return s.terminalState === "empty";
       case "not_skill_invoked":
         return s.skillInvocations.length === 0;
+      case "not_tool_input_matches":
+        // Silent-fire only when the model emitted no tool uses at all. If any
+        // tools fired (even unrelated ones), the absence of the forbidden tool
+        // is meaningful information — the model engaged with tool-using
+        // behavior and chose not to invoke the forbidden one.
+        //
+        // Symmetric with the `not_skill_invoked` branch above: empty-of-category,
+        // not empty-of-filtered. A filter-by-tool-name heuristic would collapse
+        // the metaCheck distinction by flagging every legitimate negative pass
+        // as silent-fire (the pass condition is precisely "no offending tool
+        // fired"). Don't re-litigate without rereading both cases together.
+        return s.toolUses.length === 0;
       case "contains":
       case "regex":
       case "skill_invoked":
