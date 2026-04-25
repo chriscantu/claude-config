@@ -1,0 +1,123 @@
+#!/usr/bin/env fish
+# Scaffold a new skill from `templates/skill/`.
+#
+# Usage:
+#   bin/new-skill <slug>            # create skills/<slug>/ from template
+#   bin/new-skill --dry-run <slug>  # print intended files, write nothing
+#   bin/new-skill -h | --help
+#
+# Slug rules: lowercase, kebab-case, [a-z0-9-]+, not already taken.
+#
+# After writing, runs `fish validate.fish` against the repo. Exits non-zero
+# if validation fails — the new skill is left on disk for inspection.
+
+set -l repo (cd (dirname (status --current-filename))/..; and pwd)
+set -l template $repo/templates/skill
+set -l skills_dir $repo/skills
+
+set -l dry_run 0
+set -l slug ""
+
+function usage
+    echo "Usage: bin/new-skill [--dry-run] <slug>"
+    echo ""
+    echo "  <slug>      lowercase kebab-case [a-z0-9-]+, e.g. 'sdr', 'status-report'"
+    echo "  --dry-run   print intended files, write nothing"
+    echo "  -h, --help  show this help"
+end
+
+for arg in $argv
+    switch $arg
+        case -h --help
+            usage
+            exit 0
+        case --dry-run
+            set dry_run 1
+        case '-*'
+            echo "ERROR: unknown flag: $arg" >&2
+            usage >&2
+            exit 2
+        case '*'
+            if test -n "$slug"
+                echo "ERROR: only one slug allowed (got '$slug' and '$arg')" >&2
+                exit 2
+            end
+            set slug $arg
+    end
+end
+
+if test -z "$slug"
+    echo "ERROR: missing <slug>" >&2
+    usage >&2
+    exit 2
+end
+
+# Slug validation
+if not string match -rq '^[a-z0-9]+(-[a-z0-9]+)*$' -- $slug
+    echo "ERROR: invalid slug '$slug' — must be lowercase kebab-case [a-z0-9-]+" >&2
+    exit 2
+end
+
+set -l target $skills_dir/$slug
+if test -e $target
+    echo "ERROR: skills/$slug/ already exists — pick a different slug" >&2
+    exit 2
+end
+
+if not test -d $template
+    echo "ERROR: template missing at $template" >&2
+    exit 3
+end
+
+# Enumerate template files (excluding .gitkeep — we recreate them in place)
+set -l files
+for f in (find $template -type f)
+    set -l rel (string replace "$template/" "" -- $f)
+    set files $files $rel
+end
+
+echo "scaffolding skills/$slug/ from templates/skill/"
+for rel in $files
+    echo "  + skills/$slug/$rel"
+end
+
+if test $dry_run -eq 1
+    echo "(dry-run) no files written"
+    exit 0
+end
+
+# Copy + substitute
+mkdir -p $target
+for rel in $files
+    set -l src $template/$rel
+    set -l dst $target/$rel
+    mkdir -p (dirname $dst)
+    # Substitute SKILL_NAME placeholder with the slug. .gitkeep stays empty.
+    if test (basename $rel) = .gitkeep
+        cp $src $dst
+    else
+        sed "s/SKILL_NAME/$slug/g" $src >$dst
+    end
+end
+
+echo ""
+echo "running validate.fish --skill $slug ..."
+fish $repo/validate.fish --skill $slug
+set -l vstatus $status
+
+if test $vstatus -ne 0
+    echo "ERROR: validate.fish failed for skills/$slug/ (exit $vstatus)" >&2
+    exit $vstatus
+end
+
+echo "OK: skills/$slug/ created and validates clean."
+echo ""
+echo "Next steps:"
+echo "  1. Edit skills/$slug/SKILL.md — fill description triggers + body."
+echo "     Audit trigger overlap vs adjacent skills (#73)."
+echo "  2. Author the first eval: create skills/$slug/evals/evals.json"
+echo "     (template at skills/$slug/evals/README.md; rubric at tests/EVALS.md)."
+echo "     The runner rejects empty arrays, so the stub is intentionally absent."
+echo "  3. Run: fish validate.fish"
+echo "  4. Run: bun run tests/eval-runner-v2.ts $slug   # after step 2"
+echo "  5. Run: bin/link-config.fish    # symlink into ~/.claude/skills/"
