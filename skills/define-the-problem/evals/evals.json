@@ -256,13 +256,19 @@
           "type": "not_skill_invoked",
           "skill": "define-the-problem",
           "tier": "diagnostic",
-          "description": "Diagnostic pair: DTP is NOT invoked for Trivial-tier work. Paired with the positive Read assertion above to avoid silent-fire."
+          "description": "Diagnostic pair: DTP is NOT invoked for Trivial-tier work. Paired with the positive Write assertion above to avoid silent-fire."
         },
         {
           "type": "not_skill_invoked",
           "skill": "superpowers:brainstorming",
           "tier": "diagnostic",
           "description": "Diagnostic pair: brainstorming is NOT invoked for Trivial-tier work (single obvious approach criterion eliminates the trade-off matrix step)."
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "superpowers:subagent-driven-development",
+          "tier": "diagnostic",
+          "description": "Diagnostic: subagent-driven-development is NOT invoked for Trivial-tier work (execution-mode.md sizing guard routes to single-implementer mode). Discriminates the Trivial-tier path from a hypothetical full-pipeline path; bug-fix routing also satisfies this trivially since no plan exists."
         }
       ]
     },

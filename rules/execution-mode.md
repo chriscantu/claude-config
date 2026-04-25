@@ -16,6 +16,11 @@ proceed.
 
 ## Modes
 
+**Tie-break:** when both modes' triggers fire, single-implementer wins — the
+subagent-mode trigger is conjunctive (ALL of), single-implementer is disjunctive
+(ANY of). Subagent mode is the more expensive path; require all gates to fire
+before paying for it.
+
 ### Subagent-driven mode
 
 Use `superpowers:subagent-driven-development` (fresh subagent per task,
@@ -39,6 +44,8 @@ plan; one comprehensive review at the end against the full spec) when ANY of:
 - All tasks touch the same file
 - Each task is a TDD increment ≤50 LOC
 - Trivial/Mechanical tier per `rules/planning.md` Scope Calibration
+  (canonical criteria definition: ≤200 LOC, single-file primary surface,
+  unambiguous approach, low blast radius — do not restate)
 
 The final cross-task review still runs — single-implementer mode trades
 per-task gates for one thorough end-of-work review. `verification.md`
@@ -68,14 +75,20 @@ been honored.
 
 ## Pressure-framing floor
 
-"This needs the full subagent treatment" or "go fast, single implementer"
-without the criteria above being demonstrable from the plan are pressure
-framings. Apply the sizing guard against the actual plan, not the framing.
-A 12-task / 3-file / 600-LOC plan is subagent-driven regardless of the
-controller's stated preference for speed; a 2-task / 1-file / 80-LOC plan
-is single-implementer regardless of a stated preference for thoroughness.
-Override only via explicit named-cost skip ("force subagent-driven on this
-small plan, I accept the token cost for the spec-review discipline").
+Floor enforcement (pressure-framing routing, named-cost emission contract,
+sentinel bypass) is anchored in `rules/planning.md` DTP per-gate block. Per
+[ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+and memory note `per_gate_floor_blocks_substitutable.md`, the model
+generalizes that anchor to the active gate, so a per-gate floor block here
+adds no eval-measurable load given the DTP anchor.
+
+Concrete signals here: "this needs the full subagent treatment" or "go
+fast, single implementer" without the criteria above being demonstrable
+from the plan are pressure framings. Apply the sizing guard against the
+actual plan, not the framing. A 12-task / 3-file / 600-LOC plan is
+subagent-driven regardless of stated preference for speed; a 2-task /
+1-file / 80-LOC plan is single-implementer regardless of stated preference
+for thoroughness.
 
 ## Relationship to Other Rules
 

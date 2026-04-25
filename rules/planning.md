@@ -203,15 +203,22 @@ Tier qualifies ONLY when ALL four criteria hold. Any one missing → next tier u
 Tier behavior (HARD):
 - DTP: skip (route directly to implementation, like bug fixes)
 - Systems Analysis: 60s surface-area scan only — NO Condensed Pass
-- Brainstorming: skip
-- Fat Marker Sketch: skip
-- Brainstorming and FMS HARD-GATEs treat Trivial-tier as a recognized non-applicable scope, same as bug fixes
+- Brainstorming: skip (single obvious approach criterion eliminates the trade-off matrix step)
+- Fat Marker Sketch: skip (no shape question to validate)
 - Execution mode: prefer single-implementer + single final review (see `execution-mode.md`)
 - `goal-driven.md` and `verification.md` STILL apply — verify checks per step, end-of-work gate runs
 
-**Pressure-framing floor applies.** "Just a small change," "trivial fix," "quick edit" without the four criteria being demonstrable from the prompt or a cheap pre-check are pressure framings, NOT tier claims. Route to Prototype/POC tier and run the standard pipeline. The criteria are concrete (LOC, file count, blast radius) — verify before downgrading ceremony. A claim of Trivial without demonstrable criteria is the same shape as a claim of "skip DTP" without naming the cost: pressure framing, not skip.
-
-Honor full Trivial tier ONLY when criteria hold. The named-cost emission contract from step 1 (DTP) is NOT a tier-downgrade mechanism; it bypasses individual gates, not the entire pipeline.
+**Pressure-framing floor.** Floor enforcement (pressure-framing routing, named-cost
+emission contract, sentinel bypass) is anchored in the DTP per-gate block — see step 1
+above. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+and memory note `per_gate_floor_blocks_substitutable.md`, the model generalizes that
+anchor to the active pipeline stage, so a Trivial-tier per-gate floor block adds no
+eval-measurable load given the DTP anchor. Concrete signals here: "just a small
+change," "trivial fix," "quick edit" without the four criteria being demonstrable
+from the prompt or a cheap pre-check are pressure framings, NOT tier claims — route
+to Prototype/POC tier and run the standard pipeline. The named-cost emission contract
+from step 1 (DTP) is NOT a tier-downgrade mechanism; it bypasses individual gates, not
+the entire pipeline.
 
 ## Decision Framework
 
