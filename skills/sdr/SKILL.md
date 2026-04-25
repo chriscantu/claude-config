@@ -18,7 +18,10 @@ version: 0.1.0
 Single entry point for the four canonical SDR types. Locates the
 authoritative template in `~/repos/system-design-records/templates/`,
 copies it into the project's SDR directory, and hands off to the user.
-The skill routes — it does not redefine template content.
+The skill routes — it does not redefine template content. The four
+`references/<type>.md` files describe the routing surface (when to pick
+each type, fields, checklist) — they are NOT a fallback template body
+and MUST NOT be substituted when the canonical template is missing.
 
 **Announce at start:** "I'm using the sdr skill to scaffold a <type> System Design Record."
 
@@ -59,29 +62,46 @@ If the user is unsure which type fits, ask:
 
 1. **Resolve template source.** Check `~/repos/system-design-records/templates/`
    exists → verify: `test -d ~/repos/system-design-records/templates`
-   - **Missing:** stop and ask the user where the canonical templates live
-     (they may be at a different path or not yet cloned). Do NOT invent
-     template content. Do NOT proceed with a guess. Offer:
-     `git clone <repo> ~/repos/system-design-records` if they want.
+   - **HALT on missing.** Do NOT continue the procedure. Do NOT invent
+     template content. Do NOT use this skill's `references/<type>.md`
+     files as a fallback template body — they describe routing only.
+     Required emission: ask the user where the canonical templates live
+     (different path? not yet cloned?), and offer
+     `git clone <repo> ~/repos/system-design-records`. Resume only after
+     the user supplies a path that satisfies the `test -d` check.
 
 2. **Locate or create the project SDR directory.** Search in this order:
    1. `sdrs/` (matches system-design-records global convention)
    2. `domains/{Domain}/{System}/sdrs/`
    3. `docs/sdrs/` or `docs/sdr/`
    4. Any directory containing files matching `NNNN-*.md`
+   - If multiple matching directories exist: ask which one — do NOT
+     silently pick the first match.
    - If none exist: ask global vs domain-scoped, create accordingly.
    - verify: `ls <chosen-dir>` returns the directory.
 
 3. **Determine the next number.** Scan existing SDRs, find the highest,
    increment by 1, pad to 4 digits. Sub-numbers `0008.1` allowed for
    related decisions — ask before assuming.
-   - verify: filename `NNNN-<kebab-title>.md` does not collide.
+   - In a shared repo, suggest the user `git pull` first to avoid
+     concurrent-author number collisions; this is advisory, not enforced.
+   - verify: filename `NNNN-<kebab-title>.md` does not collide locally.
 
-4. **Copy the matching template.** From
-   `~/repos/system-design-records/templates/<type>.md` into
-   `<sdr-dir>/NNNN-<kebab-title>.md`. Do NOT inline template content
-   in this skill — point at the canonical source.
-   - verify: copied file exists and has non-zero size.
+4. **Resolve template filename and copy.** The four type slugs
+   (`system-overview`, `service-component`, `data-design`, `blueprint`)
+   map to filenames in `~/repos/system-design-records/templates/` but
+   the upstream filename convention is NOT pinned by this skill —
+   resolve at runtime:
+   - List the directory: `ls ~/repos/system-design-records/templates/`
+   - Match the requested type to an actual filename (e.g.,
+     `system-overview` may map to `system-overview.md`,
+     `system_overview.md`, or similar — accept any close match,
+     case- and separator-insensitive).
+   - If exactly one matches → copy it to `<sdr-dir>/NNNN-<kebab-title>.md`.
+   - If zero or multiple match → STOP and ask the user which file maps
+     to the requested type. Do NOT guess.
+   - verify: copied file exists, has non-zero size, AND its path was
+     listed by the `ls` above (not synthesized).
 
 5. **Fill metadata header.** Title, date, author, responsible architect,
    contributors, lifecycle stage (POC/Pilot/Beta/GA/Sunset), status

@@ -1,7 +1,10 @@
 # Blueprint SDR
 
-Canonical template: `~/repos/system-design-records/templates/blueprint.md`
-(read it directly — this file routes, doesn't redefine).
+Canonical template lives in `~/repos/system-design-records/templates/`
+under a filename matching this type (likely `blueprint.md`, but the SDR
+skill resolves the filename at runtime — do not pin it here). Read the
+canonical template directly when present; this file describes the
+routing surface only and is NOT a substitute when the upstream is missing.
 
 ## Pick this type when
 

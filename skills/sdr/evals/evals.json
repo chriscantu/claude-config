@@ -63,13 +63,21 @@
     },
     {
       "name": "does-not-fire-for-single-architectural-choice",
-      "summary": "/adr-shaped prompt should NOT trigger sdr — anti-trigger guardrail",
+      "summary": "/adr-shaped prompt should NOT trigger sdr — anti-trigger guardrail (paired with positive /adr signal to avoid silent-fire on empty tool stream)",
       "prompt": "I need to record a single architectural decision: we're choosing Postgres over MySQL for the user service. What should I do?",
       "assertions": [
         {
+          "type": "regex",
+          "pattern": "(\\b/?adr\\b|architectural decision record)",
+          "flags": "i",
+          "tier": "required",
+          "description": "positive anchor — response recommends /adr (rules out empty-stream silent-fire)"
+        },
+        {
           "type": "not_skill_invoked",
           "skill": "sdr",
-          "description": "sdr does NOT fire on a single-decision /adr-shaped request"
+          "tier": "diagnostic",
+          "description": "sdr does NOT fire on a single-decision /adr-shaped request (diagnostic — silent-fires on zero tool uses; paired with positive regex above)"
         }
       ]
     }
