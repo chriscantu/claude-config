@@ -45,7 +45,6 @@ import {
   parseStreamJson,
   runLifecycle,
   suiteExit,
-  suiteOk,
   tallyEval,
   tallyReliability,
 } from "./evals-lib.ts";
@@ -506,11 +505,11 @@ async function main() {
   let passedEvals = 0;
   let totalAssertions = 0;
   let passedAssertions = 0;
-  // Per-eval tallies. `suiteOk(tallies)` decides the exit code per the
-  // decision-doc contract: exit 0 iff every eval's required-tier gate passed
-  // (silent_fire already implies requiredOk=false). Assertion counts drive the
-  // human-readable "X/Y assertions passed" line but MUST NOT flip exit —
-  // diagnostic-tier fails decrement the assertion count without being a gate.
+  // Per-eval tallies. `suiteExit(agg, { textNonblocking })` decides the exit
+  // code per the decision-doc contract: exit 0 iff every required-tier gate
+  // passed (silent_fire already implies requiredOk=false). Assertion counts
+  // drive the human-readable "X/Y assertions passed" line but MUST NOT flip
+  // exit — diagnostic-tier fails decrement the assertion count without being a gate.
   const tallies: EvalTally[] = [];
   // All MetaDecisions across every eval — fed to tallyReliability for the
   // tiered summary block (#129).
@@ -809,10 +808,28 @@ async function main() {
   console.log(fmt("Structural (required):", agg.requiredStructural, "(reliable, gates exit)"));
   console.log(fmt("Text (required):", agg.requiredText, "(flaky, gates exit)"));
   console.log(fmt("Diagnostic:", agg.diagnostic, "(reported, no gate)"));
+  const totalPass = agg.requiredStructural.pass + agg.requiredText.pass + agg.diagnostic.pass;
+  const totalFail = agg.requiredStructural.fail + agg.requiredText.fail + agg.diagnostic.fail;
+  console.log(fmt("Total:", { pass: totalPass, fail: totalFail }, ""));
 
   const totalSilentFires = tallies.reduce((n, t) => n + t.silentFireCount, 0);
   if (totalSilentFires > 0) {
     console.log(red(`${totalSilentFires} SILENT-FIRE FAILURE(S) across suite`));
+  }
+
+  const failedDecisions = allDecisions.filter((d): d is Extract<MetaDecision, { kind: "fail" | "silent_fire" }> => d.kind !== "pass");
+  if (failedDecisions.length > 0) {
+    console.log("");
+    console.log(bold("Failures:"));
+    for (const d of failedDecisions) {
+      const label =
+        d.tier === "diagnostic"
+          ? "diagnostic"
+          : d.reliability === "structural"
+            ? "req-structural"
+            : "req-text";
+      console.log(red(`  ✗ [${label}] ${d.description} — ${d.detail}`));
+    }
   }
 
   // Exit-code contract (per decision doc + #129):

@@ -124,6 +124,10 @@ warning and exits 0. Required-structural failures still force exit 1. Use
 when running audits where text variance is expected and structural is the
 source of truth.
 
+Text assertions remain valuable as diagnostic signal even when flaky — run-to-run
+wording variance can hide real regressions where the model stops producing a phrase
+entirely, so tracking text coverage alongside structural results is worthwhile.
+
 ## Multi-turn evals
 
 `claude --print` is single-turn. Some behavioural regressions — notably the
