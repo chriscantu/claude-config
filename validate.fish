@@ -16,6 +16,24 @@ set pass_count 0
 set fail_count 0
 set warn_count 0
 
+# Optional --skill <slug>: validate one skill's structural shape only.
+# Skips Phase 1b/1c/1d/1e and Phase 2 — used by bin/new-skill on freshly
+# scaffolded skills (no symlinks yet, concept coverage not its concern).
+set single_skill ""
+set i 1
+while test $i -le (count $argv)
+    set arg $argv[$i]
+    if test "$arg" = --skill
+        set i (math $i + 1)
+        if test $i -gt (count $argv)
+            echo "ERROR: --skill requires a slug argument" >&2
+            exit 2
+        end
+        set single_skill $argv[$i]
+    end
+    set i (math $i + 1)
+end
+
 function pass
     set -g pass_count (math $pass_count + 1)
     echo "  ✓ $argv"
@@ -43,12 +61,74 @@ function frontmatter_get
     sed -n '2,/^---$/p' $argv[1] | sed '$d' | grep "^$argv[2]:" | head -1 | sed "s/^$argv[2]: *//"
 end
 
+# Helper: validate one skill's structural shape (frontmatter + template invariants).
+# Used by Phase 1a and by --skill <slug> mode. Issues fail/pass/warn directly.
+function check_skill_shape
+    # Usage: check_skill_shape <skill_dir>
+    set -l skill_dir $argv[1]
+    set -l name (basename $skill_dir)
+    set -l skill_file "$skill_dir/SKILL.md"
+
+    if not test -f "$skill_file"
+        fail "$name: missing SKILL.md"
+        return
+    end
+
+    set -l first_line (head -1 "$skill_file")
+    if test "$first_line" != "---"
+        fail "$name: missing frontmatter (no opening ---)"
+        return
+    end
+
+    if not frontmatter_has "$skill_file" "^name:"
+        fail "$name: missing 'name:' in frontmatter"
+    else
+        set -l fm_name (frontmatter_get "$skill_file" "name")
+        if test "$fm_name" != "$name"
+            fail "$name: frontmatter name '$fm_name' doesn't match directory name '$name'"
+        else
+            pass "$name: frontmatter valid"
+        end
+    end
+
+    if not frontmatter_has "$skill_file" "^description:"
+        fail "$name: missing 'description:' in frontmatter"
+    end
+
+    # Template invariant (warn-only — pre-template skills may lack these):
+    # see templates/skill/ and #58 for rationale.
+    if not test -d "$skill_dir/evals"
+        warn "$name: missing evals/ directory (template invariant — see templates/README.md)"
+    else if not test -f "$skill_dir/evals/evals.json"
+        warn "$name: missing evals/evals.json (template invariant)"
+    end
+end
+
 # ─────────────────────────────────────────────────
 # Phase 1: Static Validation
 # ─────────────────────────────────────────────────
 
 echo "Phase 1: Static Validation"
 echo ""
+
+# Single-skill mode: validate one skill's structural shape only, then exit.
+if test -n "$single_skill"
+    set -l one_dir $repo_dir/skills/$single_skill
+    if not test -d $one_dir
+        fail "skills/$single_skill/ does not exist"
+    else
+        echo "── Skill frontmatter (single: $single_skill)"
+        check_skill_shape $one_dir
+    end
+    echo ""
+    echo "─────────────────────────────────────────────────"
+    echo "Results: $pass_count passed, $fail_count failed, $warn_count warnings"
+    if test $fail_count -gt 0
+        echo "VALIDATION FAILED"
+        exit 1
+    end
+    exit 0
+end
 
 # 1a. Skill frontmatter
 echo "── Skill frontmatter"
@@ -57,40 +137,7 @@ if test (count $skill_dirs) -eq 0; or not test -d "$skill_dirs[1]"
     fail "No skill directories found in $repo_dir/skills/"
 else
     for skill_dir in $skill_dirs
-        set name (basename $skill_dir)
-        set skill_file "$skill_dir/SKILL.md"
-
-        if not test -f "$skill_file"
-            fail "$name: missing SKILL.md"
-            continue
-        end
-
-        # Check for opening frontmatter delimiter
-        set first_line (head -1 "$skill_file")
-        if test $status -ne 0
-            fail "$name: could not read SKILL.md"
-            continue
-        end
-        if test "$first_line" != "---"
-            fail "$name: missing frontmatter (no opening ---)"
-            continue
-        end
-
-        # Check fields within frontmatter only (not body content)
-        if not frontmatter_has "$skill_file" "^name:"
-            fail "$name: missing 'name:' in frontmatter"
-        else
-            set fm_name (frontmatter_get "$skill_file" "name")
-            if test "$fm_name" != "$name"
-                fail "$name: frontmatter name '$fm_name' doesn't match directory name '$name'"
-            else
-                pass "$name: frontmatter valid"
-            end
-        end
-
-        if not frontmatter_has "$skill_file" "^description:"
-            fail "$name: missing 'description:' in frontmatter"
-        end
+        check_skill_shape (string trim --right --chars=/ "$skill_dir")
     end
 end
 
