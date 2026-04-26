@@ -25,14 +25,15 @@ The v1 (text-only) runner was retired per [ADR #0010](../adrs/0010-v1-eval-runne
 historical record of the freeze decision.
 
 ```fish
-bun run evals                                      # all skills with evals
-bun run tests/eval-runner-v2.ts define-the-problem # one skill
-bun run evals --dry-run                            # no CLI calls; schema + regex validation only
-env CLAUDE_BIN=/path/to/claude bun run evals       # `env` prefix because fish has no inline VAR=value syntax
+bun run evals                                # all skills with evals
+bun run evals define-the-problem             # one skill (positional pass-through)
+bun run evals --dry-run                      # no CLI calls; schema + regex validation only
+env CLAUDE_BIN=/path/to/claude bun run evals # `env` prefix because fish has no inline VAR=value syntax
 ```
 
 Exits non-zero if any assertion fails. Transcripts land in `tests/results/`
-with a `-v2-` suffix.
+with a `-v2-` suffix retained from the v1/v2 era to keep older transcript
+filenames aligned; a future cleanup may drop it.
 
 ## Eval file schema
 

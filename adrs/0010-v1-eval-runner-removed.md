@@ -35,8 +35,9 @@ Status as of 2026-04-25:
   structural anchors.
 - [#142](https://github.com/chriscantu/claude-config/issues/142) (FMS structural
   assertion split from #92) verified as already-resolved by #162; closed.
-- All 49 evals across pilot skills + rules-layer pass under v2's
-  `--dry-run` (180/180 assertions schema + regex compile).
+- All evals across pilot skills + rules-layer pass under v2's `--dry-run`
+  (49/49 evals, 180/180 assertions at time of writing — schema + regex
+  compile).
 - v1 (`tests/eval-runner.ts`) holds no unique evals; every signal v1 covers
   is also covered by v2.
 
