@@ -9,32 +9,56 @@ This complements `validate.fish` (structural/concept-coverage drift) and
 `run-scenarios.fish` (manual-review behavioral scenarios). Evals are the executable
 middle: cheap enough to run pre-PR, deterministic enough to run in CI.
 
+## Canonical runner
+
+**v2 (`tests/eval-runner-v2.ts`) is canonical. v1 is FROZEN — closed to new
+evals.** All new evals MUST be authored against v2, even when assertions are
+regex-only (v2 supports the full v1 assertion set plus structural signals).
+
+Retirement plan per [ADR #0009](../adrs/0009-eval-runner-v2-canonical.md):
+
+1. **Freeze (now)** — v1 declared closed. Existing v1 evals continue to run.
+2. **Migration window** — when [#92](https://github.com/chriscantu/claude-config/issues/92)
+   closes, a 30-day countdown opens. Surviving regex-only assertions migrate
+   to v2 with rationale documented in `description` per #92 acceptance.
+3. **Deletion (within 30 days of #92 close)** — separate PR removes
+   `tests/eval-runner.ts`, the `evals:v1` script, and v1-only helpers; renames
+   `evals:v2` → `evals`. Tracked under [#139](https://github.com/chriscantu/claude-config/issues/139).
+
+If you're tempted to add a regex-only eval to v1 because "v2 doesn't have a
+structural assertion for this signal yet" — STOP. Add it to v2 with a `regex`
+or `not_regex` assertion. v2 carries the full v1 assertion set; the freeze
+is about substrate convergence, not assertion-type restriction.
+
 ## Running
 
-Two runners exist. Both consume the same `evals.json` schema and write
-transcripts to `tests/results/`:
+Both runners consume the same `evals.json` schema and write transcripts to
+`tests/results/`:
 
-- **v1 (`tests/eval-runner.ts`)** — shells `claude --print`, reads stdout text
-  only. Regex/substring assertions against prose.
-- **v2 (`tests/eval-runner-v2.ts`)** — shells `claude --print --output-format
-  stream-json`, parses the NDJSON event stream, and runs assertions against
-  structured *signals* (`finalText`, `toolUses`, `skillInvocations`) extracted
-  from the transcript. Adds `skill_invoked` / `not_skill_invoked` structural
-  assertions on top of the existing regex/substring set. Runs on the user's
-  existing `claude` auth — no API credits billed separately.
+- **v2 (`tests/eval-runner-v2.ts`, canonical)** — shells `claude --print
+  --output-format stream-json`, parses the NDJSON event stream, and runs
+  assertions against structured *signals* (`finalText`, `toolUses`,
+  `skillInvocations`) extracted from the transcript. Adds `skill_invoked`
+  / `not_skill_invoked` / `tool_input_matches` / `chain_order` /
+  `skill_invoked_in_turn` structural assertions on top of the regex/substring
+  set. Multi-turn chains supported. Runs on the user's existing `claude`
+  auth — no API credits billed separately.
+- **v1 (`tests/eval-runner.ts`, FROZEN — do not author new evals)** — shells
+  `claude --print`, reads stdout text only. Regex/substring assertions
+  against prose. Scheduled for deletion per ADR #0009.
 
 ```fish
-# v1 — text-only substrate
-bun run tests/eval-runner.ts                      # all skills with evals
-bun run tests/eval-runner.ts define-the-problem   # one skill
-bun run tests/eval-runner.ts --dry-run            # validate JSON + regex compile, no API calls
-env CLAUDE_BIN=/path/to/claude bun run tests/eval-runner.ts  # `env` prefix because fish has no inline VAR=value syntax
-
-# v2 — stream-json substrate
+# v2 — canonical, stream-json substrate
 bun run tests/eval-runner-v2.ts                   # all skills with evals
 bun run tests/eval-runner-v2.ts define-the-problem
 bun run tests/eval-runner-v2.ts --dry-run         # no CLI calls; schema + regex validation only
-env CLAUDE_BIN=/path/to/claude bun run tests/eval-runner-v2.ts
+env CLAUDE_BIN=/path/to/claude bun run tests/eval-runner-v2.ts  # `env` prefix because fish has no inline VAR=value syntax
+
+# v1 — FROZEN, text-only substrate (existing evals only; do NOT add new)
+bun run tests/eval-runner.ts                      # all skills with evals
+bun run tests/eval-runner.ts define-the-problem   # one skill
+bun run tests/eval-runner.ts --dry-run            # validate JSON + regex compile, no API calls
+env CLAUDE_BIN=/path/to/claude bun run tests/eval-runner.ts
 ```
 
 Exits non-zero if any assertion fails. v2 transcripts are suffixed `-v2-` so
