@@ -34,6 +34,7 @@ and `commands/` (loaded from `~/.claude/commands/`).
 ```
 ./bin/link-config.fish --check
 ./bin/check-rules-drift.fish
+./bin/validate.fish
 ```
 
 `link-config.fish --check` exits non-zero if any file in `rules/`,
@@ -45,8 +46,17 @@ the Trivial/Mechanical tier criteria, defined in `planning.md`) is
 restated outside its canonical home. "Do not restate" markers in
 non-canonical files are editor hints; this script is the enforcement.
 
-Use both in pre-push hooks or CI to catch the silent-failure modes (rule
-not loaded; rule restated and drifted).
+`validate.fish` exits non-zero if `rules/planning.md` loses one of the
+labeled blocks that other rules delegate to (Skip contract,
+Pressure-framing floor, Emission contract, Architectural invariant,
+Emergency bypass — sentinel file check), or if a dependent rule
+(`fat-marker-sketch.md`, `goal-driven.md`, `think-before-coding.md`,
+`execution-mode.md`) loses its reference to `planning.md`. Catches
+silent breakage when the anchor file is renamed or its sections
+restructured (issue #135).
+
+Use all three in pre-push hooks or CI to catch the silent-failure modes
+(rule not loaded; rule restated and drifted; anchor structurally broken).
 
 ## Why the silent-failure mode matters
 
