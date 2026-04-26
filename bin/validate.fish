@@ -40,13 +40,13 @@ set -l required_labels \
 
 if not test -f $anchor
     echo "FAIL: anchor file missing: $anchor"
-    exit 1
-end
-
-for label in $required_labels
-    if not grep -qF -- "$label" $anchor
-        echo "FAIL: rules/planning.md missing required label: $label"
-        set errors (math $errors + 1)
+    set errors (math $errors + 1)
+else
+    for label in $required_labels
+        if not grep -qF -- "$label" $anchor
+            echo "FAIL: rules/planning.md missing required label: $label"
+            set errors (math $errors + 1)
+        end
     end
 end
 
