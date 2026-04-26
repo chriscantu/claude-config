@@ -279,9 +279,17 @@ the right tool path fired, AND keep regex on the prose content the user must
 see. The two channels catch different failure modes — model invokes the skill
 but leaks forbidden content (regex catches), or model emits the right prose
 but never invokes the skill (structural catches). Single-channel evals are a
-silent-failure risk; tier the structural anchor `diagnostic` if forcing it
-required would mask a correct routing variation (e.g., DTP-intercept paths
-under ADR #0004).
+silent-failure risk; tier the structural anchor `diagnostic` when forcing it
+required would mask a correct response variation. Two common reasons to tier
+diagnostic:
+
+1. **Routing variation** — a correct path may go through a different skill
+   first (e.g., DTP-intercept under ADR #0004), so `skill_invoked: <named-skill>`
+   would silent-fail on legitimate routing.
+2. **Inline rule-application** — on single-turn `claude --print`, the model
+   may correctly satisfy a HARD-GATE by emitting the right prose (e.g., a
+   probing question, gate-naming refusal) without invoking the `Skill` tool.
+   Required-tier `skill_invoked` would false-fail on this correct path.
 
 **Negative-structural silent-fire trap.** A bare `not_skill_invoked` passes
 trivially when the model emitted no tool uses at all. Pair it with a positive

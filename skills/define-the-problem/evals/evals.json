@@ -131,7 +131,8 @@
         {
           "type": "skill_invoked",
           "skill": "define-the-problem",
-          "description": "Structural anchor: solution-as-problem framing is exactly DTP's trigger — skill must fire. Added per #92 audit (eval previously had only prose-content assertions)."
+          "tier": "diagnostic",
+          "description": "Diagnostic structural anchor: solution-as-problem framing is exactly DTP's trigger — skill should fire. Diagnostic-tier because the model may also satisfy the trigger by inline rule-application (asking the probing question without invoking the Skill tool) on `claude --print`'s single-turn surface; the regex assertions below are the required gates for prose content. Matches the FMS evals 1-7 tier pattern. Added per #92 audit (eval previously had only prose-content assertions)."
         },
         {
           "type": "regex",
