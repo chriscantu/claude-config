@@ -79,7 +79,6 @@ eval's `description` field per #92 acceptance criteria.
 Separate PR removes:
 
 - `tests/eval-runner.ts`
-- `tests/eval-runner-v1.test.ts` (if it still exists)
 - The `evals:v1` script in `package.json`
 - Any v1-only helpers in `tests/evals-lib.ts` not consumed by v2
 - v1 references in `tests/EVALS.md`
@@ -87,6 +86,11 @@ Separate PR removes:
 Same PR renames `evals:v2` to `evals` (the canonical name) and adds an
 `evals:v2` alias only if a CI matrix or external script depends on the
 literal string. Otherwise the rename is clean.
+
+The deletion PR also supersedes this ADR with a brief #0010 ("v1 eval
+runner removed") rather than editing #0009 in place — preserves the
+historical record of the freeze decision and matches the supersession
+pattern used elsewhere in `adrs/`.
 
 ## Alternatives Considered
 
@@ -130,8 +134,8 @@ forcing a coverage gap.
 **Negative:**
 
 - 30-day window between #92 close and v1 deletion is a soft commitment;
-  if no one opens the deletion PR, v1 lingers. Mitigation: tracking
-  issue (this ADR's reference list) opens against #139 on #92-close.
+  if no one opens the deletion PR, v1 lingers. Mitigation: #139 already
+  tracks the deletion PR — close it only when v1 is removed.
 - Surviving regex-only assertions that have NO structural equivalent
   (e.g., asserting on the model's prose phrasing) move to v2 wrapped
   in `regex` / `not_regex` assertion types, which v2 supports — but
@@ -161,6 +165,9 @@ forcing a coverage gap.
   check (file mtime on `tests/eval-runner.ts` evals).
 
 ## References
+
+**Supersedes:** none
+**Superseded by:** none (track via [#139](https://github.com/chriscantu/claude-config/issues/139); deletion PR will introduce #0010)
 
 - [Issue #139](https://github.com/chriscantu/claude-config/issues/139) —
   retirement plan request
