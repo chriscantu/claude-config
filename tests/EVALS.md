@@ -252,6 +252,43 @@ regex when the signal is observable in the tool-use stream. Keep regex for
 content the model must produce in its answer (e.g., pushback framing). See the
 maintenance guidance below for the regex layer.
 
+## Structural vs regex — decision rubric
+
+Default: prefer structural when the signal is observable in the tool-use stream.
+Regex is for prose content the tool stream cannot see.
+
+| If you want to assert… | Use |
+|---|---|
+| "Did skill X fire?" | `skill_invoked` / `not_skill_invoked` |
+| "Did the model invoke tool Y with input Z?" | `tool_input_matches` / `not_tool_input_matches` |
+| "Did skills fire in order A → B → C across turns?" | `chain_order` |
+| "Did skill X fire in turn N specifically?" | `skill_invoked_in_turn` |
+| "Does the answer use specific framing or vocabulary?" | `regex` |
+| "Does the answer NOT lead with section Y?" | `not_regex` |
+| "Does the answer literally contain string Z?" | `contains` / `not_contains` |
+
+**Rule of thumb.** When you reach for `regex`, ask: is the signal really in
+prose, or am I scanning prose because I forgot the structural assertion exists?
+"Skill should fire" → `skill_invoked`. "Pressure-floor probe should run" →
+`tool_input_matches` on the Bash sentinel-check. "Skip should be honored
+structurally" → `tool_input_matches` on the named-cost-skip-ack MCP.
+
+**Pair structural with regex on behavioral evals.** Add a structural anchor
+(`skill_invoked`, often diagnostic-tier) so the transcript surfaces whether
+the right tool path fired, AND keep regex on the prose content the user must
+see. The two channels catch different failure modes — model invokes the skill
+but leaks forbidden content (regex catches), or model emits the right prose
+but never invokes the skill (structural catches). Single-channel evals are a
+silent-failure risk; tier the structural anchor `diagnostic` if forcing it
+required would mask a correct routing variation (e.g., DTP-intercept paths
+under ADR #0004).
+
+**Negative-structural silent-fire trap.** A bare `not_skill_invoked` passes
+trivially when the model emitted no tool uses at all. Pair it with a positive
+`tool_input_matches` (or other forward-progress signal) so the eval discriminates
+"correct path didn't fire skill X" from "no path fired anything". Same trap
+applies to `not_tool_input_matches`.
+
 ## Maintaining regex evals
 
 Regex/substring assertions still apply to any content the model must produce in

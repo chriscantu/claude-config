@@ -1,12 +1,18 @@
 {
   "skill": "fat-marker-sketch",
-  "description": "Executable evals for the fat-marker-sketch skill. Migrated from skills/fat-marker-sketch/tests.md. The HARD-GATE is the load-bearing element here — these evals exercise the rationalizations most likely to leak past it (time pressure, prose-as-sketch, fatigue).",
+  "description": "Executable evals for the fat-marker-sketch skill. Migrated from skills/fat-marker-sketch/tests.md. The HARD-GATE is the load-bearing element here — these evals exercise the rationalizations most likely to leak past it (time pressure, prose-as-sketch, fatigue). Audit per #92: pressure-floor (`pressure-floor-deadline-skip-sketch`), skip-honor (`honored-skip-named-cost-fms`), and bypass (`bypass-flag-disables-floor-fms`) evals carry the required-tier structural gates. Refusal evals (1-2, 7) and archetype-picker evals (3-6) carry diagnostic-tier `skill_invoked` anchors so the transcript surfaces whether FMS actually fired; their primary signal lives in prose — refusal-framing vocabulary, archetype-label production, fallback-hierarchy citation — which the tool stream cannot observe. See `tests/EVALS.md` for the structural-vs-regex decision rubric.",
   "evals": [
     {
       "name": "time-pressure-skip-sketch",
       "summary": "10-minute deadline used to justify skipping the sketch. Must refuse and require an explicit override.",
       "prompt": "Approach picked: guided savings onboarding flow — 4 screens (welcome, 3 questions, review plan, dashboard). I have 10 minutes before my next meeting. Skip the sketch and write me the detailed design spec — components, data model, state transitions.",
       "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "fat-marker-sketch",
+          "tier": "diagnostic",
+          "description": "Diagnostic structural anchor: model should invoke FMS to produce the sketch despite time pressure. Diagnostic-tier because the model may also satisfy the gate by inline reasoning without a Skill tool emission on `claude --print`'s single-turn surface; the regex assertions below are the required gates for refusal-framing prose."
+        },
         {
           "type": "regex",
           "pattern": "(hard[- ]gate|(name|hold|flag|invoke)(s|ing)? the gate|gate (applies|holds|stands|requires)|won'?t skip|sketch first|before (the )?detailed (design|spec)|require(s)? (an )?explicit (override|skip|acknowledg)|(two|2) minutes|napkin|rework risk|trade[- ]off.{0,40}acknowledg|acknowledg.{0,40}(trade[- ]off|rework|risk))",
@@ -33,6 +39,12 @@
       "prompt": "You already described the approach in detail two turns ago — the three-tier notification system with email, in-app, and Slack. That description is the sketch, essentially. Skip the visual and produce the implementation spec now.",
       "assertions": [
         {
+          "type": "skill_invoked",
+          "skill": "fat-marker-sketch",
+          "tier": "diagnostic",
+          "description": "Diagnostic structural anchor: model should invoke FMS to refuse 'prose-as-sketch' framing and produce a real sketch. Diagnostic-tier because the rule may be applied inline; the regex below is the required gate."
+        },
+        {
           "type": "regex",
           "pattern": "(prose (is )?(n'?t|not) (a )?(fat[- ]marker )?sketch|visible (border|box)|bordered (box|region)|isn'?t (a )?(fat[- ]marker )?sketch|text list isn'?t|not (a )?(fat[- ]marker )?sketch|visual artifact|description isn'?t|skip(ping)? the (sketch|visual).{0,80}(require|gate|clear|override|acknowledg|accept|specific cost|rework risk)|(gate|override).{0,80}(rework risk|specific cost|acknowledg|wrong[- ]shape)|won'?t skip|sketch first)",
           "flags": "i",
@@ -51,6 +63,12 @@
       "summary": "Refactor-shaped prompt must route to the before/after diptych archetype, not fall through to generic framed boxes or a Mermaid graph.",
       "prompt": "Approach picked: refactor the eval runner so each run executes in a scratch cwd (mkdtemp) instead of the repo root, with --permission-mode bypassPermissions. Before, runs leaked artifacts into the repo; after, the scratch dir is created, the run executes against it, and it's cleaned up. Sketch this.",
       "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "fat-marker-sketch",
+          "tier": "diagnostic",
+          "description": "Diagnostic structural anchor: 'Sketch this' should invoke FMS. Diagnostic-tier because the archetype-label signal lives in prose; the regex assertions below are the required gates."
+        },
         {
           "type": "regex",
           "pattern": "(before[/ -]?after|before\\s*(and|&|/|vs\\.?)\\s*after|diptych|delta (marker|is graphic|markers)|strikethrough.{0,40}(removed|deprecated)|heavier stroke.{0,40}(added|new)|dashed.{0,40}(deprecated|removed)|\\bafter\\b[^.\\n]{0,40}\\b(flow|state|side|panel|diagram)|\\bbefore\\b[^.\\n]{0,40}\\b(flow|state|side|panel|diagram)|(old|prior)\\s+(vs\\.?|versus|and|/)\\s+new)",
@@ -77,6 +95,12 @@
       "prompt": "Approach picked: the new eval pipeline reads transcripts from disk, extracts signals (final text, tool uses, skill invocations), applies rubric assertions, and writes JSON reports to tests/results. Sketch this.",
       "assertions": [
         {
+          "type": "skill_invoked",
+          "skill": "fat-marker-sketch",
+          "tier": "diagnostic",
+          "description": "Diagnostic structural anchor: 'Sketch this' should invoke FMS. Diagnostic-tier because archetype-label signal lives in prose."
+        },
+        {
           "type": "regex",
           "pattern": "(data[- ]?flow|sources?\\s*(->|→|to)\\s*transforms?\\s*(->|→|to)\\s*sinks?|\\b(parse|extract|enrich|dedupe|aggregate|score)\\b.{0,80}\\b(stage|pipeline|transform|record)|pipeline (stage|tier|archetype)|record shape|transform(s|ed|ing) (record|event|data)|stages? that transform)",
           "flags": "i",
@@ -95,6 +119,12 @@
       "summary": "Prompt naming discrete modes (queued, running, succeeded, failed, retrying) must route to state machine, not process/workflow. Regression guard against the 'Process/workflow vs. State machine' picker overlap flagged in PR #95 review.",
       "prompt": "Approach picked: the job lifecycle — jobs sit in queued until a worker picks them up, move to running, then terminate in succeeded or failed. Failed jobs can transition to retrying and back to running. Sketch this.",
       "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "fat-marker-sketch",
+          "tier": "diagnostic",
+          "description": "Diagnostic structural anchor: 'Sketch this' should invoke FMS. Diagnostic-tier because archetype-label signal lives in prose."
+        },
         {
           "type": "regex",
           "pattern": "(state[- ]machine|state diagram|\\bstates?\\b.{0,60}\\b(transition|trigger|mode)|\\bmodes?\\b.{0,60}\\b(transition|trigger|state)|initial state|terminal state|queued\\s*(->|→|to)\\s*running|transitions? between states|\\bstate (archetype|chart))",
@@ -115,6 +145,12 @@
       "prompt": "Approach picked: the checkout interaction. First, the Shopper clicks 'Pay'. Then the Storefront asks the Cart service to finalize the order. Then Cart asks Billing to charge the card. Then Billing asks the Bank to authorize. When the Bank responds, Billing tells Cart, Cart tells Storefront, and Storefront shows the Shopper the receipt. The order the messages happen in is the whole point — sketch this.",
       "assertions": [
         {
+          "type": "skill_invoked",
+          "skill": "fat-marker-sketch",
+          "tier": "diagnostic",
+          "description": "Diagnostic structural anchor: 'sketch this' should invoke FMS. Diagnostic-tier because archetype-label signal lives in prose."
+        },
+        {
           "type": "regex",
           "pattern": "(sequence (diagram|archetype|/swimlane)|swimlane|lifeline|actor column|(actor|lane)s?\\s*(across|at|along) the top|\\b(API|Worker|Queue|Postgres|S3)\\b.{0,80}\\b(lifeline|lane|actor|column)|(2\\+|multiple|several) actors)",
           "flags": "i",
@@ -133,6 +169,12 @@
       "summary": "Fatigue + 'just text please' — must follow the fallback hierarchy (excalidraw → HTML → ASCII), not capitulate to text.",
       "prompt": "Long session, I'm fried. Approach is the daily briefing command for overdue delegations. Just output the sketch as a quick text list — don't do HTML or excalidraw, it's not worth the setup. Then move to detailed design.",
       "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "fat-marker-sketch",
+          "tier": "diagnostic",
+          "description": "Diagnostic structural anchor: model should invoke FMS to enforce fallback-hierarchy rule. Diagnostic-tier because the rule citation lives in prose."
+        },
         {
           "type": "regex",
           "pattern": "(fallback (hierarchy|order)|excalidraw.{0,40}(html|fallback|first|default|canvas)|html.{0,20}fallback|preview[_ -]?start|excalidraw[- ]canvas|visual artifact|(isn'?t|not|never) (just )?(a )?text list|text list (isn'?t|is not))",

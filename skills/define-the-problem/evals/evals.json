@@ -1,6 +1,6 @@
 {
   "skill": "define-the-problem",
-  "description": "Executable evals for the define-the-problem skill. Each eval shells `claude --print`, captures the response, and runs rubric assertions against it. Migrated from skills/define-the-problem/tests.md and tests/scenarios/planning-pipeline.md (problem-definition portions).",
+  "description": "Executable evals for the define-the-problem skill. Each eval shells `claude --print`, captures the response, and runs rubric assertions against it. Migrated from skills/define-the-problem/tests.md and tests/scenarios/planning-pipeline.md (problem-definition portions). Audit per #92: structural assertions (`skill_invoked`, `tool_input_matches`) anchor each eval to a tool-stream signal where one exists. Text-channel assertions (`regex` / `not_regex`) remain load-bearing for prose-content checks the tool stream cannot observe — probing-question vocabulary, refusal framing, no-schema/code-dump leak guards. See `tests/EVALS.md` for the structural-vs-regex decision rubric.",
   "_contract_note": "Required-tier `tool_input_matches` assertions here pin the Claude Code Skill tool surface: tool name 'Skill', input_key 'skill', input_value matching the skill id. This is an unversioned contract owned by Claude Code upstream, not this repo. If an upstream rename lands (Skill → SkillInvoke, skill → skill_id, etc.), every required-tier assertion in this file silently flips red without signaling platform change vs. regression. When chasing a required-tier failure, first confirm the Skill tool schema has not changed before treating it as a behavioral regression.",
   "evals": [
     {
@@ -129,16 +129,21 @@
       "prompt": "I want to add a dashboard.",
       "assertions": [
         {
+          "type": "skill_invoked",
+          "skill": "define-the-problem",
+          "description": "Structural anchor: solution-as-problem framing is exactly DTP's trigger — skill must fire. Added per #92 audit (eval previously had only prose-content assertions)."
+        },
+        {
           "type": "regex",
           "pattern": "(what (problem|goes wrong|pain)|why a dashboard|without (the |a )?dashboard|underlying (pain|problem)|who (is|are|does|needs) (the |this )?dashboard (for|serve|help)|solution,? not (a |the )?problem|specific (role|persona|user|team))",
           "flags": "i",
-          "description": "Probes the underlying problem rather than accepting the feature request — either by asking who/what-pain, naming it as a solution not a problem, or asking for a specific user/role"
+          "description": "Text-channel: probes underlying problem in prose — asks who/what-pain, names it as solution-not-problem, or asks for specific user/role. Structural skill_invoked above proves DTP fired; this regex proves the prose content is correct."
         },
         {
           "type": "not_regex",
           "pattern": "^(sure|here|i'?ll|let'?s).{0,40}(design|build|sketch|wireframe).{0,40}dashboard",
           "flags": "im",
-          "description": "Does NOT immediately start designing a dashboard"
+          "description": "Text-channel: does NOT immediately start designing a dashboard in prose. Distinct from skill_invoked — model could invoke DTP yet still leak design content; this guards against that prose pattern."
         }
       ]
     },
