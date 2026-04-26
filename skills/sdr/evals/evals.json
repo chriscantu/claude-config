@@ -5,7 +5,7 @@
   "evals": [
     {
       "name": "fires-on-create-sdr-trigger",
-      "summary": "skill fires on /sdr-style request and surfaces the four-type routing \u2014 Class B in-place demotion: skill_invoked / tool_input_matches demoted to diagnostic per observed Skill re-emit unreliability on slash-prefix prompts (model writes prose response without re-invoking Skill tool); regex remains the load-bearing required signal. The not_regex uses a negated-lookahead idiom \u2014 see the assertion description for the inversion rationale.",
+      "summary": "skill fires on /sdr-style request and surfaces the four-type routing \u2014 Class B in-place demotion: skill_invoked / tool_input_matches demoted to diagnostic per observed Skill re-emit unreliability on slash-prefix prompts (model writes prose response without re-invoking Skill tool); regex remains the load-bearing required signal.",
       "prompt": "/sdr \u2014 I want to write a system design record for a new payments platform.",
       "assertions": [
         {
@@ -30,11 +30,11 @@
           "description": "required: skill output references at least one of the four canonical SDR types \u2014 load-bearing text signal per ADR #0005 channel-reliability framing"
         },
         {
-          "type": "not_regex",
-          "pattern": "^(?!.*(system.design.record|sdr|template))",
+          "type": "regex",
+          "pattern": "(system.design.record|sdr|template)",
           "flags": "is",
           "tier": "required",
-          "description": "required: response engages with SDR concepts. Inversion idiom: outer not_regex + inner negated-lookahead is equivalent to a positive 'must contain one of: system design record / sdr / template' check. Kept as not_regex for symmetry with silent-fire guard patterns elsewhere; on empty terminal output the inner regex matches (lookahead trivially succeeds), so the outer not_regex correctly fails (no silent-fire surface)."
+          "description": "required: skill engages with SDR concepts rather than answering generically."
         }
       ]
     },
