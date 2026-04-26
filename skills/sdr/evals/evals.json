@@ -34,7 +34,7 @@
           "pattern": "(system.design.record|sdr|template)",
           "flags": "is",
           "tier": "required",
-          "description": "required: skill engages with SDR concepts rather than answering generically. Positive form (replaced earlier not_regex + negated-lookahead idiom per issue #153 — same pass/fail behavior, lower cognitive cost)."
+          "description": "required: skill engages with SDR concepts rather than answering generically."
         }
       ]
     },
