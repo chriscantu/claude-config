@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Accepted (2026-04-25)
+Superseded by [ADR #0010](0010-v1-eval-runner-removed.md) (2026-04-25)
 
 ## Context
 

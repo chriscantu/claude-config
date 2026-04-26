@@ -9,60 +9,31 @@ This complements `validate.fish` (structural/concept-coverage drift) and
 `run-scenarios.fish` (manual-review behavioral scenarios). Evals are the executable
 middle: cheap enough to run pre-PR, deterministic enough to run in CI.
 
-## Canonical runner
+## Runner
 
-**v2 (`tests/eval-runner-v2.ts`) is canonical. v1 is FROZEN — closed to new
-evals.** All new evals MUST be authored against v2, even when assertions are
-regex-only (v2 supports the full v1 assertion set plus structural signals).
+`tests/eval-runner-v2.ts` shells `claude --print --output-format stream-json`,
+parses the NDJSON event stream, and runs assertions against structured
+*signals* (`finalText`, `toolUses`, `skillInvocations`) extracted from the
+transcript. Supports `skill_invoked` / `not_skill_invoked` /
+`tool_input_matches` / `not_tool_input_matches` / `chain_order` /
+`skill_invoked_in_turn` structural assertions plus the regex/substring
+set. Multi-turn chains supported. Runs on the user's existing `claude`
+auth — no API credits billed separately.
 
-Retirement plan per [ADR #0009](../adrs/0009-eval-runner-v2-canonical.md):
-
-1. **Freeze (now)** — v1 declared closed. Existing v1 evals continue to run.
-2. **Migration window** — when [#92](https://github.com/chriscantu/claude-config/issues/92)
-   closes, a 30-day countdown opens. Surviving regex-only assertions migrate
-   to v2 with rationale documented in `description` per #92 acceptance.
-3. **Deletion (within 30 days of #92 close)** — separate PR removes
-   `tests/eval-runner.ts`, the `evals:v1` script, and v1-only helpers; renames
-   `evals:v2` → `evals`. Tracked under [#139](https://github.com/chriscantu/claude-config/issues/139).
-
-If you're tempted to add a regex-only eval to v1 because "v2 doesn't have a
-structural assertion for this signal yet" — STOP. Add it to v2 with a `regex`
-or `not_regex` assertion. v2 carries the full v1 assertion set; the freeze
-is about substrate convergence, not assertion-type restriction.
-
-## Running
-
-Both runners consume the same `evals.json` schema and write transcripts to
-`tests/results/`:
-
-- **v2 (`tests/eval-runner-v2.ts`, canonical)** — shells `claude --print
-  --output-format stream-json`, parses the NDJSON event stream, and runs
-  assertions against structured *signals* (`finalText`, `toolUses`,
-  `skillInvocations`) extracted from the transcript. Adds `skill_invoked`
-  / `not_skill_invoked` / `tool_input_matches` / `chain_order` /
-  `skill_invoked_in_turn` structural assertions on top of the regex/substring
-  set. Multi-turn chains supported. Runs on the user's existing `claude`
-  auth — no API credits billed separately.
-- **v1 (`tests/eval-runner.ts`, FROZEN — do not author new evals)** — shells
-  `claude --print`, reads stdout text only. Regex/substring assertions
-  against prose. Scheduled for deletion per ADR #0009.
+The v1 (text-only) runner was retired per [ADR #0010](../adrs/0010-v1-eval-runner-removed.md);
+[ADR #0009](../adrs/0009-eval-runner-v2-canonical.md) (now superseded) is the
+historical record of the freeze decision.
 
 ```fish
-# v2 — canonical, stream-json substrate
-bun run tests/eval-runner-v2.ts                   # all skills with evals
-bun run tests/eval-runner-v2.ts define-the-problem
-bun run tests/eval-runner-v2.ts --dry-run         # no CLI calls; schema + regex validation only
-env CLAUDE_BIN=/path/to/claude bun run tests/eval-runner-v2.ts  # `env` prefix because fish has no inline VAR=value syntax
-
-# v1 — FROZEN, text-only substrate (existing evals only; do NOT add new)
-bun run tests/eval-runner.ts                      # all skills with evals
-bun run tests/eval-runner.ts define-the-problem   # one skill
-bun run tests/eval-runner.ts --dry-run            # validate JSON + regex compile, no API calls
-env CLAUDE_BIN=/path/to/claude bun run tests/eval-runner.ts
+bun run evals                                # all skills with evals
+bun run evals define-the-problem             # one skill (positional pass-through)
+bun run evals --dry-run                      # no CLI calls; schema + regex validation only
+env CLAUDE_BIN=/path/to/claude bun run evals # `env` prefix because fish has no inline VAR=value syntax
 ```
 
-Exits non-zero if any assertion fails. v2 transcripts are suffixed `-v2-` so
-they don't collide with v1 when both are run back-to-back for comparison.
+Exits non-zero if any assertion fails. Transcripts land in `tests/results/`
+with a `-v2-` suffix retained from the v1/v2 era to keep older transcript
+filenames aligned; a future cleanup may drop it.
 
 ## Eval file schema
 
@@ -106,20 +77,20 @@ they don't collide with v1 when both are run back-to-back for comparison.
 | `assertion.value` | required for `contains` / `not_contains` | non-empty string |
 | `assertion.pattern` | required for `regex` / `not_regex` | non-empty string; must compile |
 | `assertion.flags` | optional for `regex` / `not_regex` | RegExp flags string (e.g. `"i"`, `"im"`) |
-| `assertion.skill` | required for `skill_invoked` / `not_skill_invoked` | non-empty string; matches the Skill tool's `input.skill` in the stream-json transcript (v2 runner only) |
+| `assertion.skill` | required for `skill_invoked` / `not_skill_invoked` | non-empty string; matches the Skill tool's `input.skill` in the stream-json transcript |
 | `assertion.tool` / `input_key` / `input_value` | required for `tool_input_matches` / `not_tool_input_matches` | non-empty strings; positive form passes when *some* `tool_use` of the named tool has `input[input_key]` containing `input_value`; negative form passes when *no* such `tool_use` exists. `not_tool_input_matches` silent-fires only when the model emitted no tool uses at all — if any tools fired, the negative is meaningful evidence. |
 | `assertion.turn` | required for `skill_invoked_in_turn` | integer ≥ 1; refers to turn index in a multi-turn eval's `turns[]` array |
 | `assertion.skills` | required for `chain_order` | non-empty array of non-empty skill names; compared against the sequence of per-turn winner skills |
 
-**Load-time invariants enforced by the runners** (`loadEvalFile` in `tests/evals-lib.ts` for v2; matching logic in v1):
+**Load-time invariants enforced by the runner** (`loadEvalFile` in `tests/evals-lib.ts`):
 - The `skill` field must equal the parent directory name (catches copy-paste mistakes).
 - `evals` and each eval's `assertions` array must be non-empty.
 - Every assertion is type-checked: required fields present, regex patterns precompiled.
 - A bad regex or missing required field fails fast with a file path in the error — the runner exits 1 before sending any prompt to claude.
 
-## Reporting Tiers (v2 runner)
+## Reporting Tiers
 
-The v2 runner reports two independent axes:
+The runner reports two independent axes:
 
 ### Axis 1: Exit-gating (`tier`, set per assertion in JSON)
 
@@ -157,7 +128,7 @@ entirely, so tracking text coverage alongside structural results is worthwhile.
 
 `claude --print` is single-turn. Some behavioural regressions — notably the
 planning pipeline's DTP → systems-analysis → brainstorming chain — can only be
-observed across turns. The v2 runner supports an additive multi-turn shape that
+observed across turns. The runner supports an additive multi-turn shape that
 runs a chain via `claude --print` (turn 1) + `claude --resume <session_id>`
 (turns 2..N). All turns share one scratch cwd so tool writes persist.
 
@@ -231,10 +202,10 @@ turns' assertions count as failures in the final summary (honest accounting
 — a chain that didn't reach turn 3 didn't pass turn 3). The transcript
 records `chain_failure` with a human-readable reason and which turn failed.
 
-## Signal channels (v2)
+## Signal channels
 
-**v2 parses the NDJSON event stream from `claude --print --output-format
-stream-json` into structured signals.** Assertions run against three channels:
+The runner parses the NDJSON event stream from `claude --print --output-format
+stream-json` into structured signals. Assertions run against three channels:
 
 - `finalText` — the CLI's `result` event (or concatenated assistant text if the
   run ended on a tool use). Regex/substring assertions consume this.
@@ -356,7 +327,7 @@ have no skill counterpart, but their behavioral contract (preamble, plan, named-
 skip, MCP emission) needs the same eval coverage as a skill.
 
 These evals live under `rules-evals/<gate-name>/evals/evals.json`, mirroring the
-`skills/<name>/evals/evals.json` shape exactly. The v2 runner discovers both roots
+`skills/<name>/evals/evals.json` shape exactly. The runner discovers both roots
 at startup and merges them into one suite — the schema, lifecycle, and assertion
 types are identical. Naming collisions between roots fail fast at startup.
 
@@ -380,9 +351,9 @@ ack tool did NOT fire.
 
 ## What this is NOT
 
-- **Not LLM-graded.** Both v1 and v2 are rubric-only (regex + structural). LLM-graded
-  assertions are out of scope — they bill API credits separately from the user's
-  existing `claude` subscription and add nondeterminism.
+- **Not LLM-graded.** Rubric-only (regex + structural). LLM-graded assertions
+  are out of scope — they bill API credits separately from the user's existing
+  `claude` subscription and add nondeterminism.
 - **Not a replacement for `validate.fish`.** That covers structural drift (frontmatter,
   symlinks, concept coverage). Evals cover behavioral drift.
 - **Not a replacement for human review.** When an eval fails, read the transcript before
