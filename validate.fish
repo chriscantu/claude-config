@@ -296,6 +296,89 @@ end
 
 echo ""
 
+# 1f. Rules anchor labels
+# rules/planning.md is the SINGLE anchor for pressure-framing-floor mechanics.
+# Four dependent rules delegate to it by reference. If a labeled block disappears
+# or is reworded, the anchor breaks silently. (Previously enforced by bin/validate.fish.)
+echo "── Rules anchor labels"
+
+set anchor_file "$repo_dir/rules/planning.md"
+set required_labels \
+    "**Skip contract.**" \
+    "**Pressure-framing floor.**" \
+    "**Emission contract — MANDATORY.**" \
+    "**Architectural invariant.**" \
+    "**Emergency bypass — sentinel file check.**"
+set dependent_rules \
+    fat-marker-sketch.md \
+    goal-driven.md \
+    think-before-coding.md \
+    execution-mode.md
+
+if not test -f "$anchor_file"
+    fail "anchor file missing: rules/planning.md"
+else
+    for label in $required_labels
+        if grep -qF -- "$label" "$anchor_file"
+            pass "planning.md contains label: $label"
+        else
+            fail "planning.md missing required label: $label"
+        end
+    end
+end
+
+for dep in $dependent_rules
+    set dep_path "$repo_dir/rules/$dep"
+    if not test -f "$dep_path"
+        fail "dependent rule missing: rules/$dep"
+        continue
+    end
+    if grep -qF -- "planning.md" "$dep_path"
+        pass "rules/$dep references planning.md"
+    else
+        fail "rules/$dep does not reference planning.md"
+    end
+end
+
+echo ""
+
+# 1g. Canonical-string drift
+# Some rule values are defined canonically in one file and referenced — but not
+# restated — by other rules. "Do not restate" markers are editor hints, not
+# enforcement. This phase greps for canonical strings outside their canonical
+# home and fails if found. (Previously enforced by bin/check-rules-drift.fish.)
+echo "── Canonical-string drift"
+
+# Registry: <pattern>|<canonical-file-basename>|<human-name>
+set drift_registry \
+    "≤ ~200 LOC functional change|planning.md|Trivial-tier LOC criterion" \
+    "Single component / single-file primary surface|planning.md|Trivial-tier surface criterion" \
+    "Unambiguous approach (one obvious design|planning.md|Trivial-tier approach criterion" \
+    "Low blast radius (no cross-team|planning.md|Trivial-tier blast-radius criterion"
+
+for entry in $drift_registry
+    set pattern (string split -m 2 "|" $entry)[1]
+    set canonical (string split -m 2 "|" $entry)[2]
+    set label (string split -m 2 "|" $entry)[3]
+
+    set hits (grep -lF -- "$pattern" $repo_dir/rules/*.md 2>/dev/null)
+    set drift_found 0
+
+    for hit in $hits
+        set hit_basename (basename $hit)
+        if test "$hit_basename" != "$canonical"
+            fail "drift: '$label' restated in rules/$hit_basename — canonical home is rules/$canonical"
+            set drift_found 1
+        end
+    end
+
+    if test $drift_found -eq 0
+        pass "$label: no drift (canonical home rules/$canonical)"
+    end
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
