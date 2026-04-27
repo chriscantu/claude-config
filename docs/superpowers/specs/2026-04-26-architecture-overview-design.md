@@ -14,7 +14,7 @@ A new engineering leader (VP/Director) starting a role needs a credible whole-sy
 
 ## Systems Analysis Summary
 
-- **Dependencies:** Composes with `/onboard` (#12, precedes), `/risk-register` (#21, unbuilt), `/tech-debt-score` (#40, unbuilt), `/swot` (built), `/strategy-doc` (#42, unbuilt).
+- **Dependencies:** Composes with `/onboard` (#12, follows — consumes the per-repo detail to prioritize deep walks), `/risk-register` (#21, unbuilt), `/tech-debt-score` (#40, unbuilt), `/swot` (built), `/strategy-doc` (#42, unbuilt).
 - **Second-order:** Schema coupling with unbuilt skills risks pre-commit. Mitigation: defer schema emit to v2.
 - **Failure modes:** Hallucinated architecture = highest credibility risk. Mitigation: code-grounded claims only; flagged inferences (`⚠`) for everything else.
 - **Org impact:** Solo owner, no migration burden, scales fine to ~20 repos.
@@ -154,7 +154,7 @@ commands/
   architecture-overview.md          # slash routing → Skill tool
 ```
 
-Touched (not created): `bin/link-config.fish` symlink pickup (idempotent).
+Note: `bin/link-config.fish` does NOT manage `skills/` directories — it only handles `rules/agents/commands`. New skills require a manual `ln -s skills/<name> ~/.claude/skills/<name>`. Tracked as a follow-up to extend the script.
 
 ### SKILL.md Frontmatter
 
@@ -177,7 +177,7 @@ description: Use when user says /architecture-overview, "map the architecture", 
 1. **`produces-doc-from-yaml`** — given fixture yaml + 2 mini repos, produces `landscape.md` with Sections 1-4. Structural: file exists, all 4 headings present.
 2. **`flags-inferences`** — fixture has env-var-only external (no manifest dep) → output must contain `⚠ inferred` tag for that external. Forbidden regex: external name without `⚠`.
 3. **`refuses-on-empty-repo`** — repo with no manifest/Dockerfile/entry → output cites repo in "Gaps" not in "Inventory" with confident claim.
-4. **`archives-on-rerun`** — pre-existing `landscape.md` → after run, `archive/landscape-*.md` exists, canonical updated. Structural: file count assertion.
+4. **`archives-on-rerun`** — model describes the archive step and cites the correct path format (`docs/architecture/archive/landscape-YYYY-MM-DD-HHMM.md`). Reasoning-tier: actual file I/O is exercised at use-time, not in eval.
 
 ### Composition Contracts
 
