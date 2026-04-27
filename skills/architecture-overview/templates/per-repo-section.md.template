@@ -1,0 +1,10 @@
+### {{repo_name}}
+
+**Purpose:** {{purpose}}
+**Stack:** {{stack}} (citation: {{stack_citation}})
+**Direct deps:** {{direct_deps}}
+**Likely externals:** {{externals_block}}
+**Entry points:** {{entry_points}}
+**ADRs/SDRs found:** {{adr_count}} ({{adr_paths}})
+**Source citations:** {{citations}}
+**Gaps:** {{gaps}}

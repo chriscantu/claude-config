@@ -1,0 +1,35 @@
+# Architecture Landscape — {{org}}
+
+*Captured: {{date}} by /architecture-overview · DRAFT — probe gaps in 1:1s*
+
+## 1. Systems Inventory
+
+| Repo | Purpose | Stack | Owner | Status |
+|---|---|---|---|---|
+{{inventory_rows}}
+
+## 2. Dependency Map
+
+{{dependency_lines}}
+
+## 3. Data Flow
+
+- **Ingress:** {{ingress}}
+- **Storage:** {{storage}}
+- **Egress:** {{egress}}
+
+## 4. External Integrations
+
+| Service | Repo(s) | Evidence | Cost / lock-in note |
+|---|---|---|---|
+{{integration_rows}}
+
+## Gaps to probe in 1:1s
+
+{{gaps}}
+
+---
+
+## Per-repo detail
+
+{{per_repo_detail}}
