@@ -379,6 +379,67 @@ end
 
 echo ""
 
+# 1h. Hook ↔ README consistency
+# Every hook script in hooks/ (excluding test fixtures) must be documented
+# in README.md so a contributor adding a hook either documents it or surfaces
+# the omission here. Symlinking happens via bin/link-config.fish; this phase
+# guards the documentation seam.
+echo "── Hook ↔ README consistency"
+
+set readme "$repo_dir/README.md"
+if not test -f $readme
+    fail "README.md missing"
+else
+    for src in $repo_dir/hooks/*.sh
+        set hook_name (basename $src)
+        # Skip test fixtures — they're for repo CI, not user-facing hooks.
+        if string match -q 'test-*' $hook_name
+            continue
+        end
+        if grep -qF -- "$hook_name" $readme
+            pass "hooks/$hook_name documented in README.md"
+        else
+            fail "hooks/$hook_name not mentioned in README.md (add usage docs or rename test-*)"
+        end
+    end
+end
+
+echo ""
+
+# 1i. Dangling hook permissions in .claude/settings.json (warn-only)
+# The repo's project-local .claude/settings.json may grant Bash permissions
+# pointing at hook scripts (e.g., for protected-file checks). When a hook is
+# renamed or removed, those permissions can dangle. Warn so they get cleaned;
+# don't fail because the path is user/machine-specific (e.g., absolute paths
+# from another machine remain valid for that user's setup).
+echo "── Dangling hook permissions (warn-only)"
+
+set proj_settings "$repo_dir/.claude/settings.json"
+if not test -f $proj_settings
+    pass ".claude/settings.json absent — nothing to scan"
+else
+    # Extract any "Bash(<path>/hooks/<name>.sh)" permission strings, then
+    # check the basename exists in repo's hooks/ directory.
+    set bash_hook_perms (grep -oE 'Bash\([^)]*hooks/[a-zA-Z0-9_-]+\.sh\)' $proj_settings 2>/dev/null)
+    if test (count $bash_hook_perms) -eq 0
+        pass "no Bash hook permissions in .claude/settings.json"
+    else
+        for perm in $bash_hook_perms
+            set hook_basename (string match -r 'hooks/([a-zA-Z0-9_-]+\.sh)' -- $perm)[2]
+            if test -z "$hook_basename"
+                continue
+            end
+            if test -f "$repo_dir/hooks/$hook_basename"
+                pass "permission $perm → hooks/$hook_basename exists"
+            else
+                warn "permission $perm references hooks/$hook_basename which does not exist in repo (stale entry?)"
+            end
+        end
+    end
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
