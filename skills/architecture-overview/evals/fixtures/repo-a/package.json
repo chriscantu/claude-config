@@ -1,0 +1,8 @@
+{
+  "name": "repo-a",
+  "version": "0.1.0",
+  "dependencies": {
+    "express": "^4.18.0",
+    "stripe": "^14.0.0"
+  }
+}
