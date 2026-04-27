@@ -16,6 +16,9 @@
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
 set -l home_claude $HOME/.claude
 set -l dirs rules agents commands
+# Hooks are .sh, not .md — handled by separate loop below.
+set -l hooks_src $repo/hooks
+set -l hooks_dst $home_claude/hooks
 
 set -l mode install
 if test (count $argv) -gt 0; and test "$argv[1]" = --check
@@ -80,6 +83,58 @@ for dir in $dirs
             ln -s $src $dst
             echo "LINKED: $name"
             set linked (math $linked + 1)
+        end
+    end
+end
+
+# Hooks: link .sh files (skip test fixtures).
+if test -d $hooks_src
+    if not test -d $hooks_dst
+        if test "$mode" = check
+            echo "MISSING dir: $hooks_dst"
+            set missing (math $missing + 1)
+        else
+            mkdir -p $hooks_dst
+        end
+    end
+
+    if test -d $hooks_dst
+        for src in $hooks_src/*.sh
+            set -l name (basename $src)
+            # Skip test fixtures — they're for repo CI, not the harness.
+            if string match -q 'test-*' $name
+                continue
+            end
+            set -l dst $hooks_dst/$name
+
+            if test -L $dst
+                set -l current (readlink $dst)
+                if test "$current" = "$src"
+                    set skipped (math $skipped + 1)
+                    continue
+                end
+                if test "$mode" = check
+                    echo "STALE link: $dst -> $current (expected $src)"
+                    set missing (math $missing + 1)
+                    continue
+                end
+                rm $dst
+                ln -s $src $dst
+                echo "REPAIRED: $dst"
+                set linked (math $linked + 1)
+            else if test -e $dst
+                echo "ERROR: real file at $dst — not a symlink. Skipping (will not overwrite)."
+                set errors (math $errors + 1)
+            else
+                if test "$mode" = check
+                    echo "MISSING link: $dst"
+                    set missing (math $missing + 1)
+                    continue
+                end
+                ln -s $src $dst
+                echo "LINKED: hooks/$name"
+                set linked (math $linked + 1)
+            end
         end
     end
 end
