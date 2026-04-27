@@ -157,6 +157,68 @@ No output means no sentinel file exists and the floor is active. One or two path
 
 Leaving the flag on permanently defeats the floor entirely — you lose the guardrail against Claude honoring a premature skip under pressure. Prefer fixing the underlying regression (open an issue with a reproduction) over making the bypass permanent.
 
+## Git Guardrails Hook (opt-in)
+
+A `PreToolUse` hook at [`hooks/block-dangerous-git.sh`](hooks/block-dangerous-git.sh) blocks destructive git operations at the harness layer — not by asking Claude nicely, but by exiting with code 2 before the command runs. Adapted from [mattpocock/skills `git-guardrails-claude-code`](https://github.com/mattpocock/skills/tree/main/git-guardrails-claude-code) with a narrower blocklist that targets actually-destructive operations and `CLAUDE.md`-forbidden flags, leaving normal `git push` / `git commit` alone.
+
+### What gets blocked
+
+| Pattern | Why |
+|---|---|
+| `git push --force` / `-f` / `--force-with-lease` to `main`/`master` | Force-pushing the trunk overwrites shared history. |
+| `git commit --no-verify`, `git rebase --no-verify`, `git push --no-verify` | Skipping pre-commit / pre-push hooks bypasses safety checks. |
+| `--no-gpg-sign` | Bypasses commit signing where required. |
+| `git reset --hard` | Discards uncommitted work irreversibly. |
+| `git clean -f` / `git clean -fd` | Deletes untracked files. |
+| `git branch -D` | Force-deletes a branch (vs `-d` which only deletes if merged). |
+| `git checkout .` / `git restore .` | Wipes uncommitted changes wholesale. |
+
+Force-pushing to a feature branch is **allowed**. Routine `git push` and `git commit` are **allowed**.
+
+### Install
+
+The hook script is symlinked into `~/.claude/hooks/block-dangerous-git.sh` automatically by `bin/link-config.fish`. Wire it into the harness by adding this to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          { "type": "command", "command": "~/.claude/hooks/block-dangerous-git.sh" }
+        ]
+      }
+    ]
+  }
+}
+```
+
+If `hooks.PreToolUse` already exists, **merge** into the existing array rather than replacing.
+
+### Verify
+
+```sh
+bash hooks/test-block-dangerous-git.sh   # smoke tests against the script
+echo '{"tool_input":{"command":"git push --force origin main"}}' \
+  | ~/.claude/hooks/block-dangerous-git.sh   # should exit 2 with BLOCKED message
+```
+
+### Disable
+
+Create an empty sentinel file (mirrors the `DISABLE_PRESSURE_FLOOR` pattern):
+
+```sh
+touch ~/.claude/DISABLE_GIT_GUARDRAILS    # global
+touch .claude/DISABLE_GIT_GUARDRAILS      # project-scoped (checked first)
+```
+
+Delete the file to restore. Existence alone disables; content ignored.
+
+### Customizing the blocklist
+
+Edit `hooks/block-dangerous-git.sh` and adjust `DANGEROUS_PATTERNS`. Patterns are extended-regex (`grep -E`). Re-run `bash hooks/test-block-dangerous-git.sh` after editing to confirm fixtures still pass.
+
 ## References
 
 - [Claude Code docs](https://docs.anthropic.com/en/docs/claude-code) — official documentation
