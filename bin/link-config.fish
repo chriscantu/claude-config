@@ -19,11 +19,13 @@
 #
 # Mode semantics:
 #   default — install missing links, repair stale ones, ERROR on real files
-#   --install — same, but BACK UP real files to <name>.bak then symlink
+#               (real files at the target path are NEVER overwritten)
+#   --install — same, but BACK UP real files to <name>.bak then symlink.
+#               If <name>.bak already exists, ERROR (won't clobber prior backup).
 #   --check — read-only verification; exit 1 on missing/stale, exit 0 if clean
 #
 # Safe to re-run: existing correct symlinks are left alone, broken or wrong-target
-# symlinks are repaired.
+# symlinks are repaired, real files are never silently overwritten.
 
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
 set -l home_claude $HOME/.claude
@@ -56,8 +58,10 @@ set -g skipped 0
 set -g errors 0
 set -g backed_up 0
 
-# Ensure parent directory exists for a destination link. Honors $mode: in
-# check mode, missing dirs count as missing; otherwise mkdir -p.
+# Ensure parent directory exists for a destination link. Reads global $mode:
+# in check mode, missing dirs count as missing (no mkdir); otherwise mkdir -p.
+# Returns 0 on success (dir exists or was created), 1 on failure (check-mode
+# missing OR mkdir failed).
 function ensure_parent_dir
     set -l dst_parent $argv[1]
     if test -d $dst_parent
@@ -68,7 +72,11 @@ function ensure_parent_dir
         set -g missing (math $missing + 1)
         return 1
     end
-    mkdir -p $dst_parent
+    if not mkdir -p $dst_parent
+        echo "ERROR: mkdir -p $dst_parent failed" >&2
+        set -g errors (math $errors + 1)
+        return 1
+    end
 end
 
 # Link one src → dst with mode-aware semantics.
@@ -81,7 +89,9 @@ function link_one
     set -l dst $argv[2]
     set -l label $argv[3]
 
-    # ln -s for files, ln -sfn for directories handled by caller via $is_dir.
+    # ln -s for files; -sfn for directories. Caller passes literal "dir" as
+    # 4th arg when target is a directory (uses -sfn so existing symlink-to-dir
+    # is replaced, not descended into).
     set -l ln_flags -s
     if test (count $argv) -ge 4; and test "$argv[4]" = dir
         set ln_flags -sfn
@@ -98,8 +108,16 @@ function link_one
             set -g missing (math $missing + 1)
             return 0
         end
-        rm $dst
-        ln $ln_flags $src $dst
+        if not rm $dst
+            echo "ERROR: rm $dst failed (cannot repair stale symlink)" >&2
+            set -g errors (math $errors + 1)
+            return 1
+        end
+        if not ln $ln_flags $src $dst
+            echo "ERROR: ln $ln_flags $src $dst failed" >&2
+            set -g errors (math $errors + 1)
+            return 1
+        end
         echo "REPAIRED: $label"
         set -g linked (math $linked + 1)
         return 0
@@ -107,10 +125,25 @@ function link_one
 
     if test -e $dst
         if test "$mode" = first-install
-            mv $dst $dst.bak
+            # Refuse to clobber an existing .bak — that's a prior backup the
+            # user may still need. Force them to resolve manually.
+            if test -e $dst.bak
+                echo "ERROR: $dst.bak already exists — refusing to overwrite prior backup. Move or remove it manually, then re-run."
+                set -g errors (math $errors + 1)
+                return 1
+            end
+            if not mv $dst $dst.bak
+                echo "ERROR: mv $dst → $dst.bak failed" >&2
+                set -g errors (math $errors + 1)
+                return 1
+            end
             echo "BACKED UP: $dst → $dst.bak"
             set -g backed_up (math $backed_up + 1)
-            ln $ln_flags $src $dst
+            if not ln $ln_flags $src $dst
+                echo "ERROR: ln $ln_flags $src $dst failed after backup" >&2
+                set -g errors (math $errors + 1)
+                return 1
+            end
             echo "LINKED: $label"
             set -g linked (math $linked + 1)
             return 0
@@ -125,7 +158,11 @@ function link_one
         set -g missing (math $missing + 1)
         return 0
     end
-    ln $ln_flags $src $dst
+    if not ln $ln_flags $src $dst
+        echo "ERROR: ln $ln_flags $src $dst failed" >&2
+        set -g errors (math $errors + 1)
+        return 1
+    end
     echo "LINKED: $label"
     set -g linked (math $linked + 1)
 end
