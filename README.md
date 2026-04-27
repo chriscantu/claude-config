@@ -68,6 +68,7 @@ Skills are invoked with `/skill-name` and guide Claude through structured proces
 | `/1on1-prep` | Prepare for and capture 1:1 meetings with structured output. Pulls context from memory, surfaces discussion topics, and writes meeting notes back to the knowledge graph. |
 | `/stakeholder-map` | Build a stakeholder / political-topology map for a new leadership role (leader-onboarding) and audit coverage gaps + echo-chamber signals (coverage-review). Extends the memory graph shared with `/1on1-prep`; renders a chart and heatmap via excalidraw. |
 | `/swot` | Accumulative SWOT landscape analysis for onboarding. Captures observations to the knowledge graph across sessions, with challenge pass for quality and multi-format export (markdown, excalidraw, presentation). |
+| `/improve-codebase-architecture` | Surface deepening opportunities — refactors that turn shallow modules into deep ones via shared vocabulary (module / interface / depth / seam / adapter), the deletion test, and seam discipline. Produces a numbered candidate list, then drops into a grilling loop on the user-selected candidate, with optional parallel interface-design exploration. |
 
 ### Agents (specialized reviewers)
 

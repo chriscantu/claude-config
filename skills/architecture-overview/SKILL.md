@@ -31,6 +31,7 @@ cite directly."
 - New-system design → use `/sdr`
 - Impact analysis of one specific change → use `/cross-project`
 - Organizational/people landscape (strengths, weaknesses, stakeholders) → use `/swot`
+- Architecture *evaluation* (deep/shallow grading, deepening opportunities) → use `/improve-codebase-architecture`
 
 ## Inputs
 
