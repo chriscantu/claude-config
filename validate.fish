@@ -357,9 +357,14 @@ set drift_registry \
     "Low blast radius (no cross-team|planning.md|Trivial-tier blast-radius criterion"
 
 for entry in $drift_registry
-    set pattern (string split -m 2 "|" $entry)[1]
-    set canonical (string split -m 2 "|" $entry)[2]
-    set label (string split -m 2 "|" $entry)[3]
+    set parts (string split -m 2 "|" $entry)
+    if test (count $parts) -ne 3
+        fail "malformed drift-registry entry (expected 3 |-separated fields): $entry"
+        continue
+    end
+    set pattern $parts[1]
+    set canonical $parts[2]
+    set label $parts[3]
 
     set hits (grep -lF -- "$pattern" $repo_dir/rules/*.md 2>/dev/null)
     set drift_found 0
@@ -392,9 +397,14 @@ set anchor_registry \
     "trivial-tier-criteria|planning.md|Trivial/Mechanical tier criteria"
 
 for entry in $anchor_registry
-    set anchor_id (string split -m 2 "|" $entry)[1]
-    set canonical (string split -m 2 "|" $entry)[2]
-    set label (string split -m 2 "|" $entry)[3]
+    set parts (string split -m 2 "|" $entry)
+    if test (count $parts) -ne 3
+        fail "malformed anchor-registry entry (expected 3 |-separated fields): $entry"
+        continue
+    end
+    set anchor_id $parts[1]
+    set canonical $parts[2]
+    set label $parts[3]
 
     set anchor_path "$repo_dir/rules/$canonical"
     if not test -f $anchor_path
