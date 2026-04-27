@@ -47,32 +47,33 @@ Rules run automatically and shape how Claude approaches every session. Skills ar
 
 ### Rules (always active)
 
+The reasoning gates. Each is a HARD-GATE — Claude can't bypass without a named-cost skip.
+
 | Rule | What it enforces |
 |------|-----------------|
-| **planning** | Enforces the mandatory planning pipeline: problem definition → systems analysis → brainstorming → fat-marker sketch → detailed design. Thin gate rule that delegates to skills for each stage. Announces stage transitions so you always know where you are. |
-| **fat-marker-sketch** | After selecting an approach, Claude must produce a crude visual sketch (rendered as HTML with bordered boxes) before detailed design. Forces structural conversation before pixel-level detail. |
-| **tdd-pragmatic** | Test-first for non-trivial logic, tests alongside for simple code. Every bug fix starts with a reproducing test. |
-| **verification** | Claude must run tests or type-checks before claiming work is complete. No "this should work" — prove it. |
+| **planning** | Mandatory pipeline: problem definition → systems analysis → brainstorming → fat-marker sketch → detailed design. Pressure-framing floor blocks premature skips. Announces stage transitions. |
+| **think-before-coding** | Three-part preamble before any recommendation: Assumptions, Interpretations, Simpler-Path Challenge. Forces trade-off surfacing instead of silent picks. |
+| **fat-marker-sketch** | After approach selection, Claude produces a structural visual sketch before detailed design. Forces shape conversation before pixel detail. |
+| **goal-driven** | Every implementation step needs an explicit verify check defined up front. Loop until each check passes — no "should work." |
+| **verification** | End-of-work gate: tests run, type-check runs. No claims of completion without proof. |
+
+Also active: **tdd-pragmatic** (test-first for non-trivial logic, reproducing test before bug fix) and **execution-mode** (sizing guard: subagent-driven vs single-implementer).
 
 ### Skills (on-demand slash commands)
 
-Skills are invoked with `/skill-name` and guide Claude through structured processes.
+Pipeline + design-thinking skills. Invoked with `/skill-name`.
 
 | Skill | Purpose |
 |-------|---------|
-| `/define-the-problem` | Front door to the planning pipeline. Ensures every feature starts with a clear user problem — not a solution, not a feature request. Hands off to `/systems-analysis` when complete. |
-| `/systems-analysis` | Maps dependencies, second-order effects, failure modes, and organizational impact. Bridge between problem definition and solution design. |
-| `/adr` | Create, list, or supersede architectural decision records following system-design-records conventions. |
-| `/new-project` | Scaffold a new repo with CLAUDE.md, test config, and git setup for your chosen stack (TypeScript, Python, Swift, docs). |
-| `/cross-project` | Analyze how a change in the current repo affects other local repositories. Scans `~/repos/` for dependents. |
-| `/tech-radar` | Manage technology adoption entries (Assess → Trial → Adopt → Hold) with structured evaluation criteria. |
-| `/tenet-exception` | Create engineering tenet exception requests with proper justification and PR process guidance. |
-| `/fat-marker-sketch` | Produce a crude structural sketch — invoked automatically by the planning rule, but can also be called directly. |
-| `/present` | Create professional presentations using Slidev + Bun. Takes a brief, draft, or existing slides → live preview → PDF/PPTX export. Source-controllable Markdown. |
-| `/1on1-prep` | Prepare for and capture 1:1 meetings with structured output. Pulls context from memory, surfaces discussion topics, and writes meeting notes back to the knowledge graph. |
-| `/stakeholder-map` | Build a stakeholder / political-topology map for a new leadership role (leader-onboarding) and audit coverage gaps + echo-chamber signals (coverage-review). Extends the memory graph shared with `/1on1-prep`; renders a chart and heatmap via excalidraw. |
-| `/swot` | Accumulative SWOT landscape analysis for onboarding. Captures observations to the knowledge graph across sessions, with challenge pass for quality and multi-format export (markdown, excalidraw, presentation). |
-| `/improve-codebase-architecture` | Surface deepening opportunities — refactors that turn shallow modules into deep ones via shared vocabulary (module / interface / depth / seam / adapter), the deletion test, and seam discipline. Produces a numbered candidate list, then drops into a grilling loop on the user-selected candidate, with optional parallel interface-design exploration. |
+| `/define-the-problem` | Front door of the pipeline. Forces every feature to start with a clear user problem — not a solution. |
+| `/systems-analysis` | Maps dependencies, second-order effects, failure modes, org impact. Bridge between problem and design. |
+| `/fat-marker-sketch` | Crude structural sketch before detailed design. Auto-invoked by planning rule; callable directly. |
+| `/adr` · `/sdr` · `/tech-radar` | Structured records: architectural decisions, system designs, tech-adoption entries (Assess → Trial → Adopt → Hold). |
+| `/cross-project` | How a change in this repo affects other local repos. Scans `~/repos/` for dependents. |
+| `/improve-codebase-architecture` | Surface deepening opportunities — shallow→deep modules via shared vocabulary (module / interface / depth / seam / adapter) and deletion-test discipline. |
+| `/architecture-overview` | Multi-repo architecture mapping. |
+
+Operational skills also included (less central to reasoning): `/1on1-prep`, `/stakeholder-map`, `/swot`, `/new-project`, `/present`, `/tenet-exception`, `/excalidraw`.
 
 ### Agents (specialized reviewers)
 
@@ -81,6 +82,7 @@ Skills are invoked with `/skill-name` and guide Claude through structured proces
 | **platform-reviewer** | Reviews code changes for API contract stability, backward compatibility, operational burden, and cross-team impact. |
 | **security-reviewer** | Reviews code changes for security vulnerabilities — OWASP categories, credential exposure, input validation, auth/authz boundaries, and dependency risks. |
 | **decision-challenger** | Devil's advocate for ADRs, SDRs, and tech radar entries. Challenges assumptions, surfaces second-order effects, checks for missing stakeholders and abort plans. |
+| **surgical-diff-reviewer** | Karpathy #3 scope enforcement — every changed line in a diff must trace directly to the user's stated request. Catches drive-by refactors and scope creep. |
 
 ### Templates
 

@@ -8,7 +8,7 @@
 
   Body paragraph.
 
-  Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>" > /tmp/commitmsg
+  Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>" > /tmp/commitmsg
   git commit -F /tmp/commitmsg
   ```
 - No `$(...)` command substitution: use `(...)` in fish
