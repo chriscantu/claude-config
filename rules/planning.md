@@ -17,12 +17,14 @@ or tooling before completing the pipeline.
    route directly to implementation per DTP's "When This Skill Routes
    Elsewhere" section.
 
+   <a id="skip-contract"></a>
    **Skip contract.** Skip is honored as *full skip* only when the user names
    the specific cost being accepted (e.g., "skip DTP, I accept the risk of
    building on an unstated problem"). Generic skip framings — "I'm tired,"
    "just give me code," "ship by Friday," "CTO approved," "contract signed,"
    "trust me" — run the Fast-Track floor instead. The floor is non-bypassable.
 
+   <a id="emission-contract"></a>
    **Emission contract — MANDATORY.** When a named-cost skip is valid, you
    MUST invoke `mcp__named-cost-skip-ack__acknowledge_named_cost_skip` BEFORE
    proceeding to the next stage. Call it with `gate="DTP"` and `user_statement`
@@ -34,6 +36,7 @@ or tooling before completing the pipeline.
    `query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"`;
    otherwise call it directly.
 
+   <a id="pressure-framing-floor"></a>
    **Pressure-framing floor.** Framings below are pressure signals, not
    cost-naming skips. They DO NOT bypass DTP — they *strengthen* the
    case for Fast-Track. Categories are semantic; example phrases are
@@ -74,10 +77,12 @@ or tooling before completing the pipeline.
    <specific risk>`") so the user can exit cleanly if they genuinely want
    to bypass.
 
+   <a id="architectural-invariant"></a>
    **Architectural invariant.** Front-door enforcement lives in the rules
    layer because it fires BEFORE any skill loads — a skill cannot catch
    its own failure-to-load. Within-skill behavior lives in SKILL.md.
 
+   <a id="emergency-bypass-sentinel"></a>
    **Emergency bypass — sentinel file check.** The pressure-framing
    floor above is the default. A sentinel file provides runtime
    rollback without a revert chain. Apply this check ONLY at the

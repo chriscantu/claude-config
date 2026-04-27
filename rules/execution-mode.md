@@ -84,8 +84,10 @@ been honored.
 
 ## Pressure-framing floor
 
-Floor enforcement (pressure-framing routing, named-cost emission contract,
-sentinel bypass) is anchored in `rules/planning.md` DTP per-gate block. Per
+Floor enforcement ([pressure-framing routing](planning.md#pressure-framing-floor),
+[named-cost emission contract](planning.md#emission-contract),
+[sentinel bypass](planning.md#emergency-bypass-sentinel)) is anchored in
+`rules/planning.md` DTP per-gate block. Per
 [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
 and memory note `per_gate_floor_blocks_substitutable.md`, the model
 generalizes that anchor to the active gate, so a per-gate floor block here

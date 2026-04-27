@@ -42,7 +42,9 @@ combined red flags.
 
 ### Skip contract
 
-Pressure-framing floor, emission contract, and sentinel bypass are anchored in
+[Pressure-framing floor](planning.md#pressure-framing-floor),
+[emission contract](planning.md#emission-contract), and
+[sentinel bypass](planning.md#emergency-bypass-sentinel) are anchored in
 `rules/planning.md` (DTP block). FMS honors the same mechanics via that anchor —
 a per-gate copy here adds zero eval-measurable enforcement. See ADR #0007 and
 the four-cell inverse-RED audit (2026-04-24) for evidence.
