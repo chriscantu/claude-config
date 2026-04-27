@@ -52,9 +52,9 @@ plan; one comprehensive review at the end against the full spec) when ANY of:
 - Plan has ≤4 tasks
 - All tasks touch the same file
 - Each task is a TDD increment ≤50 LOC
-- Trivial/Mechanical tier per `rules/planning.md` Scope Calibration
-  (canonical criteria definition: ≤200 LOC, single-file primary surface,
-  unambiguous approach, low blast radius — do not restate)
+- [Trivial/Mechanical tier](planning.md#trivial-tier-criteria) per
+  `rules/planning.md` Scope Calibration — canonical criteria live at the
+  anchor; do not restate inline
 
 The final cross-task review still runs — single-implementer mode trades
 per-task gates for one thorough end-of-work review. `verification.md`
@@ -101,10 +101,11 @@ for thoroughness.
 
 ## Relationship to Other Rules
 
-- `rules/planning.md` — Scope Calibration's Trivial/Mechanical tier feeds
-  this rule (Trivial → single-implementer). This rule fires AFTER planning
-  has produced a plan; it governs HOW the plan is executed, not whether
-  one is needed.
+- `rules/planning.md` — Scope Calibration's
+  [Trivial/Mechanical tier](planning.md#trivial-tier-criteria) feeds this
+  rule (Trivial → single-implementer). This rule fires AFTER planning has
+  produced a plan; it governs HOW the plan is executed, not whether one
+  is needed.
 - `rules/goal-driven.md` — per-step verify checks apply in BOTH modes.
 - `rules/verification.md` — end-of-work gate applies in BOTH modes.
 - `superpowers:subagent-driven-development` (plugin skill) — this rule

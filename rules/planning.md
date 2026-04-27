@@ -202,6 +202,7 @@ depth — go deeper if the problem warrants it.
 | Feature             | Full pass          | Paragraph each          | Standard       |
 | System/Platform     | Full pass          | Dedicated subsections   | Multi-component|
 
+<a id="trivial-tier-criteria"></a>
 ### Trivial / Mechanical Tier — Criteria and Behavior
 
 Tier qualifies ONLY when ALL four criteria hold. Any one missing → next tier up.

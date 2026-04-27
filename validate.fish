@@ -379,6 +379,39 @@ end
 
 echo ""
 
+# 1j. Stable anchor presence
+# Some rule constructs are promoted to citable anchors so dependent rules can
+# deep-link via `[text](planning.md#kebab-name)`. Auto-generated heading IDs
+# are fragile (em dashes, punctuation, renames break them silently); explicit
+# `<a id="…">` anchors are the load-bearing contract. This phase asserts each
+# registered anchor is still present in its canonical home.
+echo "── Stable anchor presence"
+
+# Registry: <anchor-id>|<canonical-file-basename>|<human-name>
+set anchor_registry \
+    "trivial-tier-criteria|planning.md|Trivial/Mechanical tier criteria"
+
+for entry in $anchor_registry
+    set anchor_id (string split -m 2 "|" $entry)[1]
+    set canonical (string split -m 2 "|" $entry)[2]
+    set label (string split -m 2 "|" $entry)[3]
+
+    set anchor_path "$repo_dir/rules/$canonical"
+    if not test -f $anchor_path
+        fail "anchor home missing: rules/$canonical"
+        continue
+    end
+
+    set marker "<a id=\"$anchor_id\"></a>"
+    if grep -qF -- "$marker" $anchor_path
+        pass "$label: anchor #$anchor_id present in rules/$canonical"
+    else
+        fail "$label: missing $marker in rules/$canonical (deep-links from dependents will dangle)"
+    end
+end
+
+echo ""
+
 # 1h. Hook ↔ README consistency
 # Every hook script in hooks/ (excluding test fixtures) must be documented
 # in README.md so a contributor adding a hook either documents it or surfaces
