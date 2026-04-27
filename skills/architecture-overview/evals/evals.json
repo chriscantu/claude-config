@@ -1,0 +1,45 @@
+{
+  "skill": "architecture-overview",
+  "description": "Behavioral evals for /architecture-overview MVP (sections 1-4 only). Covers: doc-from-yaml, inference flagging, refusal-on-empty-repo, archive-on-rerun.",
+  "evals": [
+    {
+      "name": "produces-doc-from-yaml",
+      "summary": "Given fixture yaml + 2 mini repos + 1 empty, produces landscape.md with all 4 MVP sections.",
+      "prompt": "/architecture-overview skills/architecture-overview/evals/fixtures/repos.yaml — produce the landscape doc to a temp path (do not write to docs/architecture/landscape.md during the eval). Show the full doc inline.",
+      "assertions": [
+        { "type": "skill_invoked", "skill": "architecture-overview", "description": "skill fires" },
+        { "type": "regex", "pattern": "^##\\s*1\\.\\s*Systems Inventory", "flags": "im", "description": "Section 1 heading present" },
+        { "type": "regex", "pattern": "^##\\s*2\\.\\s*Dependency Map", "flags": "im", "description": "Section 2 heading present" },
+        { "type": "regex", "pattern": "^##\\s*3\\.\\s*Data Flow", "flags": "im", "description": "Section 3 heading present" },
+        { "type": "regex", "pattern": "^##\\s*4\\.\\s*External Integrations", "flags": "im", "description": "Section 4 heading present" }
+      ]
+    },
+    {
+      "name": "flags-inferences",
+      "summary": "Env-var-only externals (SendGrid in repo-b) must be flagged with ⚠ inferred.",
+      "prompt": "/architecture-overview skills/architecture-overview/evals/fixtures/repos.yaml — produce the landscape doc inline. Focus on Section 4 External Integrations.",
+      "assertions": [
+        { "type": "regex", "pattern": "(SendGrid|sendgrid).{0,80}⚠", "flags": "is", "description": "SendGrid (env-var-derived) carries ⚠ inferred flag" },
+        { "type": "not_regex", "pattern": "^[^⚠\\n]*\\bSendGrid\\b[^⚠\\n]*$", "flags": "im", "description": "No SendGrid line lacks the ⚠ flag" }
+      ]
+    },
+    {
+      "name": "refuses-on-empty-repo",
+      "summary": "repo-empty has no manifest/Dockerfile/entry — must list under Gaps, not in Inventory with confident claim.",
+      "prompt": "/architecture-overview skills/architecture-overview/evals/fixtures/repos.yaml — produce the landscape doc inline. How is repo-empty handled?",
+      "assertions": [
+        { "type": "regex", "pattern": "(Gaps|gaps|cannot characterize|needs user input|unknown).{0,200}repo-empty", "flags": "is", "description": "repo-empty cited under Gaps or refusal language" },
+        { "type": "not_regex", "pattern": "\\|\\s*repo-empty\\s*\\|\\s*[A-Za-z][^|⚠]*\\s*\\|", "flags": "i", "description": "repo-empty does NOT appear in inventory table with a confident purpose claim" }
+      ]
+    },
+    {
+      "name": "archives-on-rerun",
+      "summary": "Documents the archive behavior. Eval asserts the skill describes archive-on-rerun in its run plan (the actual file move is exercised at use-time, not in eval).",
+      "prompt": "/architecture-overview skills/architecture-overview/evals/fixtures/repos.yaml — pretend a prior landscape.md already exists at docs/architecture/landscape.md. Walk me through your steps before writing the new one.",
+      "assertions": [
+        { "type": "regex", "pattern": "(archive|archives|archived).{0,80}(landscape|prior|existing)", "flags": "i", "description": "archive step described" },
+        { "type": "regex", "pattern": "docs/architecture/archive/landscape-", "flags": "i", "description": "archive path format cited" }
+      ]
+    }
+  ]
+}
