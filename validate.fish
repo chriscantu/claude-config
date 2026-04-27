@@ -394,7 +394,12 @@ echo "── Stable anchor presence"
 
 # Registry: <anchor-id>|<canonical-file-basename>|<human-name>
 set anchor_registry \
-    "trivial-tier-criteria|planning.md|Trivial/Mechanical tier criteria"
+    "trivial-tier-criteria|planning.md|Trivial/Mechanical tier criteria" \
+    "skip-contract|planning.md|DTP Skip contract" \
+    "emission-contract|planning.md|DTP Emission contract" \
+    "pressure-framing-floor|planning.md|DTP Pressure-framing floor" \
+    "architectural-invariant|planning.md|DTP Architectural invariant" \
+    "emergency-bypass-sentinel|planning.md|DTP Emergency bypass sentinel"
 
 for entry in $anchor_registry
     set parts (string split -m 2 "|" $entry)

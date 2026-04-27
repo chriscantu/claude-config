@@ -43,7 +43,7 @@ exit code, file presence. "Looks right" is NOT a verify check.
 - Single-line edits with no behavioral change (typo, comment, formatting)
 - Pure file moves / renames the user explicitly directed
 - Throwaway exploration the user has scoped as exploration ("just poke around X")
-- Emergency bypass via `DISABLE_PRESSURE_FLOOR` sentinel (see `planning.md`) —
+- Emergency bypass via `DISABLE_PRESSURE_FLOOR` sentinel (see [planning.md](planning.md#emergency-bypass-sentinel)) —
   the bypass disables pressure-framing routing, not the verify discipline; if
   you skip on bypass grounds, say so
 

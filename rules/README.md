@@ -58,8 +58,11 @@ validator. Phases relevant to rules:
   this phase is the enforcement.
 - **1j. Stable anchor presence** — fails if `planning.md` loses an
   explicit `<a id="…">` anchor that dependent rules deep-link to.
-  Currently guards `#trivial-tier-criteria`; add to the registry when
-  promoting another rule construct to a citable anchor.
+  Currently guards `#trivial-tier-criteria`, `#skip-contract`,
+  `#emission-contract`, `#pressure-framing-floor`,
+  `#architectural-invariant`, and `#emergency-bypass-sentinel`; add
+  to the registry when promoting another rule construct to a citable
+  anchor.
 
 Use these in pre-push hooks or CI to catch the silent-failure modes
 (rule not loaded; rule restated and drifted; anchor structurally broken;
