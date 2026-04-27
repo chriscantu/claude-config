@@ -82,11 +82,10 @@ For each repo, extract code-grounded facts. Cite file paths for every claim.
 - Inter-repo calls inferred from import patterns or domain names
 - Owner team inferred from CODEOWNERS or commit-author frequency
 
-**How to fill the per-repo template's `{{externals}}` slot:**
+**How to fill the per-repo template's `{{externals_block}}` slot:**
 - Code-grounded (Dockerfile, docker-compose, manifest dep): `<service> (citation: <path>)` — NO `⚠` prefix
 - Env-var-only inference: `⚠ inferred — <service> (env: <VAR_NAME>, confirm)`
 - None found: `none identified`
-- The template's `⚠ inferred —` prefix on the Likely externals line applies ONLY to inferred entries; cited entries use a separate cited-line format below the inferred line, or replace the line entirely if no inferred externals exist.
 
 **Refusal cases:**
 - No manifest + no Dockerfile + no entry point → list under "Gaps", do NOT
