@@ -1,6 +1,7 @@
 ---
 name: present
 description: Use when the user says /present, "create a presentation", "make slides", "build a deck", or wants to create or update a Slidev presentation.
+disable-model-invocation: true
 ---
 
 # Present: Professional Presentation Workflow

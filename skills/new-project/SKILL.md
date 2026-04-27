@@ -1,6 +1,7 @@
 ---
 name: new-project
 description: Use when the user says /new-project, "scaffold a project", "set up a new repo", "initialize project", or wants to start a fresh codebase with standard conventions.
+disable-model-invocation: true
 ---
 
 # New Project Scaffolding

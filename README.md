@@ -209,6 +209,20 @@ Your skill instructions here.
 
 Re-run the install script to symlink it. Invoke with `/my-skill` in Claude Code.
 
+#### Slash-only skills
+
+For skills with side effects where timing matters (writes to memory graph, scaffolds files, creates formal records), add `disable-model-invocation: true` to the frontmatter. The skill remains invocable via `/skill-name` but Claude will never auto-trigger it. This prevents false-positive activations on workflow skills the user must consciously initiate.
+
+```yaml
+---
+name: my-skill
+description: ...
+disable-model-invocation: true
+---
+```
+
+Skip this on pipeline-mandatory skills (`define-the-problem`, `systems-analysis`, `fat-marker-sketch`) and on skills where auto-trigger value outweighs false-positive cost (`adr`, `sdr`, `tech-radar`).
+
 ### Add an Agent
 
 Create a `.md` file in `agents/` with frontmatter:

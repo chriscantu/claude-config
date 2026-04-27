@@ -4,6 +4,7 @@ description: >
   Use when the user says /swot, "landscape analysis", "SWOT analysis", "strengths
   and weaknesses", or wants to capture, review, or challenge organizational
   observations.
+disable-model-invocation: true
 ---
 
 # SWOT Landscape Analysis
