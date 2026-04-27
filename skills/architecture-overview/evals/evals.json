@@ -19,8 +19,8 @@
       "summary": "Env-var-only externals (SendGrid in repo-b) must be flagged with ⚠ inferred.",
       "prompt": "/architecture-overview skills/architecture-overview/evals/fixtures/repos.yaml — produce the landscape doc inline. Focus on Section 4 External Integrations.",
       "assertions": [
-        { "type": "regex", "pattern": "(SendGrid|sendgrid).{0,120}⚠", "flags": "is", "description": "SendGrid (env-var-derived) carries ⚠ inferred flag in proximity to the service-name claim" },
-        { "type": "regex", "pattern": "⚠\\s*inferred", "flags": "i", "description": "Doc contains explicit '⚠ inferred' flagging anywhere — confirms inference language is in use" }
+        { "type": "regex", "pattern": "(SendGrid|sendgrid)[\\s\\S]{0,250}⚠|⚠[\\s\\S]{0,250}(SendGrid|sendgrid)", "flags": "i", "description": "SendGrid (env-var-derived) carries ⚠ flag within 250 chars (bidirectional — handles table-row layout where flag may precede service name)" },
+        { "type": "regex", "pattern": "⚠\\s*inferred", "flags": "i", "description": "Doc contains explicit '⚠ inferred' flagging — confirms inference discipline is in use" }
       ]
     },
     {
