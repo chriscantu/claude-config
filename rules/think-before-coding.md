@@ -82,11 +82,12 @@ blocker.
 
 - Bug fixes where the cause is diagnosed and the fix is mechanical
 - Trivial single-line edits (typo, comment, formatting)
-- Trivial / Mechanical tier per `planning.md` Scope Calibration (canonical
-  criteria definition lives there — do not restate to avoid drift). The
-  Interpretations and Simpler-Path slots are resolved by the tier's
-  unambiguous-approach criterion (no viable alternatives to weigh).
-  Assumptions section still applies — state them.
+- [Trivial / Mechanical tier](planning.md#trivial-tier-criteria) per
+  `planning.md` Scope Calibration — canonical criteria live at the
+  anchor; do not restate to avoid drift. The Interpretations and
+  Simpler-Path slots are resolved by the tier's unambiguous-approach
+  criterion (no viable alternatives to weigh). Assumptions section
+  still applies — state them.
 - Explicitly-scoped exploration ("just poke around the file")
 - Expert Fast-Track per `planning.md` — if the user has already named the
   problem, stakes, evidence, AND chosen an approach, the preamble condenses

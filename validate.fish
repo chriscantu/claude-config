@@ -357,9 +357,14 @@ set drift_registry \
     "Low blast radius (no cross-team|planning.md|Trivial-tier blast-radius criterion"
 
 for entry in $drift_registry
-    set pattern (string split -m 2 "|" $entry)[1]
-    set canonical (string split -m 2 "|" $entry)[2]
-    set label (string split -m 2 "|" $entry)[3]
+    set parts (string split -m 2 "|" $entry)
+    if test (count $parts) -ne 3
+        fail "malformed drift-registry entry (expected 3 |-separated fields): $entry"
+        continue
+    end
+    set pattern $parts[1]
+    set canonical $parts[2]
+    set label $parts[3]
 
     set hits (grep -lF -- "$pattern" $repo_dir/rules/*.md 2>/dev/null)
     set drift_found 0
@@ -374,6 +379,44 @@ for entry in $drift_registry
 
     if test $drift_found -eq 0
         pass "$label: no drift (canonical home rules/$canonical)"
+    end
+end
+
+echo ""
+
+# 1j. Stable anchor presence
+# Some rule constructs are promoted to citable anchors so dependent rules can
+# deep-link via `[text](planning.md#kebab-name)`. Auto-generated heading IDs
+# are fragile (em dashes, punctuation, renames break them silently); explicit
+# `<a id="…">` anchors are the load-bearing contract. This phase asserts each
+# registered anchor is still present in its canonical home.
+echo "── Stable anchor presence"
+
+# Registry: <anchor-id>|<canonical-file-basename>|<human-name>
+set anchor_registry \
+    "trivial-tier-criteria|planning.md|Trivial/Mechanical tier criteria"
+
+for entry in $anchor_registry
+    set parts (string split -m 2 "|" $entry)
+    if test (count $parts) -ne 3
+        fail "malformed anchor-registry entry (expected 3 |-separated fields): $entry"
+        continue
+    end
+    set anchor_id $parts[1]
+    set canonical $parts[2]
+    set label $parts[3]
+
+    set anchor_path "$repo_dir/rules/$canonical"
+    if not test -f $anchor_path
+        fail "anchor home missing: rules/$canonical"
+        continue
+    end
+
+    set marker "<a id=\"$anchor_id\"></a>"
+    if grep -qF -- "$marker" $anchor_path
+        pass "$label: anchor #$anchor_id present in rules/$canonical"
+    else
+        fail "$label: missing $marker in rules/$canonical (deep-links from dependents will dangle)"
     end
 end
 

@@ -52,13 +52,35 @@ validator. Phases relevant to rules:
   silent breakage when the anchor file is renamed or its sections
   restructured (issue #135).
 - **1g. Canonical-string drift** — fails if a canonical rule string
-  (e.g. the Trivial/Mechanical tier criteria, defined in
-  `planning.md`) is restated outside its canonical home. "Do not
-  restate" markers in non-canonical files are editor hints; this
-  phase is the enforcement.
+  (e.g. the [Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria),
+  defined in `planning.md`) is restated outside its canonical home.
+  "Do not restate" markers in non-canonical files are editor hints;
+  this phase is the enforcement.
+- **1j. Stable anchor presence** — fails if `planning.md` loses an
+  explicit `<a id="…">` anchor that dependent rules deep-link to.
+  Currently guards `#trivial-tier-criteria`; add to the registry when
+  promoting another rule construct to a citable anchor.
 
-Use both in pre-push hooks or CI to catch the silent-failure modes
-(rule not loaded; rule restated and drifted; anchor structurally broken).
+Use these in pre-push hooks or CI to catch the silent-failure modes
+(rule not loaded; rule restated and drifted; anchor structurally broken;
+stable deep-link target removed).
+
+## Stable anchor pattern
+
+When a rule construct (criteria block, decision table, definition list)
+is referenced from other rules, promote it to a citable anchor:
+
+1. Place an explicit `<a id="kebab-name"></a>` line directly above the
+   heading. Auto-generated GitHub heading IDs are fragile — punctuation,
+   em dashes, and renames silently break links.
+2. Dependent rules deep-link via
+   `[Display Text](planning.md#kebab-name)`.
+3. Add the anchor ID to `validate.fish` Phase 1j's registry so future
+   removal fails CI.
+
+The anchor is the contract; the heading is presentation. Treat the
+anchor ID as load-bearing — never rename without updating every
+dependent.
 
 ## Why the silent-failure mode matters
 
