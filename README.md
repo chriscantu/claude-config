@@ -8,6 +8,8 @@
 
 ## Install
 
+**Requires [fish shell](https://fishshell.com/)** (`brew install fish` on macOS, `apt install fish` on Debian). The bash entrypoint bootstraps fish for you.
+
 ```sh
 git clone https://github.com/chriscantu/claude-config.git ~/repos/claude-config
 cd ~/repos/claude-config
@@ -19,7 +21,9 @@ bash install.sh
 fish install.fish
 ```
 
-Both scripts do the same thing: symlink everything into `~/.claude/`. Existing files are backed up with a `.bak` extension. Re-running is safe — symlinks are replaced, not duplicated.
+Both entrypoints delegate to `bin/link-config.fish --install`, the single source of truth for symlink behavior. Existing real files are backed up with a `.bak` extension. Re-running is safe — symlinks are replaced, not duplicated.
+
+To re-sync after adding/removing rules, skills, agents, commands, or hooks **without** backing up real files (refuses on conflict instead): run `fish bin/link-config.fish`. CI uses `fish bin/link-config.fish --check` for read-only verification.
 
 ### Post-Install: Customize `global/CLAUDE.md`
 
