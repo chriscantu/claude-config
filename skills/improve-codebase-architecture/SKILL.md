@@ -70,11 +70,12 @@ Key principles (see [LANGUAGE.md](references/LANGUAGE.md) for the full list):
 - **The interface is the test surface.**
 - **One adapter = hypothetical seam. Two adapters = real seam.**
 
-This skill is _informed_ by the project's domain model, if one is documented.
-The domain language gives names to good seams; ADRs record decisions the skill
-should not re-litigate. A future `domain-model` skill (issue
-[#169](https://github.com/chriscantu/claude-config/issues/169)) will formalize
-this convention; until then, proceed silently when these files are absent.
+This skill is _informed_ by the project's `CONTEXT.md` and ADRs in `docs/adr/`,
+if present. The domain language gives names to good seams; ADRs record decisions
+the skill should not re-litigate. A future `domain-model` skill (issue
+[#169](https://github.com/chriscantu/claude-config/issues/169)), if it ships,
+would formalize this convention; until then, proceed silently when these files
+are absent.
 
 ## Process
 
@@ -137,9 +138,11 @@ Side effects happen inline as decisions crystallize:
 
 - **Naming a deepened module after a concept not in `CONTEXT.md`?** If a
   `CONTEXT.md` exists in the repo, add the term there inline (same discipline
-  the future `domain-model` skill, issue #169, will codify). If no
+  the future `domain-model` skill, issue #169, would codify if it ships). If no
   `CONTEXT.md` exists, don't create one upfront — note the term in the
-  recommendation document instead.
+  recommendation document instead. In multi-context repos with a `CONTEXT-MAP.md`,
+  update the `CONTEXT.md` whose context owns the deepened module; if ownership
+  is ambiguous, ask the user before writing.
 - **Sharpening a fuzzy term during the conversation?** Update `CONTEXT.md` right
   there if it exists.
 - **User rejects the candidate with a load-bearing reason?** Offer an ADR, framed
@@ -150,17 +153,32 @@ Side effects happen inline as decisions crystallize:
 - **Want to explore alternative interfaces for the deepened module?** See
   [INTERFACE-DESIGN.md](references/INTERFACE-DESIGN.md).
 
+### Loop and exit conditions
+
+The grilling loop is not open-ended. Use these explicit exits:
+
+- **User converges on a direction** → proceed to Step 4 (Handoff).
+- **User wants to explore another candidate** → loop back to Step 2's selection
+  prompt (do NOT re-run Step 1 exploration; the candidate list still stands).
+- **User rejects all candidates with load-bearing reasons** → offer one batched
+  ADR covering the reasoning rather than N separate ADRs, then exit cleanly
+  with "no actionable opportunities surfaced this pass."
+- **User goes silent or defers** → state the current direction and ask whether
+  to (a) save it as a draft recommendation, (b) escalate to interface-design
+  exploration, or (c) exit. Do not loop without a fresh user signal.
+
 ### 4. Handoff
 
 When grilling settles on a deepening direction that requires code change, the
-skill exits with a recommendation document. Implementation follows the standard
-pipeline — re-enter at `superpowers:writing-plans` if non-trivial, or proceed
-directly if the work is Trivial-tier per `rules/planning.md` Scope Calibration.
+skill exits with a recommendation document. The recommendation is the **input**
+to the implementation pipeline (DTP → Systems Analysis → brainstorming →
+Fat Marker Sketch as warranted by `rules/planning.md` Scope Calibration), **not
+a substitute for it**. Trivial-tier work bypasses the pipeline; everything else
+runs it. Re-enter at `superpowers:writing-plans` if non-trivial.
 
-The skill does **not** auto-invoke `writing-plans` or any implementation skill.
-This preserves user agency to defer the implementation, batch multiple deepening
-recommendations into one plan, or hand the recommendation to a different
-session.
+The skill does **not** auto-invoke `writing-plans` or any implementation skill —
+preserves user agency to defer, batch recommendations, or hand off to a
+different session.
 
 ## Composition With Other Skills
 
@@ -173,3 +191,21 @@ session.
   with deepening recommendations.
 - **`superpowers:writing-plans`** — invoked by the user AFTER this skill exits,
   if the recommendation warrants a multi-step implementation plan.
+
+## Known Gaps (v0.1.0 — Experimental)
+
+The skill is shipped as `status: experimental, version: 0.1.0` because the
+following are not yet battle-tested:
+
+- **Grilling-loop termination** — exit paths above are reasoned, not validated
+  in repeated real-world use. May need a hard turn-count cap.
+- **Sub-agent divergence** — the parallel design pattern in
+  [INTERFACE-DESIGN.md](references/INTERFACE-DESIGN.md) relies on labeled
+  constraints to enforce divergence; convergence hasn't been measured.
+- **Multi-context `CONTEXT-MAP.md` targeting** — the inline-update rule for
+  multi-context repos is asserted, not exercised. Likely refinement on first
+  real use.
+- **`domain-model` skill (issue #169)** not yet ported — this skill works
+  without it but cross-references soften in its absence.
+
+Graduation to v1.0 requires resolving these.
