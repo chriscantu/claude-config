@@ -1,6 +1,7 @@
 ---
 name: stakeholder-map
 description: Use when the user says /stakeholder-map, asks to build a stakeholder/political-topology map for a new leadership role, wants to review coverage of their relationship-building, or asks for meet-in-what-order guidance during onboarding.
+disable-model-invocation: true
 ---
 
 # Stakeholder Map

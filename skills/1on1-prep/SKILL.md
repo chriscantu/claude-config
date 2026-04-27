@@ -1,6 +1,7 @@
 ---
 name: 1on1-prep
 description: Use when the user says /1on1-prep, "prep for my 1:1", "1:1 with", "capture my 1:1", or wants to prepare for or record notes from a one-on-one meeting.
+disable-model-invocation: true
 ---
 
 # 1:1 Prep & Capture

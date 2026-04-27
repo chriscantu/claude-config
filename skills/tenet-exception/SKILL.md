@@ -1,6 +1,7 @@
 ---
 name: tenet-exception
 description: Use when the user says /tenet-exception or proposes a formal, documented deviation from an established engineering tenet. Also triggers for "request a tenet exception", "deviate from a tenet", or "exception to tenet".
+disable-model-invocation: true
 ---
 
 # Tenet Exception Request

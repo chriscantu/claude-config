@@ -7,6 +7,7 @@ description: >
   doc with code citations and flagged inferences. Do NOT use for single-repo deep
   dive (use /onboard), new-system design (use /sdr), or organizational/people
   landscape analysis (use /swot).
+disable-model-invocation: true
 ---
 
 # /architecture-overview — Whole-System Landscape
