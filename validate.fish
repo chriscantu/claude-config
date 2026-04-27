@@ -299,7 +299,7 @@ echo ""
 # 1f. Rules anchor labels
 # rules/planning.md is the SINGLE anchor for pressure-framing-floor mechanics.
 # Four dependent rules delegate to it by reference. If a labeled block disappears
-# or is reworded, the anchor breaks silently. (Previously enforced by bin/validate.fish.)
+# or is reworded, the anchor breaks silently.
 echo "── Rules anchor labels"
 
 set anchor_file "$repo_dir/rules/planning.md"
@@ -346,7 +346,7 @@ echo ""
 # Some rule values are defined canonically in one file and referenced — but not
 # restated — by other rules. "Do not restate" markers are editor hints, not
 # enforcement. This phase greps for canonical strings outside their canonical
-# home and fails if found. (Previously enforced by bin/check-rules-drift.fish.)
+# home and fails if found.
 echo "── Canonical-string drift"
 
 # Registry: <pattern>|<canonical-file-basename>|<human-name>
