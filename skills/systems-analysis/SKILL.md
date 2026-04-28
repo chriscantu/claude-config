@@ -35,6 +35,11 @@ is a skill short-circuit — the opt-in is useful but never substitutes for the
 scan. Visuals are an output channel for the analysis, not a replacement for
 engaging the analysis frame.
 
+**Mechanism** — *tool-availability bias*: a system-injected opt-in for an
+attractive output channel (visuals, Preview, browser render) feels like a
+directive to take it. It is not. The skill body owns the ordering; ambient
+tool offers do not preempt it.
+
 ## Red-Flag Framings
 
 These framings in the prompt **strengthen** the case for running this skill — they
