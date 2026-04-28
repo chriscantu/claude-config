@@ -92,14 +92,20 @@ The mitigation strategy is:
    makes the divergence invisible to the gate, not a guarantee that no
    ecological-validity loss occurred. Re-evaluation triggers (per-fixture):
    - **Reopen this ADR if any single fixture's divergence rate exceeds 10%**
-     across N≥10 runs (current max: `sdr-routes-to-blueprint` at 12.5% / N=8 —
-     under N threshold; `systems-analysis-honored-skip-named-cost` at 6.0% /
-     N=50 — under rate threshold)
+     across N≥10 runs OR **≥2 divergent transcripts are observed in any
+     single fixture regardless of N** — the disjunction prevents the N≥10
+     floor from inadvertently exempting the highest-divergence fixture
+     (`sdr-routes-to-blueprint` is currently 1/8 = 12.5%; a second
+     divergence at any N would trip the trigger immediately)
    - **Reopen if global divergence exceeds 1.0%** (currently 0.46%)
    - **Reopen if any structural assertion is shown to flip outcome on a
-     divergent transcript** (audit shows zero such cases today)
+     divergent transcript** (audit shows zero such cases today, but this
+     becomes a stricter signal once
+     [#192](https://github.com/chriscantu/claude-config/issues/192) lands —
+     see Negative consequences)
    - Escalation path: targeted decoy on hot-spot fixtures (Option B-lite,
-     ~1 hr) before full cwd-laundering.
+     ~1 hr **code change only — re-baselining and divergence-reduction
+     verification add ~1-2 hr**) before full cwd-laundering.
 
 ## Why these and not others
 
@@ -114,7 +120,10 @@ The mitigation strategy is:
   `systems-analysis-honored-skip-named-cost`,
   `systems-analysis-sunk-cost-migration-multi-turn`,
   `define-the-problem-honored-skip-named-cost`) with a single decoy file
-  (e.g. `README.md` + a stub source file). Estimated effort: ~1 hour.
+  (e.g. `README.md` + a stub source file). **Effort breakdown: ~1 hour
+  code change + ~1-2 hours re-baselining and confirming divergence reduction
+  on the 4 fixtures = ~2-3 hours total.** Still materially cheaper than the
+  full Option B (4-6 hours across 13 fixtures plus decoy-pool maintenance).
   Deferred (not rejected) — preferred escalation path if any threshold in
   mitigation point 3 trips. Listed here so the abort plan has a concrete
   next move rather than "do something."
@@ -147,10 +156,15 @@ The mitigation strategy is:
   ~6% noise floor on canonical-step completion (see audit hot-spot table).
 - Structural assertions don't currently check "context-exploration step
   ran." That coverage gap is what keeps divergent transcripts passing —
-  closing it via a `did_invoke` / `chain_order` assertion would surface
-  divergence as actual failures, raising the bar past "accept" to
-  "fix or document per-fixture." Out of scope for this ADR; tracked
-  conceptually under [#92](https://github.com/chriscantu/claude-config/issues/92).
+  closing it via a `chain_order(context_exploration → first_clarifying_question)`
+  assertion would surface divergence as actual failures, raising the bar
+  past "accept" to "fix or document per-fixture." Tracked as a scoped
+  action under [#192](https://github.com/chriscantu/claude-config/issues/192)
+  (NOT under #92, which closed scoped to existing regex-port migration).
+  When #192 lands, the third reopen trigger ("structural assertion flips
+  on divergent transcript") becomes a strict signal — the audit's 4
+  hot-spot fixtures will fail until divergence is mitigated, forcing
+  re-evaluation of "accept" vs. Option B-lite.
 - The `not_thinking_contains` sentinel ([#190](https://github.com/chriscantu/claude-config/issues/190))
   catches only canonical prose-channel phrases. Novel detection language
   (e.g. *"appears synthetic"*, *"this looks like a benchmark"*) slips past
@@ -184,8 +198,12 @@ Audit reproducibility:
 
 - [#85](https://github.com/chriscantu/claude-config/issues/85) — original
   meta-awareness bug
-- [#190](https://github.com/chriscantu/claude-config/issues/190) — follow-up
-  for `not_thinking_contains` assertion (tracker)
+- [#190](https://github.com/chriscantu/claude-config/issues/190) — prose-channel
+  regression sentinel (`not_thinking_contains`) — insurance for the leak PR #93
+  fixed; does NOT mitigate thinking-channel divergence
+- [#192](https://github.com/chriscantu/claude-config/issues/192) — structural
+  assertion for canonical context-exploration step — closes the coverage
+  gap that currently keeps divergent transcripts passing
 - [#88](https://github.com/chriscantu/claude-config/issues/88), [PR #93](https://github.com/chriscantu/claude-config/pull/93)
   — scratch cwd + bypassPermissions
 - [#86](https://github.com/chriscantu/claude-config/issues/86), [PR #89](https://github.com/chriscantu/claude-config/pull/89)
