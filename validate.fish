@@ -6,8 +6,14 @@
 # Phase 2: Concept coverage (required behavioral concepts exist somewhere in config)
 
 # CLAUDE_CONFIG_REPO_DIR env override enables fixture-based testing of validation
-# phases without requiring the real claude-config repo on disk.
+# phases without requiring the real claude-config repo on disk. Validate the
+# override points at an existing dir — silently accepting a typo'd path would
+# make every phase scan empty globs and emit false passes.
 if set -q CLAUDE_CONFIG_REPO_DIR; and test -n "$CLAUDE_CONFIG_REPO_DIR"
+    if not test -d "$CLAUDE_CONFIG_REPO_DIR"
+        echo "Error: CLAUDE_CONFIG_REPO_DIR=$CLAUDE_CONFIG_REPO_DIR is not a directory" >&2
+        exit 1
+    end
     set repo_dir $CLAUDE_CONFIG_REPO_DIR
 else
     set repo_dir (cd (dirname (status filename)); and pwd)
@@ -381,11 +387,13 @@ else
 
         # No 2>/dev/null: surface permission errors instead of treating an
         # unreadable rule file as a silent pass. Capture grep exit status —
-        # 0 = match, 1 = no match, 2 = error (e.g. permission denied).
+        # 0 = match, 1 = no match, anything else = error (2 for I/O,
+        # >128 for signals). Whitelist 0/1 rather than blacklisting 2 so a
+        # future grep variant returning a novel error code still fails loudly.
         set hits (grep -lF -- "$pattern" $rules_glob)
         set grep_status $status
-        if test $grep_status -eq 2
-            fail "$label: grep returned error status 2 (permission denied or I/O error) while scanning rules/*.md"
+        if test $grep_status -ne 0; and test $grep_status -ne 1
+            fail "$label: grep returned error status $grep_status (permission denied, I/O error, or signal) while scanning rules/*.md"
             continue
         end
 
