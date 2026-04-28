@@ -724,7 +724,7 @@ async function main() {
     }
 
     const chain = aggregateChainSignals(
-      turnSignals.map((s) => s ?? { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" as const }),
+      turnSignals.map((s) => s ?? { thinkingText: "", finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" as const }),
     );
     const final = (e.final_assertions ?? []).map((a) => ({
       assertion: a,

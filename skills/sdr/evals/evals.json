@@ -260,6 +260,24 @@
               "flags": "i",
               "tier": "diagnostic",
               "description": "Diagnostic: DTP stage marker emitted. Demoted per observed turn-1 flakiness \u2014 see system-overview eval description for rationale."
+            },
+            {
+              "type": "not_contains",
+              "value": "This is an eval test case",
+              "tier": "required",
+              "description": "Prose-channel guard (ADR #0011 / PR #93): user-visible preamble that originally tripped #85 must NOT appear in turn 1 finalText. Required-tier \u2014 regression sentinel for PR #93's scratch-cwd fix."
+            },
+            {
+              "type": "not_contains",
+              "value": "This is an evaluation test case",
+              "tier": "required",
+              "description": "Prose-channel guard (ADR #0011 / PR #93): variant phrase. Required-tier \u2014 added for parity with DTP and systems-analysis sentinel sets."
+            },
+            {
+              "type": "not_thinking_contains",
+              "value": "This is an eval test case",
+              "tier": "diagnostic",
+              "description": "Thinking-channel transparency (ADR #0011): private-reasoning detection. Diagnostic-tier \u2014 accepted at current rates; on fire, log only."
             }
           ]
         },

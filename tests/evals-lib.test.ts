@@ -54,6 +54,7 @@ describe("reliabilityOf()", () => {
 function sig(finalText: string, extra?: Partial<Signals>): Signals {
   return {
     finalText,
+    thinkingText: extra?.thinkingText ?? "",
     toolUses: extra?.toolUses ?? [],
     skillInvocations: extra?.skillInvocations ?? [],
     terminalState: extra?.terminalState ?? (finalText === "" ? "empty" : "assistant"),
@@ -130,6 +131,42 @@ describe("evaluate()", () => {
     });
     expect(evaluate(a, signals).ok).toBe(false);
     expect(evaluate(a, sig("")).ok).toBe(true);
+  });
+
+  test("thinking_contains — matches substring inside thinkingText", () => {
+    const a = v({ type: "thinking_contains", value: "rationale", description: "d" });
+    const hit = sig("", { thinkingText: "weighing the rationale before acting" });
+    const miss = sig("", { thinkingText: "no relevant content here" });
+    expect(evaluate(a, hit).ok).toBe(true);
+    expect(evaluate(a, miss).ok).toBe(false);
+  });
+
+  test("thinking_contains — fails cleanly when thinkingText empty", () => {
+    const a = v({ type: "thinking_contains", value: "anything", description: "d" });
+    const r = evaluate(a, sig("finalText present", { thinkingText: "" }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toContain("anything");
+  });
+
+  test("thinking_contains — does NOT match against finalText", () => {
+    // Sentinel for the channel separation: a phrase in finalText must not
+    // satisfy a thinking-channel assertion.
+    const a = v({ type: "thinking_contains", value: "eval environment", description: "d" });
+    const r = evaluate(a, sig("eval environment", { thinkingText: "" }));
+    expect(r.ok).toBe(false);
+  });
+
+  test("not_thinking_contains — fails when forbidden phrase present in thinking", () => {
+    const a = v({ type: "not_thinking_contains", value: "eval environment", description: "d" });
+    const leak = sig("clean output", { thinkingText: "this is an eval environment" });
+    const ok = sig("clean output", { thinkingText: "regular reasoning" });
+    expect(evaluate(a, leak).ok).toBe(false);
+    expect(evaluate(a, ok).ok).toBe(true);
+  });
+
+  test("not_thinking_contains — passes when thinkingText empty (silent-fire flagged in metaCheck)", () => {
+    const a = v({ type: "not_thinking_contains", value: "claude-eval-", description: "d" });
+    expect(evaluate(a, sig("output", { thinkingText: "" })).ok).toBe(true);
   });
 
   test("contains against empty finalText fails cleanly", () => {
@@ -402,6 +439,20 @@ describe("parseStreamJson()", () => {
   });
 });
 
+describe("validateAssertion() — thinking-channel variants", () => {
+  test("thinking_contains / not_thinking_contains require non-empty value", () => {
+    expect(() => v({ type: "thinking_contains", value: "x", description: "d" } as Assertion)).not.toThrow();
+    expect(() => v({ type: "not_thinking_contains", value: "x", description: "d" } as Assertion)).not.toThrow();
+    expect(() => v({ type: "thinking_contains", value: "", description: "d" } as Assertion)).toThrow(/value/);
+    expect(() => v({ type: "not_thinking_contains", value: "", description: "d" } as Assertion)).toThrow(/value/);
+  });
+
+  test("reliabilityOf classifies thinking-channel assertions as text-tier", () => {
+    expect(reliabilityOf("thinking_contains")).toBe("text");
+    expect(reliabilityOf("not_thinking_contains")).toBe("text");
+  });
+});
+
 describe("validateAssertion() — multi-turn variants", () => {
   test("skill_invoked_in_turn — requires positive integer turn and non-empty skill", () => {
     expect(() => v({ type: "skill_invoked_in_turn", turn: 1, skill: "foo", description: "d" } as Assertion)).not.toThrow();
@@ -502,6 +553,51 @@ describe("extractSignals()", () => {
     const s = extractSignals(events);
     expect(s.toolUses[0]?.input).toEqual({});
     expect(s.skillInvocations.length).toBe(0);
+  });
+
+  test("extracts thinking blocks into thinkingText, joined by newline", () => {
+    const { events } = parseStreamJson(
+      [
+        `{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"first reasoning"}]}}`,
+        `{"type":"assistant","message":{"content":[{"type":"text","text":"visible answer"}]}}`,
+        `{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"second reasoning"}]}}`,
+      ].join("\n"),
+    );
+    const s = extractSignals(events);
+    expect(s.thinkingText).toBe("first reasoning\nsecond reasoning");
+    expect(s.finalText).toBe("visible answer");
+  });
+
+  test("thinkingText is empty string when no thinking blocks present", () => {
+    const { events } = parseStreamJson(
+      `{"type":"assistant","message":{"content":[{"type":"text","text":"only text"}]}}`,
+    );
+    const s = extractSignals(events);
+    expect(s.thinkingText).toBe("");
+  });
+
+  test("thinking + tool_use + text interleaved in a single content array all extract correctly", () => {
+    // Realistic stream shape: assistant message contains thinking, then a
+    // tool call, then visible text. Guard against a future refactor that
+    // early-returns on the first non-text block and silently drops thinking.
+    const { events } = parseStreamJson(
+      `{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"plan"},{"type":"tool_use","name":"Read","input":{"file_path":"/x"}},{"type":"text","text":"answer"}]}}`,
+    );
+    const s = extractSignals(events);
+    expect(s.thinkingText).toBe("plan");
+    expect(s.toolUses.map((t) => t.name)).toEqual(["Read"]);
+    expect(s.finalText).toBe("answer");
+  });
+
+  test("thinking block with non-string field is ignored, not crashed on", () => {
+    const { events } = parseStreamJson(
+      [
+        `{"type":"assistant","message":{"content":[{"type":"thinking","thinking":null}]}}`,
+        `{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"valid"}]}}`,
+      ].join("\n"),
+    );
+    const s = extractSignals(events);
+    expect(s.thinkingText).toBe("valid");
   });
 
   test("extracts skill invocations via input.skill", () => {
@@ -777,17 +873,17 @@ describe("aggregateChainSignals()", () => {
   }
 
   test("per_turn preserves the full signal for each turn", () => {
-    const t1: Signals = { finalText: "one", toolUses: [], skillInvocations: [inv("a")], terminalState: "result" };
-    const t2: Signals = { finalText: "two", toolUses: [], skillInvocations: [inv("b"), inv("c")], terminalState: "result" };
+    const t1: Signals = { thinkingText: "", finalText: "one", toolUses: [], skillInvocations: [inv("a")], terminalState: "result" };
+    const t2: Signals = { thinkingText: "", finalText: "two", toolUses: [], skillInvocations: [inv("b"), inv("c")], terminalState: "result" };
     const chain = aggregateChainSignals([t1, t2]);
     expect(chain.per_turn).toHaveLength(2);
     expect(chain.per_turn[0]).toBe(t1);
   });
 
   test("per_turn_winner returns the first skill invocation per turn, or undefined if none fired", () => {
-    const t1: Signals = { finalText: "", toolUses: [], skillInvocations: [inv("a"), inv("b")], terminalState: "result" };
-    const t2: Signals = { finalText: "", toolUses: [], skillInvocations: [], terminalState: "result" };
-    const t3: Signals = { finalText: "", toolUses: [], skillInvocations: [inv("c")], terminalState: "result" };
+    const t1: Signals = { thinkingText: "", finalText: "", toolUses: [], skillInvocations: [inv("a"), inv("b")], terminalState: "result" };
+    const t2: Signals = { thinkingText: "", finalText: "", toolUses: [], skillInvocations: [], terminalState: "result" };
+    const t3: Signals = { thinkingText: "", finalText: "", toolUses: [], skillInvocations: [inv("c")], terminalState: "result" };
     const chain = aggregateChainSignals([t1, t2, t3]);
     expect(chain.per_turn_winner).toEqual(["a", undefined, "c"]);
   });
@@ -808,6 +904,7 @@ describe("evaluateChain()", () => {
     return {
       per_turn: winners.map((w) => ({
         finalText: "",
+        thinkingText: "",
         toolUses: [],
         skillInvocations: w ? [inv(w)] : [],
         terminalState: "result" as const,
@@ -829,6 +926,7 @@ describe("evaluateChain()", () => {
     const cs: ChainSignals = {
       per_turn: [{
         finalText: "",
+        thinkingText: "",
         toolUses: [],
         skillInvocations: [inv("winner"), inv("helper")],
         terminalState: "result" as const,
@@ -886,6 +984,23 @@ describe("evaluateChain()", () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.detail).toMatch(/runner bug|non-chain/i);
   });
+
+  test("routing bug: thinking_contains called on chain returns runner-bug failure, not silent pass", () => {
+    // Thinking-channel assertions are per-turn, not chain-level. If a future
+    // refactor drops them from the routing-guard switch in evaluateChain,
+    // they'd silently fall through to the default arm. Lock the rejection.
+    const a = v({ type: "thinking_contains", value: "x", description: "d" });
+    const r = evaluateChain(a, chainOf(["x"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/runner bug|non-chain/i);
+  });
+
+  test("routing bug: not_thinking_contains called on chain returns runner-bug failure", () => {
+    const a = v({ type: "not_thinking_contains", value: "x", description: "d" });
+    const r = evaluateChain(a, chainOf(["x"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/runner bug|non-chain/i);
+  });
 });
 
 describe("evaluate() — routing guard", () => {
@@ -894,7 +1009,7 @@ describe("evaluate() — routing guard", () => {
     // evaluate(). Guards against the single-turn runner accidentally consuming
     // a chain-level assertion if a schema validator bug ever let one through.
     const a = v({ type: "chain_order", skills: ["a"], description: "d" });
-    const r = evaluate(a, { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" });
+    const r = evaluate(a, { thinkingText: "", finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.detail).toMatch(/runner bug|chain-level/i);
   });
@@ -998,7 +1113,7 @@ describe("validateAssertion() — tool_input_matches", () => {
 
 describe("evaluate() — tool_input_matches", () => {
   function sigWithTools(tools: Array<{ name: string; input: Record<string, unknown> }>): Signals {
-    return { finalText: "", toolUses: tools, skillInvocations: [], terminalState: "result" };
+    return { thinkingText: "", finalText: "", toolUses: tools, skillInvocations: [], terminalState: "result" };
   }
 
   test("passes when a tool_use has the matching tool name + input key/value", () => {
@@ -1113,7 +1228,7 @@ describe("validateAssertion() — not_tool_input_matches", () => {
 
 describe("evaluate() — not_tool_input_matches", () => {
   function sigWithTools(tools: Array<{ name: string; input: Record<string, unknown> }>): Signals {
-    return { finalText: "", toolUses: tools, skillInvocations: [], terminalState: "result" };
+    return { thinkingText: "", finalText: "", toolUses: tools, skillInvocations: [], terminalState: "result" };
   }
 
   test("passes when no tool_use has the matching tool name", () => {
@@ -1208,6 +1323,67 @@ describe("evaluate() — not_tool_input_matches", () => {
   });
 });
 
+describe("metaCheck() — not_thinking_contains silent-fire", () => {
+  test("passes against empty thinkingText AND terminalState=empty → silent_fire (run was meaningless)", () => {
+    const a = v({ type: "not_thinking_contains", value: "eval environment", description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: { thinkingText: "", finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(false);
+    expect(out.silentFireCount).toBe(1);
+    expect(out.decisions[0].kind).toBe("silent_fire");
+  });
+
+  test("passes against empty thinkingText BUT terminalState=result → real pass (completed run, model just didn't think)", () => {
+    // Tightened policy: a successful result-tier run that produced no
+    // thinking blocks (extended thinking disabled, tool-only run, model
+    // that doesn't emit thinking) is meaningful evidence — the negative
+    // pass is real, not silent-fire. Without this, every non-thinking
+    // model would false-positive silent-fire.
+    const a = v({ type: "not_thinking_contains", value: "eval environment", description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: { thinkingText: "", finalText: "visible output", toolUses: [], skillInvocations: [], terminalState: "result" },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(true);
+    expect(out.silentFireCount).toBe(0);
+    expect(out.decisions[0].kind).toBe("pass");
+  });
+
+  test("passes against NON-empty thinkingText (model thought, just didn't leak the phrase) → real pass", () => {
+    const a = v({ type: "not_thinking_contains", value: "eval environment", description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: {
+          finalText: "output",
+          thinkingText: "ordinary reasoning about the problem",
+          toolUses: [],
+          skillInvocations: [],
+          terminalState: "result",
+        },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(true);
+    expect(out.silentFireCount).toBe(0);
+    expect(out.decisions[0].kind).toBe("pass");
+  });
+});
+
 describe("metaCheck() — not_tool_input_matches silent-fire", () => {
   test("passes against zero tool uses → silent_fire (no evidence)", () => {
     const a = v({
@@ -1221,7 +1397,7 @@ describe("metaCheck() — not_tool_input_matches silent-fire", () => {
       perTurn: [{
         assertion: a,
         result: { ok: true, description: "d" },
-        signals: { finalText: "text", toolUses: [], skillInvocations: [], terminalState: "result" },
+        signals: { thinkingText: "", finalText: "text", toolUses: [], skillInvocations: [], terminalState: "result" },
         turnIndex: 0,
       }],
       final: [],
@@ -1245,6 +1421,7 @@ describe("metaCheck() — not_tool_input_matches silent-fire", () => {
         result: { ok: true, description: "d" },
         signals: {
           finalText: "text",
+          thinkingText: "",
           toolUses: [{ name: "Bash", input: { command: "ls" } }],
           skillInvocations: [],
           terminalState: "result",
@@ -1261,10 +1438,10 @@ describe("metaCheck() — not_tool_input_matches silent-fire", () => {
 
 describe("metaCheck()", () => {
   function emptySig(): Signals {
-    return { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" };
+    return { thinkingText: "", finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" };
   }
   function nonEmptySig(text = "hello"): Signals {
-    return { finalText: text, toolUses: [], skillInvocations: [], terminalState: "result" };
+    return { thinkingText: "", finalText: text, toolUses: [], skillInvocations: [], terminalState: "result" };
   }
 
   test("required-tier positive pass → decisions=[pass], requiredOk=true", () => {
@@ -1402,8 +1579,8 @@ describe("tallyEval() + suiteOk()", () => {
     const a2 = v({ type: "contains", value: "y", description: "d2", tier: "diagnostic" } as Assertion);
     const out = metaCheck({
       perTurn: [
-        { assertion: a1, result: { ok: true, description: "d1" }, signals: { finalText: "x", toolUses: [], skillInvocations: [], terminalState: "result" }, turnIndex: 0 },
-        { assertion: a2, result: { ok: false, description: "d2", detail: "missed" }, signals: { finalText: "x", toolUses: [], skillInvocations: [], terminalState: "result" }, turnIndex: 0 },
+        { assertion: a1, result: { ok: true, description: "d1" }, signals: { thinkingText: "", finalText: "x", toolUses: [], skillInvocations: [], terminalState: "result" }, turnIndex: 0 },
+        { assertion: a2, result: { ok: false, description: "d2", detail: "missed" }, signals: { thinkingText: "", finalText: "x", toolUses: [], skillInvocations: [], terminalState: "result" }, turnIndex: 0 },
       ],
       final: [],
     });
@@ -1424,7 +1601,7 @@ describe("tallyEval() + suiteOk()", () => {
       perTurn: [{
         assertion: a,
         result: { ok: true, description: "d" },
-        signals: { finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" },
+        signals: { thinkingText: "", finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" },
         turnIndex: 0,
       }],
       final: [],
