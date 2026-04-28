@@ -135,6 +135,18 @@ describe("acknowledge_named_cost_skip", () => {
     expect(firstText(result.content)).toBe("ok");
   });
 
+  test("accepts gate=pr-validation", async () => {
+    const result = await client.callTool({
+      name: TOOL_NAME,
+      arguments: {
+        gate: "pr-validation",
+        user_statement: "skip pr-validation, I accept the risk of unverified merge",
+      },
+    });
+    expect(result.isError).toBeFalsy();
+    expect(firstText(result.content)).toBe("ok");
+  });
+
   test("rejects gate with unknown value", async () => {
     const result = await client.callTool({
       name: TOOL_NAME,
@@ -170,7 +182,7 @@ describe("acknowledge_named_cost_skip", () => {
       additionalProperties: boolean;
     };
     expect(schema.type).toBe("object");
-    expect(schema.properties.gate.enum).toEqual(["DTP", "systems-analysis", "fat-marker-sketch", "think-before-coding", "goal-driven"]);
+    expect(schema.properties.gate.enum).toEqual(["DTP", "systems-analysis", "fat-marker-sketch", "think-before-coding", "goal-driven", "pr-validation"]);
     expect(schema.properties.user_statement.minLength).toBe(15);
     expect(schema.required).toEqual(["gate", "user_statement"]);
     expect(schema.additionalProperties).toBe(false);

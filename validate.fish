@@ -313,7 +313,8 @@ set dependent_rules \
     fat-marker-sketch.md \
     goal-driven.md \
     think-before-coding.md \
-    execution-mode.md
+    execution-mode.md \
+    pr-validation.md
 
 if not test -f "$anchor_file"
     fail "anchor file missing: rules/planning.md"
@@ -422,6 +423,42 @@ for entry in $anchor_registry
         pass "$label: anchor #$anchor_id present in rules/$canonical"
     else
         fail "$label: missing $marker in rules/$canonical (deep-links from dependents will dangle)"
+    end
+end
+
+echo ""
+
+# 1k. Anchor-link target resolution
+# Phase 1j confirms anchors exist in their canonical file. Phase 1f confirms
+# dependent rules mention the canonical file. Neither catches a typo'd anchor
+# in a deep-link from a dependent — `[label](planning.md#emergancy-bypass-sentinel)`
+# would pass both. This phase greps every `planning.md#<id>` reference inside
+# rules/ and verifies the `<id>` matches an `<a id="...">` actually defined
+# in planning.md.
+echo "── Anchor-link target resolution"
+
+set planning_path "$repo_dir/rules/planning.md"
+if not test -f $planning_path
+    fail "rules/planning.md missing — cannot resolve anchor links"
+else
+    # Build set of defined anchor IDs in planning.md
+    set defined_anchors (grep -oE '<a id="[^"]+"' $planning_path | string replace -r '<a id="' '' | string replace -r '"$' '')
+
+    # Scan every rules/*.md (except planning.md itself) for planning.md#... links
+    for rule_file in $repo_dir/rules/*.md
+        set rule_name (basename $rule_file)
+        if test "$rule_name" = "planning.md"; or test "$rule_name" = "README.md"
+            continue
+        end
+        # Extract anchor IDs referenced as planning.md#<id>
+        set referenced_anchors (grep -oE 'planning\.md#[a-z0-9-]+' $rule_file | string replace -r 'planning\.md#' '')
+        for ref in $referenced_anchors
+            if contains $ref $defined_anchors
+                pass "rules/$rule_name links planning.md#$ref → resolves"
+            else
+                fail "rules/$rule_name links planning.md#$ref → DEAD ANCHOR (not defined in planning.md)"
+            end
+        end
     end
 end
 
