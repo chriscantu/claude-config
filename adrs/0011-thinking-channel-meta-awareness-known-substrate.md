@@ -93,10 +93,14 @@ The mitigation strategy is:
    ecological-validity loss occurred. Re-evaluation triggers (per-fixture):
    - **Reopen this ADR if any single fixture's divergence rate exceeds 10%**
      across N≥10 runs OR **≥2 divergent transcripts are observed in any
-     single fixture regardless of N** — the disjunction prevents the N≥10
-     floor from inadvertently exempting the highest-divergence fixture
+     single fixture at N<10** — the disjunction is a low-N *escape hatch*
+     for fixtures the N≥10 floor would otherwise exempt
      (`sdr-routes-to-blueprint` is currently 1/8 = 12.5%; a second
-     divergence at any N would trip the trigger immediately)
+     divergence before N reaches 10 trips the trigger immediately).
+     The N<10 bound prevents the disjunction from also tripping on noise
+     in high-N batches (a 2/100 outcome would not, and should not, fire
+     this trigger — it falls under the 1.0% global rate or the 10%-at-N≥10
+     rate trigger instead).
    - **Reopen if global divergence exceeds 1.0%** (currently 0.46%)
    - **Reopen if any structural assertion is shown to flip outcome on a
      divergent transcript** (audit shows zero such cases today, but this
@@ -161,10 +165,22 @@ The mitigation strategy is:
   past "accept" to "fix or document per-fixture." Tracked as a scoped
   action under [#192](https://github.com/chriscantu/claude-config/issues/192)
   (NOT under #92, which closed scoped to existing regex-port migration).
-  When #192 lands, the third reopen trigger ("structural assertion flips
-  on divergent transcript") becomes a strict signal — the audit's 4
-  hot-spot fixtures will fail until divergence is mitigated, forcing
-  re-evaluation of "accept" vs. Option B-lite.
+
+  **Sequencing commitment.** When #192 is ready to land, the response is
+  **(c) ship Option B-lite *before* #192 merges** — pre-seed the 4 hot-spot
+  fixtures with decoy files first, then land the canonical-step assertion.
+  This keeps the ADR's "accept" decision coherent: divergence is mitigated
+  before the assertion that would otherwise surface it as failures. The
+  alternative responses are explicitly rejected here so future-me cannot
+  silently neutralize the trigger:
+  - **(a) Reopen this ADR when #192 fails on hot-spot fixtures** — rejected
+    because it lets the failure persist while a new decision is debated.
+  - **(b) Baseline the failures into expected-fail** — rejected as silent
+    trigger neutralization. If #192's assertions are correct, expected-fail
+    is documenting that this ADR's accept stance no longer holds; that's
+    a reopen, not a baseline.
+  - **(c) Ship B-lite first, then #192** — accepted. Adds ~2-3 hr to #192's
+    landing path but keeps the ADR's decision honest.
 - The `not_thinking_contains` sentinel ([#190](https://github.com/chriscantu/claude-config/issues/190))
   catches only canonical prose-channel phrases. Novel detection language
   (e.g. *"appears synthetic"*, *"this looks like a benchmark"*) slips past
