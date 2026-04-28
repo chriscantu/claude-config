@@ -205,10 +205,11 @@ Audit reproducibility:
   [`docs/superpowers/audits/2026-04-28-thinking-channel-meta-awareness.md`](../docs/superpowers/audits/2026-04-28-thinking-channel-meta-awareness.md).
 - Re-running the audit against future transcript collections produces
   comparable rates if the substrate AND Claude model version are
-  unchanged. The reopen thresholds in mitigation point 3 are canonical:
-  any single fixture above 10% divergence at N≥10, OR global divergence
-  above 1.0%, OR any divergent transcript flipping a structural
-  assertion.
+  unchanged. The reopen thresholds live in mitigation point 3 (canonical
+  form, including the N<10 low-fixture escape hatch); summary form: any
+  single fixture above 10% divergence at N≥10, OR ≥2 divergences in any
+  fixture at N<10, OR global divergence above 1.0%, OR any divergent
+  transcript flipping a structural assertion.
 
 ## References
 
