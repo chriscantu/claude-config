@@ -527,6 +527,15 @@ export function extractSignals(events: StreamEvent[]): Signals {
           assistantTextParts.push(block.text);
         } else if (block.type === "thinking" && typeof block.thinking === "string") {
           thinkingParts.push(block.thinking);
+        } else if (block.type === "thinking") {
+          // Non-string `thinking` field on a thinking-typed block: silent
+          // skip is intentional — historically the field has only been a
+          // string. If SDK shape drifts (e.g. structured thinking with
+          // {text, signature}), the audit cadence in ADR #0011 catches it
+          // by re-running the meta-awareness regex against transcripts and
+          // observing zero hits where prior runs had them. Don't throw —
+          // a parser failure would gate the entire eval suite on schema
+          // drift unrelated to the model under test.
         } else if (block.type === "tool_use" && typeof block.name === "string") {
           toolUses.push({ name: block.name, input: block.input ?? {} });
         }
@@ -758,11 +767,15 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
       case "not_regex":
         return s.terminalState === "empty";
       case "not_thinking_contains":
-        // Silent-fire when the model emitted no thinking content at all.
-        // Symmetric with not_contains/not_regex but on the thinking channel:
-        // a forbidden thinking phrase trivially absent from empty thinking
-        // is no evidence of behavioral correctness.
-        return s.thinkingText.length === 0;
+        // Silent-fire only when thinking is empty AND the run did not
+        // complete with a `result` event. A successful `result`-tier run
+        // that produced no thinking blocks (e.g. extended thinking
+        // disabled, tool-only run, provider/model that doesn't emit
+        // thinking) is a meaningful completion — the assertion's
+        // negative passing against it is real evidence, not silent-fire.
+        // Without this terminalState guard, every legitimate completed
+        // run on a non-thinking model would false-positive silent-fire.
+        return s.thinkingText.length === 0 && s.terminalState !== "result";
       case "not_skill_invoked":
         return s.skillInvocations.length === 0;
       case "not_tool_input_matches":

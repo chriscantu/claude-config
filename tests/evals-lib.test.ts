@@ -576,6 +576,19 @@ describe("extractSignals()", () => {
     expect(s.thinkingText).toBe("");
   });
 
+  test("thinking + tool_use + text interleaved in a single content array all extract correctly", () => {
+    // Realistic stream shape: assistant message contains thinking, then a
+    // tool call, then visible text. Guard against a future refactor that
+    // early-returns on the first non-text block and silently drops thinking.
+    const { events } = parseStreamJson(
+      `{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"plan"},{"type":"tool_use","name":"Read","input":{"file_path":"/x"}},{"type":"text","text":"answer"}]}}`,
+    );
+    const s = extractSignals(events);
+    expect(s.thinkingText).toBe("plan");
+    expect(s.toolUses.map((t) => t.name)).toEqual(["Read"]);
+    expect(s.finalText).toBe("answer");
+  });
+
   test("thinking block with non-string field is ignored, not crashed on", () => {
     const { events } = parseStreamJson(
       [
@@ -971,6 +984,23 @@ describe("evaluateChain()", () => {
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.detail).toMatch(/runner bug|non-chain/i);
   });
+
+  test("routing bug: thinking_contains called on chain returns runner-bug failure, not silent pass", () => {
+    // Thinking-channel assertions are per-turn, not chain-level. If a future
+    // refactor drops them from the routing-guard switch in evaluateChain,
+    // they'd silently fall through to the default arm. Lock the rejection.
+    const a = v({ type: "thinking_contains", value: "x", description: "d" });
+    const r = evaluateChain(a, chainOf(["x"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/runner bug|non-chain/i);
+  });
+
+  test("routing bug: not_thinking_contains called on chain returns runner-bug failure", () => {
+    const a = v({ type: "not_thinking_contains", value: "x", description: "d" });
+    const r = evaluateChain(a, chainOf(["x"]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/runner bug|non-chain/i);
+  });
 });
 
 describe("evaluate() — routing guard", () => {
@@ -1294,7 +1324,28 @@ describe("evaluate() — not_tool_input_matches", () => {
 });
 
 describe("metaCheck() — not_thinking_contains silent-fire", () => {
-  test("passes against empty thinkingText → silent_fire (no evidence)", () => {
+  test("passes against empty thinkingText AND terminalState=empty → silent_fire (run was meaningless)", () => {
+    const a = v({ type: "not_thinking_contains", value: "eval environment", description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: { thinkingText: "", finalText: "", toolUses: [], skillInvocations: [], terminalState: "empty" },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(false);
+    expect(out.silentFireCount).toBe(1);
+    expect(out.decisions[0].kind).toBe("silent_fire");
+  });
+
+  test("passes against empty thinkingText BUT terminalState=result → real pass (completed run, model just didn't think)", () => {
+    // Tightened policy: a successful result-tier run that produced no
+    // thinking blocks (extended thinking disabled, tool-only run, model
+    // that doesn't emit thinking) is meaningful evidence — the negative
+    // pass is real, not silent-fire. Without this, every non-thinking
+    // model would false-positive silent-fire.
     const a = v({ type: "not_thinking_contains", value: "eval environment", description: "d" } as Assertion);
     const out = metaCheck({
       perTurn: [{
@@ -1305,9 +1356,9 @@ describe("metaCheck() — not_thinking_contains silent-fire", () => {
       }],
       final: [],
     });
-    expect(out.requiredOk).toBe(false);
-    expect(out.silentFireCount).toBe(1);
-    expect(out.decisions[0].kind).toBe("silent_fire");
+    expect(out.requiredOk).toBe(true);
+    expect(out.silentFireCount).toBe(0);
+    expect(out.decisions[0].kind).toBe("pass");
   });
 
   test("passes against NON-empty thinkingText (model thought, just didn't leak the phrase) → real pass", () => {

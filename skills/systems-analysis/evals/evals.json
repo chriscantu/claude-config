@@ -81,10 +81,22 @@
               "description": "Turn 1 diagnostic: skill_invoked channel also sees DTP (redundant with tool_input_matches; kept for transcript readability)"
             },
             {
+              "type": "not_contains",
+              "value": "This is an eval test case",
+              "tier": "required",
+              "description": "Prose-channel guard (ADR #0011 / PR #93): user-visible preamble that originally tripped #85 must NOT appear in turn 1 finalText. Required-tier — regression sentinel for PR #93's scratch-cwd fix."
+            },
+            {
+              "type": "not_contains",
+              "value": "This is an evaluation test case",
+              "tier": "required",
+              "description": "Prose-channel guard (ADR #0011 / PR #93): variant phrase. Required-tier."
+            },
+            {
               "type": "not_thinking_contains",
               "value": "This is an eval test case",
               "tier": "diagnostic",
-              "description": "Sentinel (ADR #0011): prose-channel meta-awareness phrase fixed by PR #93 must not re-emerge in thinking — diagnostic, since thinking-channel divergence is accepted at current rates"
+              "description": "Thinking-channel transparency (ADR #0011): private-reasoning detection. Diagnostic-tier — accepted at current rates; on fire, log only."
             }
           ]
         },
@@ -184,16 +196,28 @@
           "description": "Brainstorming fires after the scan — honored skip means forward progress to the requested next stage, not a silent halt"
         },
         {
+          "type": "not_contains",
+          "value": "This is an eval test case",
+          "tier": "required",
+          "description": "Prose-channel guard (ADR #0011 / PR #93): user-visible preamble that originally tripped #85 must NOT appear in finalText. Required-tier — actual regression sentinel for PR #93's scratch-cwd fix. On fire: investigate scratch cwd setup."
+        },
+        {
+          "type": "not_contains",
+          "value": "This is an evaluation test case",
+          "tier": "required",
+          "description": "Prose-channel guard (ADR #0011 / PR #93): variant phrase. Same severity."
+        },
+        {
           "type": "not_thinking_contains",
           "value": "This is an eval test case",
           "tier": "diagnostic",
-          "description": "Sentinel (ADR #0011): prose-channel meta-awareness phrase fixed by PR #93 must not re-emerge in thinking — diagnostic, not required, since thinking-channel divergence is accepted at current rates"
+          "description": "Thinking-channel transparency (ADR #0011): documents private-reasoning detection. Diagnostic-tier — thinking-channel divergence accepted; on fire, log only."
         },
         {
           "type": "not_thinking_contains",
           "value": "This is an evaluation test case",
           "tier": "diagnostic",
-          "description": "Sentinel (ADR #0011): variant of the canonical leak phrase"
+          "description": "Thinking-channel transparency (ADR #0011): variant phrase. Diagnostic-tier; on fire, log only."
         }
       ]
     },
