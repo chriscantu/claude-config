@@ -137,7 +137,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(60[- ]?second|surface[- ]?area (scan|pass)|mandatory|floor|non[- ]bypassable|scan (is |runs |anyway)|fatigue.{0,60}(doesn'?t|not).{0,40}(override|qualify|skip)|skip contract|name (the |a )(specific )?cost)",
+          "pattern": "(60[- ]?(s|sec|second)\\b|surface[- ]?area (scan|pass)|mandatory|floor|non[- ]bypassable|(scan|SA|analysis|pass) (is |runs?|anyway)|condensed pass|fatigue.{0,60}(doesn'?t|not).{0,40}(override|qualify|skip)|skip contract|nam(e|ed|ing)[- ](the |a )?(specific )?cost\\b)",
           "flags": "i",
           "description": "Cites the scan-contract rule — mandatory 60s scan, the floor, fatigue-not-an-override, or asks the user to name the specific cost. Skill-tool invocation is not required; applying the rule inline from context counts"
         },
@@ -221,7 +221,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(who (has|experiences|hits|is feeling) (this|the)|which (user|persona|role|team)|whose (problem|pain)|what (problem|pain|goes wrong) (today|without)|what'?s the pain|specific (persona|role|user))",
+          "pattern": "(who (has|experiences|hits|is feeling|is being|gets) (this|the|onboarded|affected)|which (user|persona|role|team)|whose (problem|pain)|what (problem|pain|goes wrong) (today|without)|what'?s the pain|specific (persona|role|user)|who is (being|getting) onboarded|who('?s| is) (the |this )?(user|persona|affected))",
           "flags": "i",
           "description": "Probes the 'who' and/or 'what pain' — signals the five-question path, not a Fast-Track draft on a surface grievance"
         },
