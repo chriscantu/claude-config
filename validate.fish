@@ -468,10 +468,15 @@ echo ""
 # Every hook script in hooks/ (excluding test fixtures) must be documented
 # in README.md so a contributor adding a hook either documents it or surfaces
 # the omission here. Symlinking happens via bin/link-config.fish; this phase
-# guards the documentation seam.
-echo "── Hook ↔ README consistency"
+# guards the documentation seam. README.md and docs/*.md both count — the
+# README may delegate operator-facing hook docs to docs/operations.md.
+echo "── Hook ↔ user docs consistency"
 
 set readme "$repo_dir/README.md"
+set doc_targets $readme
+for doc in $repo_dir/docs/*.md
+    set doc_targets $doc_targets $doc
+end
 if not test -f $readme
     fail "README.md missing"
 else
@@ -481,10 +486,16 @@ else
         if string match -q 'test-*' $hook_name
             continue
         end
-        if grep -qF -- "$hook_name" $readme
-            pass "hooks/$hook_name documented in README.md"
+        set found_in
+        for target in $doc_targets
+            if test -f $target; and grep -qF -- "$hook_name" $target
+                set found_in $found_in (string replace "$repo_dir/" "" $target)
+            end
+        end
+        if test (count $found_in) -gt 0
+            pass "hooks/$hook_name documented in $found_in"
         else
-            fail "hooks/$hook_name not mentioned in README.md (add usage docs or rename test-*)"
+            fail "hooks/$hook_name not mentioned in README.md or docs/*.md (add usage docs or rename test-*)"
         end
     end
 end
