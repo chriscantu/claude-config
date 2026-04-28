@@ -313,7 +313,8 @@ set dependent_rules \
     fat-marker-sketch.md \
     goal-driven.md \
     think-before-coding.md \
-    execution-mode.md
+    execution-mode.md \
+    pr-validation.md
 
 if not test -f "$anchor_file"
     fail "anchor file missing: rules/planning.md"
