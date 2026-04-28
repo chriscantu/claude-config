@@ -98,9 +98,18 @@ this is the default path. Do NOT restart the five questions. Instead:
 **What qualifies as a "stated problem":** a named user/system, an observable
 pain or failure mode, or a concrete impact. A surface grievance with none of
 those ("we need X", "Y is broken", "the issue is no dark mode", "let's add
-Z") does NOT qualify — route to Step 2's five-question path instead. If in
-doubt, draft from what's there, mark the gaps "unknown", and let the red-flag
-assessment in Step 4 surface the missing pieces.
+Z") does NOT qualify — route to Step 2's five-question path instead.
+
+**Surface-grievance gate (load-bearing).** Before drafting, count how many of
+the six template fields (User, Problem, Impact, Evidence, Constraints, Known
+Unknowns) the prompt actually populates with concrete content — not "unknown",
+not a restatement of the grievance. If **3 or more fields would be marked
+"unknown"**, this is a surface grievance, NOT a stated problem. Route to
+Step 2 and ask the "who" / "what pain" questions. Do NOT draft a Problem
+Statement with mostly-unknown fields and call it Fast-Track — that defeats
+the gate. The red-flag assessment in Step 4 is for thin statements with
+SOME concrete content, not for stand-in templates that copy the grievance
+into the Problem field and stub the rest.
 
 
 1. Draft the problem statement (Step 3 template) from what the user has
