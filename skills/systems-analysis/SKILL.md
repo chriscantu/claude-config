@@ -31,9 +31,9 @@ producing the scan, STOP. Run the scan first. Display its output. Then, and only
 then, may you offer visuals as a follow-up to the analysis.
 
 A response that opens with a Preview/visuals opt-in on a systems-analysis prompt
-is a skill short-circuit (issue #87) — the opt-in is useful but never substitutes
-for the scan. Visuals are an output channel for the analysis, not a replacement
-for engaging the analysis frame.
+is a skill short-circuit — the opt-in is useful but never substitutes for the
+scan. Visuals are an output channel for the analysis, not a replacement for
+engaging the analysis frame.
 
 ## Red-Flag Framings
 
