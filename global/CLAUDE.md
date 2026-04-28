@@ -32,7 +32,7 @@
 - NEVER claim code works without running tests or type-checking first
 - Run the relevant verify command (`npm test`, `tsc --noEmit`, etc.) before declaring work complete
 - If no test exists for changed behavior, write one
-- **PR Validation Gate** — Before declaring a PR ready for merge, execute every unchecked item in the PR description's test plan. Build and launch on each listed platform/simulator, take screenshots to verify, and only check off items that have been visually confirmed. If an item cannot be verified (e.g., requires a physical device or external service), flag it explicitly rather than silently skipping it.
+- **PR Validation Gate** — see `rules/pr-validation.md`. HARD-GATE: declared PR-ready triggers test plan execution gate.
 
 > **Related:** `Coding Principles #4 — Goal-Driven Execution` produces the per-step verify criteria; this section enforces them at the end. (One verb pair used throughout: #4 *produces*, Verification *enforces*.)
 
