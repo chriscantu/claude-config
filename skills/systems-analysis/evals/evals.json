@@ -137,7 +137,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(60[- ]?(s|sec|second)\\b|surface[- ]?area (scan|pass)|mandatory|floor|non[- ]bypassable|scan (is |runs |anyway)|fatigue.{0,60}(doesn'?t|not).{0,40}(override|qualify|skip)|skip contract|nam(e|ed|ing) (the |a )?(specific )?cost)",
+          "pattern": "(60[- ]?(s|sec|second)\\b|surface[- ]?area (scan|pass)|mandatory|floor|non[- ]bypassable|(scan|SA|analysis|pass) (is |runs?|anyway)|condensed pass|fatigue.{0,60}(doesn'?t|not).{0,40}(override|qualify|skip)|skip contract|nam(e|ed|ing)[- ](the |a )?(specific )?cost\\b)",
           "flags": "i",
           "description": "Cites the scan-contract rule — mandatory 60s scan, the floor, fatigue-not-an-override, or asks the user to name the specific cost. Skill-tool invocation is not required; applying the rule inline from context counts"
         },

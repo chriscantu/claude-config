@@ -100,15 +100,32 @@ pain or failure mode, or a concrete impact. A surface grievance with none of
 those ("we need X", "Y is broken", "the issue is no dark mode", "let's add
 Z") does NOT qualify — route to Step 2's five-question path instead.
 
-**Surface-grievance gate (load-bearing).** Before drafting, count how many of
-the six template fields (User, Problem, Impact, Evidence, Constraints, Known
-Unknowns) the prompt actually populates with concrete content — not "unknown",
-not a restatement of the grievance. If **3 or more fields would be marked
-"unknown"**, this is a surface grievance, NOT a stated problem. Route to
-Step 2 and ask the "who" / "what pain" questions. Do NOT draft a Problem
-Statement with mostly-unknown fields and call it Fast-Track — that defeats
-the gate. The red-flag assessment in Step 4 is for thin statements with
-SOME concrete content, not for stand-in templates that copy the grievance
+**Surface-grievance gate (load-bearing).** Before drafting, evaluate the
+prompt against the "stated problem" criterion above. AT LEAST ONE of these
+must be concretely present (not inferable, not implied — actually in the
+words of the prompt):
+
+1. A **named user/system** — "engineers", "the CLI tool", "on-call",
+   "the billing service".
+2. An **observable pain or failure mode** — "drops stale tasks after a
+   retry", "slower to use", "users abandon at step 3", "returns 500 on
+   X".
+3. A **concrete impact** — "on-call missed two incidents", "p99 latency
+   regressed 200ms", "we lost 3 customers this quarter".
+
+If ZERO of these are present, this is a surface grievance ("Y is broken",
+"X needs fixing", "we have a problem with Z") — route to Step 2 and ask
+the "who" / "what pain" questions. Do NOT draft a Problem Statement with
+all template fields stubbed "unknown" and call it Fast-Track — that
+defeats the gate.
+
+Contrast: "Our onboarding is broken" → 0/3 (no user, no observable
+behavior, no impact) → Step 2. "Our CLI tool doesn't have shell
+completions, making it slower to use" → 2/3 (named system: CLI tool;
+observable pain: slower to use) → Fast-Track is appropriate.
+
+The red-flag assessment in Step 4 is for thin statements with SOME
+concrete content, not for stand-in templates that copy the grievance
 into the Problem field and stub the rest.
 
 
