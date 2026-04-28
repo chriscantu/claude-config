@@ -38,6 +38,8 @@ export function reliabilityOf(type: Assertion["type"]): ReliabilityTier {
     case "not_contains":
     case "regex":
     case "not_regex":
+    case "thinking_contains":
+    case "not_thinking_contains":
       return "text";
   }
 }
@@ -47,6 +49,7 @@ type AssertionBase = { description: string; tier?: AssertionTier };
 export type Assertion =
   | (AssertionBase & { type: "contains" | "not_contains"; value: string })
   | (AssertionBase & { type: "regex" | "not_regex"; pattern: string; flags?: string })
+  | (AssertionBase & { type: "thinking_contains" | "not_thinking_contains"; value: string })
   | (AssertionBase & { type: "skill_invoked" | "not_skill_invoked"; skill: string })
   | (AssertionBase & { type: "tool_input_matches" | "not_tool_input_matches"; tool: string; input_key: string; input_value: string })
   | (AssertionBase & { type: "skill_invoked_in_turn"; turn: number; skill: string })
@@ -181,8 +184,9 @@ export interface StreamEvent {
   session_id?: string;
   message?: {
     content?: Array<{
-      type: "text" | "tool_use" | (string & {});
+      type: "text" | "tool_use" | "thinking" | (string & {});
       text?: string;
+      thinking?: string;
       name?: string;
       input?: Record<string, unknown>;
     }>;
@@ -215,6 +219,21 @@ export interface SkillInvocation {
  */
 export interface Signals {
   readonly finalText: string;
+  /**
+   * Concatenation of every `thinking` block emitted by assistant events,
+   * joined by `\n`. Empty string if the model produced no thinking content.
+   *
+   * Used by `thinking_contains` / `not_thinking_contains` to detect
+   * meta-awareness leaks (e.g. *"this is an eval environment"*) that don't
+   * surface in `finalText` but indicate the model has detected eval
+   * framing — see ADR #0011 and audit
+   * `docs/superpowers/audits/2026-04-28-thinking-channel-meta-awareness.md`.
+   *
+   * Wording-sensitive (text-tier reliability) by definition: the thinking
+   * channel is free-form prose. Use as a regression sentinel for known
+   * detection phrases, not as a behavioral correctness check.
+   */
+  readonly thinkingText: string;
   readonly toolUses: readonly ToolUse[];
   readonly skillInvocations: readonly SkillInvocation[];
   readonly terminalState: "result" | "assistant" | "empty";
@@ -254,6 +273,8 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
   switch (a.type) {
     case "contains":
     case "not_contains":
+    case "thinking_contains":
+    case "not_thinking_contains":
       if (typeof a.value !== "string" || a.value.length === 0) {
         throw new Error(`${loc}: ${a.type} assertion requires non-empty 'value' string`);
       }
@@ -492,6 +513,7 @@ export function extractSessionId(events: readonly StreamEvent[]): string | null 
 export function extractSignals(events: StreamEvent[]): Signals {
   const toolUses: ToolUse[] = [];
   const assistantTextParts: string[] = [];
+  const thinkingParts: string[] = [];
   let resultText: string | undefined;
 
   for (const ev of events) {
@@ -503,6 +525,8 @@ export function extractSignals(events: StreamEvent[]): Signals {
       for (const block of ev.message.content) {
         if (block.type === "text" && typeof block.text === "string") {
           assistantTextParts.push(block.text);
+        } else if (block.type === "thinking" && typeof block.thinking === "string") {
+          thinkingParts.push(block.thinking);
         } else if (block.type === "tool_use" && typeof block.name === "string") {
           toolUses.push({ name: block.name, input: block.input ?? {} });
         }
@@ -542,7 +566,9 @@ export function extractSignals(events: StreamEvent[]): Signals {
     terminalState = "empty";
   }
 
-  return { finalText, toolUses, skillInvocations, terminalState };
+  const thinkingText = thinkingParts.join("\n");
+
+  return { finalText, thinkingText, toolUses, skillInvocations, terminalState };
 }
 
 export function evaluate(assertion: ValidatedAssertion, signals: Signals): AssertionResult {
@@ -558,6 +584,14 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
     case "not_contains":
       return signals.finalText.includes(assertion.value)
         ? fail(`forbidden substring present: ${JSON.stringify(assertion.value)}`)
+        : pass();
+    case "thinking_contains":
+      return signals.thinkingText.includes(assertion.value)
+        ? pass()
+        : fail(`expected thinking-channel substring: ${JSON.stringify(assertion.value)}`);
+    case "not_thinking_contains":
+      return signals.thinkingText.includes(assertion.value)
+        ? fail(`forbidden thinking-channel substring present: ${JSON.stringify(assertion.value)}`)
         : pass();
     case "regex": {
       const re = new RegExp(assertion.pattern, assertion.flags ?? "");
@@ -664,6 +698,8 @@ export function evaluateChain(assertion: ValidatedAssertion, chain: ChainSignals
     case "not_contains":
     case "regex":
     case "not_regex":
+    case "thinking_contains":
+    case "not_thinking_contains":
     case "skill_invoked":
     case "not_skill_invoked":
     case "tool_input_matches":
@@ -700,7 +736,7 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
   let requiredOk = true;
 
   const isNegative = (a: ValidatedAssertion): boolean =>
-    a.type === "not_contains" || a.type === "not_regex" || a.type === "not_skill_invoked" || a.type === "not_tool_input_matches";
+    a.type === "not_contains" || a.type === "not_regex" || a.type === "not_thinking_contains" || a.type === "not_skill_invoked" || a.type === "not_tool_input_matches";
 
   /**
    * Is the signal the assertion ran against empty, in the sense that a
@@ -721,6 +757,12 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
       case "not_contains":
       case "not_regex":
         return s.terminalState === "empty";
+      case "not_thinking_contains":
+        // Silent-fire when the model emitted no thinking content at all.
+        // Symmetric with not_contains/not_regex but on the thinking channel:
+        // a forbidden thinking phrase trivially absent from empty thinking
+        // is no evidence of behavioral correctness.
+        return s.thinkingText.length === 0;
       case "not_skill_invoked":
         return s.skillInvocations.length === 0;
       case "not_tool_input_matches":
@@ -737,6 +779,7 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
         return s.toolUses.length === 0;
       case "contains":
       case "regex":
+      case "thinking_contains":
       case "skill_invoked":
       case "tool_input_matches":
       case "skill_invoked_in_turn":

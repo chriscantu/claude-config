@@ -49,10 +49,12 @@ filenames aligned; a future cleanup may drop it.
       "assertions": [
         { "type": "contains",         "value": "...",   "description": "human-readable" },
         { "type": "not_contains",     "value": "...",   "description": "..." },
-        { "type": "regex",            "pattern": "...", "flags": "i", "description": "..." },
-        { "type": "not_regex",        "pattern": "...", "flags": "i", "description": "..." },
-        { "type": "skill_invoked",    "skill": "...",   "description": "..." },
-        { "type": "not_skill_invoked","skill": "...",   "description": "..." }
+        { "type": "regex",                "pattern": "...", "flags": "i", "description": "..." },
+        { "type": "not_regex",            "pattern": "...", "flags": "i", "description": "..." },
+        { "type": "thinking_contains",    "value": "...",   "description": "..." },
+        { "type": "not_thinking_contains","value": "...",   "description": "..." },
+        { "type": "skill_invoked",        "skill": "...",   "description": "..." },
+        { "type": "not_skill_invoked",    "skill": "...",   "description": "..." }
       ]
     }
   ]
@@ -72,9 +74,9 @@ filenames aligned; a future cleanup may drop it.
 | `evals[].assertions` | required with `prompt` | non-empty array; per-turn assertion types only |
 | `evals[].turns` | one of `prompt` or `turns[]` | multi-turn: non-empty array of `{ prompt, assertions }` objects run as a chain |
 | `evals[].final_assertions` | optional with `turns[]` | non-empty array if present; runs against the chain after all turns (the only place `chain_order` / `skill_invoked_in_turn` are allowed) |
-| `assertion.type` | required | one of `contains` / `not_contains` / `regex` / `not_regex` / `skill_invoked` / `not_skill_invoked` / `tool_input_matches` / `not_tool_input_matches` / `skill_invoked_in_turn` / `chain_order` |
+| `assertion.type` | required | one of `contains` / `not_contains` / `regex` / `not_regex` / `thinking_contains` / `not_thinking_contains` / `skill_invoked` / `not_skill_invoked` / `tool_input_matches` / `not_tool_input_matches` / `skill_invoked_in_turn` / `chain_order` |
 | `assertion.description` | required | human-readable; what the assertion proves |
-| `assertion.value` | required for `contains` / `not_contains` | non-empty string |
+| `assertion.value` | required for `contains` / `not_contains` / `thinking_contains` / `not_thinking_contains` | non-empty string |
 | `assertion.pattern` | required for `regex` / `not_regex` | non-empty string; must compile |
 | `assertion.flags` | optional for `regex` / `not_regex` | RegExp flags string (e.g. `"i"`, `"im"`) |
 | `assertion.skill` | required for `skill_invoked` / `not_skill_invoked` | non-empty string; matches the Skill tool's `input.skill` in the stream-json transcript |
@@ -102,8 +104,14 @@ The runner reports two independent axes:
 - `structural`: `skill_invoked`, `not_skill_invoked`, `skill_invoked_in_turn`,
   `chain_order`, `tool_input_matches`. Fires against parsed stream-json
   signals. Deterministic, spoof-resistant.
-- `text`: `contains`, `not_contains`, `regex`, `not_regex`. Fires against
-  model prose. Wording-sensitive, subject to run-to-run variance.
+- `text`: `contains`, `not_contains`, `regex`, `not_regex`,
+  `thinking_contains`, `not_thinking_contains`. Fires against model prose
+  (`finalText` for the first four, `thinkingText` — concatenation of
+  `thinking` blocks — for the last two). Wording-sensitive, subject to
+  run-to-run variance. `not_thinking_contains` exists primarily as a
+  regression sentinel for prose-channel meta-awareness phrases per
+  ADR #0011 (e.g. `"This is an eval test case"`); see the audit at
+  `docs/superpowers/audits/2026-04-28-thinking-channel-meta-awareness.md`.
 
 The two axes cross. Summary output:
 
