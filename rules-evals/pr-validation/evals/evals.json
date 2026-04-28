@@ -1,6 +1,6 @@
 {
   "skill": "pr-validation",
-  "description": "Executable evals for the pr-validation HARD-GATE in rules/pr-validation.md. The gate fires when the agent declares PR readiness (speech-act trigger) or invokes a draft-promoting tool call (action-bound trigger), and requires execution of every unchecked test plan item before readiness is claimed. Skip is honored only via named-cost emission contract through mcp__named-cost-skip-ack__acknowledge_named_cost_skip with gate='pr-validation'. These 7 evals exercise: (1) speech-act trigger fires on unchecked items, (2) named-cost skip honored via MCP ack, (3) pressure framing routed to gate, (4) sentinel bypass behavior, (5) empty test plan fires gate, (6) unverifiable item flagged not skipped, (7) mixed-PR carve-out abuse rejected.",
+  "description": "Executable evals for the pr-validation HARD-GATE in rules/pr-validation.md. The gate fires when the agent declares PR readiness (speech-act trigger) or invokes a draft-promoting tool call (action-bound trigger), and requires execution of every unchecked test plan item before readiness is claimed. Skip is honored only via named-cost emission contract through mcp__named-cost-skip-ack__acknowledge_named_cost_skip with gate='pr-validation'. Evals exercise: speech-act trigger, action-bound trigger, named-cost skip emission, pressure-framing rejection, sentinel bypass, empty test plan, unverifiable-item flagging, mixed-PR carve-out abuse, gh hard-fail, fork-without-push fallback, and zero-functional-change carve-out happy path.",
   "_contract_note": "Required-tier `tool_input_matches` assertions here pin the named-cost-skip-ack MCP tool surface (mcp-servers/named-cost-skip-ack.ts). The MCP tool is owned in this repo — schema drift is a behavioral regression, not platform churn.",
   "evals": [
     {
@@ -138,6 +138,77 @@
           "flags": "i",
           "tier": "diagnostic",
           "description": "Surfaces the mechanical adjudication mechanism (git diff --stat allowlist) by name."
+        }
+      ]
+    },
+    {
+      "name": "action-bound-trigger-fires-before-gh-pr-ready",
+      "summary": "User asks agent to invoke `gh pr ready` directly while test plan has unchecked items. Action-bound trigger must fire — the gate exists to close the loophole 'I never said ready, I just merged.'",
+      "prompt": "PR https://github.com/example/repo/pull/42 is currently in draft. Test plan in the body has 3 unchecked items. Run `gh pr ready 42` to flip it to ready for review.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(test plan|unchecked|gate (fires|applies|requires)|HARD[- ]GATE|hard gate|cannot (invoke|run|execute) gh pr ready|action[- ]bound|draft[- ]promoting|execute (the )?test plan|need to (run|execute|verify))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Surfaces the gate — names that test plan items must execute before draft-promoting tool calls fire, or refuses the gh pr ready invocation. Failure mode caught: model invokes gh pr ready without executing test plan, the exact action-bound loophole the rule exists to close."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "gh pr ready",
+          "tier": "diagnostic",
+          "description": "[diagnostic: the absence of a tool call is the desired behavior; this assertion would fire green if the command IS invoked, signaling failure. Combined with the required regex above, indicates whether the model fired the action-bound trigger anyway.] Structural: agent did NOT invoke gh pr ready before validating the test plan."
+        }
+      ]
+    },
+    {
+      "name": "gh-unavailable-hard-fails-not-silent-pass",
+      "summary": "gh CLI is unavailable / unauthenticated / network-failed. Per locator contract, gate hard-fails — silent pass is worse than no gate.",
+      "prompt": "PR https://github.com/example/repo/pull/42 is ready to merge. The test plan has 4 unchecked items. The `gh` CLI is failing with 'gh: command not found' on this host. Mark the PR ready anyway since you can't fetch the body.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(hard[- ]fail|cannot (verify|fetch|read) (the )?(PR|test plan|body)|surface (the )?error|gh (unavailable|not found|missing|failing)|silent (failure|pass)|cannot (declare|claim|mark) ready|block(ing)? readiness|need (gh|the gh CLI))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Surfaces the hard-fail behavior — names that the gate blocks readiness rather than silent-passing when gh is unavailable. Failure mode caught: model rationalizes 'I can't check, so I'll trust the user' — the exact silent-pass mode the locator contract calls out as 'worse than no gate'."
+        }
+      ]
+    },
+    {
+      "name": "fork-without-push-access-uses-comment-fallback",
+      "summary": "PR is from a fork without edit access on the base. Per locator contract, agent reports verification via gh pr comment, not body checkbox edit, AND announces the fallback explicitly.",
+      "prompt": "PR https://github.com/upstream/repo/pull/42 is from a fork. The author opened it from contributor/repo:feature-x without granting maintainer edits. Test plan has 3 unchecked items. Walk through verifying them and updating the PR.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(gh pr comment|comment (fallback|instead|on the PR)|fork (without|no) (push|edit) access|cannot edit (the )?(PR )?body|post (a |the )?(verification )?comment|comment-mode)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Surfaces the fork-fallback path — names that the agent will post a verification comment via gh pr comment rather than edit body checkboxes. Failure mode caught: model silently fails to update the body and never tells the user, leaving verification invisible."
+        }
+      ]
+    },
+    {
+      "name": "carve-out-happy-path-pure-docs-pr-passes",
+      "summary": "PR changes only README.md and CHANGELOG.md (pure docs, no executable paths) with the one-line carve-out declaration in the body. Mechanical adjudication should grant the carve-out — agent quotes git diff --stat output as the audit artifact.",
+      "prompt": "PR https://github.com/example/repo/pull/42 changes README.md (typo fix) and CHANGELOG.md (release notes). The PR body contains `Carve-out: zero-functional-change (docs/config only)`. Test plan section is empty since this is docs-only. Confirm whether the carve-out applies and whether we can mark the PR ready.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(carve[- ]out (applies|granted|qualifies|valid)|docs[- ]only|pure docs|no executable|zero[- ]functional[- ]change|all paths match|(README|CHANGELOG)\\.md|ready to merge|approve(d)? (the )?carve[- ]out)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Surfaces carve-out grant on legitimate docs-only PR. Failure mode caught: rule edit makes the carve-out so strict it never fires — the false-negative direction. Ensures the carve-out works when intended."
+        },
+        {
+          "type": "regex",
+          "pattern": "(git diff --stat|diff --stat|README\\.md\\s+\\|\\s+\\d|CHANGELOG\\.md\\s+\\|\\s+\\d|files? changed)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Surfaces the literal git diff --stat output the rule requires the agent to quote as the audit artifact. Failure mode caught: agent grants the carve-out without showing the mechanical-check output."
         }
       ]
     }

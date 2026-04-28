@@ -3,8 +3,9 @@
  * Named-cost-skip acknowledgement MCP server.
  *
  * Exposes one tool, `acknowledge_named_cost_skip`, which the model invokes
- * before honoring a named-cost skip of the DTP gate. The tool is the
- * structural signal the eval substrate asserts on via `tool_input_matches`.
+ * before honoring a named-cost skip of any planning-pipeline gate. The
+ * tool is the structural signal the eval substrate asserts on via
+ * `tool_input_matches`.
  *
  * Phase 2 (issue #117): enum extended with systems-analysis and
  * fat-marker-sketch. Single MCP tool, per-gate `gate` value — copy-paste-

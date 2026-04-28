@@ -9,14 +9,13 @@ description: >
 # PR Validation Gate
 
 <HARD-GATE>
-Before declaring a PR ready for merge — or invoking `gh pr ready`,
-`gh pr merge`, or any tool call that promotes a draft PR to ready — you
-MUST execute every unchecked item in the PR description's test plan.
-Build and launch on each listed platform/simulator, take screenshots to
-verify, and check off only items that have been visually or objectively
-confirmed. Items that cannot be verified on the host (physical device,
-external service) MUST be flagged explicitly with the reason — never
-silently skipped.
+Before declaring a PR ready for merge — or invoking any draft-promoting
+action (see §Trigger Surface for the canonical list) — you MUST execute
+every unchecked item in the PR description's test plan. Build and launch
+on each listed platform/simulator, take screenshots to verify, and check
+off only items that have been visually or objectively confirmed. Items
+that cannot be verified on the host (physical device, external service)
+MUST be flagged explicitly with the reason — never silently skipped.
 
 If you catch yourself about to claim PR readiness without having
 executed the test plan, STOP. Run the plan. Then claim ready.
@@ -97,16 +96,23 @@ For every unchecked item in the test plan:
 
 ### Zero-functional-change carve-out (mechanical adjudication)
 
-The carve-out is **agent-self-adjudicated via mechanical check**, NOT
-self-declared. The agent runs `git diff --stat <base>...HEAD` and the
-carve-out applies ONLY when ALL hold:
+The carve-out is **agent-adjudicated via mechanical check**, NOT
+self-declared. The agent MUST:
 
-- All changed paths match: `*.md`, `*.txt`, `*.rst`, `*.adoc`,
-  `LICENSE*`, `CODEOWNERS`, `.gitignore`, or `.github/*.yml`
-- Zero changes to executable code paths (`*.ts`, `*.js`, `*.py`,
-  `*.fish`, `*.sh`, source files of any language)
-- One-line declaration in PR body:
-  `Carve-out: zero-functional-change (docs/config only)`
+1. Run `git diff --stat <base>...HEAD` via the Bash tool.
+2. **Quote the literal stdout output** in the response — file list and
+   change counts must appear verbatim, so the eval substrate (and any
+   reviewer) can audit the artifact rather than the narrative claim.
+3. Apply the carve-out ONLY when ALL hold:
+   - All changed paths match: `*.md`, `*.txt`, `*.rst`, `*.adoc`,
+     `LICENSE*`, `CODEOWNERS`, `.gitignore`, or `.github/*.yml`
+   - Zero changes to executable code paths (`*.ts`, `*.js`, `*.py`,
+     `*.fish`, `*.sh`, source files of any language)
+   - One-line declaration in PR body:
+     `Carve-out: zero-functional-change (docs/config only)`
+
+A response that claims the carve-out without the quoted `git diff
+--stat` artifact is theatrical, not mechanical — gate fires.
 
 Mixed PRs (docs + behavior) MUST run the full gate. If the agent
 catches itself rationalizing a mixed PR as zero-functional-change, the
@@ -199,16 +205,22 @@ before claiming ready.
   gates; they bracket the work.
 - `rules/verification.md` — end-of-implementation gate (`tsc
   --noEmit`, project test suite). PR validation does NOT re-run
-  these if `verification.md` already passed in the same session
-  (within last ~30 turns) — trust model. PR validation DOES execute
-  test plan items, which are typically user-visible behaviors not
-  covered by unit tests (visual confirmation, multi-platform smoke
-  tests, integration checks).
+  these if `verification.md` already passed earlier in the same
+  session AND the relevant verify command output is quoted in the
+  transcript (no quantitative trust window — agents lack a reliable
+  turn counter; either show the verify output you're relying on, or
+  re-run). PR validation DOES execute test plan items, which are
+  typically user-visible behaviors not covered by unit tests (visual
+  confirmation, multi-platform smoke tests, integration checks).
 - `rules/planning.md` — DTP, Systems Analysis, Solution Design happen
   BEFORE coding. This rule fires AFTER coding and verification.md, at
   the PR boundary.
-- Floor enforcement (pressure-framing routing, emission contract,
-  sentinel bypass) is anchored in `rules/planning.md` per
-  [per-gate floor blocks substitutable](planning.md#architectural-invariant).
+- Floor enforcement is anchored in `rules/planning.md`:
+  [pressure-framing floor](planning.md#pressure-framing-floor),
+  [emission contract](planning.md#emission-contract), and
+  [sentinel bypass](planning.md#emergency-bypass-sentinel). Per-gate
+  duplication adds zero eval-measurable load given the DTP anchor (see
+  ADR #0006 rejection + `per_gate_floor_blocks_substitutable.md`
+  memory note).
 - `~/.claude/CLAUDE.md` — Verification section's `PR Validation Gate`
   is a thin pointer to this rule.
