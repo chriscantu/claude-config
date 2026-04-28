@@ -77,6 +77,41 @@ also skipping the visual-companion offer.
 
 > *"Empty project - just an excalidraw log file. This is an eval environment with no actual codebase. I'll proceed with the brainstorming based on the problem statement alone. No existing patterns to follow."*
 
+## Per-fixture cross-reference: did divergence flip outcomes?
+
+For each of the 6 transcripts flagged as showing execution-path divergence,
+the `## Assertions (required)` block in the transcript was inspected.
+
+| Divergent transcript | Required assertions | Result |
+|---|---|---|
+| `define-the-problem-honored-skip-named-cost-v2-2026-04-28T05-06-37` | 3 | 3/3 pass |
+| `sdr-routes-to-blueprint-for-reusable-pattern-v2-multiturn-2026-04-25T22-23-38` | 3 | 3/3 pass |
+| `systems-analysis-honored-skip-named-cost-v2-2026-04-28T00-29-48` | 3 | 3/3 pass |
+| `systems-analysis-honored-skip-named-cost-v2-2026-04-28T00-37-54` | 3 | 3/3 pass |
+| `systems-analysis-honored-skip-named-cost-v2-2026-04-28T00-44-58` | 3 | 3/3 pass |
+| `systems-analysis-sunk-cost-migration-multi-turn-v2-multiturn-2026-04-27T00-42-47` | 2 | 2/2 pass |
+
+**Total: 17/17 required assertions passed across all divergent transcripts.**
+
+Two readings of this result:
+
+- **Optimistic:** structural assertions are insensitive to thinking-channel
+  divergence — the "primary defense" claim in ADR #0011 holds at current
+  rates.
+- **Honest:** the structural-assertion set does not currently include a
+  check for "did the canonical context-exploration step run." Divergence
+  is invisible to the gate not because no behavior changed, but because
+  no assertion measures the changed behavior. Eval consumers reading these
+  results as "skill behaved correctly" should read them as "skill emitted
+  the structural signals required, regardless of whether the canonical
+  exploration step preceded them."
+
+This is the ecological-validity gap ADR #0011 acknowledges. Closing it
+would require adding a `chain_order` constraint that the
+context-exploration tool call (e.g. `Glob` / `Read` of project files)
+precedes the first clarifying question — work tracked under
+[#92](https://github.com/chriscantu/claude-config/issues/92).
+
 ## Interpretation
 
 - The user-visible preamble leak (PR #93's target) is **gone** — no recent
