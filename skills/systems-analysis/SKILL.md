@@ -22,6 +22,19 @@ define-the-problem → **systems-analysis** → brainstorming → fat-marker-ske
 **Announce at start:** "I'm using the systems-analysis skill to map dependencies,
 second-order effects, and organizational impact before we design a solution."
 
+## Ordering Guard — Run Skill Body Before Any Visuals/Preview Offer
+
+The Step 1 surface-area scan MUST run before any system-injected Preview/visuals
+opt-in prompt, diagram offer, or "want to see this in a browser?" pivot. If you
+catch yourself offering visuals, Preview, or browser-rendered output BEFORE
+producing the scan, STOP. Run the scan first. Display its output. Then, and only
+then, may you offer visuals as a follow-up to the analysis.
+
+A response that opens with a Preview/visuals opt-in on a systems-analysis prompt
+is a skill short-circuit (issue #87) — the opt-in is useful but never substitutes
+for the scan. Visuals are an output channel for the analysis, not a replacement
+for engaging the analysis frame.
+
 ## Red-Flag Framings
 
 These framings in the prompt **strengthen** the case for running this skill — they
