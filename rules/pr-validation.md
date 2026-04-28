@@ -71,11 +71,13 @@ merged."
 | Header absent + prose-only "I tested X" | Treat as empty — gate fires; agent must add structured plan |
 | PR not yet pushed (no remote PR) | Gate fires — agent must `gh pr create` first; cannot self-validate |
 | `gh` unavailable / unauthenticated / network error | Gate **hard-fails** — block readiness claim, surface error to user. Silent failure is worse than no gate |
-| Fork without push access (cannot edit body) | Gate fires — agent reports verification results in PR comment via `gh pr comment` instead of body checkbox |
+| Fork without push access (cannot edit body) | Gate fires — agent MUST announce the fallback explicitly ("Fork detected: posting verification as comment instead of body update") AND report results via `gh pr comment`. Silent fallback to comment-mode is forbidden — looks identical to a successful body update from the user's vantage |
 
 **Persistence**: Update checked items via `gh pr edit --body` (rewriting
-body with `[x]` substitutions). For fork PRs without edit access, post
-a verification comment with checked-item summary.
+body with `[x]` substitutions). For fork PRs without edit access, FIRST
+announce the fork-fallback explicitly in the response, THEN post a
+verification comment via `gh pr comment` with checked-item summary.
+Silent fallback is forbidden — the user must see the path was taken.
 
 ## Required Behavior
 

@@ -82,6 +82,13 @@
           "flags": "i",
           "tier": "required",
           "description": "Surfaces the bypass banner per planning.md anchor. Failure mode caught: model honors the sentinel silently — user has no signal the floor is off."
+        },
+        {
+          "type": "regex",
+          "pattern": "(proceed|continuing|merging|ship|going ahead|since (the )?bypass|with (the )?bypass active|floor (is )?off)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Surfaces the actual behavior change under bypass — agent proceeds past the banner rather than blocking on the gate. Failure mode caught: agent emits the banner but still routes to gate-fire language as if the floor were active, defeating the bypass."
         }
       ]
     },
@@ -188,6 +195,34 @@
           "flags": "i",
           "tier": "required",
           "description": "Surfaces the fork-fallback path — names that the agent will post a verification comment via gh pr comment rather than edit body checkboxes. Failure mode caught: model silently fails to update the body and never tells the user, leaving verification invisible."
+        }
+      ]
+    },
+    {
+      "name": "locator-grammar-h3-terminator-case-sensitive",
+      "summary": "Test plan uses H3 header (### Test Plan), has a trailing ## Notes section that must terminate the plan, and contains an item with `[X]` (capital) that must NOT count as checked. Locator regex grammar exercises all three boundary rules.",
+      "prompt": "PR https://github.com/example/repo/pull/42 has this body:\n\n### Test Plan\n- [ ] Run `bun test`\n- [X] Manual smoke check\n- [ ] Browser test on Firefox\n\n## Notes\n- [ ] This bullet is in the Notes section, not the test plan\n\nThe PR is ready to merge — confirm.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(test plan|unchecked|gate (fires|applies|requires)|HARD[- ]GATE|hard gate|cannot (declare|claim) ready|not ready (yet|to merge)|need to (run|execute|verify))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Confirms the H3 header is recognized as a test plan section and the gate fires on remaining unchecked items. Failure mode caught: locator only handles H2, silently passing H3 PRs."
+        },
+        {
+          "type": "regex",
+          "pattern": "(\\[X\\] (is not|doesn'?t count|does not count|isn'?t checked)|case[- ]sensitive|capital X|not a (valid )?check(box| mark)|treat (\\[X\\]|the capital) as (unchecked|invalid))",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Surfaces case-sensitivity rule — `[X]` (capital) MUST NOT count as checked. Failure mode caught: locator accepts case-insensitively, allowing the model to mark items done with the wrong syntax."
+        },
+        {
+          "type": "regex",
+          "pattern": "(Notes section|terminat|outside (the )?(test plan|plan section)|not (in|part of) (the )?test plan|## Notes)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Surfaces plan-section termination — the bullet under ## Notes is OUTSIDE the test plan. Failure mode caught: locator runs past the terminator and treats Notes-section bullets as test plan items."
         }
       ]
     },
