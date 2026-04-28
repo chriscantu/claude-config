@@ -5,7 +5,13 @@
 # Phase 1: Static validation (frontmatter, cross-references, symlinks)
 # Phase 2: Concept coverage (required behavioral concepts exist somewhere in config)
 
-set repo_dir (cd (dirname (status filename)); and pwd)
+# CLAUDE_CONFIG_REPO_DIR env override enables fixture-based testing of validation
+# phases without requiring the real claude-config repo on disk.
+if set -q CLAUDE_CONFIG_REPO_DIR; and test -n "$CLAUDE_CONFIG_REPO_DIR"
+    set repo_dir $CLAUDE_CONFIG_REPO_DIR
+else
+    set repo_dir (cd (dirname (status filename)); and pwd)
+end
 if test -z "$repo_dir"
     echo "Error: Could not determine repository directory"
     exit 1
@@ -357,29 +363,44 @@ set drift_registry \
     "Unambiguous approach (one obvious design|planning.md|Trivial-tier approach criterion" \
     "Low blast radius (no cross-team|planning.md|Trivial-tier blast-radius criterion"
 
-for entry in $drift_registry
-    set parts (string split -m 2 "|" $entry)
-    if test (count $parts) -ne 3
-        fail "malformed drift-registry entry (expected 3 |-separated fields): $entry"
-        continue
-    end
-    set pattern $parts[1]
-    set canonical $parts[2]
-    set label $parts[3]
-
-    set hits (grep -lF -- "$pattern" $repo_dir/rules/*.md 2>/dev/null)
-    set drift_found 0
-
-    for hit in $hits
-        set hit_basename (basename $hit)
-        if test "$hit_basename" != "$canonical"
-            fail "drift: '$label' restated in rules/$hit_basename — canonical home is rules/$canonical"
-            set drift_found 1
+# Guard: empty rules/ dir means the drift loop scans nothing and silently passes.
+# Pre-check before the loop so missing-rules-dir is loud, not silent.
+set rules_glob $repo_dir/rules/*.md
+if test (count $rules_glob) -eq 0
+    fail "rules/ directory empty or missing — Phase 1g cannot scan for drift"
+else
+    for entry in $drift_registry
+        set parts (string split -m 2 "|" $entry)
+        if test (count $parts) -ne 3
+            fail "malformed drift-registry entry (expected 3 |-separated fields): $entry"
+            continue
         end
-    end
+        set pattern $parts[1]
+        set canonical $parts[2]
+        set label $parts[3]
 
-    if test $drift_found -eq 0
-        pass "$label: no drift (canonical home rules/$canonical)"
+        # No 2>/dev/null: surface permission errors instead of treating an
+        # unreadable rule file as a silent pass. Capture grep exit status —
+        # 0 = match, 1 = no match, 2 = error (e.g. permission denied).
+        set hits (grep -lF -- "$pattern" $rules_glob)
+        set grep_status $status
+        if test $grep_status -eq 2
+            fail "$label: grep returned error status 2 (permission denied or I/O error) while scanning rules/*.md"
+            continue
+        end
+
+        set drift_found 0
+        for hit in $hits
+            set hit_basename (basename $hit)
+            if test "$hit_basename" != "$canonical"
+                fail "drift: '$label' restated in rules/$hit_basename — canonical home is rules/$canonical"
+                set drift_found 1
+            end
+        end
+
+        if test $drift_found -eq 0
+            pass "$label: no drift (canonical home rules/$canonical)"
+        end
     end
 end
 
