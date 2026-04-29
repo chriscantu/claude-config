@@ -29,14 +29,10 @@
 
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
 set -l home_claude $HOME/.claude
-set -l md_dirs rules agents commands
-# skills/ are directories; hooks/ are .sh files. Each gets its own loop.
-set -l skills_src $repo/skills
-set -l skills_dst $home_claude/skills
-set -l hooks_src $repo/hooks
-set -l hooks_dst $home_claude/hooks
-set -l claude_md_src $repo/global/CLAUDE.md
-set -l claude_md_dst $home_claude/CLAUDE.md
+
+# Single source of truth for the managed symlink layout — shared with
+# validate.fish Phase 1e via bin/lib/symlinks.fish.
+source $repo/bin/lib/symlinks.fish
 
 set -g mode install
 if test (count $argv) -gt 0
@@ -58,19 +54,12 @@ set -g skipped 0
 set -g errors 0
 set -g backed_up 0
 
-# Ensure parent directory exists for a destination link. Reads global $mode:
-# in check mode, missing dirs count as missing (no mkdir); otherwise mkdir -p.
-# Returns 0 on success (dir exists or was created), 1 on failure (check-mode
-# missing OR mkdir failed).
+# Ensure parent directory exists for a destination link.
+# Returns 0 on success, 1 on mkdir failure.
 function ensure_parent_dir
     set -l dst_parent $argv[1]
     if test -d $dst_parent
         return 0
-    end
-    if test "$mode" = check
-        echo "MISSING dir: $dst_parent"
-        set -g missing (math $missing + 1)
-        return 1
     end
     if not mkdir -p $dst_parent
         echo "ERROR: mkdir -p $dst_parent failed" >&2
@@ -79,11 +68,9 @@ function ensure_parent_dir
     end
 end
 
-# Link one src → dst with mode-aware semantics.
-# $mode behavior:
-#   check         — report STALE/MISSING; never modify filesystem
-#   install       — create or repair symlinks; ERROR on real files
-#   first-install — create or repair symlinks; BACK UP real files to .bak then symlink
+# Install path only — check mode routes through check_symlink_layout.
+# Reads global $mode: in first-install, real files at dst are backed up to
+# .bak before linking; in install, real files cause an error and are skipped.
 function link_one
     set -l src $argv[1]
     set -l dst $argv[2]
@@ -101,11 +88,6 @@ function link_one
         set -l current (readlink $dst)
         if test "$current" = "$src"
             set -g skipped (math $skipped + 1)
-            return 0
-        end
-        if test "$mode" = check
-            echo "STALE link: $dst -> $current (expected $src)"
-            set -g missing (math $missing + 1)
             return 0
         end
         if not rm $dst
@@ -153,11 +135,6 @@ function link_one
         return 0
     end
 
-    if test "$mode" = check
-        echo "MISSING link: $dst"
-        set -g missing (math $missing + 1)
-        return 0
-    end
     if not ln $ln_flags $src $dst
         echo "ERROR: ln $ln_flags $src $dst failed" >&2
         set -g errors (math $errors + 1)
@@ -167,58 +144,63 @@ function link_one
     set -g linked (math $linked + 1)
 end
 
-# 1. Markdown directories: rules/, agents/, commands/
-for dir in $md_dirs
-    set -l src_dir $repo/$dir
-    set -l dst_dir $home_claude/$dir
-
-    if not test -d $src_dir
-        continue
+# Both validators share check_symlink_layout, so they agree by construction.
+# Capture the lib output to a list before iterating: a pipe consumer cannot
+# observe an early-return from the lib (zero stdout + exit 0), so an empty
+# repo/home would silently report success.
+# In check mode, `skipped` counts entries that report OK — same "no action
+# needed" semantics as install mode's already-ok counter, just relabeled in
+# the summary.
+if test "$mode" = check
+    set -l results (check_symlink_layout $repo $home_claude)
+    if test (count $results) -eq 0
+        echo "ERROR: check_symlink_layout returned no entries — repo or home unset?" >&2
+        exit 2
     end
-
-    if not ensure_parent_dir $dst_dir
-        continue
+    for result in $results
+        set -l parts (string split -m 3 "|" $result)
+        set -l status_kind $parts[1]
+        set -l dst $parts[2]
+        set -l detail $parts[3]
+        switch $status_kind
+            case OK
+                set -g skipped (math $skipped + 1)
+            case MISSING
+                echo "MISSING link: $dst"
+                set -g missing (math $missing + 1)
+            case STALE
+                echo "STALE link: $dst -> $detail"
+                set -g missing (math $missing + 1)
+            case NOT_SYMLINK
+                echo "ERROR: real file at $dst — not a symlink"
+                set -g errors (math $errors + 1)
+            case '*'
+                echo "ERROR: unknown status '$status_kind' from check_symlink_layout for $dst" >&2
+                set -g errors (math $errors + 1)
+        end
     end
+else
+    # Install / first-install: iterate the shared layout and create symlinks.
+    set -l entries (each_symlink_target $repo $home_claude)
+    if test (count $entries) -eq 0
+        echo "ERROR: each_symlink_target returned no entries — repo or home unset?" >&2
+        exit 2
+    end
+    for entry in $entries
+        set -l parts (string split -m 3 "|" $entry)
+        set -l kind $parts[1]
+        set -l src $parts[2]
+        set -l dst $parts[3]
+        set -l label $parts[4]
 
-    for src in $src_dir/*.md
-        set -l name (basename $src)
-        # Skip README files — they're documentation, not loadable rules
-        if test "$name" = README.md
+        if not ensure_parent_dir (dirname $dst)
             continue
         end
-        link_one $src $dst_dir/$name "$dir/$name"
-    end
-end
-
-# 2. Skills: each skill is a directory; symlink the directory itself.
-if test -d $skills_src
-    if ensure_parent_dir $skills_dst
-        for src_dir in $skills_src/*/
-            set -l src (string trim --right --chars=/ $src_dir)
-            set -l name (basename $src)
-            link_one $src $skills_dst/$name "skills/$name" dir
+        if test "$kind" = dir
+            link_one $src $dst $label dir
+        else
+            link_one $src $dst $label
         end
-    end
-end
-
-# 3. Hooks: link .sh files (skip test fixtures).
-if test -d $hooks_src
-    if ensure_parent_dir $hooks_dst
-        for src in $hooks_src/*.sh
-            set -l name (basename $src)
-            # Skip test fixtures — they're for repo CI, not the harness.
-            if string match -q 'test-*' $name
-                continue
-            end
-            link_one $src $hooks_dst/$name "hooks/$name"
-        end
-    end
-end
-
-# 4. Global CLAUDE.md
-if test -f $claude_md_src
-    if ensure_parent_dir $home_claude
-        link_one $claude_md_src $claude_md_dst "CLAUDE.md"
     end
 end
 

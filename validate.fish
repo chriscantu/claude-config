@@ -28,6 +28,10 @@ set pass_count 0
 set fail_count 0
 set warn_count 0
 
+# Source the shared symlink-layout library used by both this validator and
+# bin/link-config.fish. Single source of truth for which paths are managed.
+source $repo_dir/bin/lib/symlinks.fish
+
 # Optional --skill <slug>: validate one skill's structural shape only.
 # Skips Phase 1b/1c/1d/1e and Phase 2 — used by bin/new-skill on freshly
 # scaffolded skills (no symlinks yet, concept coverage not its concern).
@@ -259,51 +263,35 @@ end
 echo ""
 
 # 1e. Symlink verification
+# MISSING is fail; STALE and NOT_SYMLINK are warn (former is recoverable
+# via re-install, latter requires manual resolution). Capture the lib
+# output to a list before iterating so an empty result (e.g. lib early-
+# return on bad args) is loud instead of a silent zero-iteration loop.
 echo "── Symlink verification"
 
-for skill_dir in $repo_dir/skills/*/
-    set name (basename $skill_dir)
-    if test -L "$claude_dir/skills/$name"
-        set link_target (readlink "$claude_dir/skills/$name")
-        set expected (string trim --right --chars=/ "$skill_dir")
-        if test "$link_target" = "$expected"
-            pass "~/.claude/skills/$name symlinked correctly"
-        else
-            warn "~/.claude/skills/$name points to $link_target (expected $expected)"
-        end
-    else if test -d "$claude_dir/skills/$name"
-        warn "~/.claude/skills/$name exists but is not a symlink"
-    else
-        fail "~/.claude/skills/$name missing — run install.fish"
-    end
-end
-
-for rule in $repo_dir/rules/*.md
-    set name (basename $rule)
-    # README is documentation, not a loadable rule
-    if test "$name" = README.md
-        continue
-    end
-    if test -L "$claude_dir/rules/$name"
-        pass "~/.claude/rules/$name symlinked"
-    else
-        fail "~/.claude/rules/$name missing — run install.fish"
-    end
-end
-
-for agent in $repo_dir/agents/*.md
-    set name (basename $agent)
-    if test -L "$claude_dir/agents/$name"
-        pass "~/.claude/agents/$name symlinked"
-    else
-        fail "~/.claude/agents/$name missing — run install.fish"
-    end
-end
-
-if test -L "$claude_dir/CLAUDE.md"
-    pass "~/.claude/CLAUDE.md symlinked"
+set results (check_symlink_layout $repo_dir $claude_dir)
+if test (count $results) -eq 0
+    fail "check_symlink_layout returned no entries — repo or home unset?"
 else
-    fail "~/.claude/CLAUDE.md missing — run install.fish"
+    for result in $results
+        set -l parts (string split -m 3 "|" $result)
+        set -l status_kind $parts[1]
+        set -l dst $parts[2]
+        set -l detail $parts[3]
+        set -l rel (string replace "$claude_dir/" "~/.claude/" $dst)
+        switch $status_kind
+            case OK
+                pass "$rel symlinked"
+            case MISSING
+                fail "$rel missing — run install.fish"
+            case STALE
+                warn "$rel points to $detail (expected source)"
+            case NOT_SYMLINK
+                warn "$rel exists but is not a symlink"
+            case '*'
+                fail "$rel: unknown status '$status_kind'"
+        end
+    end
 end
 
 echo ""
