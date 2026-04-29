@@ -63,14 +63,17 @@ validator. Phases relevant to rules:
   `#architectural-invariant`, and `#emergency-bypass-sentinel`; add
   to the registry when promoting another rule construct to a citable
   anchor.
-- **1L. Delegate-link presence** — fails if a rule registered as
-  delegating to a `planning.md` anchor (e.g. `#pressure-framing-floor`,
-  `#emission-contract`) loses the `planning.md#<id>` link. Phase 1g
-  only fires on canonical-string RESTATEMENT and Phase 1k only fires
-  on DANGLING anchor links — neither catches a contributor DELETING
-  the entire delegate paragraph from a dependent rule, which silently
-  weakens the HARD-GATE (issue #200). Add `(rule, anchors)` pairs to
-  the registry when promoting a new floor delegation.
+- **1l. Delegate-link presence** — fails if a rule registered as
+  delegating to a `planning.md` anchor loses the `planning.md#<id>`
+  link. Currently guards 15 (rule, anchor) pairs covering
+  `#pressure-framing-floor`, `#emission-contract`,
+  `#emergency-bypass-sentinel`, and `#trivial-tier-criteria` across
+  the five dependent rules. Phase 1g only fires on canonical-string
+  RESTATEMENT and Phase 1k only fires on DANGLING anchor links —
+  neither catches a contributor DELETING the entire delegate
+  paragraph from a dependent rule, which silently weakens the
+  HARD-GATE (issue #200). Add `(rule, anchors)` pairs to the
+  registry when promoting a new floor delegation.
 
 Use these in pre-push hooks or CI to catch the silent-failure modes
 (rule not loaded; rule restated and drifted; anchor structurally broken;

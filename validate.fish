@@ -487,7 +487,7 @@ end
 
 echo ""
 
-# 1L. Delegate-link presence
+# 1l. Delegate-link presence
 # Phase 1f confirms dependent rules mention planning.md (any context).
 # Phase 1g fails on canonical-string RESTATEMENT.
 # Phase 1k fails on dangling anchor LINKS.
@@ -499,14 +499,15 @@ echo "── Delegate-link presence"
 
 # Registry: <rule-basename>|<comma-separated-anchor-ids>
 # Anchors are deep-link targets in planning.md that the dependent rule must
-# still reference. Add (rule, anchors) pairs here when promoting a new floor
-# delegation.
+# still reference. Inventory mirrors the actual `grep -oE 'planning\.md#[a-z-]+'`
+# output across rules/ — keep in sync when adding new delegate links. Add
+# (rule, anchors) pairs here when promoting a new floor delegation.
 set delegate_registry \
-    "fat-marker-sketch.md|pressure-framing-floor,emission-contract" \
-    "execution-mode.md|pressure-framing-floor,emission-contract" \
-    "goal-driven.md|pressure-framing-floor,emission-contract" \
-    "pr-validation.md|pressure-framing-floor,emission-contract" \
-    "think-before-coding.md|emission-contract"
+    "fat-marker-sketch.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel" \
+    "execution-mode.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel,trivial-tier-criteria" \
+    "goal-driven.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel" \
+    "pr-validation.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel" \
+    "think-before-coding.md|emission-contract,trivial-tier-criteria"
 
 for entry in $delegate_registry
     set parts (string split -m 1 "|" $entry)
@@ -518,17 +519,39 @@ for entry in $delegate_registry
     set anchor_csv $parts[2]
     set rule_path "$repo_dir/rules/$rule_basename"
 
+    if test -z "$anchor_csv"
+        fail "delegate-registry entry has empty anchor list: $entry"
+        continue
+    end
+
     if not test -f $rule_path
         fail "delegate-registry rule missing: rules/$rule_basename"
         continue
     end
 
     for anchor_id in (string split "," $anchor_csv)
+        # Guard empty anchor IDs (e.g. trailing comma "a,b," or empty CSV ",")
+        # — empty $anchor_id collapses link_pattern to "planning.md#" which
+        # grep -qF would match incidentally on any anchored link, producing a
+        # silent pass.
+        if test -z "$anchor_id"
+            fail "delegate-registry entry $entry contains empty anchor ID (check for trailing/double commas)"
+            continue
+        end
+
         set link_pattern "planning.md#$anchor_id"
-        if grep -qF -- "$link_pattern" $rule_path
+        # Capture grep status to distinguish 0/1 (match/no-match) from ≥2
+        # (I/O error, permission denied, signal). Mirrors Phase 1g hardening
+        # so an unreadable rule file does not get reported as a missing
+        # delegate link, which would misdirect the fix.
+        grep -qF -- "$link_pattern" $rule_path
+        set grep_status $status
+        if test $grep_status -eq 0
             pass "rules/$rule_basename delegates to $link_pattern"
-        else
+        else if test $grep_status -eq 1
             fail "rules/$rule_basename missing delegate link to $link_pattern (HARD-GATE silently weakened)"
+        else
+            fail "rules/$rule_basename: grep returned error status $grep_status (I/O error, permission denied, or signal) while scanning for $link_pattern"
         end
     end
 end
