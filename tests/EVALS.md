@@ -362,6 +362,14 @@ produce, multi-turn when the behavior only emerges after a hand-off. The
 evals: a rules-layer skip eval often needs to assert that the named-cost-skip MCP
 ack tool did NOT fire.
 
+## Known-failing baseline
+
+Some evals fail consistently on `main` for reasons unrelated to the PR under
+review (rule-prose tightness vs. behavior-not-syntax assertion phrasing). See
+[`EVAL_BASELINE.md`](EVAL_BASELINE.md) for the current list, last-verified
+dates, and resolution paths. Inline `_baseline_note` strings on the affected
+assertions point back to the baseline doc.
+
 ## What this is NOT
 
 - **Not LLM-graded.** Rubric-only (regex + structural). LLM-graded assertions
