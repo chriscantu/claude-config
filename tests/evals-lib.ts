@@ -33,6 +33,8 @@ export function reliabilityOf(type: Assertion["type"]): ReliabilityTier {
     case "chain_order":
     case "tool_input_matches":
     case "not_tool_input_matches":
+    case "tool_called":
+    case "not_tool_called":
       return "structural";
     case "contains":
     case "not_contains":
@@ -52,6 +54,15 @@ export type Assertion =
   | (AssertionBase & { type: "thinking_contains" | "not_thinking_contains"; value: string })
   | (AssertionBase & { type: "skill_invoked" | "not_skill_invoked"; skill: string })
   | (AssertionBase & { type: "tool_input_matches" | "not_tool_input_matches"; tool: string; input_key: string; input_value: string })
+  /**
+   * Any-of membership over tool names — passes if *any* listed tool fired
+   * (positive form) or if *none* fired (negative form). No input filtering;
+   * compare to `tool_input_matches` which asserts a specific tool's input.
+   * Use this for canonical-step gates where the question is "did the model
+   * do *any* of these tool calls" (#192). Tuple type encodes non-empty at
+   * compile time — `validateAssertion` still checks per-element non-empty.
+   */
+  | (AssertionBase & { type: "tool_called" | "not_tool_called"; tools: readonly [string, ...string[]] })
   | (AssertionBase & { type: "skill_invoked_in_turn"; turn: number; skill: string })
   | (AssertionBase & { type: "chain_order"; skills: string[] });
 
@@ -452,6 +463,12 @@ function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
         throw new Error(`${loc}: chain_order requires non-empty array 'skills' of non-empty strings`);
       }
       break;
+    case "tool_called":
+    case "not_tool_called":
+      if (!Array.isArray(a.tools) || a.tools.length === 0 || !a.tools.every((t) => typeof t === "string" && t.length > 0)) {
+        throw new Error(`${loc}: ${a.type} requires non-empty array 'tools' of non-empty strings`);
+      }
+      break;
     default: {
       // Exhaustiveness: adding a new variant to `Assertion` without extending
       // the switch causes a type error here, not a silent fall-through.
@@ -555,6 +572,7 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
       validatedFinal = [];
       for (const a of e.final_assertions) {
         if (a.type === "tool_input_matches" || a.type === "not_tool_input_matches" ||
+            a.type === "tool_called" || a.type === "not_tool_called" ||
             a.type === "contains" || a.type === "not_contains" ||
             a.type === "regex" || a.type === "not_regex" ||
             a.type === "skill_invoked" || a.type === "not_skill_invoked") {
@@ -794,6 +812,25 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
           `(matched substring ${JSON.stringify(assertion.input_value)})`,
       );
     }
+    case "tool_called": {
+      const wanted = new Set(assertion.tools);
+      const matched = signals.toolUses.some((tu) => wanted.has(tu.name));
+      if (matched) return pass();
+      const seen = signals.toolUses.length === 0
+        ? "(no tools)"
+        : Array.from(new Set(signals.toolUses.map((tu) => tu.name))).join(", ");
+      return fail(
+        `tool_called: none of [${assertion.tools.join(", ")}] invoked. Tools seen: ${seen}`,
+      );
+    }
+    case "not_tool_called": {
+      const wanted = new Set(assertion.tools);
+      const offending = signals.toolUses.find((tu) => wanted.has(tu.name));
+      if (!offending) return pass();
+      return fail(
+        `not_tool_called: forbidden tool '${offending.name}' invoked (forbidden set: [${assertion.tools.join(", ")}])`,
+      );
+    }
     case "skill_invoked_in_turn":
     case "chain_order":
       // Routing guard: chain-level assertions belong in `evaluateChain`, not
@@ -851,6 +888,8 @@ export function evaluateChain(assertion: ValidatedAssertion, chain: ChainSignals
     case "not_skill_invoked":
     case "tool_input_matches":
     case "not_tool_input_matches":
+    case "tool_called":
+    case "not_tool_called":
       // Routing guard: per-turn assertions belong in `evaluate`, not here.
       // Explicit cases let the compiler enforce exhaustiveness — a new
       // Assertion variant must be handled here or it won't type-check.
@@ -883,7 +922,7 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
   let requiredOk = true;
 
   const isNegative = (a: ValidatedAssertion): boolean =>
-    a.type === "not_contains" || a.type === "not_regex" || a.type === "not_thinking_contains" || a.type === "not_skill_invoked" || a.type === "not_tool_input_matches";
+    a.type === "not_contains" || a.type === "not_regex" || a.type === "not_thinking_contains" || a.type === "not_skill_invoked" || a.type === "not_tool_input_matches" || a.type === "not_tool_called";
 
   /**
    * Is the signal the assertion ran against empty, in the sense that a
@@ -917,6 +956,7 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
       case "not_skill_invoked":
         return s.skillInvocations.length === 0;
       case "not_tool_input_matches":
+      case "not_tool_called":
         // Silent-fire only when the model emitted no tool uses at all. If any
         // tools fired (even unrelated ones), the absence of the forbidden tool
         // is meaningful information — the model engaged with tool-using
@@ -927,12 +967,16 @@ export function metaCheck(input: MetaCheckInput): MetaCheckOutput {
         // the metaCheck distinction by flagging every legitimate negative pass
         // as silent-fire (the pass condition is precisely "no offending tool
         // fired"). Don't re-litigate without rereading both cases together.
+        //
+        // `not_tool_called` shares this rule: same channel (toolUses), same
+        // empty-of-category semantic.
         return s.toolUses.length === 0;
       case "contains":
       case "regex":
       case "thinking_contains":
       case "skill_invoked":
       case "tool_input_matches":
+      case "tool_called":
       case "skill_invoked_in_turn":
       case "chain_order":
         return false;
