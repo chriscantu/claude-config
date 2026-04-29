@@ -22,21 +22,13 @@ jobs:
           sudo apt-get install -y fish
           fish --version
 
-      - name: Create mock symlinks for CI
-        run: |
-          shopt -s nullglob
-          mkdir -p ~/.claude/rules ~/.claude/skills ~/.claude/agents
-          ln -sf "$PWD/global/CLAUDE.md" ~/.claude/CLAUDE.md
-          for rule in rules/*.md; do
-            ln -sf "$PWD/$rule" ~/.claude/rules/$(basename "$rule")
-          done
-          for skill_dir in skills/*/; do
-            name=$(basename "$skill_dir")
-            ln -sfn "$PWD/${skill_dir%/}" ~/.claude/skills/"$name"
-          done
-          for agent in agents/*.md; do
-            ln -sf "$PWD/$agent" ~/.claude/agents/$(basename "$agent")
-          done
+      - name: Install symlinks via bin/link-config.fish
+        # Single source of truth for the managed-symlink layout —
+        # bin/lib/symlinks.fish. Avoids a third inline encoding of the
+        # layout (the prior mock-symlink shell loop diverged from
+        # link-config.fish + validate.fish, silently dropping commands/
+        # and hooks/ until validate.fish gained uniform coverage).
+        run: fish bin/link-config.fish --install
 
       - name: Run validation (phases 1-2)
         run: fish validate.fish
