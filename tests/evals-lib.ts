@@ -54,7 +54,15 @@ export type Assertion =
   | (AssertionBase & { type: "thinking_contains" | "not_thinking_contains"; value: string })
   | (AssertionBase & { type: "skill_invoked" | "not_skill_invoked"; skill: string })
   | (AssertionBase & { type: "tool_input_matches" | "not_tool_input_matches"; tool: string; input_key: string; input_value: string })
-  | (AssertionBase & { type: "tool_called" | "not_tool_called"; tools: string[] })
+  /**
+   * Any-of membership over tool names — passes if *any* listed tool fired
+   * (positive form) or if *none* fired (negative form). No input filtering;
+   * compare to `tool_input_matches` which asserts a specific tool's input.
+   * Use this for canonical-step gates where the question is "did the model
+   * do *any* of these tool calls" (#192). Tuple type encodes non-empty at
+   * compile time — `validateAssertion` still checks per-element non-empty.
+   */
+  | (AssertionBase & { type: "tool_called" | "not_tool_called"; tools: readonly [string, ...string[]] })
   | (AssertionBase & { type: "skill_invoked_in_turn"; turn: number; skill: string })
   | (AssertionBase & { type: "chain_order"; skills: string[] });
 

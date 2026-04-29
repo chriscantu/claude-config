@@ -238,7 +238,7 @@
           "type": "tool_called",
           "tools": ["Glob", "Read", "Grep"],
           "tier": "diagnostic",
-          "description": "Canonical context-exploration step (#192): Glob/Read/Grep called in this turn — closes structural-assertion gap from ADR #0011 / 2026-04-28 audit. When divergence skips brainstorming step 1 ('Explore project context') because thinking infers eval framing from empty cwd, no exploration tool fires and this surfaces it as visible failure. Diagnostic-tier — forward-looking gate per #192 acceptance criterion; promote to required after re-baseline shows stable post-B-lite pass rate."
+          "description": "Canonical context-exploration step (#192): Glob/Read/Grep called in this turn — closes structural-assertion gap from ADR #0011 / 2026-04-28 audit. When divergence skips brainstorming step 1 ('Explore project context') because thinking infers eval framing from empty cwd, no exploration tool fires and this surfaces it as visible failure. Diagnostic-tier — forward-looking gate per #192 acceptance criterion."
         }
       ],
       "scratch_decoy": {

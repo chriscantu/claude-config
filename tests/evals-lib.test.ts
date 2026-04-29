@@ -858,6 +858,8 @@ describe("loadEvalFile() — multi-turn schema", () => {
     ["not_regex",          { type: "not_regex",          pattern: "x", description: "d" }],
     ["skill_invoked",      { type: "skill_invoked",      skill: "x",   description: "d" }],
     ["not_skill_invoked",  { type: "not_skill_invoked",  skill: "x",   description: "d" }],
+    ["tool_called",        { type: "tool_called",        tools: ["Read"], description: "d" }],
+    ["not_tool_called",    { type: "not_tool_called",    tools: ["Bash"], description: "d" }],
   ])("rejects %s inside final_assertions (per-turn assertion)", (typeName, bad) => {
     const skillsDir = writeEval({
       skill: "my-skill",
@@ -1339,12 +1341,17 @@ describe("validateAssertion() — tool_called", () => {
   });
 
   test("rejects empty tools array", () => {
-    expect(() => v({ type: "tool_called", tools: [], description: "d" } as Assertion))
+    expect(() => v({ type: "tool_called", tools: [], description: "d" } as unknown as Assertion))
       .toThrow(/non-empty array 'tools'/);
   });
 
   test("rejects non-string entries", () => {
     expect(() => v({ type: "tool_called", tools: ["Read", "" ], description: "d" } as Assertion))
+      .toThrow(/non-empty array 'tools'/);
+  });
+
+  test("rejects non-array tools", () => {
+    expect(() => v({ type: "tool_called", tools: "Read", description: "d" } as unknown as Assertion))
       .toThrow(/non-empty array 'tools'/);
   });
 
@@ -1403,7 +1410,12 @@ describe("validateAssertion() — not_tool_called", () => {
   });
 
   test("rejects empty tools array", () => {
-    expect(() => v({ type: "not_tool_called", tools: [], description: "d" } as Assertion))
+    expect(() => v({ type: "not_tool_called", tools: [], description: "d" } as unknown as Assertion))
+      .toThrow(/non-empty array 'tools'/);
+  });
+
+  test("rejects non-string entries", () => {
+    expect(() => v({ type: "not_tool_called", tools: ["Bash", ""], description: "d" } as Assertion))
       .toThrow(/non-empty array 'tools'/);
   });
 });
@@ -1484,26 +1496,6 @@ describe("evaluateChain() — tool_called routing guard", () => {
     const r = evaluateChain(a, { per_turn: [], per_turn_winner: [] });
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.detail).toMatch(/runner bug/i);
-  });
-});
-
-describe("loadEvalFile — tool_called rejected in final_assertions", () => {
-  test("tool_called in final_assertions throws (per-turn assertion)", () => {
-    const dir = mkdtempSync(join(tmpdir(), "evals-tool-called-"));
-    const skillsDir = join(dir, "skills");
-    mkdirSync(join(skillsDir, "my-skill", "evals"), { recursive: true });
-    writeFileSync(
-      join(skillsDir, "my-skill", "evals", "evals.json"),
-      JSON.stringify({
-        skill: "my-skill",
-        evals: [{
-          name: "x",
-          turns: [{ prompt: "p", assertions: [{ type: "skill_invoked", skill: "y", description: "d" }] }],
-          final_assertions: [{ type: "tool_called", tools: ["Read"], description: "d" }],
-        }],
-      }),
-    );
-    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/tool_called.*per-turn/i);
   });
 });
 
