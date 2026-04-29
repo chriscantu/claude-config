@@ -74,6 +74,16 @@ validator. Phases relevant to rules:
   paragraph from a dependent rule, which silently weakens the
   HARD-GATE (issue #200). Add `(rule, anchors)` pairs to the
   registry when promoting a new floor delegation.
+- **1m. evals.json shape** — fails if any `evals.json` under
+  `skills/*/evals/` or `rules-evals/*/evals/` violates the
+  `loadEvalFile` contract from `tests/evals-lib.ts`: top-level
+  `{skill, evals[]}`; each entry has a non-empty `name`, exactly
+  one of `prompt`/`turns`, a non-empty `assertions` array
+  (single-turn) or per-turn non-empty `prompt`+`assertions`
+  (multi-turn). A `__SCANNED__` sentinel emitted per eval lets the
+  loop assert the filter visited every entry — without it, a
+  future filter regression that makes every `select(...)` predicate
+  miss would re-introduce the silent-skip class issue #203 closed.
 
 Use these in pre-push hooks or CI to catch the silent-failure modes
 (rule not loaded; rule restated and drifted; anchor structurally broken;
