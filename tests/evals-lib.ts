@@ -3,8 +3,8 @@
  * signal extractor, and assertion evaluator.
  */
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
 
 export type AssertionTier = "required" | "diagnostic";
 
@@ -124,7 +124,7 @@ export type ValidatedEval =
       readonly assertions: readonly ValidatedAssertion[];
       readonly setup?: string;
       readonly teardown?: string;
-      readonly scratch_decoy?: Readonly<Record<string, string>>;
+      readonly scratch_decoy?: ValidatedScratchDecoy;
     }
   | {
       readonly kind: "multi";
@@ -132,7 +132,7 @@ export type ValidatedEval =
       readonly summary?: string;
       readonly turns: readonly ValidatedTurn[];
       readonly final_assertions?: readonly ValidatedAssertion[];
-      readonly scratch_decoy?: Readonly<Record<string, string>>;
+      readonly scratch_decoy?: ValidatedScratchDecoy;
     };
 
 export interface EvalFile {
@@ -278,22 +278,39 @@ export function aggregateChainSignals(per_turn: readonly Signals[]): ChainSignal
 }
 
 /**
+ * Branded post-validation type for scratch-decoy maps. Mirrors the
+ * `ValidatedAssertion` brand: callers downstream (runClaude /
+ * runClaudeChain / seedScratchDecoy) accept only this branded form, so
+ * the path-safety invariants enforced by `validateScratchDecoy` cannot
+ * be re-injected via an unvalidated `Record<string, string>` from a
+ * future call site. The brand has no runtime cost — it's a phantom
+ * type erased at compile.
+ */
+declare const validatedScratchDecoyBrand: unique symbol;
+export type ValidatedScratchDecoy = Readonly<Record<string, string>> & {
+  readonly [validatedScratchDecoyBrand]: true;
+};
+
+/**
  * Validate a `scratch_decoy` map. Returns `undefined` for absent decoy
  * (the field is optional). Otherwise enforces:
  *   - Object literal with string-keyed entries
- *   - All keys are non-empty relative paths (no absolute paths, no `..`
- *     traversal — the decoy writes into the scratch tmpdir and an
- *     escape would write into the user's actual filesystem)
+ *   - All keys are non-empty relative paths (no absolute paths —
+ *     POSIX `/` or Windows `\` prefix — and no `..` traversal). The
+ *     decoy writes into the scratch tmpdir and an escape would write
+ *     into the user's actual filesystem.
  *   - All values are strings (file content)
  *
- * Path safety is load-bearing: `runClaude` joins these onto a `mkdtemp`
- * scratch dir and writes them. A bad path would punch out of the
- * scratch sandbox.
+ * Path safety is load-bearing: `seedScratchDecoy` joins these onto a
+ * `mkdtemp` scratch dir and writes them. A bad path would punch out of
+ * the scratch sandbox. Brand on the return type prevents downstream
+ * call sites from constructing a decoy without going through this
+ * validator.
  */
 function validateScratchDecoy(
   raw: unknown,
   loc: string,
-): Readonly<Record<string, string>> | undefined {
+): ValidatedScratchDecoy | undefined {
   if (raw === undefined) return undefined;
   if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
     throw new Error(`${loc}: scratch_decoy must be an object map of relative paths to file content`);
@@ -316,7 +333,66 @@ function validateScratchDecoy(
       throw new Error(`${loc}: scratch_decoy['${path}'] must be a string (file content)`);
     }
   }
-  return Object.freeze({ ...(raw as Record<string, string>) });
+  return Object.freeze({ ...(raw as Record<string, string>) }) as ValidatedScratchDecoy;
+}
+
+/**
+ * Structured error thrown by `seedScratchDecoy` when a decoy file cannot
+ * be written. Carries the offending relative path and the original
+ * filesystem errno so callers (`runClaude`, `runClaudeChain`) can
+ * surface a useful failure message instead of an opaque throw.
+ *
+ * Why a custom class: the `code` property of NodeJS.ErrnoException is
+ * not always set (e.g. on platform-specific failures), and the relPath
+ * is the load-bearing diagnostic that turns an opaque ENOSPC into
+ * "decoy seed failed for 'src/index.ts': ENOSPC". Subclassing keeps the
+ * caller's catch block narrow.
+ */
+export class ScratchDecoySeedError extends Error {
+  readonly relPath: string;
+  readonly errno: string | undefined;
+  constructor(relPath: string, cause: Error) {
+    const errno = (cause as NodeJS.ErrnoException).code;
+    super(`decoy seed failed for '${relPath}': ${errno ?? cause.message}`);
+    this.name = "ScratchDecoySeedError";
+    this.relPath = relPath;
+    this.errno = errno;
+  }
+}
+
+/**
+ * Seed `decoy` files into `cwd` BEFORE the claude process spawns. Used
+ * by ADR #0011 / Option B-lite to break the empty-cwd detection cue
+ * that triggers thinking-channel meta-awareness on hot-spot fixtures.
+ *
+ * Path safety is enforced upstream in `validateScratchDecoy` — paths
+ * are non-empty, non-absolute, and contain no `..` segments. The brand
+ * on `ValidatedScratchDecoy` makes it a compile error to pass an
+ * unvalidated map.
+ *
+ * On filesystem failure (EACCES, ENOSPC, EROFS, race), throws a
+ * `ScratchDecoySeedError` carrying the offending relPath and errno so
+ * the runner can surface a structured failure instead of an opaque
+ * throw. Partial writes from prior iterations remain on disk — the
+ * caller is responsible for scratch-dir cleanup (`rmSync` in the
+ * runner's finally block).
+ */
+export function seedScratchDecoy(
+  cwd: string,
+  decoy: ValidatedScratchDecoy | undefined,
+  fs: { mkdirSync: typeof mkdirSync; writeFileSync: typeof writeFileSync } = { mkdirSync, writeFileSync },
+): void {
+  if (!decoy) return;
+  for (const [relPath, content] of Object.entries(decoy)) {
+    const fullPath = join(cwd, relPath);
+    const parentDir = dirname(fullPath);
+    try {
+      fs.mkdirSync(parentDir, { recursive: true });
+      fs.writeFileSync(fullPath, content, "utf8");
+    } catch (err) {
+      throw new ScratchDecoySeedError(relPath, err as Error);
+    }
+  }
 }
 
 function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
