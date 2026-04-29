@@ -38,3 +38,9 @@ jobs:
 
       - name: Run validation (phases 1-2)
         run: fish validate.fish
+
+      - name: Run fish-shell regression tests
+        # Driver auto-discovers tests/*-test.fish and tests/validate-phase-*.fish.
+        # Failure of any test file fails the run. See tests/README.md for the
+        # naming contract.
+        run: fish tests/run-fish-tests.fish
