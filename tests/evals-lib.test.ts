@@ -18,7 +18,9 @@ import {
   type ChainSignals,
   type SkillInvocation,
   type ValidatedAssertion,
+  type ValidatedScratchDecoy,
   type SuiteExitOptions,
+  ScratchDecoySeedError,
   aggregateChainSignals,
   brandForTest as v,
   evaluate,
@@ -30,6 +32,7 @@ import {
   parseStreamJson,
   reliabilityOf,
   runLifecycle,
+  seedScratchDecoy,
   suiteExit,
   tallyReliability,
 } from "./evals-lib.ts";
@@ -1682,6 +1685,203 @@ test("loadEvalFile preserves setup and teardown shell commands", () => {
   if (ev.kind !== "single") throw new Error("unreachable");
   expect(ev.setup).toBe("touch /tmp/flag");
   expect(ev.teardown).toBe("rm -f /tmp/flag");
+});
+
+describe("loadEvalFile — scratch_decoy validation", () => {
+  function writeFixture(json: unknown): string {
+    const root = mkdtempSync(join(tmpdir(), "evals-decoy-"));
+    const skillDir = join(root, "test-skill", "evals");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "evals.json"), JSON.stringify(json));
+    return root;
+  }
+  function evalWith(extra: Record<string, unknown>) {
+    return {
+      skill: "test-skill",
+      evals: [{
+        name: "ev",
+        prompt: "p",
+        assertions: [{ type: "regex", pattern: "x", description: "d" }],
+        ...extra,
+      }],
+    };
+  }
+
+  test("accepts a valid relative-path decoy on single-turn", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "README.md": "# project", "src/index.ts": "export {}" } }));
+    const ev = loadEvalFile(root, "test-skill")!.evals[0];
+    if (ev.kind !== "single") throw new Error("expected single");
+    expect({ ...ev.scratch_decoy }).toEqual({ "README.md": "# project", "src/index.ts": "export {}" });
+  });
+
+  test("accepts a valid decoy on multi-turn (chain)", () => {
+    const root = writeFixture({
+      skill: "test-skill",
+      evals: [{
+        name: "ev",
+        scratch_decoy: { "README.md": "# project" },
+        turns: [{ prompt: "t1", assertions: [{ type: "regex", pattern: "x", description: "d" }] }],
+      }],
+    });
+    const ev = loadEvalFile(root, "test-skill")!.evals[0];
+    if (ev.kind !== "multi") throw new Error("expected multi");
+    expect({ ...ev.scratch_decoy }).toEqual({ "README.md": "# project" });
+  });
+
+  test("rejects absolute path", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "/etc/passwd": "x" } }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/absolute/);
+  });
+
+  test("rejects '..' traversal", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "../escape.txt": "x" } }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/\.\./);
+  });
+
+  test("rejects '..' nested in subpath (e.g. src/../../etc)", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "src/../../etc/passwd": "x" } }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/\.\./);
+  });
+
+  test("rejects empty key", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "": "x" } }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/non-empty/);
+  });
+
+  test("rejects non-string content", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "README.md": 42 as unknown as string } }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/string/);
+  });
+
+  test("rejects array (must be object map)", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: ["README.md"] as unknown as Record<string, string> }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/object map/);
+  });
+
+  test("rejects empty object (omit field for none)", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: {} }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/at least one/);
+  });
+
+  test("absent scratch_decoy is fine (field is optional)", () => {
+    const root = writeFixture(evalWith({}));
+    const ev = loadEvalFile(root, "test-skill")!.evals[0];
+    if (ev.kind !== "single") throw new Error("expected single");
+    expect(ev.scratch_decoy).toBeUndefined();
+  });
+});
+
+describe("seedScratchDecoy() — runtime behavior", () => {
+  // Build a branded ValidatedScratchDecoy via loadEvalFile so the test
+  // exercises the same path as production callers (no manual brand cast).
+  function brandedDecoy(map: Record<string, string>): ValidatedScratchDecoy {
+    const root = mkdtempSync(join(tmpdir(), "evals-seed-fixture-"));
+    const skillDir = join(root, "test-skill", "evals");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(
+      join(skillDir, "evals.json"),
+      JSON.stringify({
+        skill: "test-skill",
+        evals: [{
+          name: "ev",
+          prompt: "p",
+          assertions: [{ type: "regex", pattern: "x", description: "d" }],
+          scratch_decoy: map,
+        }],
+      }),
+    );
+    const ev = loadEvalFile(root, "test-skill")!.evals[0];
+    if (ev.kind !== "single") throw new Error("expected single");
+    if (!ev.scratch_decoy) throw new Error("expected decoy");
+    return ev.scratch_decoy;
+  }
+
+  test("writes a single root-level file with exact content", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "seed-root-"));
+    seedScratchDecoy(cwd, brandedDecoy({ "README.md": "# project\n" }));
+    expect(readFileSync(join(cwd, "README.md"), "utf8")).toBe("# project\n");
+  });
+
+  test("creates intermediate subdirectories for nested paths", () => {
+    // Without `mkdirSync({recursive:true})` the writeFileSync on
+    // `src/index.ts` would throw ENOENT on a fresh tmpdir. This test
+    // locks the recursive-mkdir contract.
+    const cwd = mkdtempSync(join(tmpdir(), "seed-nested-"));
+    seedScratchDecoy(cwd, brandedDecoy({
+      "src/lib/util.ts": "export const x = 1;\n",
+      "docs/onboarding.md": "# onboarding\n",
+    }));
+    expect(readFileSync(join(cwd, "src/lib/util.ts"), "utf8")).toBe("export const x = 1;\n");
+    expect(readFileSync(join(cwd, "docs/onboarding.md"), "utf8")).toBe("# onboarding\n");
+  });
+
+  test("absent decoy is a no-op (does not throw, does not create files)", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "seed-absent-"));
+    expect(() => seedScratchDecoy(cwd, undefined)).not.toThrow();
+  });
+
+  test("throws ScratchDecoySeedError carrying relPath when writeFileSync fails", () => {
+    // Inject a failing writeFileSync via the optional fs parameter to
+    // simulate ENOSPC / EACCES / EROFS without touching the real
+    // filesystem. The error must surface the offending relPath so the
+    // runner can produce a useful chainFailure message instead of an
+    // opaque ENOSPC.
+    const cwd = mkdtempSync(join(tmpdir(), "seed-fail-"));
+    const fakeWrite = (() => {
+      const err = new Error("simulated ENOSPC") as NodeJS.ErrnoException;
+      err.code = "ENOSPC";
+      throw err;
+    }) as unknown as typeof writeFileSync;
+    expect(() =>
+      seedScratchDecoy(
+        cwd,
+        brandedDecoy({ "src/index.ts": "export {}\n" }),
+        { mkdirSync, writeFileSync: fakeWrite },
+      ),
+    ).toThrow(ScratchDecoySeedError);
+    try {
+      seedScratchDecoy(
+        cwd,
+        brandedDecoy({ "src/index.ts": "export {}\n" }),
+        { mkdirSync, writeFileSync: fakeWrite },
+      );
+    } catch (err) {
+      expect(err).toBeInstanceOf(ScratchDecoySeedError);
+      const e = err as ScratchDecoySeedError;
+      expect(e.relPath).toBe("src/index.ts");
+      expect(e.errno).toBe("ENOSPC");
+      expect(e.message).toContain("src/index.ts");
+      expect(e.message).toContain("ENOSPC");
+    }
+  });
+
+  test("throws ScratchDecoySeedError when mkdirSync fails", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "seed-mkdir-fail-"));
+    const fakeMkdir = (() => {
+      const err = new Error("simulated EACCES") as NodeJS.ErrnoException;
+      err.code = "EACCES";
+      throw err;
+    }) as unknown as typeof mkdirSync;
+    expect(() =>
+      seedScratchDecoy(
+        cwd,
+        brandedDecoy({ "deep/nested/file.txt": "x" }),
+        { mkdirSync: fakeMkdir, writeFileSync },
+      ),
+    ).toThrow(ScratchDecoySeedError);
+  });
+
+  test("multi-turn-style cwd persistence: a decoy seeded once is observable from the same cwd repeatedly (chain shared-cwd contract)", () => {
+    // Pin the cwd-share invariant that runClaudeChain relies on:
+    // turn 1 seeds the decoy, turns 2..N inherit the same scratch dir
+    // via spawnClaudeCli's cwd arg. Reading the file twice from the
+    // same cwd proves the decoy persists for subsequent reads — the
+    // load-bearing chain claim.
+    const cwd = mkdtempSync(join(tmpdir(), "seed-multiturn-"));
+    seedScratchDecoy(cwd, brandedDecoy({ "README.md": "# shared\n" }));
+    expect(readFileSync(join(cwd, "README.md"), "utf8")).toBe("# shared\n");
+    expect(readFileSync(join(cwd, "README.md"), "utf8")).toBe("# shared\n");
+  });
 });
 
 describe("loadEvalFile rejects multi-turn evals with setup/teardown", () => {

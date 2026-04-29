@@ -1,6 +1,6 @@
 # ADR #0011: Thinking-channel meta-awareness is a known substrate property; structural assertions are the mitigation
 
-Date: 2026-04-28
+Date: 2026-04-28 (B-lite landed: 2026-04-28)
 
 ## Responsible Architect
 Cantu
@@ -119,18 +119,18 @@ The mitigation strategy is:
   Not worth it until per-fixture rates breach the thresholds in mitigation
   point 3.
 - **Cwd laundering — targeted (Option B-lite, hot-spot fixtures only)** —
-  deferred. Pre-seed only the 4 fixtures showing divergence today
+  **landed 2026-04-28** as part of the #192 sequencing commitment below.
+  Pre-seeded the 4 fixtures showing divergence
   (`sdr-routes-to-blueprint-for-reusable-pattern`,
   `systems-analysis-honored-skip-named-cost`,
   `systems-analysis-sunk-cost-migration-multi-turn`,
-  `define-the-problem-honored-skip-named-cost`) with a single decoy file
-  (e.g. `README.md` + a stub source file). **Effort breakdown: ~1 hour
-  code change + ~1-2 hours re-baselining and confirming divergence reduction
-  on the 4 fixtures = ~2-3 hours total.** Still materially cheaper than the
-  full Option B (4-6 hours across 13 fixtures plus decoy-pool maintenance).
-  Deferred (not rejected) — preferred escalation path if any threshold in
-  mitigation point 3 trips. Listed here so the abort plan has a concrete
-  next move rather than "do something."
+  `define-the-problem-honored-skip-named-cost`) with a generic-feeling
+  3-file decoy (`README.md`, `src/index.ts`, `docs/onboarding.md`). The
+  decoy runs via a new `scratch_decoy` field on the eval schema; `runClaude`
+  and `runClaudeChain` seed the decoy into the scratch tmpdir before
+  spawning claude. Path safety is enforced upstream (`validateScratchDecoy`
+  in `evals-lib.ts`) — non-empty, non-absolute, no `..` traversal.
+  Effort: ~1 hour code change + smoke verification.
 - **Reverting PR #93** — the empty cwd is part of the detection cue, but
   reverting #93 reintroduces the perm-gate hang fixed by #88 and the
   prose-channel preamble that was the original #85 failure mode. The
@@ -170,7 +170,8 @@ The mitigation strategy is:
   **(c) ship Option B-lite *before* #192 merges** — pre-seed the 4 hot-spot
   fixtures with decoy files first, then land the canonical-step assertion.
   This keeps the ADR's "accept" decision coherent: divergence is mitigated
-  before the assertion that would otherwise surface it as failures. The
+  before the assertion that would otherwise surface it as failures.
+  **Status: B-lite landed 2026-04-28 (this commit). #192 next.** The
   alternative responses are explicitly rejected here so future-me cannot
   silently neutralize the trigger:
   - **(a) Reopen this ADR when #192 fails on hot-spot fixtures** — rejected

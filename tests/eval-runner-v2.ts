@@ -34,6 +34,8 @@ import {
   type MetaDecision,
   type Signals,
   type ValidatedAssertion,
+  type ValidatedScratchDecoy,
+  ScratchDecoySeedError,
   aggregateChainSignals,
   discoverSkills,
   evaluate,
@@ -44,6 +46,7 @@ import {
   metaCheck,
   parseStreamJson,
   runLifecycle,
+  seedScratchDecoy,
   suiteExit,
   tallyEval,
   tallyReliability,
@@ -138,10 +141,30 @@ function spawnClaudeCli(args: readonly string[], prompt: string, cwd: string): C
  *
  * When `cwd` is provided (by the chain helper), the caller owns cleanup.
  * Otherwise we create and clean up a tmpdir in this function.
+ *
+ * `decoy` is optional fixture-level scratch-cwd seeding (ADR #0011 / B-lite).
+ * Decoy files are written before claude spawns so the model sees a
+ * non-empty cwd and is less likely to infer eval framing from emptiness.
+ * If decoy seeding throws (EACCES, ENOSPC, EROFS), the failure is
+ * surfaced as a structured `CliRun.failure` carrying the offending
+ * relPath + errno — claude is NOT spawned. This matches the runner's
+ * existing fail-fast posture for substrate failures.
  */
-function runClaude(prompt: string, cwd?: string): CliRun {
+function runClaude(prompt: string, cwd?: string, decoy?: ValidatedScratchDecoy): CliRun {
   const ownCwd = cwd ?? mkdtempSync(join(tmpdir(), "claude-eval-"));
   try {
+    try {
+      seedScratchDecoy(ownCwd, decoy);
+    } catch (err) {
+      // Surface decoy-seed failures as a structured CliRun.failure
+      // rather than letting the exception bubble unhandled to the eval
+      // loop. Without this, a single broken fixture aborts the entire
+      // run; this isolates the failure to the affected eval.
+      const msg = err instanceof ScratchDecoySeedError
+        ? err.message
+        : `decoy seed failed: ${(err as Error).message}`;
+      return { stdout: "", stderr: "", exitCode: null, failure: msg };
+    }
     return spawnClaudeCli(CLI_BASE_ARGS, prompt, ownCwd);
   } finally {
     if (!cwd) {
@@ -165,7 +188,7 @@ function runClaude(prompt: string, cwd?: string): CliRun {
  * Each turn has its own 5-minute timeout; a 3-turn chain therefore caps at 15
  * minutes of wall time.
  */
-function runClaudeChain(turnPrompts: readonly string[]): ChainRun {
+function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedScratchDecoy): ChainRun {
   if (turnPrompts.length === 0) {
     return { turns: [], sessionId: null, chainFailure: "chain has zero turns" };
   }
@@ -174,8 +197,14 @@ function runClaudeChain(turnPrompts: readonly string[]): ChainRun {
   let sessionId: string | null = null;
   let chainFailure: string | undefined;
   try {
-    // Turn 1: fresh session
-    const t1 = runClaude(turnPrompts[0], scratchDir);
+    // Turn 1: fresh session. Decoy is seeded once on the chain's shared
+    // scratch dir; subsequent turns spawn in the same scratch dir on
+    // disk, so they observe the seeded files directly (the cwd is
+    // inherited via spawnClaudeCli's `cwd` arg, not via `--resume`,
+    // which only restores conversation state). If seeding throws,
+    // runClaude returns a structured CliRun.failure that becomes
+    // `chainFailure: "turn 1 failed: decoy seed failed for ..."` below.
+    const t1 = runClaude(turnPrompts[0], scratchDir, decoy);
     runs.push(t1);
     if (t1.failure || t1.exitCode !== 0) {
       chainFailure = `turn 1 failed: ${t1.failure ?? `exit ${t1.exitCode}`}`;
@@ -558,7 +587,7 @@ async function main() {
       onTeardownError: (msg) =>
         console.log(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`)),
       work: () => {
-    const { stdout, stderr, exitCode, failure } = runClaude(e.prompt);
+    const { stdout, stderr, exitCode, failure } = runClaude(e.prompt, undefined, e.scratch_decoy);
 
     if (failure || exitCode !== 0) {
       totalAssertions += e.assertions.length;
@@ -666,7 +695,7 @@ async function main() {
     const turns = e.turns;
     const turnPrompts = turns.map((t) => t.prompt);
     const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-multiturn-${timestamp}.md`);
-    const { turns: runs, sessionId, chainFailure } = runClaudeChain(turnPrompts);
+    const { turns: runs, sessionId, chainFailure } = runClaudeChain(turnPrompts, e.scratch_decoy);
 
     // Extract per-turn signals for each completed turn. Missing turns (chain
     // aborted before reaching them) get null signals; their assertions count

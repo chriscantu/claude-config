@@ -213,7 +213,12 @@
           "tier": "diagnostic",
           "description": "Diagnostic: DTP problem-statement template not produced"
         }
-      ]
+      ],
+      "scratch_decoy": {
+        "README.md": "# data-platform\n\nInternal monorepo for the data-platform team's services and shared libraries.\n\n## Layout\n\n- `src/` — service entrypoints and shared modules\n- `docs/` — runbooks, ADRs, and operational notes\n- `scripts/` — one-off operational scripts\n\n## Local development\n\nUse the standard team toolchain (see `docs/onboarding.md`). Most services run via the workspace task runner; check individual service READMEs for exceptions.\n",
+        "src/index.ts": "// Entry point for service binaries. Routing happens in src/router.ts;\n// individual handlers live under src/handlers/. See README.md for layout.\n\nexport { startServer } from \"./server\";\nexport { loadConfig } from \"./config\";\n",
+        "docs/onboarding.md": "# Onboarding\n\n1. Clone the repo\n2. Install the team toolchain (see internal wiki)\n3. Run `bun install` at the workspace root\n4. Pick a service from `src/` and follow its README\n\nFor questions, ping #data-platform-engineering.\n"
+      }
     },
     {
       "name": "bug-fix-skips-pipeline",
