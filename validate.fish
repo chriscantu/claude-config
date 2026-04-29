@@ -367,7 +367,13 @@ set drift_registry \
     "≤ ~200 LOC functional change|planning.md|Trivial-tier LOC criterion" \
     "Single component / single-file primary surface|planning.md|Trivial-tier surface criterion" \
     "Unambiguous approach (one obvious design|planning.md|Trivial-tier approach criterion" \
-    "Low blast radius (no cross-team|planning.md|Trivial-tier blast-radius criterion"
+    "Low blast radius (no cross-team|planning.md|Trivial-tier blast-radius criterion" \
+    "**Authority** — external-approval invocation|planning.md|Pressure-framing floor Authority category" \
+    "**Sunk cost** — commitment-consistency framing|planning.md|Pressure-framing floor Sunk-cost category" \
+    "**Exhaustion** — fatigue framing|planning.md|Pressure-framing floor Exhaustion category" \
+    "**Deadline** — time-pressure framing|planning.md|Pressure-framing floor Deadline category" \
+    "**Stated-next-step** — skip|planning.md|Pressure-framing floor Stated-next-step category" \
+    "select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip|planning.md|Emission contract ToolSearch mechanics"
 
 # Guard: empty rules/ dir means the drift loop scans nothing and silently passes.
 # Pre-check before the loop so missing-rules-dir is loud, not silent.

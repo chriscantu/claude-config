@@ -63,39 +63,34 @@ is the most expensive thing to land.
 
 ### Pressure-framing floor
 
-Framings below are pressure signals, not cost-naming skips. They DO NOT
-bypass this rule — they *strengthen* the case for producing the plan.
-Categories are semantic; example phrases are illustrative, not exhaustive
-— match on the underlying mechanism, not the literal wording:
+Floor enforcement ([pressure-framing routing](planning.md#pressure-framing-floor),
+[named-cost emission contract](planning.md#emission-contract),
+[sentinel bypass](planning.md#emergency-bypass-sentinel)) is anchored in
+`rules/planning.md` DTP per-gate block. Per
+[ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+and memory note `per_gate_floor_blocks_substitutable.md`, per-gate floor blocks
+add no eval-measurable load given the DTP anchor.
 
-- **Authority** — external-approval invocation ("CTO/VP/lead approved",
-  "contract signed", "the team agreed to skip tests")
-- **Sunk cost** — commitment-consistency framing ("already started coding",
-  "we've already chosen this path", "decision is made")
-- **Exhaustion** — fatigue framing ("I'm tired", "we've been at this for
-  hours", "just write the code", "stop with the ceremony")
-- **Deadline** — time-pressure framing ("ship by Friday", "demo in 10
-  minutes", "needs to land today")
-- **Stated-next-step** — skip-plan framing that names a later stage as
-  the destination ("just write the code", "skip planning and implement",
+Concrete signals here:
+
+- **Authority** ("the team agreed to skip tests", "lead said skip the verify check")
+- **Sunk cost** ("already started coding", "we've already chosen this path")
+- **Exhaustion** ("just write the code", "stop with the ceremony")
+- **Deadline** ("ship by Friday", "demo in 10 minutes", "needs to land today")
+- **Stated-next-step** ("just write the code", "skip planning and implement",
   "no plan, straight to PR")
 
-Honor full skip ONLY via the Emission contract below. Anything else —
-even combinations of pressure framings — produces the plan.
+Honor full skip ONLY via the Emission contract below — anything else produces
+the plan.
 
 ### Emission contract — MANDATORY
 
-When a named-cost skip is valid, you MUST invoke
-`mcp__named-cost-skip-ack__acknowledge_named_cost_skip` BEFORE writing
-code. Call it with `gate="goal-driven"` and `user_statement` set to the
-verbatim substring of the user's cost-naming clause. This is NOT
-optional — if you skip this tool call, you have NOT honored the skip;
-produce the plan instead. The tool invocation IS the honor.
-
-If the tool appears in the deferred-tool list rather than the active
-tool list, load its schema first with `ToolSearch` using
-`query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"`;
-otherwise call it directly.
+When a named-cost skip is valid, invoke
+`mcp__named-cost-skip-ack__acknowledge_named_cost_skip` per
+[planning.md#emission-contract](planning.md#emission-contract). Use
+`gate="goal-driven"` and the verbatim cost-naming clause as `user_statement`.
+The tool invocation IS the honor — if you skip the call, produce the plan
+instead.
 
 ## Loop Until Verified
 
