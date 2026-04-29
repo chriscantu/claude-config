@@ -1684,6 +1684,90 @@ test("loadEvalFile preserves setup and teardown shell commands", () => {
   expect(ev.teardown).toBe("rm -f /tmp/flag");
 });
 
+describe("loadEvalFile — scratch_decoy validation", () => {
+  function writeFixture(json: unknown): string {
+    const root = mkdtempSync(join(tmpdir(), "evals-decoy-"));
+    const skillDir = join(root, "test-skill", "evals");
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, "evals.json"), JSON.stringify(json));
+    return root;
+  }
+  function evalWith(extra: Record<string, unknown>) {
+    return {
+      skill: "test-skill",
+      evals: [{
+        name: "ev",
+        prompt: "p",
+        assertions: [{ type: "regex", pattern: "x", description: "d" }],
+        ...extra,
+      }],
+    };
+  }
+
+  test("accepts a valid relative-path decoy on single-turn", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "README.md": "# project", "src/index.ts": "export {}" } }));
+    const ev = loadEvalFile(root, "test-skill")!.evals[0];
+    if (ev.kind !== "single") throw new Error("expected single");
+    expect(ev.scratch_decoy).toEqual({ "README.md": "# project", "src/index.ts": "export {}" });
+  });
+
+  test("accepts a valid decoy on multi-turn (chain)", () => {
+    const root = writeFixture({
+      skill: "test-skill",
+      evals: [{
+        name: "ev",
+        scratch_decoy: { "README.md": "# project" },
+        turns: [{ prompt: "t1", assertions: [{ type: "regex", pattern: "x", description: "d" }] }],
+      }],
+    });
+    const ev = loadEvalFile(root, "test-skill")!.evals[0];
+    if (ev.kind !== "multi") throw new Error("expected multi");
+    expect(ev.scratch_decoy).toEqual({ "README.md": "# project" });
+  });
+
+  test("rejects absolute path", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "/etc/passwd": "x" } }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/absolute/);
+  });
+
+  test("rejects '..' traversal", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "../escape.txt": "x" } }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/\.\./);
+  });
+
+  test("rejects '..' nested in subpath (e.g. src/../../etc)", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "src/../../etc/passwd": "x" } }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/\.\./);
+  });
+
+  test("rejects empty key", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "": "x" } }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/non-empty/);
+  });
+
+  test("rejects non-string content", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: { "README.md": 42 as unknown as string } }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/string/);
+  });
+
+  test("rejects array (must be object map)", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: ["README.md"] as unknown as Record<string, string> }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/object map/);
+  });
+
+  test("rejects empty object (omit field for none)", () => {
+    const root = writeFixture(evalWith({ scratch_decoy: {} }));
+    expect(() => loadEvalFile(root, "test-skill")).toThrow(/at least one/);
+  });
+
+  test("absent scratch_decoy is fine (field is optional)", () => {
+    const root = writeFixture(evalWith({}));
+    const ev = loadEvalFile(root, "test-skill")!.evals[0];
+    if (ev.kind !== "single") throw new Error("expected single");
+    expect(ev.scratch_decoy).toBeUndefined();
+  });
+});
+
 describe("loadEvalFile rejects multi-turn evals with setup/teardown", () => {
   const cases: Array<{ label: string; extra: Record<string, string> }> = [
     { label: "setup", extra: { setup: "touch /tmp/flag" } },

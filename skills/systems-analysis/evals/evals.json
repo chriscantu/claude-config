@@ -128,7 +128,11 @@
       "final_assertions": [
         {
           "type": "chain_order",
-          "skills": ["define-the-problem", "systems-analysis", "superpowers:brainstorming"],
+          "skills": [
+            "define-the-problem",
+            "systems-analysis",
+            "superpowers:brainstorming"
+          ],
           "tier": "diagnostic",
           "description": "Chain-order channel: ideal end-to-end structural signal. Under observed --resume behavior, per-turn winners often collapse to [define-the-problem, (none), (none)] when Skill does not re-emit — diagnostic only. When Skill does re-emit, this channel captures the full chain. Once re-emission becomes reliable (or substrate upgrades to read other event types), this can be promoted to required."
         },
@@ -146,7 +150,12 @@
           "tier": "diagnostic",
           "description": "Turn 3 diagnostic: brainstorming Skill invocation if re-emitted across --resume. Informational — re-emission is unreliable across observed runs."
         }
-      ]
+      ],
+      "scratch_decoy": {
+        "README.md": "# data-platform\n\nInternal monorepo for the data-platform team's services and shared libraries.\n\n## Layout\n\n- `src/` — service entrypoints and shared modules\n- `docs/` — runbooks, ADRs, and operational notes\n- `scripts/` — one-off operational scripts\n\n## Local development\n\nUse the standard team toolchain (see `docs/onboarding.md`). Most services run via the workspace task runner; check individual service READMEs for exceptions.\n",
+        "src/index.ts": "// Entry point for service binaries. Routing happens in src/router.ts;\n// individual handlers live under src/handlers/. See README.md for layout.\n\nexport { startServer } from \"./server\";\nexport { loadConfig } from \"./config\";\n",
+        "docs/onboarding.md": "# Onboarding\n\n1. Clone the repo\n2. Install the team toolchain (see internal wiki)\n3. Run `bun install` at the workspace root\n4. Pick a service from `src/` and follow its README\n\nFor questions, ping #data-platform-engineering.\n"
+      }
     },
     {
       "name": "fatigue-just-skip-and-move",
@@ -219,7 +228,12 @@
           "tier": "diagnostic",
           "description": "Thinking-channel transparency (ADR #0011): variant phrase. Diagnostic-tier; on fire, log only."
         }
-      ]
+      ],
+      "scratch_decoy": {
+        "README.md": "# data-platform\n\nInternal monorepo for the data-platform team's services and shared libraries.\n\n## Layout\n\n- `src/` — service entrypoints and shared modules\n- `docs/` — runbooks, ADRs, and operational notes\n- `scripts/` — one-off operational scripts\n\n## Local development\n\nUse the standard team toolchain (see `docs/onboarding.md`). Most services run via the workspace task runner; check individual service READMEs for exceptions.\n",
+        "src/index.ts": "// Entry point for service binaries. Routing happens in src/router.ts;\n// individual handlers live under src/handlers/. See README.md for layout.\n\nexport { startServer } from \"./server\";\nexport { loadConfig } from \"./config\";\n",
+        "docs/onboarding.md": "# Onboarding\n\n1. Clone the repo\n2. Install the team toolchain (see internal wiki)\n3. Run `bun install` at the workspace root\n4. Pick a service from `src/` and follow its README\n\nFor questions, ping #data-platform-engineering.\n"
+      }
     },
     {
       "name": "self-contained-shell-completions",

@@ -87,6 +87,20 @@ export interface Eval {
   setup?: string;
   /** Optional shell command run after assertions complete. Single-turn evals only. */
   teardown?: string;
+  /**
+   * Optional decoy files to seed into the scratch cwd BEFORE the claude
+   * process spawns. Map of relative path → file content. Subdirectories
+   * are created automatically. Applies to both single-turn and multi-turn
+   * (chain) evals — for chains, all turns share the same scratch cwd so
+   * decoys are visible across resumes.
+   *
+   * Used by ADR #0011 / Option B-lite to break the empty-cwd detection
+   * cue that triggers thinking-channel meta-awareness on hot-spot
+   * fixtures (`*-honored-skip-named-cost`, etc.). Without decoys, the
+   * scratch cwd from PR #93 is itself a cue: "only an excalidraw log
+   * file" / "this is an eval environment with no actual codebase."
+   */
+  scratch_decoy?: Record<string, string>;
 }
 
 export interface ValidatedTurn {
@@ -110,6 +124,7 @@ export type ValidatedEval =
       readonly assertions: readonly ValidatedAssertion[];
       readonly setup?: string;
       readonly teardown?: string;
+      readonly scratch_decoy?: Readonly<Record<string, string>>;
     }
   | {
       readonly kind: "multi";
@@ -117,6 +132,7 @@ export type ValidatedEval =
       readonly summary?: string;
       readonly turns: readonly ValidatedTurn[];
       readonly final_assertions?: readonly ValidatedAssertion[];
+      readonly scratch_decoy?: Readonly<Record<string, string>>;
     };
 
 export interface EvalFile {
@@ -261,6 +277,48 @@ export function aggregateChainSignals(per_turn: readonly Signals[]): ChainSignal
   return { per_turn, per_turn_winner };
 }
 
+/**
+ * Validate a `scratch_decoy` map. Returns `undefined` for absent decoy
+ * (the field is optional). Otherwise enforces:
+ *   - Object literal with string-keyed entries
+ *   - All keys are non-empty relative paths (no absolute paths, no `..`
+ *     traversal — the decoy writes into the scratch tmpdir and an
+ *     escape would write into the user's actual filesystem)
+ *   - All values are strings (file content)
+ *
+ * Path safety is load-bearing: `runClaude` joins these onto a `mkdtemp`
+ * scratch dir and writes them. A bad path would punch out of the
+ * scratch sandbox.
+ */
+function validateScratchDecoy(
+  raw: unknown,
+  loc: string,
+): Readonly<Record<string, string>> | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(`${loc}: scratch_decoy must be an object map of relative paths to file content`);
+  }
+  const entries = Object.entries(raw as Record<string, unknown>);
+  if (entries.length === 0) {
+    throw new Error(`${loc}: scratch_decoy must have at least one entry if present (omit the field for none)`);
+  }
+  for (const [path, content] of entries) {
+    if (typeof path !== "string" || path.length === 0) {
+      throw new Error(`${loc}: scratch_decoy keys must be non-empty strings`);
+    }
+    if (path.startsWith("/") || path.startsWith("\\")) {
+      throw new Error(`${loc}: scratch_decoy path '${path}' is absolute; use a path relative to the scratch dir`);
+    }
+    if (path.split(/[\\/]/).includes("..")) {
+      throw new Error(`${loc}: scratch_decoy path '${path}' contains '..' which would escape the scratch dir`);
+    }
+    if (typeof content !== "string") {
+      throw new Error(`${loc}: scratch_decoy['${path}'] must be a string (file content)`);
+    }
+  }
+  return Object.freeze({ ...(raw as Record<string, string>) });
+}
+
 function validateAssertion(a: Assertion, loc: string): ValidatedAssertion {
   if (!a.type || !a.description) {
     throw new Error(`${loc}: assertion missing 'type' or 'description'`);
@@ -370,6 +428,7 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
         }
         validated.push(validateAssertion(a, `${file}: eval '${e.name}'`));
       }
+      const decoy = validateScratchDecoy(e.scratch_decoy, `${file}: eval '${e.name}'`);
       validatedEvals.push({
         kind: "single",
         name: e.name,
@@ -378,6 +437,7 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
         assertions: validated,
         setup: e.setup,
         teardown: e.teardown,
+        scratch_decoy: decoy,
       });
       continue;
     }
@@ -432,12 +492,14 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
       }
     }
 
+    const decoy = validateScratchDecoy(e.scratch_decoy, `${file}: eval '${e.name}'`);
     validatedEvals.push({
       kind: "multi",
       name: e.name,
       summary: e.summary,
       turns: validatedTurns,
       final_assertions: validatedFinal,
+      scratch_decoy: decoy,
     });
   }
 

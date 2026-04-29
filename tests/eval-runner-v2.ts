@@ -133,15 +133,40 @@ function spawnClaudeCli(args: readonly string[], prompt: string, cwd: string): C
 }
 
 /**
+ * Seed `decoy` files into `cwd` BEFORE the claude process spawns. Used
+ * by ADR #0011 / Option B-lite to break the empty-cwd detection cue
+ * that triggers thinking-channel meta-awareness on hot-spot fixtures.
+ *
+ * Path safety is enforced upstream in `validateScratchDecoy`
+ * (`evals-lib.ts`) — paths are non-empty, non-absolute, and contain no
+ * `..` segments. `mkdirSync({ recursive: true })` creates intermediate
+ * dirs for nested paths.
+ */
+function seedScratchDecoy(cwd: string, decoy: Readonly<Record<string, string>> | undefined): void {
+  if (!decoy) return;
+  for (const [relPath, content] of Object.entries(decoy)) {
+    const fullPath = join(cwd, relPath);
+    const parentDir = join(fullPath, "..");
+    mkdirSync(parentDir, { recursive: true });
+    writeFileSync(fullPath, content, "utf8");
+  }
+}
+
+/**
  * Spawn a single fresh `claude --print` turn in an isolated scratch cwd.
  * Used for single-turn evals and as turn 1 of a multi-turn chain.
  *
  * When `cwd` is provided (by the chain helper), the caller owns cleanup.
  * Otherwise we create and clean up a tmpdir in this function.
+ *
+ * `decoy` is optional fixture-level scratch-cwd seeding (ADR #0011 / B-lite).
+ * Decoy files are written before claude spawns so the model sees a
+ * non-empty cwd and is less likely to infer eval framing from emptiness.
  */
-function runClaude(prompt: string, cwd?: string): CliRun {
+function runClaude(prompt: string, cwd?: string, decoy?: Readonly<Record<string, string>>): CliRun {
   const ownCwd = cwd ?? mkdtempSync(join(tmpdir(), "claude-eval-"));
   try {
+    seedScratchDecoy(ownCwd, decoy);
     return spawnClaudeCli(CLI_BASE_ARGS, prompt, ownCwd);
   } finally {
     if (!cwd) {
@@ -165,7 +190,7 @@ function runClaude(prompt: string, cwd?: string): CliRun {
  * Each turn has its own 5-minute timeout; a 3-turn chain therefore caps at 15
  * minutes of wall time.
  */
-function runClaudeChain(turnPrompts: readonly string[]): ChainRun {
+function runClaudeChain(turnPrompts: readonly string[], decoy?: Readonly<Record<string, string>>): ChainRun {
   if (turnPrompts.length === 0) {
     return { turns: [], sessionId: null, chainFailure: "chain has zero turns" };
   }
@@ -174,8 +199,9 @@ function runClaudeChain(turnPrompts: readonly string[]): ChainRun {
   let sessionId: string | null = null;
   let chainFailure: string | undefined;
   try {
-    // Turn 1: fresh session
-    const t1 = runClaude(turnPrompts[0], scratchDir);
+    // Turn 1: fresh session. Decoy is seeded once on the chain's shared
+    // scratch dir; subsequent turns see the same files via --resume.
+    const t1 = runClaude(turnPrompts[0], scratchDir, decoy);
     runs.push(t1);
     if (t1.failure || t1.exitCode !== 0) {
       chainFailure = `turn 1 failed: ${t1.failure ?? `exit ${t1.exitCode}`}`;
@@ -558,7 +584,7 @@ async function main() {
       onTeardownError: (msg) =>
         console.log(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`)),
       work: () => {
-    const { stdout, stderr, exitCode, failure } = runClaude(e.prompt);
+    const { stdout, stderr, exitCode, failure } = runClaude(e.prompt, undefined, e.scratch_decoy);
 
     if (failure || exitCode !== 0) {
       totalAssertions += e.assertions.length;
@@ -666,7 +692,7 @@ async function main() {
     const turns = e.turns;
     const turnPrompts = turns.map((t) => t.prompt);
     const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-multiturn-${timestamp}.md`);
-    const { turns: runs, sessionId, chainFailure } = runClaudeChain(turnPrompts);
+    const { turns: runs, sessionId, chainFailure } = runClaudeChain(turnPrompts, e.scratch_decoy);
 
     // Extract per-turn signals for each completed turn. Missing turns (chain
     // aborted before reaching them) get null signals; their assertions count
