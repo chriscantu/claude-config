@@ -71,10 +71,17 @@ Floor enforcement ([pressure-framing routing](planning.md#pressure-framing-floor
 and memory note `per_gate_floor_blocks_substitutable.md`, per-gate floor blocks
 add no eval-measurable load given the DTP anchor.
 
-Concrete signals here: skip-plan framings that name a later stage as the
-destination ("just write the code", "skip planning and implement", "no plan,
-straight to PR") are pressure framings, not named-cost skips. Honor full skip
-ONLY via the Emission contract below — anything else produces the plan.
+Concrete signals here:
+
+- **Authority** ("the team agreed to skip tests", "lead said skip the verify check")
+- **Sunk cost** ("already started coding", "we've already chosen this path")
+- **Exhaustion** ("just write the code", "stop with the ceremony")
+- **Deadline** ("ship by Friday", "demo in 10 minutes", "needs to land today")
+- **Stated-next-step** ("just write the code", "skip planning and implement",
+  "no plan, straight to PR")
+
+Honor full skip ONLY via the Emission contract below — anything else produces
+the plan.
 
 ### Emission contract — MANDATORY
 

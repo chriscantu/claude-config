@@ -145,9 +145,17 @@ Floor enforcement ([pressure-framing routing](planning.md#pressure-framing-floor
 and memory note `per_gate_floor_blocks_substitutable.md`, per-gate floor blocks
 add no eval-measurable load given the DTP anchor.
 
-Concrete signals here: skip framings that name merge as the destination ("just
-merge it, fix forward", "tests passed locally so I skipped the test plan",
-"ship it, I'll fix forward") are pressure framings, not named-cost skips.
+Concrete signals here:
+
+- **Authority** ("CTO/lead approved the merge", "reviewer signed off so I'll
+  skip the test plan")
+- **Sunk cost** ("we already decided to ship this", "PR has been open for a
+  week, just merge")
+- **Exhaustion** ("just merge it", "stop with the ceremony")
+- **Deadline** ("ship by Friday", "demo in 10 minutes", "needs to land today")
+- **Stated-next-step** ("just merge it, fix forward", "tests passed locally
+  so I skipped the test plan", "ship it, I'll fix forward")
+
 Honor full skip ONLY via the Emission contract below — anything else runs the
 test plan.
 
