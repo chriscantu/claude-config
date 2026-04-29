@@ -30,5 +30,11 @@ jobs:
         # and hooks/ until validate.fish gained uniform coverage).
         run: fish bin/link-config.fish --install
 
+      - name: Verify install via --check
+        # Defense-in-depth: --install reports its own errors, but a silent
+        # zero-iteration install (e.g. lib early-return on bad args) would
+        # exit 0 with nothing linked. --check fails loudly in that case.
+        run: fish bin/link-config.fish --check
+
       - name: Run validation (phases 1-2)
         run: fish validate.fish

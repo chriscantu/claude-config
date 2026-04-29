@@ -68,11 +68,9 @@ function ensure_parent_dir
     end
 end
 
-# Link one src → dst (install / first-install path only — check mode routes
-# through check_symlink_layout from bin/lib/symlinks.fish).
-# Reads global $mode for first-install backup behavior.
-#   install       — create or repair symlinks; ERROR on real files
-#   first-install — create or repair symlinks; BACK UP real files to .bak then symlink
+# Install path only — check mode routes through check_symlink_layout.
+# Reads global $mode: in first-install, real files at dst are backed up to
+# .bak before linking; in install, real files cause an error and are skipped.
 function link_one
     set -l src $argv[1]
     set -l dst $argv[2]
@@ -146,15 +144,24 @@ function link_one
     set -g linked (math $linked + 1)
 end
 
-# Check mode: delegate to the shared check_symlink_layout function from
-# bin/lib/symlinks.fish. validate.fish Phase 1e uses the same function —
-# both validators agree by construction.
+# Both validators share check_symlink_layout, so they agree by construction.
+# Capture the lib output to a list before iterating: a pipe consumer cannot
+# observe an early-return from the lib (zero stdout + exit 0), so an empty
+# repo/home would silently report success.
+# In check mode, `skipped` counts entries that report OK — same "no action
+# needed" semantics as install mode's already-ok counter, just relabeled in
+# the summary.
 if test "$mode" = check
-    check_symlink_layout $repo $home_claude | while read -l result
-        set parts (string split -m 3 "|" $result)
-        set status_kind $parts[1]
-        set dst $parts[2]
-        set detail $parts[3]
+    set -l results (check_symlink_layout $repo $home_claude)
+    if test (count $results) -eq 0
+        echo "ERROR: check_symlink_layout returned no entries — repo or home unset?" >&2
+        exit 2
+    end
+    for result in $results
+        set -l parts (string split -m 3 "|" $result)
+        set -l status_kind $parts[1]
+        set -l dst $parts[2]
+        set -l detail $parts[3]
         switch $status_kind
             case OK
                 set -g skipped (math $skipped + 1)
@@ -167,16 +174,24 @@ if test "$mode" = check
             case NOT_SYMLINK
                 echo "ERROR: real file at $dst — not a symlink"
                 set -g errors (math $errors + 1)
+            case '*'
+                echo "ERROR: unknown status '$status_kind' from check_symlink_layout for $dst" >&2
+                set -g errors (math $errors + 1)
         end
     end
 else
     # Install / first-install: iterate the shared layout and create symlinks.
-    each_symlink_target $repo $home_claude | while read -l entry
-        set parts (string split -m 3 "|" $entry)
-        set kind $parts[1]
-        set src $parts[2]
-        set dst $parts[3]
-        set label $parts[4]
+    set -l entries (each_symlink_target $repo $home_claude)
+    if test (count $entries) -eq 0
+        echo "ERROR: each_symlink_target returned no entries — repo or home unset?" >&2
+        exit 2
+    end
+    for entry in $entries
+        set -l parts (string split -m 3 "|" $entry)
+        set -l kind $parts[1]
+        set -l src $parts[2]
+        set -l dst $parts[3]
+        set -l label $parts[4]
 
         if not ensure_parent_dir (dirname $dst)
             continue

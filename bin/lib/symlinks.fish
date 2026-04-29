@@ -8,10 +8,10 @@
 #     where kind ∈ {file, dir}, src is the absolute repo path, dst is the
 #     absolute path under ~/.claude, and label is a short human-readable name.
 #
-#     Layout (must stay in sync with bin/link-config.fish install loops):
+#     Layout (canonical here — both validators iterate this function):
 #       rules/*.md      → file (README.md skipped)
-#       agents/*.md     → file
-#       commands/*.md   → file
+#       agents/*.md     → file (README.md skipped)
+#       commands/*.md   → file (README.md skipped)
 #       skills/*/       → dir
 #       hooks/*.sh      → file (test-* skipped)
 #       global/CLAUDE.md → file (target dst is HOME_CLAUDE/CLAUDE.md)

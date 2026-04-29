@@ -263,28 +263,34 @@ end
 echo ""
 
 # 1e. Symlink verification
-# Layout iterated by bin/lib/symlinks.fish — same source of truth as
-# bin/link-config.fish. MISSING is fail; STALE and NOT_SYMLINK are warn
-# (former is recoverable via re-install; latter requires manual resolution).
+# MISSING is fail; STALE and NOT_SYMLINK are warn (former is recoverable
+# via re-install, latter requires manual resolution). Capture the lib
+# output to a list before iterating so an empty result (e.g. lib early-
+# return on bad args) is loud instead of a silent zero-iteration loop.
 echo "── Symlink verification"
 
-check_symlink_layout $repo_dir $claude_dir | while read -l result
-    set parts (string split -m 3 "|" $result)
-    set status_kind $parts[1]
-    set dst $parts[2]
-    set detail $parts[3]
-    set rel (string replace "$claude_dir/" "~/.claude/" $dst)
-    switch $status_kind
-        case OK
-            pass "$rel symlinked"
-        case MISSING
-            fail "$rel missing — run install.fish"
-        case STALE
-            warn "$rel points to $detail (expected source)"
-        case NOT_SYMLINK
-            warn "$rel exists but is not a symlink"
-        case '*'
-            fail "$rel: unknown status '$status_kind'"
+set results (check_symlink_layout $repo_dir $claude_dir)
+if test (count $results) -eq 0
+    fail "check_symlink_layout returned no entries — repo or home unset?"
+else
+    for result in $results
+        set -l parts (string split -m 3 "|" $result)
+        set -l status_kind $parts[1]
+        set -l dst $parts[2]
+        set -l detail $parts[3]
+        set -l rel (string replace "$claude_dir/" "~/.claude/" $dst)
+        switch $status_kind
+            case OK
+                pass "$rel symlinked"
+            case MISSING
+                fail "$rel missing — run install.fish"
+            case STALE
+                warn "$rel points to $detail (expected source)"
+            case NOT_SYMLINK
+                warn "$rel exists but is not a symlink"
+            case '*'
+                fail "$rel: unknown status '$status_kind'"
+        end
     end
 end
 

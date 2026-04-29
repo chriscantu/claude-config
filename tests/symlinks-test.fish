@@ -1,11 +1,5 @@
 #!/usr/bin/env fish
-# Regression tests for bin/lib/symlinks.fish.
-#
-# Exercises the two functions exported by the lib:
-#   each_symlink_target REPO HOME_CLAUDE — yields kind|src|dst|label
-#   check_symlink_layout REPO HOME_CLAUDE — yields status|dst|detail
-#                                          where status ∈ OK | MISSING | STALE | NOT_SYMLINK
-#
+# Regression tests for bin/lib/symlinks.fish — see lib for function contracts.
 # Tests use isolated fixture dirs under mktemp.
 
 set repo_dir (cd (dirname (status filename)); and cd ..; and pwd)
