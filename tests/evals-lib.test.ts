@@ -44,6 +44,9 @@ describe("reliabilityOf()", () => {
     expect(reliabilityOf("skill_invoked_in_turn")).toBe("structural");
     expect(reliabilityOf("chain_order")).toBe("structural");
     expect(reliabilityOf("tool_input_matches")).toBe("structural");
+    expect(reliabilityOf("not_tool_input_matches")).toBe("structural");
+    expect(reliabilityOf("tool_called")).toBe("structural");
+    expect(reliabilityOf("not_tool_called")).toBe("structural");
   });
 
   test("text assertion types map to 'text'", () => {
@@ -1323,6 +1326,184 @@ describe("evaluate() — not_tool_input_matches", () => {
     const r = evaluate(a, s);
     expect(r.ok).toBe(false);
     if (!r.ok) expect(r.detail).toContain("goal-driven");
+  });
+});
+
+describe("validateAssertion() — tool_called", () => {
+  test("accepts a well-formed tool_called assertion", () => {
+    expect(() => v({
+      type: "tool_called",
+      tools: ["Glob", "Read", "Grep"],
+      description: "canonical context-exploration step ran",
+    } as Assertion)).not.toThrow();
+  });
+
+  test("rejects empty tools array", () => {
+    expect(() => v({ type: "tool_called", tools: [], description: "d" } as Assertion))
+      .toThrow(/non-empty array 'tools'/);
+  });
+
+  test("rejects non-string entries", () => {
+    expect(() => v({ type: "tool_called", tools: ["Read", "" ], description: "d" } as Assertion))
+      .toThrow(/non-empty array 'tools'/);
+  });
+
+  test("rejects missing tools field", () => {
+    expect(() => v({ type: "tool_called", description: "d" } as unknown as Assertion))
+      .toThrow(/non-empty array 'tools'/);
+  });
+});
+
+describe("evaluate() — tool_called", () => {
+  function sigWithTools(tools: Array<{ name: string; input: Record<string, unknown> }>): Signals {
+    return { thinkingText: "", finalText: "", toolUses: tools, skillInvocations: [], terminalState: "result" };
+  }
+
+  test("passes when any of the listed tools fired", () => {
+    const a = v({ type: "tool_called", tools: ["Glob", "Read", "Grep"], description: "d" } as Assertion);
+    const s = sigWithTools([{ name: "Read", input: { file_path: "/x" } }]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("any-of semantics: matches the second listed tool", () => {
+    const a = v({ type: "tool_called", tools: ["Glob", "Read", "Grep"], description: "d" } as Assertion);
+    const s = sigWithTools([
+      { name: "Bash", input: { command: "ls" } },
+      { name: "Grep", input: { pattern: "x" } },
+    ]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("fails when none of the listed tools fired and others did", () => {
+    const a = v({ type: "tool_called", tools: ["Glob", "Read", "Grep"], description: "d" } as Assertion);
+    const s = sigWithTools([{ name: "Bash", input: { command: "ls" } }]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.detail).toContain("Glob");
+      expect(r.detail).toContain("Bash");
+    }
+  });
+
+  test("fails when no tools fired at all", () => {
+    const a = v({ type: "tool_called", tools: ["Glob", "Read"], description: "d" } as Assertion);
+    const r = evaluate(a, sigWithTools([]));
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toContain("(no tools)");
+  });
+});
+
+describe("validateAssertion() — not_tool_called", () => {
+  test("accepts a well-formed not_tool_called assertion", () => {
+    expect(() => v({
+      type: "not_tool_called",
+      tools: ["Bash"],
+      description: "no shell escape",
+    } as Assertion)).not.toThrow();
+  });
+
+  test("rejects empty tools array", () => {
+    expect(() => v({ type: "not_tool_called", tools: [], description: "d" } as Assertion))
+      .toThrow(/non-empty array 'tools'/);
+  });
+});
+
+describe("evaluate() — not_tool_called", () => {
+  function sigWithTools(tools: Array<{ name: string; input: Record<string, unknown> }>): Signals {
+    return { thinkingText: "", finalText: "", toolUses: tools, skillInvocations: [], terminalState: "result" };
+  }
+
+  test("passes when none of the forbidden tools fired", () => {
+    const a = v({ type: "not_tool_called", tools: ["Bash"], description: "d" } as Assertion);
+    const s = sigWithTools([{ name: "Read", input: { file_path: "/x" } }]);
+    expect(evaluate(a, s).ok).toBe(true);
+  });
+
+  test("fails on first forbidden match", () => {
+    const a = v({ type: "not_tool_called", tools: ["Bash", "Edit"], description: "d" } as Assertion);
+    const s = sigWithTools([
+      { name: "Read", input: {} },
+      { name: "Bash", input: { command: "rm -rf /" } },
+    ]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toContain("Bash");
+  });
+});
+
+describe("metaCheck() — not_tool_called silent-fire", () => {
+  test("passes against zero tool uses → silent_fire", () => {
+    const a = v({ type: "not_tool_called", tools: ["Bash"], description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: { thinkingText: "", finalText: "text", toolUses: [], skillInvocations: [], terminalState: "result" },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(false);
+    expect(out.silentFireCount).toBe(1);
+    expect(out.decisions[0].kind).toBe("silent_fire");
+  });
+
+  test("passes against NON-empty toolUses (model engaged with tools) → real pass", () => {
+    const a = v({ type: "not_tool_called", tools: ["Bash"], description: "d" } as Assertion);
+    const out = metaCheck({
+      perTurn: [{
+        assertion: a,
+        result: { ok: true, description: "d" },
+        signals: {
+          finalText: "text",
+          thinkingText: "",
+          toolUses: [{ name: "Read", input: { file_path: "/x" } }],
+          skillInvocations: [],
+          terminalState: "result",
+        },
+        turnIndex: 0,
+      }],
+      final: [],
+    });
+    expect(out.requiredOk).toBe(true);
+    expect(out.silentFireCount).toBe(0);
+    expect(out.decisions[0].kind).toBe("pass");
+  });
+});
+
+describe("evaluateChain() — tool_called routing guard", () => {
+  test("tool_called rejected with runner-bug message", () => {
+    const a = v({ type: "tool_called", tools: ["Read"], description: "d" } as Assertion);
+    const r = evaluateChain(a, { per_turn: [], per_turn_winner: [] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/runner bug/i);
+  });
+
+  test("not_tool_called rejected with runner-bug message", () => {
+    const a = v({ type: "not_tool_called", tools: ["Bash"], description: "d" } as Assertion);
+    const r = evaluateChain(a, { per_turn: [], per_turn_winner: [] });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.detail).toMatch(/runner bug/i);
+  });
+});
+
+describe("loadEvalFile — tool_called rejected in final_assertions", () => {
+  test("tool_called in final_assertions throws (per-turn assertion)", () => {
+    const dir = mkdtempSync(join(tmpdir(), "evals-tool-called-"));
+    const skillsDir = join(dir, "skills");
+    mkdirSync(join(skillsDir, "my-skill", "evals"), { recursive: true });
+    writeFileSync(
+      join(skillsDir, "my-skill", "evals", "evals.json"),
+      JSON.stringify({
+        skill: "my-skill",
+        evals: [{
+          name: "x",
+          turns: [{ prompt: "p", assertions: [{ type: "skill_invoked", skill: "y", description: "d" }] }],
+          final_assertions: [{ type: "tool_called", tools: ["Read"], description: "d" }],
+        }],
+      }),
+    );
+    expect(() => loadEvalFile(skillsDir, "my-skill")).toThrow(/tool_called.*per-turn/i);
   });
 });
 

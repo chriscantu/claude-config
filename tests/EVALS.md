@@ -15,9 +15,9 @@ middle: cheap enough to run pre-PR, deterministic enough to run in CI.
 parses the NDJSON event stream, and runs assertions against structured
 *signals* (`finalText`, `toolUses`, `skillInvocations`) extracted from the
 transcript. Supports `skill_invoked` / `not_skill_invoked` /
-`tool_input_matches` / `not_tool_input_matches` / `chain_order` /
-`skill_invoked_in_turn` structural assertions plus the regex/substring
-set. Multi-turn chains supported. Runs on the user's existing `claude`
+`tool_input_matches` / `not_tool_input_matches` / `tool_called` /
+`not_tool_called` / `chain_order` / `skill_invoked_in_turn` structural
+assertions plus the regex/substring set. Multi-turn chains supported. Runs on the user's existing `claude`
 auth — no API credits billed separately.
 
 The v1 (text-only) runner was retired per [ADR #0010](../adrs/0010-v1-eval-runner-removed.md);
@@ -54,7 +54,9 @@ filenames aligned; a future cleanup may drop it.
         { "type": "thinking_contains",    "value": "...",   "description": "..." },
         { "type": "not_thinking_contains","value": "...",   "description": "..." },
         { "type": "skill_invoked",        "skill": "...",   "description": "..." },
-        { "type": "not_skill_invoked",    "skill": "...",   "description": "..." }
+        { "type": "not_skill_invoked",    "skill": "...",   "description": "..." },
+        { "type": "tool_called",          "tools": ["Glob", "Read", "Grep"], "description": "..." },
+        { "type": "not_tool_called",      "tools": ["Bash"], "description": "..." }
       ]
     }
   ]
@@ -74,13 +76,14 @@ filenames aligned; a future cleanup may drop it.
 | `evals[].assertions` | required with `prompt` | non-empty array; per-turn assertion types only |
 | `evals[].turns` | one of `prompt` or `turns[]` | multi-turn: non-empty array of `{ prompt, assertions }` objects run as a chain |
 | `evals[].final_assertions` | optional with `turns[]` | non-empty array if present; runs against the chain after all turns (the only place `chain_order` / `skill_invoked_in_turn` are allowed) |
-| `assertion.type` | required | one of `contains` / `not_contains` / `regex` / `not_regex` / `thinking_contains` / `not_thinking_contains` / `skill_invoked` / `not_skill_invoked` / `tool_input_matches` / `not_tool_input_matches` / `skill_invoked_in_turn` / `chain_order` |
+| `assertion.type` | required | one of `contains` / `not_contains` / `regex` / `not_regex` / `thinking_contains` / `not_thinking_contains` / `skill_invoked` / `not_skill_invoked` / `tool_input_matches` / `not_tool_input_matches` / `tool_called` / `not_tool_called` / `skill_invoked_in_turn` / `chain_order` |
 | `assertion.description` | required | human-readable; what the assertion proves |
 | `assertion.value` | required for `contains` / `not_contains` / `thinking_contains` / `not_thinking_contains` | non-empty string |
 | `assertion.pattern` | required for `regex` / `not_regex` | non-empty string; must compile |
 | `assertion.flags` | optional for `regex` / `not_regex` | RegExp flags string (e.g. `"i"`, `"im"`) |
 | `assertion.skill` | required for `skill_invoked` / `not_skill_invoked` | non-empty string; matches the Skill tool's `input.skill` in the stream-json transcript |
 | `assertion.tool` / `input_key` / `input_value` | required for `tool_input_matches` / `not_tool_input_matches` | non-empty strings; positive form passes when *some* `tool_use` of the named tool has `input[input_key]` containing `input_value`; negative form passes when *no* such `tool_use` exists. `not_tool_input_matches` silent-fires only when the model emitted no tool uses at all — if any tools fired, the negative is meaningful evidence. |
+| `assertion.tools` | required for `tool_called` / `not_tool_called` | non-empty array of non-empty tool name strings; positive form passes when *any* listed tool was invoked at least once (any-of membership, not ordered, no input filtering); negative form passes when *none* of the listed tools fired. `not_tool_called` silent-fires only when the model emitted no tool uses at all — symmetric with `not_tool_input_matches`. Used by canonical-step gates (#192) where the relevant signal is "did the model do *any* exploration tool call." |
 | `assertion.turn` | required for `skill_invoked_in_turn` | integer ≥ 1; refers to turn index in a multi-turn eval's `turns[]` array |
 | `assertion.skills` | required for `chain_order` | non-empty array of non-empty skill names; compared against the sequence of per-turn winner skills |
 
@@ -102,7 +105,8 @@ The runner reports two independent axes:
 ### Axis 2: Reliability (derived from assertion type)
 
 - `structural`: `skill_invoked`, `not_skill_invoked`, `skill_invoked_in_turn`,
-  `chain_order`, `tool_input_matches`. Fires against parsed stream-json
+  `chain_order`, `tool_input_matches`, `not_tool_input_matches`,
+  `tool_called`, `not_tool_called`. Fires against parsed stream-json
   signals. Deterministic, spoof-resistant.
 - `text`: `contains`, `not_contains`, `regex`, `not_regex`,
   `thinking_contains`, `not_thinking_contains`. Fires against model prose
@@ -240,6 +244,7 @@ Regex is for prose content the tool stream cannot see.
 |---|---|
 | "Did skill X fire?" | `skill_invoked` / `not_skill_invoked` |
 | "Did the model invoke tool Y with input Z?" | `tool_input_matches` / `not_tool_input_matches` |
+| "Did the model invoke *any* of tools Y/Z (any-of membership, no input filter)?" | `tool_called` / `not_tool_called` |
 | "Did skills fire in order A → B → C across turns?" | `chain_order` |
 | "Did skill X fire in turn N specifically?" | `skill_invoked_in_turn` |
 | "Does the answer use specific framing or vocabulary?" | `regex` |
