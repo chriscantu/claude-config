@@ -487,6 +487,54 @@ end
 
 echo ""
 
+# 1L. Delegate-link presence
+# Phase 1f confirms dependent rules mention planning.md (any context).
+# Phase 1g fails on canonical-string RESTATEMENT.
+# Phase 1k fails on dangling anchor LINKS.
+# None catch the case where a contributor DELETES the entire delegate paragraph
+# from a dependent rule — the HARD-GATE then silently weakens. This phase
+# asserts each registered (rule, anchor) pair still has a live `planning.md#<id>`
+# link in the dependent rule.
+echo "── Delegate-link presence"
+
+# Registry: <rule-basename>|<comma-separated-anchor-ids>
+# Anchors are deep-link targets in planning.md that the dependent rule must
+# still reference. Add (rule, anchors) pairs here when promoting a new floor
+# delegation.
+set delegate_registry \
+    "fat-marker-sketch.md|pressure-framing-floor,emission-contract" \
+    "execution-mode.md|pressure-framing-floor,emission-contract" \
+    "goal-driven.md|pressure-framing-floor,emission-contract" \
+    "pr-validation.md|pressure-framing-floor,emission-contract" \
+    "think-before-coding.md|emission-contract"
+
+for entry in $delegate_registry
+    set parts (string split -m 1 "|" $entry)
+    if test (count $parts) -ne 2
+        fail "malformed delegate-registry entry (expected 2 |-separated fields): $entry"
+        continue
+    end
+    set rule_basename $parts[1]
+    set anchor_csv $parts[2]
+    set rule_path "$repo_dir/rules/$rule_basename"
+
+    if not test -f $rule_path
+        fail "delegate-registry rule missing: rules/$rule_basename"
+        continue
+    end
+
+    for anchor_id in (string split "," $anchor_csv)
+        set link_pattern "planning.md#$anchor_id"
+        if grep -qF -- "$link_pattern" $rule_path
+            pass "rules/$rule_basename delegates to $link_pattern"
+        else
+            fail "rules/$rule_basename missing delegate link to $link_pattern (HARD-GATE silently weakened)"
+        end
+    end
+end
+
+echo ""
+
 # 1h. Hook ↔ README consistency
 # Every hook script in hooks/ (excluding test fixtures) must be documented
 # in README.md so a contributor adding a hook either documents it or surfaces
