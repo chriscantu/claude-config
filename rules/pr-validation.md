@@ -137,36 +137,28 @@ an unverified rushed merge is the most expensive thing to land.
 
 ### Pressure-framing floor
 
-Framings below are pressure signals, not cost-naming skips. They DO
-NOT bypass this rule — they *strengthen* the case for running the
-test plan. Categories are semantic; example phrases are illustrative,
-not exhaustive — match on the underlying mechanism, not the literal
-wording:
+Floor enforcement ([pressure-framing routing](planning.md#pressure-framing-floor),
+[named-cost emission contract](planning.md#emission-contract),
+[sentinel bypass](planning.md#emergency-bypass-sentinel)) is anchored in
+`rules/planning.md` DTP per-gate block. Per
+[ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+and memory note `per_gate_floor_blocks_substitutable.md`, per-gate floor blocks
+add no eval-measurable load given the DTP anchor.
 
-- **Authority** — external-approval invocation ("CTO/lead approved
-  the merge", "reviewer signed off so I'll skip the test plan")
-- **Sunk cost** — commitment-consistency framing ("we already
-  decided to ship this", "PR has been open for a week, just merge")
-- **Exhaustion** — fatigue framing ("I'm tired", "we've been at
-  this for hours", "just merge it", "stop with the ceremony")
-- **Deadline** — time-pressure framing ("ship by Friday", "demo in
-  10 minutes", "needs to land today")
-- **Stated-next-step** — skip framing that names merge as the
-  destination ("just merge it, fix forward", "tests passed locally
-  so I skipped the test plan", "ship it, I'll fix forward")
-
-Honor full skip ONLY via the Emission contract below. Anything else
-— even combinations of pressure framings — runs the test plan.
+Concrete signals here: skip framings that name merge as the destination ("just
+merge it, fix forward", "tests passed locally so I skipped the test plan",
+"ship it, I'll fix forward") are pressure framings, not named-cost skips.
+Honor full skip ONLY via the Emission contract below — anything else runs the
+test plan.
 
 ### Emission contract — MANDATORY
 
-When a named-cost skip is valid, you MUST invoke
-`mcp__named-cost-skip-ack__acknowledge_named_cost_skip` BEFORE
-declaring readiness. Call it with `gate="pr-validation"` and
-`user_statement` set to the verbatim substring of the user's
-cost-naming clause. This is NOT optional — if you skip this tool
-call, you have NOT honored the skip; run the test plan instead. The
-tool invocation IS the honor.
+When a named-cost skip is valid, invoke
+`mcp__named-cost-skip-ack__acknowledge_named_cost_skip` per
+[planning.md#emission-contract](planning.md#emission-contract). Use
+`gate="pr-validation"` and the verbatim cost-naming clause as `user_statement`.
+The tool invocation IS the honor — if you skip the call, run the test plan
+instead.
 
 Only USER cost-naming counts. Agent self-skip is structurally
 impossible — there is no agent-emitted `user_statement` that
@@ -179,11 +171,6 @@ exits:
 3. **Sentinel bypass**: `DISABLE_PRESSURE_FLOOR` file present
 4. **Hard-block**: gate fires, agent must surface to user and
    request guidance (which then reopens the user-emission path)
-
-If the tool appears in the deferred-tool list rather than the active
-tool list, load its schema first with `ToolSearch` using
-`query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"`;
-otherwise call it directly.
 
 ## Loop Until Verified
 
