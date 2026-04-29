@@ -125,6 +125,75 @@ function check_skill_shape
     end
 end
 
+# Validates the structural shape of an evals.json file against the contract
+# enforced by tests/evals-lib.ts loadEvalFile: top-level {skill, evals[]} with
+# each entry having name, assertions[], and exactly one of prompt/turns. Used
+# by Phase 1m for both skills/ and rules-evals/ so a malformed file is surfaced
+# at lint-time rather than as a silent zero-eval discovery at runtime.
+function check_evals_json_shape
+    set -l file $argv[1]
+    set -l label $argv[2]
+
+    if not test -f $file
+        fail "$label: missing evals.json"
+        return
+    end
+
+    if not jq -e . $file >/dev/null 2>&1
+        fail "$label: invalid JSON"
+        return
+    end
+
+    if not jq -e '.skill | type == "string" and length > 0' $file >/dev/null 2>&1
+        fail "$label: missing or non-string top-level 'skill'"
+    end
+
+    if not jq -e '.evals | type == "array"' $file >/dev/null 2>&1
+        fail "$label: missing or non-array top-level 'evals'"
+        return
+    end
+
+    set -l count (jq '.evals | length' $file)
+    if test $count -eq 0
+        warn "$label: evals array is empty"
+        return
+    end
+
+    set -l jq_err (mktemp)
+    set -l violations (jq -r '.evals | to_entries[] | . as $e |
+        ($e.value.name // "eval[\($e.key)]") as $id |
+        $e.value | [
+            (if (has("name") and (.name | type == "string") and (.name | length > 0)) then null else "eval[\($e.key)] missing non-empty string '"'"'name'"'"'" end),
+            (if ((has("prompt") and (.prompt | type == "string") and (.prompt | length > 0)) or (has("turns") and (.turns | type == "array") and (.turns | length > 0))) then null else "\($id) missing non-empty '"'"'prompt'"'"' or '"'"'turns'"'"'" end),
+            (if (has("prompt") and has("turns")) then "\($id) has both '"'"'prompt'"'"' and '"'"'turns'"'"' (pick one)" else null end),
+            (if (has("prompt") and ((has("assertions") | not) or ((.assertions | type) != "array"))) then "\($id) single-turn eval missing '"'"'assertions'"'"' array" else null end),
+            (if (has("turns") and (.turns | type == "array")) then
+                (.turns | to_entries | map(
+                    select((.value | type != "object")
+                        or ((.value.prompt | type) != "string")
+                        or ((.value.prompt | length) == 0)
+                        or ((.value.assertions | type) != "array")
+                    ) | "\($id) turns[\(.key)] missing non-empty '"'"'prompt'"'"' and '"'"'assertions'"'"' array"
+                ) | .[])
+             else null end)
+        ] | flatten | map(select(. != null)) | .[]' $file 2>$jq_err)
+    set -l jq_status $status
+    if test $jq_status -ne 0
+        fail "$label: jq schema check errored (status $jq_status): "(cat $jq_err | head -1)
+        rm -f $jq_err
+        return
+    end
+    rm -f $jq_err
+
+    if test -n "$violations"
+        for v in $violations
+            fail "$label: $v"
+        end
+    else
+        pass "$label: evals.json shape valid ($count evals)"
+    end
+end
+
 # ─────────────────────────────────────────────────
 # Phase 1: Static Validation
 # ─────────────────────────────────────────────────
@@ -554,6 +623,28 @@ for entry in $delegate_registry
             fail "rules/$rule_basename: grep returned error status $grep_status (I/O error, permission denied, or signal) while scanning for $link_pattern"
         end
     end
+end
+
+echo ""
+
+# 1m. evals.json shape (skills/ and rules-evals/)
+# tests/eval-runner-v2.ts discovers evals from both skills/*/evals/ and
+# rules-evals/*/evals/. A malformed evals.json there is a silent skip at
+# runtime — the runner walks past it. This phase asserts each discovered
+# evals.json conforms to the loadEvalFile contract before runtime.
+echo "── evals.json shape"
+
+set evals_files $repo_dir/skills/*/evals/evals.json $repo_dir/rules-evals/*/evals/evals.json
+set evals_found 0
+for evals_file in $evals_files
+    if test -f $evals_file
+        set evals_found 1
+        set rel (string replace "$repo_dir/" "" $evals_file)
+        check_evals_json_shape $evals_file $rel
+    end
+end
+if test $evals_found -eq 0
+    warn "no evals.json files found under skills/ or rules-evals/"
 end
 
 echo ""
