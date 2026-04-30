@@ -20,7 +20,7 @@ Accepted (2026-04-30)
 
 ## Context
 
-The repository has accumulated 9 fish-shell files (1,837 LOC total), of which
+The repository has accumulated 9 fish-shell files (~1,961 LOC total), of which
 5 are tests under `tests/` (772 LOC). The fish footprint splits cleanly into
 two structurally distinct categories:
 
@@ -263,15 +263,19 @@ Per `rules/verification.md`:
 ## Related
 
 - [PR #208](https://github.com/chriscantu/claude-config/pull/208) —
-  established the informal policy via `link-config.test.ts` migration
-- [PR #201](https://github.com/chriscantu/claude-config/pull/201) —
-  fixture-driven round-trip test in TypeScript (the canonical pattern)
-- [PR #199 / PR #204](https://github.com/chriscantu/claude-config/pull/204)
-  — wired fish-shell regression tests into CI; this ADR scopes their
-  long-term lifecycle
-- [PR #207](https://github.com/chriscantu/claude-config/pull/207) /
-  [#206](https://github.com/chriscantu/claude-config/pull/206) — Phase
-  1g and Phase 1l regression suites (Migration-Pending targets)
+  established the informal policy via `link-config.test.ts` migration;
+  closed tracking issue [#201](https://github.com/chriscantu/claude-config/issues/201)
+  for the fixture-driven round-trip pattern
+- [PR #204](https://github.com/chriscantu/claude-config/pull/204) —
+  wired fish-shell regression tests into CI (closed
+  [#199](https://github.com/chriscantu/claude-config/issues/199));
+  this ADR scopes their long-term lifecycle
+- [PR #189](https://github.com/chriscantu/claude-config/pull/189) —
+  hardened `validate.fish` Phase 1g and added the regression suite
+  (Migration-Pending target)
+- [PR #206](https://github.com/chriscantu/claude-config/pull/206) —
+  added `validate.fish` Phase 1l and its regression suite
+  (Migration-Pending target)
 - [#210](https://github.com/chriscantu/claude-config/issues/210) —
   tracking issue: migrate `validate-phase-1g.fish` to TS
 - [#211](https://github.com/chriscantu/claude-config/issues/211) —

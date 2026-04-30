@@ -49,7 +49,14 @@ const extractPhase1g = (r: RunResult): string => {
   const headerIdx = lines.findIndex((line) =>
     line.includes("── Canonical-string drift"),
   );
-  if (headerIdx < 0) return "PHASE_1G_HEADER_MISSING";
+  if (headerIdx < 0) {
+    // Throw with the full captured streams so a renamed/removed Phase 1g
+    // header surfaces a debuggable failure instead of an opaque
+    // `Expected: not "PHASE_1G_HEADER_MISSING"` diff with no context.
+    throw new Error(
+      `Phase 1g header not found in validate.fish output — phase may have been renamed/removed.\n--- stdout ---\n${r.stdout}\n--- stderr ---\n${r.stderr}`,
+    );
+  }
   const slice: string[] = [];
   for (let i = headerIdx; i < lines.length; i++) {
     slice.push(lines[i]);
@@ -68,17 +75,33 @@ const makeFixture = (): string => {
   return dir;
 };
 
+// Path-prefix guard: bounds chmod -R + rmSync recursive force to tmp paths
+// only. Defense-in-depth carry-over from the fish original's `/tmp/*` /
+// `/var/folders/*` whitelist — mkdtempSync should always produce paths
+// under tmpdir(), but if a future refactor accidentally pushes a non-tmp
+// path into fixtures[] we refuse to rm it.
+const TMP_PREFIX = tmpdir();
+
 afterEach(() => {
   while (fixtures.length > 0) {
     const dir = fixtures.pop()!;
+    if (!dir.startsWith(TMP_PREFIX)) {
+      console.error(`afterEach: refusing to clean non-tmp path ${dir}`);
+      continue;
+    }
+    // Restore perms in case a test chmod 000'd a file inside. Surface chmod
+    // spawn errors instead of letting a chmod-locked fixture leak across
+    // runs (rmSync would then fail and the empty catch would hide it).
+    const restore = spawnSync("chmod", ["-R", "u+rw", dir], { encoding: "utf8" });
+    if (restore.error) {
+      console.error(`afterEach: chmod spawn failed for ${dir}: ${restore.error.message}`);
+    } else if (restore.status !== 0) {
+      console.error(`afterEach: chmod exited ${restore.status} for ${dir}: ${restore.stderr}`);
+    }
     try {
-      // Restore perms in case a test chmod 000'd a file inside.
-      const restore = spawnSync("chmod", ["-R", "u+rw", dir], { encoding: "utf8" });
-      // chmod failure is non-fatal — fall through to rmSync.
-      void restore;
       rmSync(dir, { recursive: true, force: true });
-    } catch {
-      // Best-effort cleanup; tmpdir reaper handles stragglers.
+    } catch (e) {
+      console.error(`afterEach: rmSync failed for ${dir}: ${(e as Error).message}`);
     }
   }
 });
@@ -87,16 +110,15 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
   test("A: empty rules/ dir → fails loudly", () => {
     const fixture = makeFixture();
     const out = extractPhase1g(runValidate(fixture));
-    expect(out).not.toBe("PHASE_1G_HEADER_MISSING");
     expect(out).toContain("rules/ directory empty or missing");
   });
 
-  test("B: unreadable rule file with drift → grep error status surfaces", () => {
-    if (getuid?.() === 0) {
-      // chmod 000 does not block reads when running as root; fish original
-      // skips in this case rather than failing.
-      return;
-    }
+  // chmod 000 does not block reads when running as root; fish original
+  // skipped in this case rather than failing. Use skipIf so bun reports
+  // the skip explicitly — a bare `return;` would mark Test B as PASS,
+  // hiding that the grep-error-surface assertion never ran (the exact
+  // silent-failure class this suite exists to catch).
+  test.skipIf(getuid?.() === 0)("B: unreadable rule file with drift → grep error status surfaces", () => {
     const fixture = makeFixture();
     writeFileSync(join(fixture, "rules", "planning.md"), "# canonical home\n");
     const drift = join(fixture, "rules", "drift_file.md");
@@ -104,7 +126,6 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
     chmodSync(drift, 0o000);
 
     const out = extractPhase1g(runValidate(fixture));
-    expect(out).not.toBe("PHASE_1G_HEADER_MISSING");
     expect(out).toContain("grep returned error status");
   });
 
@@ -124,7 +145,6 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
     writeFileSync(join(fixture, "rules", "other.md"), "# unrelated rule\n");
 
     const out = extractPhase1g(runValidate(fixture));
-    expect(out).not.toBe("PHASE_1G_HEADER_MISSING");
     expect(out).toContain("Trivial-tier LOC criterion: no drift");
     expect(out).toContain("Trivial-tier surface criterion: no drift");
     expect(out).toContain("Trivial-tier approach criterion: no drift");
@@ -145,7 +165,6 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
     );
 
     const out = extractPhase1g(runValidate(fixture));
-    expect(out).not.toBe("PHASE_1G_HEADER_MISSING");
     expect(out).toMatch(/drift:.*restated in rules\/drifted\.md/);
   });
 
