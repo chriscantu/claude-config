@@ -53,3 +53,32 @@ describe("bin/onboard-status.fish --status", () => {
     expect(r.stdout).toContain("W2");
   });
 });
+
+import { readFileSync } from "node:fs";
+
+describe("bin/onboard-status.fish --mute", () => {
+  test("appends a category to ## Cadence Mutes and removes (none) marker", () => {
+    const ws = makeWorkspace(5);
+    const r = run(".", "--mute", "milestone", ws);
+    expect(r.exitCode).toBe(0);
+    const ramp = readFileSync(join(ws, "RAMP.md"), "utf8");
+    expect(ramp).toMatch(/## Cadence Mutes\n\n- milestone\n/);
+    expect(ramp).not.toMatch(/## Cadence Mutes\n\n\(none\)/);
+  });
+
+  test("muting twice is idempotent", () => {
+    const ws = makeWorkspace(5);
+    run(".", "--mute", "velocity", ws);
+    const r = run(".", "--mute", "velocity", ws);
+    expect(r.exitCode).toBe(0);
+    const ramp = readFileSync(join(ws, "RAMP.md"), "utf8");
+    expect((ramp.match(/^- velocity$/gm) ?? []).length).toBe(1);
+  });
+
+  test("rejects unknown category", () => {
+    const ws = makeWorkspace(5);
+    const r = run(".", "--mute", "yolo", ws);
+    expect(r.exitCode).not.toBe(0);
+    expect(r.stderr).toContain("unknown category");
+  });
+});
