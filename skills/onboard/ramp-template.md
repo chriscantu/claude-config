@@ -14,12 +14,12 @@ Started: <YYYY-MM-DD>
 | Week | Milestone | Status |
 |---|---|---|
 | W0 | Workspace scaffolded; manager-handoff captured | [ ] |
-| W2 | Stakeholder map ≥80% | [ ] |
-| W4 | ≥8 interviews logged + INTERIM reflect-back deck | [ ] |
+| W2 | Stakeholder map >=80% | [ ] |
+| W4 | >=8 interviews logged + INTERIM reflect-back deck | [ ] |
 | W6 | SWOT v1 draft committed | [ ] |
 | W8 | FINAL reflect-back deck delivered | [ ] |
 | W10 | Quick-win candidate locked | [ ] |
-| W13 | Quick-win shipped → graduate | [ ] |
+| W13 | Quick-win shipped -> graduate | [ ] |
 
 ## Cadence Mutes
 

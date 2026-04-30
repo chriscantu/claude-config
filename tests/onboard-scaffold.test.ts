@@ -46,6 +46,33 @@ describe("bin/onboard-scaffold.fish", () => {
     expect(r.stderr).toContain("refusing to scaffold");
   });
 
+  test("rejects missing --target with exit 2 and explanatory stderr", () => {
+    const root = makeFixture();
+    const r = runScaffold(root, "--cadence", "standard", "--no-gh");
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("missing --target");
+  });
+
+  test("rejects unknown flags", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+    const r = runScaffold(root, "--target", target, "--cadance", "standard", "--no-gh");
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("unknown arg");
+  });
+
+  test("scaffolds successfully into an empty pre-existing target dir", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+    mkdirSync(target);
+
+    const r = runScaffold(root, "--target", target, "--cadence", "standard", "--no-gh");
+
+    expect(r.exitCode).toBe(0);
+    expect(existsSync(join(target, "RAMP.md"))).toBe(true);
+    expect(existsSync(join(target, ".git"))).toBe(true);
+  });
+
   test("creates the full directory tree", () => {
     const root = makeFixture();
     const target = join(root, "onboard-acme");
@@ -100,8 +127,28 @@ describe("bin/onboard-scaffold.fish", () => {
 
     const ramp = readFileSync(join(target, "RAMP.md"), "utf8");
     expect(ramp).toContain("Cadence: aggressive");
-    expect(ramp).toContain("90-Day Ramp Plan");
-    expect(ramp).toMatch(/W[0-9]+/);
+    expect(ramp).toContain("90-Day Ramp Plan — acme");
+    expect(ramp).toContain("W9");
+  });
+
+  test("standard cadence has W13 terminal week", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+    runScaffold(root, "--target", target, "--cadence", "standard", "--no-gh");
+    const ramp = readFileSync(join(target, "RAMP.md"), "utf8");
+    expect(ramp).toContain("Cadence: standard");
+    expect(ramp).toContain("W13");
+    expect(ramp).not.toContain("W17");
+  });
+
+  test("relaxed cadence has W17 terminal week", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+    runScaffold(root, "--target", target, "--cadence", "relaxed", "--no-gh");
+    const ramp = readFileSync(join(target, "RAMP.md"), "utf8");
+    expect(ramp).toContain("Cadence: relaxed");
+    expect(ramp).toContain("W17");
+    expect(ramp).not.toContain("W9");
   });
 
   test("RAMP.md rejects unknown cadence presets", () => {
@@ -157,6 +204,63 @@ describe("bin/onboard-scaffold.fish", () => {
     expect(args).toContain("repo");
     expect(args).toContain("create");
     expect(args).toContain("--private");
+    expect(args).toContain("--remote=origin");
+    expect(args).toContain("--push");
+    expect(args.some((a) => a.startsWith("--source="))).toBe(true);
+  });
+
+  test("--no-gh overrides --gh-create yes (precedence)", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+
+    const stubDir = join(root, "stubs");
+    mkdirSync(stubDir);
+    const sentinel = join(root, "gh-args.txt");
+    writeFileSync(
+      join(stubDir, "gh"),
+      `#!/usr/bin/env sh\nprintf 'STUB-RAN' > "${sentinel}"\nexit 0\n`,
+    );
+    chmodSync(join(stubDir, "gh"), 0o755);
+
+    const result = spawnSync(
+      "fish",
+      [SCRIPT, "--target", target, "--cadence", "standard", "--gh-create", "yes", "--no-gh"],
+      {
+        cwd: root,
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` },
+      },
+    );
+
+    expect(result.status).toBe(0);
+    expect(existsSync(sentinel)).toBe(false);
+  });
+
+  test("propagates non-zero exit when gh repo create fails", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+
+    const stubDir = join(root, "stubs");
+    mkdirSync(stubDir);
+    writeFileSync(
+      join(stubDir, "gh"),
+      `#!/usr/bin/env sh\necho "auth required" >&2\nexit 7\n`,
+    );
+    chmodSync(join(stubDir, "gh"), 0o755);
+
+    const result = spawnSync(
+      "fish",
+      [SCRIPT, "--target", target, "--cadence", "standard", "--gh-create", "yes"],
+      {
+        cwd: root,
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` },
+      },
+    );
+
+    expect(result.status).not.toBe(0);
+    expect(result.stderr).toContain("gh repo create failed");
+    expect(existsSync(join(target, "RAMP.md"))).toBe(true);
   });
 
   test("gh is NOT invoked when --no-gh is passed", () => {
