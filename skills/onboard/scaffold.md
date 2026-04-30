@@ -10,8 +10,9 @@ See spec section "Workspace Layout" in `docs/superpowers/specs/2026-04-30-onboar
 
 ## .gitignore contents
 
-Authoritative content lives in the script itself; do NOT restate here to avoid
-canonical-string drift per `validate.fish` Phase 1g.
+Authoritative content lives in the script itself; do NOT restate here. Keep the
+script as the single source of truth so this doc cannot drift from what the
+scaffold actually writes.
 
 ## Flags
 

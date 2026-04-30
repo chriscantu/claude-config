@@ -16,7 +16,7 @@ version: 0.1.0
 Phase 1 (this implementation): scaffolds a per-org git-isolated workspace at
 `~/repos/onboard-<org>/` with the canonical directory tree, `.gitignore`,
 `RAMP.md` from a chosen cadence preset, stakeholder seed file, and an
-auto-prompted private GitHub remote.
+optionally created private GitHub remote (user-confirmed at scaffold time).
 
 **Announce at start:** "I'm using the onboard skill to scaffold your <org> ramp workspace."
 

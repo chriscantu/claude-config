@@ -29,7 +29,11 @@ const makeFixture = (): string => {
 afterEach(() => {
   while (fixtures.length > 0) {
     const dir = fixtures.pop()!;
-    try { rmSync(dir, { recursive: true, force: true }); } catch {}
+    try {
+      rmSync(dir, { recursive: true, force: true });
+    } catch (e) {
+      console.warn(`fixture cleanup failed for ${dir}:`, e);
+    }
   }
 });
 

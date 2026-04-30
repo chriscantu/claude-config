@@ -6,7 +6,8 @@
 #
 # --target     absolute path to the workspace dir (must not exist or be empty)
 # --cadence    aggressive | standard | relaxed
-# --gh-create  yes | no (default no); when yes, runs `gh repo create --private --push`
+# --gh-create  yes | no (default no; SKILL.md prompts user with default yes and
+#              passes the answer through); when yes, runs `gh repo create --private --push`
 # --no-gh      hard-skip the gh repo create call; overrides --gh-create yes (used by tests)
 
 set -l target ""
