@@ -35,7 +35,6 @@ therefore by CI) if its filename matches either pattern:
 
 - `tests/*-test.fish` — general regression suites (e.g. `symlinks-test.fish`)
 - `tests/validate-phase-*.fish` — phase-specific suites for `validate.fish`
-  (e.g. `validate-phase-1l.fish`)
 
 Drop a new file matching either pattern and it will run on the next CI build.
 No edit to the driver or workflow is required.
@@ -53,7 +52,7 @@ fails. CI fails the job on a non-zero driver exit.
 ### Style
 
 Tests use plain fish + manual `t_pass` / `t_fail` helpers — no framework. See
-`symlinks-test.fish` and `validate-phase-1l.fish` for the established pattern.
+`symlinks-test.fish` for the established pattern.
 Adopt a framework only if friction surfaces.
 
 ### Fixtures
@@ -67,7 +66,6 @@ to point at a fixture instead of the real repo.
 ```fish
 fish tests/run-fish-tests.fish              # all suites
 fish tests/symlinks-test.fish               # one suite
-fish tests/validate-phase-1l.fish           # one suite
 ```
 
 ### CI wiring
