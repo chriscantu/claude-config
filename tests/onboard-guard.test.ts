@@ -62,3 +62,96 @@ describe("bin/onboard-guard.ts refuse-raw", () => {
     expect(r.exitCode).toBe(2);
   });
 });
+
+const writeMap = (ws: string, names: string[]): string => {
+  const path = join(ws, "stakeholders", "map.md");
+  const body =
+    "# Stakeholder Map — acme\n\n## Direct reports\n\n" +
+    names.map((n) => `- ${n} — Engineer\n`).join("") +
+    "\n## Cross-functional partners\n\n(none yet)\n";
+  writeFileSync(path, body);
+  return path;
+};
+
+const writeDeck = (ws: string, body: string): string => {
+  const path = join(ws, "decks", "slidev", "slides.md");
+  writeFileSync(path, body);
+  return path;
+};
+
+describe("bin/onboard-guard.ts attribution-check", () => {
+  test("exits 0 when deck has no stakeholder name matches", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Sarah Chen", "Marcus Diaz"]);
+    const deck = writeDeck(
+      ws,
+      "# Reflect-back\n\nMultiple engineering leaders noted platform strain.\n",
+    );
+    const r = run("attribution-check", deck, map);
+    expect(r.exitCode).toBe(0);
+  });
+
+  test("exits 3 with file:line:phrase report on full-name match", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Sarah Chen", "Marcus Diaz"]);
+    const deck = writeDeck(
+      ws,
+      "# Reflect-back\n\nSarah Chen said the platform was strained.\n",
+    );
+    const r = run("attribution-check", deck, map);
+    expect(r.exitCode).toBe(3);
+    expect(r.stdout + r.stderr).toContain("slides.md:3");
+    expect(r.stdout + r.stderr).toContain("Sarah Chen");
+  });
+
+  test("matches case-insensitively", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Marcus Diaz"]);
+    const deck = writeDeck(ws, "# Notes\n\nper marcus diaz's recommendation.\n");
+    const r = run("attribution-check", deck, map);
+    expect(r.exitCode).toBe(3);
+  });
+
+  test("respects word boundaries (does NOT match Christopher when map has Chris)", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Chris"]);
+    const deck = writeDeck(ws, "# Notes\n\nChristopher Nolan films are long.\n");
+    const r = run("attribution-check", deck, map);
+    expect(r.exitCode).toBe(0);
+  });
+
+  test("reports multiple matches on multiple lines", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Sarah Chen", "Marcus Diaz"]);
+    const deck = writeDeck(
+      ws,
+      "# Reflect-back\n\nSarah Chen flagged risk.\n\nMarcus Diaz disagreed.\n",
+    );
+    const r = run("attribution-check", deck, map);
+    expect(r.exitCode).toBe(3);
+    const all = r.stdout + r.stderr;
+    expect(all).toContain("Sarah Chen");
+    expect(all).toContain("Marcus Diaz");
+  });
+
+  test("extracts name from bullet leader before role separator", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Priya Patel"]);
+    const deck = writeDeck(ws, "# Notes\n\nPriya Patel approved the plan.\n");
+    const r = run("attribution-check", deck, map);
+    expect(r.exitCode).toBe(3);
+  });
+
+  test("captures bullet without role separator (whole-bullet fallback)", () => {
+    const ws = makeWorkspace();
+    const mapPath = join(ws, "stakeholders", "map.md");
+    writeFileSync(
+      mapPath,
+      "# Stakeholder Map — acme\n\n## Direct reports\n\n- Solo Name\n",
+    );
+    const deck = writeDeck(ws, "# Notes\n\nSolo Name flagged a risk.\n");
+    const r = run("attribution-check", deck, mapPath);
+    expect(r.exitCode).toBe(3);
+    expect(r.stderr).toContain("Solo Name");
+  });
+});
