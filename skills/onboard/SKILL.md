@@ -113,6 +113,46 @@ Categories: `milestone` | `velocity`. (`calendar` is Phase 4.) Mute state persis
 
 `/onboard --unmute <category>` → run `bun run bin/onboard-status.ts --unmute <category> <workspace-path>`.
 
+## Capture and sanitize (Phase 3)
+
+`/onboard --capture <person>` → wrap `/1on1-prep` to capture verbatim notes
+into `<workspace>/interviews/raw/` with per-observation sanitization tags
+(`attributable | aggregate-only | redact`). See
+[capture-and-sanitize.md](capture-and-sanitize.md) for the full flow.
+
+`/onboard --sanitize <workspace>` → emit themes from tagged raw notes into
+`<workspace>/interviews/sanitized/`. See
+[capture-and-sanitize.md](capture-and-sanitize.md).
+
+Sanitization is the gateway: `/swot` and `/present` refuse to read
+`interviews/raw/` per [refusal-contract.md](refusal-contract.md). All
+downstream synthesis consumes `interviews/sanitized/` exclusively.
+
+## Pre-render attribution gate (Phase 3)
+
+Before invoking `/present` for any milestone reflect-back (W4 interim, W8
+final), MUST run the attribution check:
+
+```fish
+bun run <repo-root>/bin/onboard-guard.ts attribution-check \
+  <workspace>/decks/slidev/<deck>/slides.md \
+  <workspace>/stakeholders/map.md
+```
+
+Exit code 3 means the deck contains stakeholder names from `map.md`.
+Surface the guard's stderr (file:line:phrase report) to the user and
+require explicit `override` token before proceeding. Anything else aborts.
+
+**Override is enforced HERE, by the SKILL.md body — not by the guard
+itself.** The helper exits 3 and emits the report; the calling skill
+prompts for `override` and decides whether to proceed. This keeps the
+helper pure (no interactive I/O) and centralizes UX in the skill.
+
+See [refusal-contract.md](refusal-contract.md) for override semantics.
+
+The gate runs PER render — re-renders re-check. There is no persistent
+override state.
+
 ## Backtracking
 
 If `bin/onboard-scaffold.fish` exits non-zero, surface the stderr directly to
@@ -121,9 +161,6 @@ files (clobber-refusal); ask the user whether to choose a different path.
 
 ## What this skill deliberately does NOT do (yet)
 
-- Enforce the raw → sanitized confidentiality boundary at downstream-skill read time
-  (Phase 3 — directory layout and .gitignore are in place; refusal logic in /swot
-  and /present wires up later)
 - Calendar API integration (Phase 4)
 - `--graduate` retro + archive, including unscheduling the cadence task (Phase 5)
 
