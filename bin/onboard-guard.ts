@@ -4,16 +4,15 @@
 // Subcommands:
 //   refuse-raw <path>                Exit 2 if <path> is inside any interviews/raw/ dir.
 //   attribution-check <deck> <map>   Exit 3 if <deck> markdown contains stakeholder
-//                                    names extracted from <map>. (Implemented in Task 4.)
+//                                    names extracted from <map>.
 
-import { resolve, sep } from "node:path";
+import { readFileSync } from "node:fs";
+import { basename, resolve, sep } from "node:path";
 
 const RAW_SEGMENT = `${sep}interviews${sep}raw${sep}`;
 
 export const isInsideRaw = (path: string): boolean => {
   const abs = resolve(path);
-  // Match the segment anywhere in the absolute path. Trailing sep ensures we
-  // do NOT match a file literally named "raw" outside the interviews dir.
   return (abs + sep).includes(RAW_SEGMENT);
 };
 
@@ -29,6 +28,80 @@ const refuseRaw = (path: string): number => {
   return 0;
 };
 
+// Extract names from map.md bullet leaders. A bullet line is `- <name> — <role>`
+// (em-dash, hyphen, or colon as separator). Falls back to the whole bullet text
+// if no separator is present.
+export const extractNames = (mapMarkdown: string): string[] => {
+  const names = new Set<string>();
+  for (const line of mapMarkdown.split("\n")) {
+    const match = line.match(/^-\s+(.+?)(?:\s+[—\-:]\s+|$)/);
+    if (!match) continue;
+    const candidate = match[1]!.trim();
+    if (candidate.length === 0) continue;
+    names.add(candidate);
+  }
+  return [...names];
+};
+
+const escapeRegex = (s: string): string =>
+  s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export type AttributionMatch = {
+  file: string;
+  line: number;
+  name: string;
+  context: string;
+};
+
+export const scanDeck = (
+  deckMarkdown: string,
+  deckPath: string,
+  names: string[],
+): AttributionMatch[] => {
+  if (names.length === 0) return [];
+  const pattern = new RegExp(
+    `\\b(${names.map(escapeRegex).join("|")})\\b`,
+    "gi",
+  );
+  const matches: AttributionMatch[] = [];
+  const lines = deckMarkdown.split("\n");
+  for (let i = 0; i < lines.length; i++) {
+    const lineMatches = lines[i]!.matchAll(pattern);
+    for (const m of lineMatches) {
+      matches.push({
+        file: basename(deckPath),
+        line: i + 1,
+        name: m[0],
+        context: lines[i]!.trim(),
+      });
+    }
+  }
+  return matches;
+};
+
+const attributionCheck = (deckPath: string, mapPath: string): number => {
+  const deck = readFileSync(deckPath, "utf8");
+  const map = readFileSync(mapPath, "utf8");
+  const names = extractNames(map);
+  const matches = scanDeck(deck, deckPath, names);
+  if (matches.length === 0) return 0;
+
+  process.stderr.write(
+    `⚠️  Attribution check found stakeholder names in deck markdown.\n` +
+    `Source: ${deckPath}\n` +
+    `Matches:\n`,
+  );
+  for (const m of matches) {
+    process.stderr.write(`  ${m.file}:${m.line} — "${m.context}"\n`);
+  }
+  process.stderr.write(
+    `\nReflect-back decks must use aggregate framing\n` +
+    `("multiple engineering leaders noted X"), per spec § Confidentiality Boundary.\n` +
+    `See skills/onboard/refusal-contract.md for override semantics.\n`,
+  );
+  return 3;
+};
+
 const main = (): number => {
   const [sub, ...args] = process.argv.slice(2);
   switch (sub) {
@@ -39,9 +112,13 @@ const main = (): number => {
       }
       return refuseRaw(args[0]!);
     case "attribution-check":
-      // Implemented in Task 4.
-      process.stderr.write("attribution-check not yet implemented\n");
-      return 70;
+      if (args.length !== 2) {
+        process.stderr.write(
+          "usage: onboard-guard attribution-check <deck.md> <map.md>\n",
+        );
+        return 64;
+      }
+      return attributionCheck(args[0]!, args[1]!);
     default:
       process.stderr.write(`unknown subcommand: ${sub ?? "(none)"}\n`);
       return 64;
