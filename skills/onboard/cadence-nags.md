@@ -5,77 +5,155 @@ Phase 2 wires ONE recurring scheduled task per ramp, registered at day-0 scaffol
 reads the workspace `RAMP.md`, and writes nag lines to `<workspace>/NAGS.md` when
 checks fail.
 
+## Schema invariants (load-bearing)
+
+The autonomous session below depends on three RAMP.md schema invariants. If
+`skills/onboard/ramp-template.md` changes any of them, this file AND the
+description body of every live MCP-registered cadence task must be updated:
+
+1. `Started: YYYY-MM-DD` line — single source of truth for elapsed time.
+2. `## Cadence Mutes` section header with `^- (milestone|velocity)$` lines
+   (or literal `(none)`).
+3. `| W<n> | <milestone text> | [ ] |` (unchecked) / `| W<n> | … | [x] |`
+   (checked) — table-row format, double-pipe delimited, with `<n>` the
+   integer week index. The table is cadence-dependent; the autonomous
+   session derives the candidate week set FROM the table itself rather
+   than hardcoding.
+
+## NAGS.md line format (load-bearing for dedupe)
+
+Each appended line has THREE fields separated by **two ASCII spaces**:
+
+    <ISO-date>  <class>  <detail>
+
+Examples:
+
+    2026-04-30  milestone  W2  Stakeholder map >=80%
+    2026-04-30  velocity  no interviews/raw/ activity in 7+ days
+
+Two spaces (not one) is the field delimiter — milestone text contains single
+spaces. A future maintainer collapsing to single space will silently break
+dedupe. Do not change.
+
 ## Registration parameters
 
 | Field | Value |
 |---|---|
 | `taskName` | `onboard-<org-slug>-cadence` |
 | `cronExpression` | `0 9 * * *` (09:00 daily, local TZ) |
-| `description` | The body below, with `<WORKSPACE_ABS_PATH>` and `<ORG_SLUG>` substituted by SKILL.md before the MCP call |
+| `description` | The body below, with `{{WORKSPACE_ABS_PATH}}` and `{{ORG_SLUG}}` substituted by SKILL.md before the MCP call |
+
+Scaffold-time placeholders use `{{NAME}}` form so they do not collide with
+runtime-side angle-bracket markers (`<ISO date>`, `<n>`, etc.) used by the
+autonomous session itself. SKILL.md's substitution-completeness scan
+greps for the literal `{{` token; angle brackets are NOT scanned.
 
 ## Description body (substitute placeholders before passing to MCP)
 
 ```
-You are firing the daily cadence-nag check for the <ORG_SLUG> onboarding ramp.
+You are firing the daily cadence-nag check for the {{ORG_SLUG}} onboarding ramp.
 
-Workspace: <WORKSPACE_ABS_PATH>
-RAMP file: <WORKSPACE_ABS_PATH>/RAMP.md
-Nags file: <WORKSPACE_ABS_PATH>/NAGS.md
+Workspace: {{WORKSPACE_ABS_PATH}}
+RAMP file: {{WORKSPACE_ABS_PATH}}/RAMP.md
+Nags file: {{WORKSPACE_ABS_PATH}}/NAGS.md
 
 Steps:
 
-1. Read <WORKSPACE_ABS_PATH>/RAMP.md. Parse `Started:` (YYYY-MM-DD) and the
-   `## Cadence Mutes` section. Build a set of muted categories from lines
-   matching `^- (milestone|velocity)$`.
+1. Read {{WORKSPACE_ABS_PATH}}/RAMP.md.
+   - If the file is missing, append one line to {{WORKSPACE_ABS_PATH}}/../onboard-orphaned-tasks.log:
+       <ISO date>  orphan  {{ORG_SLUG}}  RAMP.md missing — consider deleting this scheduled task.
+     Then exit. Do not proceed.
+   - Parse `Started:` (YYYY-MM-DD). If missing or unparseable, abort
+     after logging the same orphaned-tasks line above (class `corrupt`).
+   - Parse `## Cadence Mutes`. Build a set of muted categories from
+     lines matching `^- (milestone|velocity)$`.
 
 2. Compute elapsed_days = today - Started. elapsed_weeks = floor(elapsed_days / 7).
+   If elapsed_days < 0, abort (RAMP.md Started: is in the future — log to
+   orphaned-tasks.log as `corrupt`).
 
 3. **Milestone-miss check** (skip if `milestone` is muted):
-   On elapsed_weeks ∈ {2, 4, 6, 8, 10}, find the matching `| W<n> | ... | [ ] |`
-   row. If unchecked, build the candidate line:
+   Parse every `| W<n> | <text> | [ ] |` UNCHECKED row from RAMP.md. The
+   week set is whatever the cadence's RAMP.md table contains — do NOT
+   assume {2,4,6,8,10}; aggressive uses {1,3,4,6,7,9}, relaxed uses
+   {3,5,8,10,13,17}, etc.
 
-       <ISO date>  milestone  W<n>  <milestone text>
+   For each unchecked row whose week index `n` satisfies n ≤ elapsed_weeks:
+   build the candidate line:
 
-   Before appending, grep <WORKSPACE_ABS_PATH>/NAGS.md for the exact prefix
-   `<ISO date>  milestone  W<n>` — if a line with that prefix already exists
-   for today, SKIP the append (dedupe contract: at most one milestone-class
-   line per W<n> per day).
+       <ISO date>  milestone  W<n>  <text trimmed>
 
-4. **Velocity check** (skip if `velocity` is muted, skip outside W2–W6):
-   When 14 ≤ elapsed_days ≤ 42, run `git -C <WORKSPACE_ABS_PATH> log -1
-   --format=%ct -- interviews/raw/`. If empty OR (today_epoch - last_commit_epoch)
-   > 7 * 86400, build the candidate line:
+   Before appending, ensure NAGS.md exists (create empty if missing —
+   first-fire dedupe contract: a non-existent file counts as no match).
+   Then grep NAGS.md for the exact prefix:
 
-       <ISO date>  velocity  no 1on1-prep capture in 7+ days
+       <ISO date>  milestone  W<n>
 
-   Before appending, grep <WORKSPACE_ABS_PATH>/NAGS.md for the exact prefix
-   `<ISO date>  velocity` — if any line with that prefix already exists for
-   today, SKIP the append (dedupe contract: at most one velocity-class line
-   per day).
+   (literal two-space delimiter, NOT a regex). If a line with that
+   prefix already exists for today, SKIP that row's append. Otherwise
+   append.
 
-5. If neither check fires (or both dedupe-skip), do nothing. No NAGS.md
-   write, no other side effects.
+4. **Velocity check** (skip if `velocity` is muted):
+   The window opens after the FIRST unchecked W<n> with n >= 2 in
+   the RAMP.md table and stays open until elapsed_weeks exceeds the
+   LAST W<n> from the table. (For standard cadence this is roughly
+   W2–W13; for aggressive ~W1–W9; for relaxed ~W3–W17.) Outside the
+   window, skip the velocity check.
 
-6. Do NOT modify RAMP.md. Do NOT push to remote. Do NOT invoke other skills.
+   Inside the window, check filesystem mtime of {{WORKSPACE_ABS_PATH}}/interviews/raw/:
 
-Constraints:
-- Workspace path is absolute. Treat any relative path as a bug; abort.
-- If RAMP.md is missing, abort with stdout "RAMP.md missing — ramp may have
-  graduated; consider deleting this scheduled task."
-- Output is fire-and-forget. The user reads NAGS.md via /onboard --status.
+       find {{WORKSPACE_ABS_PATH}}/interviews/raw -type f -mtime -7
+
+   If the find command fails (directory missing, not a directory),
+   log to orphaned-tasks.log as `corrupt` and skip.
+
+   Use filesystem mtime, NOT git log — `interviews/raw/` is in
+   .gitignore (Phase 1 confidentiality boundary), so `git log` returns
+   empty for legitimate captures and would cause daily false-positive
+   nags. Filesystem mtime is the correct staleness signal.
+
+   If the find returns ANY file (recent activity), do not nag.
+   If the find returns nothing AND the directory has at least one
+   pre-existing file (i.e., user has captured before but not in the
+   last 7 days), build:
+
+       <ISO date>  velocity  no interviews/raw/ activity in 7+ days
+
+   If the directory is empty and elapsed_days < 14, do not nag (grace
+   window for first capture). If elapsed_days >= 14 and the directory
+   is still empty, nag with `velocity  no captures yet (workspace 14+ days old)`.
+
+   Dedupe by grepping NAGS.md for the exact prefix `<ISO date>  velocity`
+   (two-space delimiter, literal). If any match for today, skip.
+
+5. After the checks (whether or not anything was appended), update a
+   liveness stamp at {{WORKSPACE_ABS_PATH}}/.cadence-last-fire with
+   the ISO date. This single-line file lets `/onboard --status` confirm
+   the cron is alive even on no-op fires.
+
+6. Constraints:
+   - Workspace path is absolute. Treat any relative path as a bug; abort.
+   - Do NOT modify RAMP.md.
+   - Do NOT push to remote.
+   - Do NOT invoke other skills.
+   - Do NOT read any file under interviews/raw/ — only filesystem
+     metadata (mtime via `find`). The Phase 3 confidentiality boundary
+     forbids content reads even by autonomous workers.
+   - Output is fire-and-forget. The user reads NAGS.md via /onboard --status.
 ```
 
 ## Why one task instead of five (per-milestone) one-shots
 
 - Single MCP call at scaffold; single cleanup at `--graduate` (Phase 5).
 - Mute toggles take effect on next fire — no per-milestone task to re-issue.
-- Cron-fired session self-gates on elapsed weeks; cost of a no-op fire is one
-  RAMP.md read.
+- Cron-fired session self-gates on elapsed weeks; cost of a no-op fire is
+  one RAMP.md read plus one filesystem stat.
 
 ## What this doc deliberately does NOT cover
 
 - Calendar-watch nag class — Phase 4.
-- Removal at `--graduate` — Phase 5 (will call `mcp__scheduled-tasks__update_scheduled_task`
-  or the deletion equivalent).
-- Confidentiality refusal in the autonomous session — Phase 3 (the session reads
-  `RAMP.md` only, never `interviews/raw/` content; only the git mtime).
+- Removal at `--graduate` — Phase 5 (will call
+  `mcp__scheduled-tasks__update_scheduled_task` or the deletion equivalent).
+- Surfacing orphan/corrupt warnings to a foreground user — Phase 3 will
+  add a `--status` check that reads `<parent>/onboard-orphaned-tasks.log`
+  and surfaces unresolved orphans.

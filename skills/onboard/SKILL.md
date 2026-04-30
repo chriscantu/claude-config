@@ -65,29 +65,42 @@ optionally created private GitHub remote (user-confirmed at scaffold time).
 
       | Find | Replace with |
       |---|---|
-      | `<WORKSPACE_ABS_PATH>` | absolute path of the scaffolded workspace (e.g., `/Users/<user>/repos/onboard-acme`) |
-      | `<ORG_SLUG>` | kebab-case org slug (the basename of the workspace minus the `onboard-` prefix) |
+      | `{{WORKSPACE_ABS_PATH}}` | absolute path of the scaffolded workspace (e.g., `/Users/<user>/repos/onboard-acme`) |
+      | `{{ORG_SLUG}}` | kebab-case org slug (the basename of the workspace minus the `onboard-` prefix) |
 
-      After substitution, scan the buffer for any remaining `<` `>` pairs —
-      if any exist, ABORT and surface the missed placeholder. Do not pass an
-      under-substituted body to the MCP.
+      After substitution, scan the buffer for any remaining `{{` token. If any
+      exist, ABORT and surface the missed placeholder. Do not pass an
+      under-substituted body to the MCP. Note: angle-bracket markers like
+      `<ISO date>` are RUNTIME-side placeholders for the autonomous session
+      itself — do NOT scan for `<...>` pairs (would false-positive on every
+      scaffold). Only `{{NAME}}` is a scaffold-time placeholder.
 
    c. Call:
 
       ```
       mcp__scheduled-tasks__create_scheduled_task(
-        taskName       = "onboard-<ORG_SLUG>-cadence",
+        taskName       = "onboard-{{ORG_SLUG}}-cadence",
         cronExpression = "0 9 * * *",
         description    = <substituted buffer from step b>,
       )
       ```
 
-      The `taskName` argument also takes a literal `<ORG_SLUG>` substitution.
+      The `taskName` argument also takes a literal `{{ORG_SLUG}}` substitution.
 
-   d. If the MCP tool is unavailable, surface the failure to the user and
-      continue — the workspace is usable without nags; the user can re-run
-      `/onboard --status <org>` on demand. Do NOT silently skip; the user
-      needs to know nags are not registered.
+   d. If the MCP tool is unavailable OR the call fails, you MUST:
+
+      i.   Append a one-line warning to `<workspace>/.scaffold-warnings.log`:
+           `<ISO date>  cadence-nag-not-registered  <reason: tool unavailable | call failed: <err>>`
+      ii.  Replace the user-facing "Workspace ready" success message from
+           step 7 with: "Workspace partially ready — cadence-nag scheduler
+           NOT registered. See `<workspace>/.scaffold-warnings.log`. Re-run
+           `/onboard --register-nags <org>` once the scheduled-tasks MCP is
+           available." (The `--register-nags` flag is Phase 5; until then,
+           the warning persists on disk so a human can re-scaffold or
+           manually invoke the MCP.)
+      iii. Do NOT silently continue. The persistent on-disk warning is the
+           contract — a transient terminal echo is insufficient (scrolls
+           off, never recoverable).
 
 ## Status, mute, and unmute
 
