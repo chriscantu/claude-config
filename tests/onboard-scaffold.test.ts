@@ -66,4 +66,16 @@ describe("bin/onboard-scaffold.fish", () => {
       expect(statSync(p).isDirectory()).toBe(true);
     }
   });
+
+  test("writes a .gitignore that excludes raw notes and secrets", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+
+    runScaffold(root, "--target", target, "--cadence", "standard", "--no-gh");
+
+    const gi = readFileSync(join(target, ".gitignore"), "utf8");
+    expect(gi).toContain("interviews/raw/");
+    expect(gi).toContain(".env");
+    expect(gi).toContain("**/private/");
+  });
 });

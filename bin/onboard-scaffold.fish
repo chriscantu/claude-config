@@ -53,4 +53,6 @@ mkdir -p $target/swot
 mkdir -p $target/decks/slidev
 mkdir -p $target/decisions
 
+printf "# /onboard workspace gitignore — protect verbatim interview notes and secrets\n\ninterviews/raw/\n.env\n**/private/\n" > $target/.gitignore
+
 exit 0
