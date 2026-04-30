@@ -125,6 +125,111 @@ function check_skill_shape
     end
 end
 
+# Validates the structural shape of an evals.json file against the contract
+# enforced by tests/evals-lib.ts loadEvalFile: top-level {skill, evals[]} with
+# each entry having name, exactly one of prompt/turns, and a non-empty
+# assertions array (single-turn) or per-turn prompt+assertions (multi-turn).
+# Phase 1m calls this for both skills/ and rules-evals/.
+#
+# A `__SCANNED__` sentinel is emitted per eval so the loop can verify the
+# filter actually visited every entry. Without it, a future filter regression
+# that makes every `select(...)` predicate miss would produce empty output and
+# look indistinguishable from "no violations" — re-introducing the same
+# silent-skip class issue #203 was meant to close.
+function check_evals_json_shape
+    set -l file $argv[1]
+    set -l label $argv[2]
+
+    if not test -f $file
+        fail "$label: missing evals.json"
+        return
+    end
+
+    if not jq -e . $file >/dev/null 2>&1
+        fail "$label: invalid JSON"
+        return
+    end
+
+    if not jq -e '.skill | type == "string" and length > 0' $file >/dev/null 2>&1
+        fail "$label: missing or non-string top-level 'skill'"
+        return
+    end
+
+    if not jq -e '.evals | type == "array"' $file >/dev/null 2>&1
+        fail "$label: missing or non-array top-level 'evals'"
+        return
+    end
+
+    set -l count_err (mktemp)
+    set -l count (jq '.evals | length' $file 2>$count_err)
+    set -l count_status $status
+    if test $count_status -ne 0
+        fail "$label: jq failed to read evals length (status $count_status): "(head -1 $count_err)
+        rm -f $count_err
+        return
+    end
+    rm -f $count_err
+    if test -z "$count"; or not string match -qr '^\d+$' -- "$count"
+        fail "$label: jq returned non-numeric eval count: '$count'"
+        return
+    end
+    if test $count -eq 0
+        warn "$label: evals array is empty"
+        return
+    end
+
+    set -l jq_err (mktemp)
+    set -l raw_lines (jq -r '.evals | to_entries[] | . as $e |
+        ($e.value.name // "eval[\($e.key)]") as $id |
+        ($e.value | [
+            (if (has("name") and (.name | type == "string") and (.name | length > 0)) then null else "eval[\($e.key)] missing non-empty string '"'"'name'"'"'" end),
+            (if ((has("prompt") and (.prompt | type == "string") and (.prompt | length > 0)) or (has("turns") and (.turns | type == "array") and (.turns | length > 0))) then null else "\($id) missing non-empty '"'"'prompt'"'"' or '"'"'turns'"'"'" end),
+            (if (has("prompt") and has("turns")) then "\($id) has both '"'"'prompt'"'"' and '"'"'turns'"'"' (pick one)" else null end),
+            (if (has("prompt") and ((has("assertions") | not) or ((.assertions | type) != "array") or ((.assertions | length) == 0))) then "\($id) single-turn eval missing non-empty '"'"'assertions'"'"' array" else null end),
+            (if (has("turns") and (.turns | type == "array")) then
+                (.turns | to_entries | map(
+                    select((.value | type != "object")
+                        or ((.value.prompt | type) != "string")
+                        or ((.value.prompt | length) == 0)
+                        or ((.value.assertions | type) != "array")
+                        or ((.value.assertions | length) == 0)
+                    ) | "\($id) turns[\(.key)] missing non-empty '"'"'prompt'"'"' or non-empty '"'"'assertions'"'"' array"
+                ) | .[])
+             else null end)
+        ] | flatten | map(select(. != null)) | .[]),
+        "__SCANNED__"' $file 2>$jq_err)
+    set -l jq_status $status
+    if test $jq_status -ne 0
+        fail "$label: jq schema check errored (status $jq_status): "(head -1 $jq_err)
+        rm -f $jq_err
+        return
+    end
+    rm -f $jq_err
+
+    set -l scanned 0
+    set -l violations
+    for line in $raw_lines
+        if test "$line" = __SCANNED__
+            set scanned (math $scanned + 1)
+        else if test -n "$line"
+            set violations $violations $line
+        end
+    end
+
+    if test $scanned -ne $count
+        fail "$label: filter coverage gap (scanned $scanned of $count evals — possible filter regression)"
+        return
+    end
+
+    if test (count $violations) -gt 0
+        for v in $violations
+            fail "$label: $v"
+        end
+    else
+        pass "$label: evals.json shape valid ($count evals)"
+    end
+end
+
 # ─────────────────────────────────────────────────
 # Phase 1: Static Validation
 # ─────────────────────────────────────────────────
@@ -554,6 +659,31 @@ for entry in $delegate_registry
             fail "rules/$rule_basename: grep returned error status $grep_status (I/O error, permission denied, or signal) while scanning for $link_pattern"
         end
     end
+end
+
+echo ""
+
+# 1m. evals.json shape (skills/ and rules-evals/)
+# Asserts each evals.json discovered by tests/eval-runner-v2.ts conforms to
+# the loadEvalFile contract — a malformed file there is a silent skip at
+# runtime (zero evals discovered, no structural error surfaced).
+echo "── evals.json shape"
+
+# Fish leaves unmatched globs as the literal pattern in `set`; the per-file
+# `test -f` below filters them out. evals_found stays a fail (not warn) so a
+# repo with no evals.json under either root surfaces loudly — preserving
+# Phase 1m's silent-skip-prevention contract.
+set evals_files $repo_dir/skills/*/evals/evals.json $repo_dir/rules-evals/*/evals/evals.json
+set evals_found 0
+for evals_file in $evals_files
+    if test -f $evals_file
+        set evals_found 1
+        set rel (string replace "$repo_dir/" "" $evals_file)
+        check_evals_json_shape $evals_file $rel
+    end
+end
+if test $evals_found -eq 0
+    fail "no evals.json files found under skills/ or rules-evals/ (Phase 1m has nothing to validate)"
 end
 
 echo ""
