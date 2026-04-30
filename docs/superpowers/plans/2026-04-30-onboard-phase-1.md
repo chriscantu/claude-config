@@ -35,7 +35,7 @@ Phase 1 introduces zero modifications to existing files except the symlink that 
 **Files:**
 - Create: `skills/onboard/SKILL.md` (overwritten in later tasks)
 
-- [ ] **Step 1: Run the existing scaffolder**
+- [x] **Step 1: Run the existing scaffolder**
 
 ```fish
 bin/new-skill onboard
@@ -43,7 +43,7 @@ bin/new-skill onboard
 
 Expected: `skills/onboard/SKILL.md` created from `templates/skill/`. `fish validate.fish` is run automatically by `new-skill`; expect it to pass on the unmodified template.
 
-- [ ] **Step 2: Verify the scaffold landed**
+- [x] **Step 2: Verify the scaffold landed**
 
 ```fish
 ls skills/onboard/
@@ -52,7 +52,7 @@ test -f skills/onboard/SKILL.md && echo OK
 
 Expected: SKILL.md present.
 
-- [ ] **Step 3: Commit the scaffold**
+- [x] **Step 3: Commit the scaffold**
 
 ```fish
 git add skills/onboard/
@@ -66,7 +66,7 @@ git commit -m "Scaffold /onboard skill from template (#12)"
 **Files:**
 - Create: `tests/onboard-scaffold.test.ts`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```typescript
 // tests/onboard-scaffold.test.ts
@@ -120,7 +120,7 @@ describe("bin/onboard-scaffold.fish", () => {
 });
 ```
 
-- [ ] **Step 2: Run test, confirm it fails**
+- [x] **Step 2: Run test, confirm it fails**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -128,7 +128,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: FAIL — "ENOENT" or "no such file" on the missing `bin/onboard-scaffold.fish`.
 
-- [ ] **Step 3: Commit the failing test**
+- [x] **Step 3: Commit the failing test**
 
 ```fish
 git add tests/onboard-scaffold.test.ts
@@ -142,7 +142,7 @@ git commit -m "Add failing test for onboard-scaffold clobber-refusal (#12)"
 **Files:**
 - Create: `bin/onboard-scaffold.fish`
 
-- [ ] **Step 1: Write the script**
+- [x] **Step 1: Write the script**
 
 ```fish
 #!/usr/bin/env fish
@@ -197,13 +197,13 @@ mkdir -p $target
 exit 0
 ```
 
-- [ ] **Step 2: Make it executable**
+- [x] **Step 2: Make it executable**
 
 ```fish
 chmod +x bin/onboard-scaffold.fish
 ```
 
-- [ ] **Step 3: Run the test, confirm it passes**
+- [x] **Step 3: Run the test, confirm it passes**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -211,7 +211,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: PASS — clobber-refusal test passes.
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```fish
 git add bin/onboard-scaffold.fish
@@ -226,7 +226,7 @@ git commit -m "Add bin/onboard-scaffold.fish skeleton with clobber-refusal (#12)
 - Modify: `tests/onboard-scaffold.test.ts`
 - Modify: `bin/onboard-scaffold.fish`
 
-- [ ] **Step 1: Add the failing test**
+- [x] **Step 1: Add the failing test**
 
 Append to `describe("bin/onboard-scaffold.fish", ...)` in `tests/onboard-scaffold.test.ts`:
 
@@ -255,7 +255,7 @@ test("creates the full directory tree", () => {
 });
 ```
 
-- [ ] **Step 2: Run test, confirm it fails**
+- [x] **Step 2: Run test, confirm it fails**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -263,7 +263,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: FAIL on first missing subdir.
 
-- [ ] **Step 3: Implement subdir creation**
+- [x] **Step 3: Implement subdir creation**
 
 In `bin/onboard-scaffold.fish`, replace the placeholder `mkdir -p $target` line with:
 
@@ -277,7 +277,7 @@ mkdir -p $target/decks/slidev
 mkdir -p $target/decisions
 ```
 
-- [ ] **Step 4: Run test, confirm it passes**
+- [x] **Step 4: Run test, confirm it passes**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -285,7 +285,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```fish
 git add tests/onboard-scaffold.test.ts bin/onboard-scaffold.fish
@@ -300,7 +300,7 @@ git commit -m "onboard-scaffold: create per-org dir tree (#12)"
 - Modify: `tests/onboard-scaffold.test.ts`
 - Modify: `bin/onboard-scaffold.fish`
 
-- [ ] **Step 1: Add the failing test**
+- [x] **Step 1: Add the failing test**
 
 Append to `describe(...)`:
 
@@ -320,7 +320,7 @@ test("writes a .gitignore that excludes raw notes and secrets", () => {
 });
 ```
 
-- [ ] **Step 2: Run test, confirm it fails**
+- [x] **Step 2: Run test, confirm it fails**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -328,7 +328,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: FAIL — ENOENT on `.gitignore`.
 
-- [ ] **Step 3: Implement `.gitignore` write**
+- [x] **Step 3: Implement `.gitignore` write**
 
 Append to `bin/onboard-scaffold.fish` after the subdir block:
 
@@ -341,7 +341,7 @@ interviews/raw/
 " > $target/.gitignore
 ```
 
-- [ ] **Step 4: Run test, confirm it passes**
+- [x] **Step 4: Run test, confirm it passes**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -349,7 +349,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```fish
 git add tests/onboard-scaffold.test.ts bin/onboard-scaffold.fish
@@ -364,7 +364,7 @@ git commit -m "onboard-scaffold: write protective .gitignore (#12)"
 - Modify: `tests/onboard-scaffold.test.ts`
 - Modify: `bin/onboard-scaffold.fish`
 
-- [ ] **Step 1: Add the failing test**
+- [x] **Step 1: Add the failing test**
 
 Append to `describe(...)`:
 
@@ -383,7 +383,7 @@ test("runs git init and creates an initial commit on main", () => {
 });
 ```
 
-- [ ] **Step 2: Run test, confirm it fails**
+- [x] **Step 2: Run test, confirm it fails**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -391,7 +391,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: FAIL — `.git` missing.
 
-- [ ] **Step 3: Implement `git init` + initial commit**
+- [x] **Step 3: Implement `git init` + initial commit**
 
 Append to `bin/onboard-scaffold.fish`:
 
@@ -401,7 +401,7 @@ git -C $target add .
 git -C $target commit -q -m "Scaffold /onboard workspace"
 ```
 
-- [ ] **Step 4: Run test, confirm it passes**
+- [x] **Step 4: Run test, confirm it passes**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -409,7 +409,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```fish
 git add tests/onboard-scaffold.test.ts bin/onboard-scaffold.fish
@@ -425,7 +425,7 @@ git commit -m "onboard-scaffold: git init and initial commit (#12)"
 - Modify: `tests/onboard-scaffold.test.ts`
 - Modify: `bin/onboard-scaffold.fish`
 
-- [ ] **Step 1: Write `skills/onboard/ramp-template.md`**
+- [x] **Step 1: Write `skills/onboard/ramp-template.md`**
 
 ```markdown
 # RAMP Template Reference
@@ -469,7 +469,7 @@ Started: <YYYY-MM-DD>
 (same shape as standard, with weeks extended: W0 / W3 / W5 / W8 / W10 / W13 / W17)
 ```
 
-- [ ] **Step 2: Add the failing test**
+- [x] **Step 2: Add the failing test**
 
 Append to `tests/onboard-scaffold.test.ts`:
 
@@ -497,7 +497,7 @@ test("RAMP.md rejects unknown cadence presets", () => {
 });
 ```
 
-- [ ] **Step 3: Run tests, confirm they fail**
+- [x] **Step 3: Run tests, confirm they fail**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -505,7 +505,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: FAIL — `RAMP.md` missing AND no validation of cadence value.
 
-- [ ] **Step 4: Implement cadence validation + `RAMP.md` write**
+- [x] **Step 4: Implement cadence validation + `RAMP.md` write**
 
 In `bin/onboard-scaffold.fish`, immediately after the arg-parse block (before the clobber check), add:
 
@@ -546,7 +546,7 @@ printf "# 90-Day Ramp Plan — %s\n\nCadence: %s\nStarted: %s\n\n| Week | Milest
 
 (Note: place the `RAMP.md` write BEFORE `git add .` in Task 6's block — the initial commit must include it. Reorder if needed.)
 
-- [ ] **Step 5: Run tests, confirm they pass**
+- [x] **Step 5: Run tests, confirm they pass**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -554,7 +554,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: PASS for both tests.
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```fish
 git add skills/onboard/ramp-template.md tests/onboard-scaffold.test.ts bin/onboard-scaffold.fish
@@ -569,7 +569,7 @@ git commit -m "onboard-scaffold: write RAMP.md from cadence preset (#12)"
 - Modify: `tests/onboard-scaffold.test.ts`
 - Modify: `bin/onboard-scaffold.fish`
 
-- [ ] **Step 1: Add the failing test**
+- [x] **Step 1: Add the failing test**
 
 ```typescript
 test("seeds an empty stakeholders/map.md with the canonical sections", () => {
@@ -587,7 +587,7 @@ test("seeds an empty stakeholders/map.md with the canonical sections", () => {
 });
 ```
 
-- [ ] **Step 2: Run test, confirm it fails**
+- [x] **Step 2: Run test, confirm it fails**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -595,7 +595,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: FAIL — `stakeholders/map.md` missing.
 
-- [ ] **Step 3: Implement seed file write**
+- [x] **Step 3: Implement seed file write**
 
 Append to `bin/onboard-scaffold.fish` (before `git -C $target add .`):
 
@@ -603,7 +603,7 @@ Append to `bin/onboard-scaffold.fish` (before `git -C $target add .`):
 printf "# Stakeholder Map — %s\n\nPopulated by /stakeholder-map. Manager-handoff seed below.\n\n## Direct reports\n\n(none yet)\n\n## Cross-functional partners\n\n(none yet)\n\n## Skip-level + leadership\n\n(none yet)\n\n## Influencers\n\n(none yet)\n" $org_name > $target/stakeholders/map.md
 ```
 
-- [ ] **Step 4: Run test, confirm it passes**
+- [x] **Step 4: Run test, confirm it passes**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -611,7 +611,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```fish
 git add tests/onboard-scaffold.test.ts bin/onboard-scaffold.fish
@@ -628,7 +628,7 @@ git commit -m "onboard-scaffold: seed stakeholders/map.md (#12)"
 
 The skill prompts the user from the SKILL.md side. The fish helper accepts an explicit `--gh-create yes|no` flag (defaulting to `no` when called from the skill body without user consent, and `yes` when the user agrees). `--no-gh` from earlier tasks remains a hard skip for tests.
 
-- [ ] **Step 1: Add the failing test (gh stub via PATH)**
+- [x] **Step 1: Add the failing test (gh stub via PATH)**
 
 ```typescript
 import { writeFileSync, chmodSync, mkdirSync } from "node:fs";
@@ -688,7 +688,7 @@ test("gh is NOT invoked when --no-gh is passed", () => {
 });
 ```
 
-- [ ] **Step 2: Run tests, confirm they fail**
+- [x] **Step 2: Run tests, confirm they fail**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -696,7 +696,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: FAIL on the first test (no `gh` invocation yet).
 
-- [ ] **Step 3: Implement `gh repo create` invocation**
+- [x] **Step 3: Implement `gh repo create` invocation**
 
 In `bin/onboard-scaffold.fish`, extend the arg parser to accept `--gh-create yes|no` and the trailing block to invoke `gh`:
 
@@ -723,7 +723,7 @@ if test $skip_gh -eq 0; and test "$gh_create" = "yes"
 end
 ```
 
-- [ ] **Step 4: Run tests, confirm they pass**
+- [x] **Step 4: Run tests, confirm they pass**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -731,7 +731,7 @@ bun test tests/onboard-scaffold.test.ts
 
 Expected: PASS for both gh tests.
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```fish
 git add tests/onboard-scaffold.test.ts bin/onboard-scaffold.fish
@@ -747,7 +747,7 @@ git commit -m "onboard-scaffold: optional gh repo create --private (#12)"
 - Create: `skills/onboard/scaffold.md`
 - Create: `skills/onboard/manager-handoff.md`
 
-- [ ] **Step 1: Write `skills/onboard/SKILL.md`**
+- [x] **Step 1: Write `skills/onboard/SKILL.md`**
 
 ```markdown
 ---
@@ -801,7 +801,7 @@ auto-prompted private GitHub remote.
 - `--graduate` retro + archive (Phase 5)
 ```
 
-- [ ] **Step 2: Write `skills/onboard/scaffold.md`**
+- [x] **Step 2: Write `skills/onboard/scaffold.md`**
 
 ```markdown
 # Scaffold Reference
@@ -829,7 +829,7 @@ canonical-string drift per validate.fish Phase 1g.)
 | `--no-gh` | no | (boolean) | Hard skip for tests |
 ```
 
-- [ ] **Step 3: Write `skills/onboard/manager-handoff.md`**
+- [x] **Step 3: Write `skills/onboard/manager-handoff.md`**
 
 ```markdown
 # Manager-Handoff Capture
@@ -855,7 +855,7 @@ git -C <target> commit -m "Seed stakeholder map from manager handoff"
 ```
 ```
 
-- [ ] **Step 4: Validate skill loads**
+- [x] **Step 4: Validate skill loads**
 
 ```fish
 fish validate.fish
@@ -863,7 +863,7 @@ fish validate.fish
 
 Expected: PASS — the new skill passes structural checks (frontmatter, reference doc presence, etc.).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```fish
 git add skills/onboard/
@@ -877,7 +877,7 @@ git commit -m "Wire /onboard SKILL.md body + reference docs (#12)"
 **Files:**
 - No source changes — verifying the existing installer picks up the new skill.
 
-- [ ] **Step 1: Run check before install**
+- [x] **Step 1: Run check before install**
 
 ```fish
 bin/link-config.fish --check
@@ -885,7 +885,7 @@ bin/link-config.fish --check
 
 Expected: report missing symlink for `~/.claude/skills/onboard` (assuming user has not yet linked).
 
-- [ ] **Step 2: Run installer**
+- [x] **Step 2: Run installer**
 
 ```fish
 bin/link-config.fish --install
@@ -893,7 +893,7 @@ bin/link-config.fish --install
 
 Expected: creates `~/.claude/skills/onboard` symlink → repo path.
 
-- [ ] **Step 3: Re-run check**
+- [x] **Step 3: Re-run check**
 
 ```fish
 bin/link-config.fish --check
@@ -901,7 +901,7 @@ bin/link-config.fish --check
 
 Expected: PASS (zero errors / zero missing).
 
-- [ ] **Step 4: Manual smoke check**
+- [x] **Step 4: Manual smoke check**
 
 ```fish
 test -L ~/.claude/skills/onboard && readlink ~/.claude/skills/onboard
@@ -918,7 +918,7 @@ Expected: prints the absolute path under the repo.
 **Files:**
 - No source changes.
 
-- [ ] **Step 1: Run the full helper against a scratch directory**
+- [x] **Step 1: Run the full helper against a scratch directory**
 
 ```fish
 set -l scratch (mktemp -d)
@@ -936,7 +936,7 @@ rm -rf $scratch
 
 Expected: dir tree present, `RAMP.md` shows `Cadence: standard`, single git commit "Scaffold /onboard workspace".
 
-- [ ] **Step 2: Full test suite**
+- [x] **Step 2: Full test suite**
 
 ```fish
 bun test tests/onboard-scaffold.test.ts
@@ -946,7 +946,7 @@ fish validate.fish
 
 Expected: all pass.
 
-- [ ] **Step 3: Open PR (manual)**
+- [x] **Step 3: Open PR (manual)**
 
 Per CLAUDE.md, fish does not support bash heredocs. Write the PR body to a temp file
 and use `--body-file`:
@@ -957,11 +957,11 @@ Ships day-0 scaffolder for the senior eng leader 90-day ramp workspace. Phase 1 
 spec at docs/superpowers/specs/2026-04-30-onboard-design.md.
 
 ## Test plan
-- [ ] bun test tests/onboard-scaffold.test.ts passes
-- [ ] bunx tsc --noEmit clean
-- [ ] fish validate.fish passes
-- [ ] bin/link-config.fish --check passes after install
-- [ ] Smoke test: scaffold a throwaway workspace, verify RAMP.md / .gitignore / git log / dir tree by hand
+- [x] bun test tests/onboard-scaffold.test.ts passes
+- [x] bunx tsc --noEmit clean
+- [x] fish validate.fish passes
+- [x] bin/link-config.fish --check passes after install
+- [x] Smoke test: scaffold a throwaway workspace, verify RAMP.md / .gitignore / git log / dir tree by hand
 
 ## Out of scope (later phases)
 - Phase 2 cadence nags
