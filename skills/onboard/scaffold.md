@@ -27,3 +27,6 @@ scaffold actually writes.
 | `--cadence` | yes | `aggressive` / `standard` / `relaxed` | |
 | `--gh-create` | no | `yes` / `no` | Default `no` |
 | `--no-gh` | no | (boolean) | Hard skip for tests; takes precedence over `--gh-create yes` |
+
+For Phase 2 cadence wiring (status / mute / unmute / scheduled-task description), see
+[cadence-nags.md](cadence-nags.md).
