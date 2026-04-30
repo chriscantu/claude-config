@@ -91,4 +91,26 @@ describe("bin/onboard-scaffold.fish", () => {
     expect(log.status).toBe(0);
     expect(log.stdout.trim().length).toBeGreaterThan(0);
   });
+
+  test("RAMP.md reflects the chosen cadence preset and includes the org name", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+
+    runScaffold(root, "--target", target, "--cadence", "aggressive", "--no-gh");
+
+    const ramp = readFileSync(join(target, "RAMP.md"), "utf8");
+    expect(ramp).toContain("Cadence: aggressive");
+    expect(ramp).toContain("90-Day Ramp Plan");
+    expect(ramp).toMatch(/W[0-9]+/);
+  });
+
+  test("RAMP.md rejects unknown cadence presets", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+
+    const r = runScaffold(root, "--target", target, "--cadence", "yolo", "--no-gh");
+
+    expect(r.exitCode).not.toBe(0);
+    expect(r.stderr).toContain("unknown cadence");
+  });
 });
