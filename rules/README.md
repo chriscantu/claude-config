@@ -74,7 +74,9 @@ validator. Phases relevant to rules:
   neither catches a contributor DELETING the entire delegate
   paragraph from a dependent rule, which silently weakens the
   HARD-GATE (issue #200). Add `(rule, anchors)` pairs to the
-  registry when promoting a new floor delegation.
+  registry when promoting a new floor delegation. Regression
+  coverage: `tests/validate-phase-1l.test.ts` (migrated from fish
+  per ADR #0012).
 - **1m. evals.json shape** — fails if any `evals.json` under
   `skills/*/evals/` or `rules-evals/*/evals/` violates the
   `loadEvalFile` contract from `tests/evals-lib.ts`: top-level
