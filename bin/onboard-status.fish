@@ -54,7 +54,7 @@ switch $mode
         set -l started (string match -r 'Started:\s*([0-9-]+)' < $ws/RAMP.md)[2]
         set -l started_epoch (date -j -f "%Y-%m-%d" $started "+%s" 2>/dev/null; or date -d $started "+%s")
         set -l now_epoch (date "+%s")
-        set -l elapsed (math "($now_epoch - $started_epoch) / 86400")
+        set -l elapsed (math --scale=0 "($now_epoch - $started_epoch) / 86400")
         echo "Workspace: $ws"
         echo "Elapsed:   $elapsed days"
         set -l next (string match -r '\| (W[0-9]+) \| ([^|]+)\| \[ \]' < $ws/RAMP.md | head -3)
