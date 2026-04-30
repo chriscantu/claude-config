@@ -82,3 +82,20 @@ describe("bin/onboard-status.fish --mute", () => {
     expect(r.stderr).toContain("unknown category");
   });
 });
+
+describe("bin/onboard-status.fish --unmute", () => {
+  test("removes a previously-muted category and restores (none) when empty", () => {
+    const ws = makeWorkspace(5);
+    run(".", "--mute", "milestone", ws);
+    run(".", "--unmute", "milestone", ws);
+    const ramp = readFileSync(join(ws, "RAMP.md"), "utf8");
+    expect(ramp).toMatch(/## Cadence Mutes\n\n\(none\)/);
+  });
+
+  test("--status reflects mute state in output", () => {
+    const ws = makeWorkspace(5);
+    run(".", "--mute", "velocity", ws);
+    const r = run(".", "--status", ws);
+    expect(r.stdout).toContain("- velocity");
+  });
+});
