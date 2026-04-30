@@ -10,9 +10,9 @@
 
 **Spec:** [docs/superpowers/specs/2026-04-30-onboard-design.md](../specs/2026-04-30-onboard-design.md) (committed `cd5c530`). Phase 2 line: 171.
 
-**Phase 1 reference:** [docs/superpowers/plans/2026-04-30-onboard-phase-1.md](2026-04-30-onboard-phase-1.md) (merged PR [#214](https://github.com/cantucodemo/claude-config/pull/214), squash sha `2f36f51`).
+**Phase 1 reference:** [docs/superpowers/plans/2026-04-30-onboard-phase-1.md](2026-04-30-onboard-phase-1.md) (merged PR [#214](https://github.com/chriscantu/claude-config/pull/214), squash sha `2f36f51`).
 
-**Issue:** [#12](https://github.com/cantucodemo/claude-config/issues/12).
+**Issue:** [#12](https://github.com/chriscantu/claude-config/issues/12).
 
 ---
 
@@ -24,8 +24,12 @@
 
 ## Interpretation Anchors (from preamble)
 
-- **Nag delivery (I1):** chose A. Scheduled-task body appends a dated line to `<workspace>/NAGS.md`. `--status` reads `NAGS.md` + `RAMP.md` and prints both.
-- **Scheduling granularity (I2):** chose C. One daily cron per ramp; the cron body branches internally on elapsed days for milestone vs. velocity classes.
+- **Nag delivery (I1):** chose A. Scheduled-task body appends a dated line to `<workspace>/NAGS.md`. `--status` reads `NAGS.md` + `RAMP.md` and prints both. **Dedupe contract:** the cron body MUST grep `NAGS.md` for today's ISO date + nag-class + milestone/category tuple before appending — same nag fires at most once per day per class. Rotation / line-cap is explicitly deferred to Phase 3 (acceptable: 90-day cap × 2 classes = ≤180 lines worst case).
+- **Scheduling granularity (I2):** chose C. One daily cron per ramp.
+  - **Honest cost:** ~365 fires/ramp; ~300 are no-ops between W6–W13 (milestone classes silent, velocity-class out-of-window). Each no-op fire = one `RAMP.md` read + one `git log` invocation + return. ~1–2s autonomous-session wall time per fire.
+  - **Five-fireAt alternative weighed:** 5 milestone one-shots + 1 velocity daily cron during W2–W6 (~30 fires) = ~35 fires total, 10× fewer.
+  - **Why C still wins:** (a) graduate cleanup is one MCP delete vs. tracking five `fireAt` IDs across W2/W4/W6/W8/W10 plus a scoped velocity cron; (b) mute-toggle re-evaluates next fire automatically — five-shot design needs per-shot mute injection at registration time, which means `--mute` after scaffold can't retroactively gate already-scheduled fires; (c) cron body is a single self-contained prompt — five-shot design needs five near-identical prompts, fragility multiplier on edits. The 60× fire-cost asymmetry is real but each fire is cheap (no LLM call beyond the cron-body session itself, which is already budgeted by the user when they registered the schedule).
+  - **Flip to five-shot if:** post-Phase-2 telemetry shows the daily session is non-trivial cost OR users complain about cron-list noise.
 
 ---
 
@@ -295,27 +299,34 @@ if test "$mode" = mute -o "$mode" = unmute
 end
 ```
 
+**Critical fish-semantics note.** `(cat file)` in fish splits on newlines and produces a LIST. `string replace -r` then iterates per-element, so any pattern containing literal `\n` will never match. Force single-string semantics via `| string collect` before passing to `string replace`. Both `mute` and `unmute` branches rely on this.
+
 Extend the trailing `switch $mode`:
 
 ```fish
     case mute
-        # Drop "(none)" placeholder if present, append category if not already there.
-        set -l ramp (cat $ws/RAMP.md)
-        set ramp (string replace -r '(## Cadence Mutes\n\n)\(none\)\n' '$1' -- $ramp)
+        # Force single-string semantics — without `string collect`, multi-line
+        # regex patterns silently no-op (see plan Task 4 note).
+        set -l ramp (cat $ws/RAMP.md | string collect)
+        # Drop "(none)" placeholder if present.
+        set ramp (string replace -r '(## Cadence Mutes\n\n)\(none\)\n' '$1' -- $ramp | string collect)
+        # Append category if not already listed.
         if not string match -rq "(?m)^- $category\$" -- $ramp
-            set ramp (string replace -r '(## Cadence Mutes\n\n(?:- [a-z]+\n)*)' "\$1- $category\n" -- $ramp)
+            set ramp (string replace -r '(## Cadence Mutes\n\n(?:- [a-z]+\n)*)' "\$1- $category\n" -- $ramp | string collect)
         end
         printf '%s' $ramp > $ws/RAMP.md
     case unmute
-        set -l ramp (cat $ws/RAMP.md)
-        set ramp (string replace -r "(?m)^- $category\n" '' -- $ramp)
-        # Re-insert (none) if Cadence Mutes is now empty.
-        if not string match -rq '## Cadence Mutes\n\n- ' -- $ramp
-            set ramp (string replace -r '(## Cadence Mutes\n\n)(?!\(none\))' '$1(none)\n' -- $ramp)
+        set -l ramp (cat $ws/RAMP.md | string collect)
+        set ramp (string replace -r "(?m)^- $category\n" '' -- $ramp | string collect)
+        # Re-insert (none) marker if Cadence Mutes is now empty.
+        if not string match -rq '(?m)## Cadence Mutes\n\n- ' -- $ramp
+            set ramp (string replace -r '(## Cadence Mutes\n\n)(?!\(none\))' '$1(none)\n' -- $ramp | string collect)
         end
         printf '%s' $ramp > $ws/RAMP.md
 end
 ```
+
+**If the regex chain fails the failing tests from Task 3 / Task 5 after this fix:** fall back to a `sed -i` block that operates on the file directly (no fish-list intermediary). The implementation MUST satisfy the existing tests; do not adjust the tests to match a weaker impl.
 
 - [ ] **Step 2: Run test, confirm it passes**
 
@@ -360,13 +371,13 @@ describe("bin/onboard-status.fish --unmute", () => {
 });
 ```
 
-- [ ] **Step 2: Run, confirm pass (impl from Task 4 already covers this)**
+- [ ] **Step 2: Run, confirm pass**
 
 ```fish
 bun test tests/onboard-status.test.ts
 ```
 
-Expected: PASS. If FAIL, fix in `bin/onboard-status.fish` and re-run before committing.
+Expected: PASS — Task 4's impl is intended to cover both round-trip and status-mute-display, but this is conditional on the fish regex chain working correctly under `string collect` semantics. If FAIL, fix in `bin/onboard-status.fish` (likely a regex tweak or fall back to `sed`) and re-run before committing. Do NOT relax the tests.
 
 - [ ] **Step 3: Commit**
 
@@ -421,18 +432,29 @@ Steps:
 
 3. **Milestone-miss check** (skip if `milestone` is muted):
    On elapsed_weeks ∈ {2, 4, 6, 8, 10}, find the matching `| W<n> | ... | [ ] |`
-   row. If unchecked, append to <WORKSPACE_ABS_PATH>/NAGS.md:
+   row. If unchecked, build the candidate line:
 
        <ISO date>  milestone  W<n>  <milestone text>
+
+   Before appending, grep <WORKSPACE_ABS_PATH>/NAGS.md for the exact prefix
+   `<ISO date>  milestone  W<n>` — if a line with that prefix already exists
+   for today, SKIP the append (dedupe contract: at most one milestone-class
+   line per W<n> per day).
 
 4. **Velocity check** (skip if `velocity` is muted, skip outside W2–W6):
    When 14 ≤ elapsed_days ≤ 42, run `git -C <WORKSPACE_ABS_PATH> log -1
    --format=%ct -- interviews/raw/`. If empty OR (today_epoch - last_commit_epoch)
-   > 7 * 86400, append:
+   > 7 * 86400, build the candidate line:
 
        <ISO date>  velocity  no 1on1-prep capture in 7+ days
 
-5. If neither check fires, do nothing (no NAGS.md write, no other side effects).
+   Before appending, grep <WORKSPACE_ABS_PATH>/NAGS.md for the exact prefix
+   `<ISO date>  velocity` — if any line with that prefix already exists for
+   today, SKIP the append (dedupe contract: at most one velocity-class line
+   per day).
+
+5. If neither check fires (or both dedupe-skip), do nothing. No NAGS.md
+   write, no other side effects.
 
 6. Do NOT modify RAMP.md. Do NOT push to remote. Do NOT invoke other skills.
 
@@ -487,21 +509,39 @@ git commit -m "onboard: add cadence-nags reference doc for Phase 2 schedule wiri
 Append a new section after step 7 ("Print next-step guidance"):
 
 ```markdown
-8. **Register the cadence-nag scheduled task** (Phase 2). Read
-   [cadence-nags.md](cadence-nags.md) for the canonical `description` body.
-   Substitute `<WORKSPACE_ABS_PATH>` and `<ORG_SLUG>` in the body, then call:
+8. **Register the cadence-nag scheduled task** (Phase 2).
 
-   ```
-   mcp__scheduled-tasks__create_scheduled_task(
-     taskName       = "onboard-<org-slug>-cadence",
-     cronExpression = "0 9 * * *",
-     description    = <substituted body>,
-   )
-   ```
+   a. Read [cadence-nags.md](cadence-nags.md) and copy the literal text inside
+      the "Description body" code fence into a working buffer.
 
-   If the MCP tool is unavailable, surface the failure to the user and continue —
-   the workspace is usable without nags; the user can re-run `/onboard --status <org>`
-   on demand.
+   b. Perform exactly two literal find/replace pairs on the buffer (string
+      replace, NOT regex — placeholders appear verbatim):
+
+      | Find | Replace with |
+      |---|---|
+      | `<WORKSPACE_ABS_PATH>` | absolute path of the scaffolded workspace (e.g., `/Users/<user>/repos/onboard-acme`) |
+      | `<ORG_SLUG>` | kebab-case org slug (the basename of the workspace minus the `onboard-` prefix) |
+
+      After substitution, scan the buffer for any remaining `<` `>` pairs —
+      if any exist, ABORT and surface the missed placeholder. Do not pass an
+      under-substituted body to the MCP.
+
+   c. Call:
+
+      ```
+      mcp__scheduled-tasks__create_scheduled_task(
+        taskName       = "onboard-<ORG_SLUG>-cadence",
+        cronExpression = "0 9 * * *",
+        description    = <substituted buffer from step b>,
+      )
+      ```
+
+      The `taskName` argument also takes a literal `<ORG_SLUG>` substitution.
+
+   d. If the MCP tool is unavailable, surface the failure to the user and
+      continue — the workspace is usable without nags; the user can re-run
+      `/onboard --status <org>` on demand. Do NOT silently skip; the user
+      needs to know nags are not registered.
 ```
 
 Add a new section "## Status, mute, and unmute" before "## What Phase 1 deliberately does NOT do":
@@ -591,9 +631,12 @@ bin/onboard-status.fish for --status / --mute / --unmute. Mute state in RAMP.md.
 - [ ] bun test tests/onboard-scaffold.test.ts still passes (Phase 1 untouched)
 - [ ] bunx tsc --noEmit clean
 - [ ] fish validate.fish passes
-- [ ] Smoke: scaffold throwaway workspace, status / mute / unmute round-trip
-- [ ] Manual: cadence-nag scheduled task registered after scaffold (verify
-      via mcp__scheduled-tasks__list_scheduled_tasks)
+- [ ] Smoke: scaffold throwaway workspace, status / mute / unmute round-trip,
+      assert RAMP.md \"## Cadence Mutes\" returns to (none) after unmute
+- [ ] Manual: mcp__scheduled-tasks__list_scheduled_tasks shows
+      onboard-<slug>-cadence with cron 0 9 * * *
+- [ ] Manual: spawn one cron-body session against a fixture workspace, assert
+      NAGS.md dedupe holds (run twice on same day → file unchanged on 2nd run)
 
 ## Out of scope (later phases)
 - Phase 3 confidentiality boundary enforcement at downstream-skill layer
@@ -629,6 +672,9 @@ gh pr create --title "/onboard Phase 2 — cadence nags + status/mute (#12)" --b
    - `onboard_fish_vs_ts_inflection.md` — status helper is shell-tool sequencing → fish ✅
    - `onboarding_toolkit_manual_first.md` — Calendar deferred ✅; nag delivery is local file write, no SaaS coupling ✅
 7. **MCP call locality** — `mcp__scheduled-tasks__create_scheduled_task` is invoked from `SKILL.md` (Claude-side), not from fish. Fish never calls MCP. ✅
+8. **Substitution sanity** — after Task 7 Step 1.b runs, the buffer contains zero `<...>` placeholder pairs before MCP call. Abort path verified.
+9. **Dedupe contract honored** — cadence-nags.md description body greps NAGS.md for today's date+class+W<n> tuple before append. Manual smoke (running cron body twice in same day) confirms zero duplicate lines.
+10. **Fish single-string semantics** — every `string replace -r` in `bin/onboard-status.fish` operates on a buffer produced by `| string collect`. No bare `(cat file)` feeding multi-line regex.
 
 ---
 
