@@ -11,6 +11,7 @@
 set -l target ""
 set -l cadence "standard"
 set -l skip_gh 0
+set -l gh_create "no"
 
 set -l i 1
 while test $i -le (count $argv)
@@ -24,6 +25,9 @@ while test $i -le (count $argv)
             set cadence $argv[$i]
         case --no-gh
             set skip_gh 1
+        case --gh-create
+            set i (math $i + 1)
+            set gh_create $argv[$i]
         case '*'
             echo "unknown arg: $arg" >&2
             exit 2
@@ -83,5 +87,10 @@ printf "# Stakeholder Map — %s\n\nPopulated by /stakeholder-map. Manager-hando
 git -C $target init -q -b main
 git -C $target add .
 git -C $target commit -q -m "Scaffold /onboard workspace"
+
+if test $skip_gh -eq 0; and test "$gh_create" = "yes"
+    set -l repo_name (basename $target)
+    gh repo create $repo_name --private --source=$target --remote=origin --push
+end
 
 exit 0

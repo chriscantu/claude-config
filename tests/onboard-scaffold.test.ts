@@ -127,4 +127,57 @@ describe("bin/onboard-scaffold.fish", () => {
     expect(map).toContain("## Skip-level + leadership");
     expect(map).toContain("## Influencers");
   });
+
+  test("gh repo create is invoked when --gh-create yes is passed", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+
+    const stubDir = join(root, "stubs");
+    mkdirSync(stubDir);
+    const sentinel = join(root, "gh-args.txt");
+    writeFileSync(
+      join(stubDir, "gh"),
+      `#!/usr/bin/env sh\nprintf '%s\\n' "$@" > "${sentinel}"\nexit 0\n`,
+    );
+    chmodSync(join(stubDir, "gh"), 0o755);
+
+    const result = spawnSync(
+      "fish",
+      [SCRIPT, "--target", target, "--cadence", "standard", "--gh-create", "yes"],
+      {
+        cwd: root,
+        encoding: "utf8",
+        env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` },
+      },
+    );
+
+    expect(result.status).toBe(0);
+
+    const args = readFileSync(sentinel, "utf8").trim().split("\n");
+    expect(args).toContain("repo");
+    expect(args).toContain("create");
+    expect(args).toContain("--private");
+  });
+
+  test("gh is NOT invoked when --no-gh is passed", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+
+    const stubDir = join(root, "stubs");
+    mkdirSync(stubDir);
+    const sentinel = join(root, "gh-args.txt");
+    writeFileSync(
+      join(stubDir, "gh"),
+      `#!/usr/bin/env sh\nprintf 'STUB-RAN' > "${sentinel}"\nexit 0\n`,
+    );
+    chmodSync(join(stubDir, "gh"), 0o755);
+
+    spawnSync("fish", [SCRIPT, "--target", target, "--cadence", "standard", "--no-gh"], {
+      cwd: root,
+      encoding: "utf8",
+      env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` },
+    });
+
+    expect(existsSync(sentinel)).toBe(false);
+  });
 });
