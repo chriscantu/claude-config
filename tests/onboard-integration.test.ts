@@ -11,6 +11,15 @@ const GUARD = join(REPO, "bin", "onboard-guard.ts");
 
 const fixtures: string[] = [];
 
+// Git identity env vars so the scaffold's initial `git commit` works on CI
+// runners without a global ~/.gitconfig. Mirrors tests/onboard-scaffold.test.ts.
+const GIT_ENV = {
+  GIT_AUTHOR_NAME: "Onboard Integration Test",
+  GIT_AUTHOR_EMAIL: "onboard-integration-test@example.invalid",
+  GIT_COMMITTER_NAME: "Onboard Integration Test",
+  GIT_COMMITTER_EMAIL: "onboard-integration-test@example.invalid",
+};
+
 const scaffoldWorkspace = (org: string): string => {
   const root = mkdtempSync(join(tmpdir(), "onboard-int-test-"));
   fixtures.push(root);
@@ -18,7 +27,7 @@ const scaffoldWorkspace = (org: string): string => {
   const r = spawnSync(
     "fish",
     [SCAFFOLD, "--target", target, "--cadence", "standard", "--no-gh"],
-    { encoding: "utf8" },
+    { encoding: "utf8", env: { ...process.env, ...GIT_ENV } },
   );
   if (r.status !== 0) {
     throw new Error(`scaffold failed: ${r.stderr}`);
