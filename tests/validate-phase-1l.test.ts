@@ -78,7 +78,6 @@ const extractPhase1l = (r: RunResult): string => {
 };
 
 const fixtures: string[] = [];
-const tmpFiles: string[] = [];
 
 const makeFixture = (): string => {
   const dir = mkdtempSync(join(tmpdir(), "validate-phase-1l-"));
@@ -122,18 +121,6 @@ const seedFullRegistry = (fixture: string): void => {
 const TMP_PREFIX = tmpdir();
 
 afterEach(() => {
-  while (tmpFiles.length > 0) {
-    const f = tmpFiles.pop()!;
-    if (!f.startsWith(TMP_PREFIX)) {
-      console.error(`afterEach: refusing to clean non-tmp path ${f}`);
-      continue;
-    }
-    try {
-      unlinkSync(f);
-    } catch {
-      // best-effort
-    }
-  }
   while (fixtures.length > 0) {
     const dir = fixtures.pop()!;
     if (!dir.startsWith(TMP_PREFIX)) {
@@ -205,17 +192,19 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
     const fixture = makeFixture();
     seedFullRegistry(fixture);
     const original = readFileSync(VALIDATE, "utf8");
+    // Coupling: the literal below must match the registry entry in
+    // validate.fish:615 verbatim. If the entry is renamed, replace() becomes
+    // a no-op — the `expect(patched).not.toBe(original)` guard fails the test
+    // loudly so the coupling cannot silently degrade.
     const patched = original.replace(
       '"think-before-coding.md|emission-contract,trivial-tier-criteria"',
       '"think-before-coding.md|emission-contract,"',
     );
     expect(patched).not.toBe(original);
-    const tmpValidate = join(
-      tmpdir(),
-      `validate-phase-1l-${Math.random().toString(36).slice(2)}.fish`,
-    );
+    // Write the patched validator inside the fixture so afterEach cleans it
+    // automatically via rmSync(dir, recursive) — no parallel tmpFiles[] needed.
+    const tmpValidate = join(fixture, "validate-patched.fish");
     writeFileSync(tmpValidate, patched);
-    tmpFiles.push(tmpValidate);
     const out = extractPhase1l(runValidate(fixture, tmpValidate));
     expect(out).toContain("empty anchor ID");
   });
