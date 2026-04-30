@@ -36,6 +36,25 @@ to pending-sync. Check for existing pending-sync files.
 `--sync` drains pending-sync files (see [pending-sync.md](pending-sync.md)).
 `--read` triggers artifact-pointed capture.
 
+## Confidentiality Refusal
+
+When the caller passes `--read <path>` AND the path is local (not a URL), MUST
+run the refusal guard before reading the file:
+
+```fish
+bun run <repo-root>/bin/onboard-guard.ts refuse-raw <path>
+```
+
+Exit code 2 means the path is inside an /onboard workspace's `interviews/raw/`
+directory. Surface the guard's stderr message to the user and abort. Do NOT
+read the file. Do NOT proceed to capture.
+
+See [`../onboard/refusal-contract.md`](../onboard/refusal-contract.md) for full
+contract semantics, override policy, and exit-code table.
+
+The guard is a no-op for URLs and paths outside any /onboard workspace —
+exits 0, /swot proceeds normally.
+
 ## Org Lookup
 
 `mcp__memory__search_nodes({ query: "<org-name>" })` — exact match (with " SWOT"

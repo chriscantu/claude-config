@@ -35,6 +35,23 @@ Determine how the user invoked the skill:
 
 If unclear, ask: "Are you starting from scratch, working from existing notes, or revising a deck you already have?"
 
+## Confidentiality Refusal (when invoked from an /onboard workspace)
+
+When the entry path is a `slides.md` path (Revise mode) OR the user pastes
+content from a workspace path (Assist mode), MUST run the refusal guard
+before reading the source:
+
+```fish
+bun run <repo-root>/bin/onboard-guard.ts refuse-raw <path>
+```
+
+Exit code 2 means the path is inside an /onboard workspace's `interviews/raw/`
+directory — abort and surface the guard's stderr. Do NOT read the file.
+
+See [`../onboard/refusal-contract.md`](../onboard/refusal-contract.md).
+
+The guard is a no-op for non-workspace paths — exits 0, /present proceeds.
+
 ## Step 1: Audience & Intake
 
 Ask these questions **one at a time**:
