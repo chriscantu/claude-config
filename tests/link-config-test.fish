@@ -43,72 +43,76 @@ end
 
 # Each test gets a fresh fixture HOME; --install creates ~/.claude/ subdirs
 # under it. The repo under test is the live one (script is location-derived).
+# Logs land inside $home so they share fixture lifecycle (cleanup_fixture
+# frees them) and avoid /tmp pid-collision risk under parallel CI.
 
 echo "── Test A: --install on empty HOME succeeds, --check verifies clean"
 set home (mktemp -d)
-env HOME=$home fish $script --install >/tmp/link-config-install-$fish_pid.log 2>&1
+set install_log $home/install.log
+set check_log $home/check.log
+env HOME=$home fish $script --install >$install_log 2>&1
 set install_rc $status
 if test $install_rc -eq 0
     t_pass "--install exit 0"
 else
-    t_fail "--install exit $install_rc; log: "(cat /tmp/link-config-install-$fish_pid.log)
+    t_fail "--install exit $install_rc; log: "(cat $install_log)
 end
 
-env HOME=$home fish $script --check >/tmp/link-config-check-$fish_pid.log 2>&1
+env HOME=$home fish $script --check >$check_log 2>&1
 set check_rc $status
 if test $check_rc -eq 0
     t_pass "--check exit 0 after install"
 else
-    t_fail "--check exit $check_rc; log: "(cat /tmp/link-config-check-$fish_pid.log)
+    t_fail "--check exit $check_rc; log: "(cat $check_log)
 end
 
-set check_log (cat /tmp/link-config-check-$fish_pid.log)
 set bad_lines 0
-for line in $check_log
+while read -l line
     if string match -qr '^(MISSING|STALE|ERROR)' -- $line
         set bad_lines (math $bad_lines + 1)
     end
-end
+end <$check_log
 if test $bad_lines -eq 0
     t_pass "--check produced 0 MISSING/STALE/ERROR lines"
 else
-    t_fail "--check produced $bad_lines bad lines: $check_log"
+    t_fail "--check produced $bad_lines bad lines: "(cat $check_log)
 end
-rm -f /tmp/link-config-install-$fish_pid.log /tmp/link-config-check-$fish_pid.log
 
 echo ""
 echo "── Test B: re-running --install is idempotent (linked=0)"
-env HOME=$home fish $script --install >/tmp/link-config-reinstall-$fish_pid.log 2>&1
+set reinstall_log $home/reinstall.log
+env HOME=$home fish $script --install >$reinstall_log 2>&1
 set reinstall_rc $status
-set reinstall_log (cat /tmp/link-config-reinstall-$fish_pid.log)
 if test $reinstall_rc -eq 0
     t_pass "second --install exit 0"
 else
-    t_fail "second --install exit $reinstall_rc; log: $reinstall_log"
+    t_fail "second --install exit $reinstall_rc; log: "(cat $reinstall_log)
 end
 
 set summary_line ""
-for line in $reinstall_log
+while read -l line
     if string match -q 'Summary:*' -- $line
         set summary_line $line
     end
-end
-if string match -q '*linked=0*' -- $summary_line
+end <$reinstall_log
+# Anchor to the literal `Summary: linked=0 ` prefix so a future format
+# token like `relinked=0` cannot false-pass.
+if string match -q 'Summary: linked=0 *' -- $summary_line
     t_pass "idempotent: linked=0 in summary ($summary_line)"
 else
-    t_fail "expected linked=0, got: $summary_line"
+    t_fail "expected 'Summary: linked=0 …', got: $summary_line"
 end
 if string match -qr 'already-ok=[1-9]' -- $summary_line
     t_pass "already-ok > 0 in summary"
 else
     t_fail "expected already-ok > 0, got: $summary_line"
 end
-rm -f /tmp/link-config-reinstall-$fish_pid.log
 cleanup_fixture $home
 
 echo ""
 echo "── Test C: --check exits non-zero when a symlink is broken"
 set home (mktemp -d)
+set broken_log $home/broken.log
 env HOME=$home fish $script --install >/dev/null 2>&1
 if test $status -ne 0
     t_fail "setup --install failed"
@@ -118,7 +122,7 @@ else
     if test -L $broken_dst
         rm $broken_dst
         ln -s /tmp/nonexistent-link-target-(random) $broken_dst
-        env HOME=$home fish $script --check >/tmp/link-config-broken-$fish_pid.log 2>&1
+        env HOME=$home fish $script --check >$broken_log 2>&1
         set broken_rc $status
         if test $broken_rc -ne 0
             t_pass "--check exit $broken_rc (non-zero) on broken symlink"
@@ -126,19 +130,17 @@ else
             t_fail "--check should fail on broken symlink, got exit 0"
         end
 
-        set broken_log (cat /tmp/link-config-broken-$fish_pid.log)
         set found_stale 0
-        for line in $broken_log
+        while read -l line
             if string match -q 'STALE link:*CLAUDE.md*' -- $line
                 set found_stale 1
             end
-        end
+        end <$broken_log
         if test $found_stale -eq 1
             t_pass "STALE line emitted for broken CLAUDE.md"
         else
-            t_fail "expected STALE line for CLAUDE.md, got: $broken_log"
+            t_fail "expected STALE line for CLAUDE.md, got: "(cat $broken_log)
         end
-        rm -f /tmp/link-config-broken-$fish_pid.log
     else
         t_fail "setup: expected $broken_dst to be a symlink"
     end
