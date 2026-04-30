@@ -78,4 +78,17 @@ describe("bin/onboard-scaffold.fish", () => {
     expect(gi).toContain(".env");
     expect(gi).toContain("**/private/");
   });
+
+  test("runs git init and creates an initial commit on main", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+
+    runScaffold(root, "--target", target, "--cadence", "standard", "--no-gh");
+
+    expect(existsSync(join(target, ".git"))).toBe(true);
+
+    const log = spawnSync("git", ["-C", target, "log", "--oneline"], { encoding: "utf8" });
+    expect(log.status).toBe(0);
+    expect(log.stdout.trim().length).toBeGreaterThan(0);
+  });
 });

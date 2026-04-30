@@ -55,4 +55,8 @@ mkdir -p $target/decisions
 
 printf "# /onboard workspace gitignore — protect verbatim interview notes and secrets\n\ninterviews/raw/\n.env\n**/private/\n" > $target/.gitignore
 
+git -C $target init -q -b main
+git -C $target add .
+git -C $target commit -q -m "Scaffold /onboard workspace"
+
 exit 0
