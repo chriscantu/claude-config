@@ -55,7 +55,8 @@ validator. Phases relevant to rules:
   (e.g. the [Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria),
   defined in `planning.md`) is restated outside its canonical home.
   "Do not restate" markers in non-canonical files are editor hints;
-  this phase is the enforcement.
+  this phase is the enforcement. Regression coverage:
+  `tests/validate-phase-1g.test.ts` (migrated from fish per ADR #0012).
 - **1j. Stable anchor presence** — fails if `planning.md` loses an
   explicit `<a id="…">` anchor that dependent rules deep-link to.
   Currently guards `#trivial-tier-criteria`, `#skip-contract`,
