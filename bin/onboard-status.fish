@@ -21,7 +21,7 @@ while test $i -le (count $argv)
             set i (math $i + 1)
             set ws $argv[$i]
         case --mute --unmute
-            set mode (string sub -s 3 $arg)
+            set mode (string sub -s 3 -- $arg)
             set i (math $i + 1)
             set category $argv[$i]
             set i (math $i + 1)
@@ -42,6 +42,13 @@ if not test -f $ws/RAMP.md
     exit 1
 end
 
+if test "$mode" = mute -o "$mode" = unmute
+    if not contains $category milestone velocity
+        echo "unknown category: $category (allowed: milestone | velocity)" >&2
+        exit 2
+    end
+end
+
 switch $mode
     case status
         set -l started (string match -r 'Started:\s*([0-9-]+)' < $ws/RAMP.md)[2]
@@ -59,4 +66,23 @@ switch $mode
         echo ""
         echo "Mutes:"
         sed -n '/## Cadence Mutes/,/##/p' $ws/RAMP.md | grep -E '^- ' ; or echo "  (none)"
+    case mute
+        # Force single-string semantics — without `string collect`, multi-line
+        # regex patterns silently no-op (see plan Task 4 note).
+        set -l ramp (cat $ws/RAMP.md | string collect)
+        # Drop "(none)" placeholder if present.
+        set ramp (string replace -r '(## Cadence Mutes\n\n)\(none\)\n' '$1' -- $ramp | string collect)
+        # Append category if not already listed.
+        if not string match -rq "(?m)^- $category\$" -- $ramp
+            set ramp (string replace -r '(## Cadence Mutes\n\n(?:- [a-z]+\n)*)' "\$1- $category\n" -- $ramp | string collect)
+        end
+        printf '%s' $ramp > $ws/RAMP.md
+    case unmute
+        set -l ramp (cat $ws/RAMP.md | string collect)
+        set ramp (string replace -r "(?m)^- $category\n" '' -- $ramp | string collect)
+        # Re-insert (none) marker if Cadence Mutes is now empty.
+        if not string match -rq '(?m)## Cadence Mutes\n\n- ' -- $ramp
+            set ramp (string replace -r '(## Cadence Mutes\n\n)(?!\(none\))' '$1(none)\n' -- $ramp | string collect)
+        end
+        printf '%s' $ramp > $ws/RAMP.md
 end
