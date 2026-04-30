@@ -1,6 +1,6 @@
 # /onboard Skill — Phase 3 Implementation Plan (Confidentiality Boundary Enforcement)
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (per-task spec + code-quality review across the cross-skill contract surface; see Execution Mode below). Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:executing-plans` (single-implementer; see Execution Mode below for the rationale + re-flip criteria). Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Enforce the raw → sanitized confidentiality boundary at the filesystem and skill layers. Add per-observation sanitization tags via a new `/onboard --capture` wrapper (Q1 decision: wrap, do not modify `/1on1-prep`). Add path-based refusal in `/swot` and `/present` so neither will read `<workspace>/interviews/raw/`. Add an attribution-pattern pre-render gate that scans deck markdown for stakeholder names from `<workspace>/stakeholders/map.md` (Q2 decision: word-boundary case-insensitive regex over name strings extracted from `map.md`). Refusal + attribution logic lives in ONE place — `bin/onboard-guard.ts` (TypeScript per `memory/onboard_fish_vs_ts_inflection.md`) — called from skill bodies as a guard.
 
@@ -18,11 +18,30 @@
 
 ---
 
+## Execution Precondition
+
+**Phase 2 PR [#215](https://github.com/chriscantu/claude-config/pull/215) must be MERGED AND EXECUTED before Task 8 begins.** Task 8 inserts content after the `## Status, mute, and unmute` section in `skills/onboard/SKILL.md` — that section is added by Phase 2 execution, NOT by Phase 2 plan merge. Self-Review item 8 also asserts non-regression of Phase 2 artifacts (`bin/onboard-status.fish`, `tests/onboard-status.test.ts`, `skills/onboard/cadence-nags.md`); these files do not exist as of Phase 3 plan-merge.
+
+If an executor picks up this plan with Phase 2 unexecuted, Task 8 Step 1's anchor lookup will silently miss and the executor will either (a) abort and surface the prerequisite, or (b) create a malformed SKILL.md. Either is acceptable — the plan is explicit about the dependency. Do NOT begin Task 8 until `grep -n "## Status, mute, and unmute" skills/onboard/SKILL.md` returns a hit.
+
+Tasks 1–7 + Task 9 do NOT depend on Phase 2 execution and may proceed in parallel with Phase 2 if branch isolation is maintained. Task 8 is the only hard dependency.
+
+---
+
 ## Execution Mode
 
-**[Execution mode: subagent-driven]** Plan: 9 tasks, ~200 LOC functional change, 1 new TS helper + 4 modified SKILL.md files (`/onboard`, `/1on1-prep` UNCHANGED per Q1, `/swot`, `/present`) + 2 new test files (unit + cross-skill integration). The hallmark trigger from `rules/execution-mode.md` is **"tasks have integration coupling that benefits from per-task spec review (cross-component contracts, shared state, ordered handoffs)"** — the refusal contract spans `/swot` + `/present` + `/onboard` + the shared TS helper, and a drift in any one call-site silently weakens the gate. Per-task spec review on the SKILL.md edits catches that drift; single-implementer mode would defer the catch to one final review where the contract surface is harder to hold in head.
+**[Execution mode: single-implementer]** Plan: 9 tasks, ~200 LOC functional change, 1 new TS helper + 3 modified SKILL.md files (`/onboard`, `/swot`, `/present`; `/1on1-prep` UNCHANGED per Q1) + 2 new test files (unit + cross-skill integration).
 
-LOC alone (~200) does not trip the conjunctive subagent trigger (≥5 tasks AND ≥2 files AND ≥300 LOC fails on LOC), but the integration-coupling OR clause fires independently. Tie-break does not apply because no single-implementer trigger fires (8+ tasks, 6+ files, integration tests are not a 50-LOC TDD increment, not Trivial-tier).
+Per `rules/execution-mode.md`:
+
+- **Subagent-driven conjunctive triggers:** ≥5 tasks ✓ AND ≥2 files ✓ AND ≥300 LOC ✗ — **fails on LOC.**
+- **Subagent-driven OR clause** (integration coupling): the refusal contract spans 3 skills + 1 helper, which initially appeared to fire this clause. On closer read, however, the call-sites are simple shim insertions (one `bun run bin/onboard-guard.ts ...` line per skill) — the contract surface is concentrated in `bin/onboard-guard.ts` itself, where unit tests + the cross-skill integration test (Task 9) catch drift far more cheaply than per-task spec review on three near-identical shim insertions.
+- **Single-implementer triggers (ANY of):** "each task is a TDD increment ≤50 LOC" fires — Tasks 1-4 are sub-50-LOC TDD pairs around the guard, Tasks 5-8 are markdown edits, Task 9 is the integration test. The guard total (~120 LOC) is >50 but is split across two TDD pairs (refuse-raw + attribution-check).
+- **Tie-break:** "when both modes' triggers fire, single-implementer wins."
+
+The load-bearing verify (Task 9 cross-skill integration test) replaces what per-task spec review would catch — a regression in any SKILL.md call-site fails the integration test loudly. Single-implementer + thorough Self-Review Checklist run at the end is the right cost/coverage trade.
+
+**Re-flip to subagent-driven if:** Tasks 7 or 8 grow beyond shim insertion (e.g., add dynamic logic to the SKILL.md call-sites that needs per-task review), or if the helper's contract surface widens beyond two subcommands.
 
 ---
 
@@ -147,6 +166,7 @@ git commit -m "Add failing test for onboard-guard refuse-raw (#12)"
 
 **Files:**
 - Create: `bin/onboard-guard.ts`
+- Modify: `tsconfig.json` (extend `include` to cover `bin/**/*.ts` so `bunx tsc --noEmit` actually checks the helper — current config is `tests/**/*.ts` only)
 
 - [ ] **Step 1: Write the helper**
 
@@ -212,18 +232,26 @@ bun test tests/onboard-guard.test.ts
 
 Expected: PASS — refuse-raw branch covered. attribution-check tests don't exist yet; nothing else to fail.
 
-- [ ] **Step 3: Type-check**
+- [ ] **Step 3: Extend `tsconfig.json` to include `bin/`**
+
+Current `include` is `["tests/**/*.ts"]` — `bunx tsc --noEmit` will silently skip `bin/onboard-guard.ts`. Update to:
+
+```json
+"include": ["tests/**/*.ts", "bin/**/*.ts"]
+```
+
+- [ ] **Step 4: Type-check**
 
 ```fish
 bunx tsc --noEmit
 ```
 
-Expected: clean.
+Expected: clean. If type errors surface in `bin/onboard-guard.ts`, fix in Step 1's source — do NOT narrow the tsconfig back.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 5: Commit**
 
 ```fish
-git add bin/onboard-guard.ts
+git add bin/onboard-guard.ts tsconfig.json
 git commit -m "onboard-guard: refuse-raw subcommand rejects interviews/raw paths (#12)"
 ```
 
@@ -315,6 +343,21 @@ describe("bin/onboard-guard.ts attribution-check", () => {
     const deck = writeDeck(ws, "# Notes\n\nPriya Patel approved the plan.\n");
     const r = run("attribution-check", deck, map);
     expect(r.exitCode).toBe(3);
+  });
+
+  test("captures bullet without role separator (whole-bullet fallback)", () => {
+    // Verifies the documented fallback: bullets like `- Solo Name` (no
+    // em-dash / hyphen / colon separator) capture the whole bullet text.
+    const ws = makeWorkspace();
+    const mapPath = join(ws, "stakeholders", "map.md");
+    writeFileSync(
+      mapPath,
+      "# Stakeholder Map — acme\n\n## Direct reports\n\n- Solo Name\n",
+    );
+    const deck = writeDeck(ws, "# Notes\n\nSolo Name flagged a risk.\n");
+    const r = run("attribution-check", deck, mapPath);
+    expect(r.exitCode).toBe(3);
+    expect(r.stderr).toContain("Solo Name");
   });
 });
 ```
@@ -570,6 +613,12 @@ writes the tagged markdown to `<workspace>/interviews/raw/`.
    6-prompt form. The memory-graph write is the user's existing canonical
    record.
 
+   **Note on `disable-model-invocation: true`** — `/1on1-prep`'s frontmatter
+   blocks the *model* from autonomously triggering the skill via heuristic
+   match. It does NOT block explicit user-issued (or wrapper-issued)
+   `/1on1-prep <person> --phase=capture` invocations. The wrapper invocation
+   is explicit and proceeds normally.
+
 3. After /1on1-prep returns the tagged-observation preview (the
    `## Tagged Observations Preview` block in `skills/1on1-prep/capture-form.md`),
    present a per-observation sanitization-tag prompt:
@@ -709,8 +758,10 @@ exits 0, /swot proceeds normally.
 
 - [ ] **Step 2: Add guard call to `/present`**
 
-In `skills/present/SKILL.md`, find the `## Entry Point Detection` section
-(lines 27–35 currently). Append a new section after `## Entry Point Detection`:
+In `skills/present/SKILL.md`, locate the `## Entry Point Detection` H2 block
+by anchor (do NOT rely on line numbers — they drift). Insert a new H2
+section AFTER its closing line (i.e., immediately before the next H2
+marker). Body:
 
 ```markdown
 ## Confidentiality Refusal (when invoked from an /onboard workspace)
@@ -793,6 +844,11 @@ bun run <repo-root>/bin/onboard-guard.ts attribution-check \
 Exit code 3 means the deck contains stakeholder names from `map.md`.
 Surface the guard's stderr (file:line:phrase report) to the user and
 require explicit `override` token before proceeding. Anything else aborts.
+
+**Override is enforced HERE, by the SKILL.md body — not by the guard
+itself.** The helper exits 3 and emits the report; the calling skill
+prompts for `override` and decides whether to proceed. This keeps the
+helper pure (no interactive I/O) and centralizes UX in the skill.
 
 See [refusal-contract.md](refusal-contract.md) for override semantics.
 
@@ -1012,7 +1068,7 @@ Phase 3 of /onboard: confidentiality boundary enforcement.
 🤖 Generated with [Claude Code](https://claude.com/claude-code)" > /tmp/onboard-phase3-pr.md
 
 git push -u origin feature/onboard-phase-3
-gh pr create --title \"/onboard Phase 3 — confidentiality boundary enforcement (#12)\" --body-file /tmp/onboard-phase3-pr.md
+gh pr create --title "/onboard Phase 3 — confidentiality boundary enforcement (#12)" --body-file /tmp/onboard-phase3-pr.md
 ```
 
 ---
@@ -1030,7 +1086,10 @@ gh pr create --title \"/onboard Phase 3 — confidentiality boundary enforcement
 
 3. **Q2 resolution traceable** — attribution-check uses word-boundary case-insensitive regex over names extracted from `map.md` per the documented `^- (.+?)(?:\s+[—\-:]\s+|$)` rule. Test in Task 3 explicitly asserts `Christopher` does NOT match `Chris` (word-boundary FP guard).
 
-4. **Refusal lib placement** — exactly ONE call-site per skill (`/swot`, `/present`, `/onboard`) calls `bin/onboard-guard.ts`. Path-check logic is NOT duplicated in any skill body. Verify with `grep -n "refuse-raw" skills/*/SKILL.md` — should return 3 lines (excluding refusal-contract.md, which is the canonical doc).
+4. **Guard call-site placement** — exactly ONE call-site per skill, no duplicated logic. Verify with two greps:
+   - `grep -n "refuse-raw" skills/*/SKILL.md` → returns 2 lines (`/swot`, `/present`); `/onboard` does NOT call `refuse-raw` because `--capture` writes to `interviews/raw/` rather than reading from it.
+   - `grep -n "attribution-check" skills/*/SKILL.md` → returns 1 line (`/onboard`).
+   - Neither `refusal-contract.md` nor `capture-and-sanitize.md` count — those are the canonical docs.
 
 5. **Placeholder scan** — no `TBD` / `TODO` in code or plan.
 
