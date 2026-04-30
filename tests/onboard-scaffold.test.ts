@@ -9,8 +9,22 @@ const SCRIPT = join(REPO, "bin", "onboard-scaffold.fish");
 
 type RunResult = { exitCode: number; stdout: string; stderr: string };
 
+// Git identity env vars so the scaffold's initial `git commit` works in any
+// environment, including CI runners without a global ~/.gitconfig. Production
+// users have their own config; this only affects the test subprocess.
+const GIT_ENV = {
+  GIT_AUTHOR_NAME: "Onboard Scaffold Test",
+  GIT_AUTHOR_EMAIL: "onboard-scaffold-test@example.invalid",
+  GIT_COMMITTER_NAME: "Onboard Scaffold Test",
+  GIT_COMMITTER_EMAIL: "onboard-scaffold-test@example.invalid",
+};
+
 const runScaffold = (cwd: string, ...args: string[]): RunResult => {
-  const result = spawnSync("fish", [SCRIPT, ...args], { cwd, encoding: "utf8" });
+  const result = spawnSync("fish", [SCRIPT, ...args], {
+    cwd,
+    encoding: "utf8",
+    env: { ...process.env, ...GIT_ENV },
+  });
   if (result.error) {
     throw new Error(`spawn fish failed for args [${args.join(" ")}]: ${result.error.message}`);
   }
@@ -42,7 +56,7 @@ const runWithStub = (cwd: string, stub: GhStub, ...args: string[]): RunResult =>
   const result = spawnSync("fish", [SCRIPT, ...args], {
     cwd,
     encoding: "utf8",
-    env: { ...process.env, PATH: `${stub.stubDir}:${process.env.PATH}` },
+    env: { ...process.env, ...GIT_ENV, PATH: `${stub.stubDir}:${process.env.PATH}` },
   });
   if (result.error) {
     throw new Error(`spawn fish failed for args [${args.join(" ")}]: ${result.error.message}`);
