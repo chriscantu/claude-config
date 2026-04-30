@@ -1,13 +1,30 @@
 # tests/
 
-This directory holds two distinct kinds of test artifact:
+This directory holds three distinct kinds of test artifact:
 
 1. **Fish-shell regression suites** — automated, auto-discovered, run in CI.
-2. **TypeScript / behavioral evals** — separate runners (see `EVALS.md`,
+2. **TypeScript regression suites** — `bun:test`, auto-discovered, run in CI.
+3. **TypeScript / behavioral evals** — separate runners (see `EVALS.md`,
    `eval-runner-v2.ts`, `run-scenarios.fish`).
 
-This README documents the **fish-shell regression contract**. Evals have their
+This README documents the **regression contracts** (1 + 2). Evals have their
 own conventions in `EVALS.md`.
+
+## Picking fish vs TypeScript
+
+Use **fish** when the test sources a fish lib directly to call its functions
+in-process (e.g. `tests/symlinks-test.fish` sources
+`bin/lib/symlinks.fish` to unit-test `each_symlink_target` and
+`check_symlink_layout`). TypeScript can't `source` fish, so this path stays
+shell-native.
+
+Use **TypeScript** when the test shells out to a fish script via subprocess
+and asserts on stdout / stderr / exit code (e.g. `tests/link-config.test.ts`
+runs `bin/link-config.fish` end-to-end). The shell boundary is the same
+either way; TS gains real assertion lib + IDE support without losing
+anything.
+
+When in doubt, match the convention of the existing test for the SUT.
 
 ## Fish-shell regression contract
 
@@ -58,3 +75,35 @@ fish tests/validate-phase-1g.fish           # one suite
 `.github/workflows/validate.yml` invokes `fish tests/run-fish-tests.fish`
 after `fish validate.fish`. The driver is the single point of CI integration —
 new test files do not need workflow edits.
+
+## TypeScript regression contract
+
+### Naming
+
+A test file is picked up automatically by `bun test tests/` (and therefore
+by CI) if its filename matches `tests/*.test.ts`.
+
+### Style
+
+Use `bun:test` (`describe` / `test` / `expect`). Subprocess-style tests
+that shell out to fish via `spawnSync` live here; see
+`tests/link-config.test.ts` for the established pattern.
+
+### Fixtures
+
+Use `mkdtempSync(join(tmpdir(), "<prefix>-"))` for fixture HOMEs and clean
+up in `afterEach`. Override `HOME` via the `env` option to `spawnSync` —
+never mutate `process.env.HOME`.
+
+### Running locally
+
+```fish
+bun test tests/                              # all TS suites
+bun test tests/link-config.test.ts           # one suite
+```
+
+### CI wiring
+
+`.github/workflows/validate.yml` invokes `bun test tests/` after the
+fish-shell driver. Drop a new `*.test.ts` file and it runs on the next
+build — no workflow edit required.
