@@ -78,6 +78,8 @@ set -l w (string split "|" $weeks)
 printf "# 90-Day Ramp Plan — %s\n\nCadence: %s\nStarted: %s\n\n| Week | Milestone | Status |\n|---|---|---|\n| %s | Workspace scaffolded; manager-handoff captured | [ ] |\n| %s | Stakeholder map >=80%% | [ ] |\n| %s | >=8 interviews logged + INTERIM reflect-back deck | [ ] |\n| %s | SWOT v1 draft committed | [ ] |\n| %s | FINAL reflect-back deck delivered | [ ] |\n| %s | Quick-win candidate locked | [ ] |\n| %s | Quick-win shipped -> graduate | [ ] |\n\n## Cadence Mutes\n\n(none)\n\n## Notes\n\n(scratch space)\n" \
   $org_name $cadence $today $w[1] $w[2] $w[3] $w[4] $w[5] $w[6] $w[7] > $target/RAMP.md
 
+printf "# Stakeholder Map — %s\n\nPopulated by /stakeholder-map. Manager-handoff seed below.\n\n## Direct reports\n\n(none yet)\n\n## Cross-functional partners\n\n(none yet)\n\n## Skip-level + leadership\n\n(none yet)\n\n## Influencers\n\n(none yet)\n" $org_name > $target/stakeholders/map.md
+
 git -C $target init -q -b main
 git -C $target add .
 git -C $target commit -q -m "Scaffold /onboard workspace"

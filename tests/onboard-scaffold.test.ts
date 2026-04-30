@@ -113,4 +113,18 @@ describe("bin/onboard-scaffold.fish", () => {
     expect(r.exitCode).not.toBe(0);
     expect(r.stderr).toContain("unknown cadence");
   });
+
+  test("seeds an empty stakeholders/map.md with the canonical sections", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+
+    runScaffold(root, "--target", target, "--cadence", "standard", "--no-gh");
+
+    const map = readFileSync(join(target, "stakeholders", "map.md"), "utf8");
+    expect(map).toContain("# Stakeholder Map");
+    expect(map).toContain("## Direct reports");
+    expect(map).toContain("## Cross-functional partners");
+    expect(map).toContain("## Skip-level + leadership");
+    expect(map).toContain("## Influencers");
+  });
 });
