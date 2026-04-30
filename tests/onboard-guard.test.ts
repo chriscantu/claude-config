@@ -154,4 +154,45 @@ describe("bin/onboard-guard.ts attribution-check", () => {
     expect(r.exitCode).toBe(3);
     expect(r.stderr).toContain("Solo Name");
   });
+
+  test("matches hyphenated names (Mary-Jane Watson)", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Mary-Jane Watson"]);
+    const deck = writeDeck(
+      ws,
+      "# Notes\n\nMary-Jane Watson flagged the platform risk.\n",
+    );
+    const r = run("attribution-check", deck, map);
+    expect(r.exitCode).toBe(3);
+    expect(r.stderr).toContain("Mary-Jane Watson");
+  });
+
+  test("matches names containing apostrophes (O'Brien)", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Sean O'Brien"]);
+    const deck = writeDeck(ws, "# Notes\n\nSean O'Brien approved.\n");
+    const r = run("attribution-check", deck, map);
+    expect(r.exitCode).toBe(3);
+    expect(r.stderr).toContain("O'Brien");
+  });
+});
+
+describe("bin/onboard-guard.ts misuse", () => {
+  test("unknown subcommand exits 64", () => {
+    const r = run("nonsense");
+    expect(r.exitCode).toBe(64);
+    expect(r.stderr).toContain("unknown subcommand");
+  });
+
+  test("refuse-raw with no args exits 64", () => {
+    const r = run("refuse-raw");
+    expect(r.exitCode).toBe(64);
+    expect(r.stderr).toContain("usage");
+  });
+
+  test("attribution-check with one arg exits 64", () => {
+    const r = run("attribution-check", "/tmp/only-one");
+    expect(r.exitCode).toBe(64);
+    expect(r.stderr).toContain("usage");
+  });
 });

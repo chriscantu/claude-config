@@ -42,18 +42,26 @@ When the caller passes `--read <path>` AND the path is local (not a URL), MUST
 run the refusal guard before reading the file:
 
 ```fish
-bun run <repo-root>/bin/onboard-guard.ts refuse-raw <path>
+bun run "$CLAUDE_PROJECT_DIR/bin/onboard-guard.ts" refuse-raw <path>
 ```
 
-Exit code 2 means the path is inside an /onboard workspace's `interviews/raw/`
-directory. Surface the guard's stderr message to the user and abort. Do NOT
-read the file. Do NOT proceed to capture.
+`CLAUDE_PROJECT_DIR` is the harness-provided absolute path to the repository
+root. If the env var is not set (e.g., the skill is being executed outside the
+harness), resolve the repo root by walking up from CWD until a `.git`
+directory is found.
 
-See [`../onboard/refusal-contract.md`](../onboard/refusal-contract.md) for full
-contract semantics, override policy, and exit-code table.
+Exit-code contract for this call-site:
+
+| Exit | Meaning | Action |
+|---|---|---|
+| 0 | Path is outside any `interviews/raw/` directory | proceed to read |
+| 2 | Path is inside `interviews/raw/` (refused) | surface stderr, abort, do NOT read the file |
+| 64 | Misuse (wrong arg count) | bug — file an issue |
 
 The guard is a no-op for URLs and paths outside any /onboard workspace —
-exits 0, /swot proceeds normally.
+exits 0, /swot proceeds normally. The canonical contract (override policy
+across all call-sites, name-extraction rules, Phase 4 deferred items) lives
+in the onboard skill's `refusal-contract.md`.
 
 ## Org Lookup
 

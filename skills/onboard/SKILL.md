@@ -134,10 +134,14 @@ Before invoking `/present` for any milestone reflect-back (W4 interim, W8
 final), MUST run the attribution check:
 
 ```fish
-bun run <repo-root>/bin/onboard-guard.ts attribution-check \
+bun run "$CLAUDE_PROJECT_DIR/bin/onboard-guard.ts" attribution-check \
   <workspace>/decks/slidev/<deck>/slides.md \
   <workspace>/stakeholders/map.md
 ```
+
+`CLAUDE_PROJECT_DIR` is the harness-provided absolute path to the repository
+root. If unset, resolve by walking up from CWD until a `.git` directory is
+found.
 
 Exit code 3 means the deck contains stakeholder names from `map.md`.
 Surface the guard's stderr (file:line:phrase report) to the user and
