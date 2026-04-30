@@ -104,14 +104,14 @@ optionally created private GitHub remote (user-confirmed at scaffold time).
 
 ## Status, mute, and unmute
 
-`/onboard --status <org>` → run `bin/onboard-status.fish --status <workspace-path>`.
+`/onboard --status <org>` → run `bun run bin/onboard-status.ts --status <workspace-path>`.
 Prints elapsed days, next unchecked milestone, and current mutes.
 
-`/onboard --mute <category>` → run `bin/onboard-status.fish --mute <category> <workspace-path>`.
+`/onboard --mute <category>` → run `bun run bin/onboard-status.ts --mute <category> <workspace-path>`.
 Categories: `milestone` | `velocity`. (`calendar` is Phase 4.) Mute state persists in
 `RAMP.md` `## Cadence Mutes`.
 
-`/onboard --unmute <category>` → run `bin/onboard-status.fish --unmute <category> <workspace-path>`.
+`/onboard --unmute <category>` → run `bun run bin/onboard-status.ts --unmute <category> <workspace-path>`.
 
 ## Backtracking
 

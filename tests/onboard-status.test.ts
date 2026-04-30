@@ -6,12 +6,12 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const REPO = resolve(import.meta.dir, "..");
-const SCRIPT = join(REPO, "bin", "onboard-status.fish");
+const SCRIPT = join(REPO, "bin", "onboard-status.ts");
 
 type RunResult = { exitCode: number; stdout: string; stderr: string };
 
 const run = (cwd: string, ...args: string[]): RunResult => {
-  const r = spawnSync("fish", [SCRIPT, ...args], { cwd, encoding: "utf8" });
+  const r = spawnSync("bun", ["run", SCRIPT, ...args], { cwd, encoding: "utf8" });
   if (r.error) throw r.error;
   return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
 };
@@ -43,7 +43,7 @@ afterEach(() => {
   }
 });
 
-describe("bin/onboard-status.fish --status", () => {
+describe("bin/onboard-status.ts --status", () => {
   test("prints elapsed weeks and next unchecked milestone", () => {
     const ws = makeWorkspace(15); // ~2 weeks in
     const r = run(".", "--status", ws);
@@ -56,7 +56,7 @@ describe("bin/onboard-status.fish --status", () => {
 
 import { readFileSync } from "node:fs";
 
-describe("bin/onboard-status.fish --mute", () => {
+describe("bin/onboard-status.ts --mute", () => {
   test("appends a category to ## Cadence Mutes and removes (none) marker", () => {
     const ws = makeWorkspace(5);
     const r = run(".", "--mute", "milestone", ws);
@@ -83,7 +83,7 @@ describe("bin/onboard-status.fish --mute", () => {
   });
 });
 
-describe("bin/onboard-status.fish --unmute", () => {
+describe("bin/onboard-status.ts --unmute", () => {
   test("removes a previously-muted category and restores (none) when empty", () => {
     const ws = makeWorkspace(5);
     run(".", "--mute", "milestone", ws);
@@ -120,7 +120,7 @@ describe("bin/onboard-status.fish --unmute", () => {
   });
 });
 
-describe("bin/onboard-status.fish argument and state-file errors", () => {
+describe("bin/onboard-status.ts argument and state-file errors", () => {
   test("--status with no path exits 2", () => {
     const r = run(".", "--status");
     expect(r.exitCode).toBe(2);
@@ -178,7 +178,7 @@ describe("bin/onboard-status.fish argument and state-file errors", () => {
   });
 });
 
-describe("bin/onboard-status.fish --status output integrity", () => {
+describe("bin/onboard-status.ts --status output integrity", () => {
   test("preserves trailing newline through mute round-trip", () => {
     const ws = makeWorkspace(5);
     run(".", "--mute", "milestone", ws);
