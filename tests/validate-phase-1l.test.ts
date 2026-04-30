@@ -58,6 +58,9 @@ const runValidate = (fixture: string, validateScript = VALIDATE): RunResult => {
 // Capture only the Phase 1l block — header line through the next blank line.
 // Mirrors the fish original's `sed -n '/── Delegate-link presence/,/^$/p'`.
 // Combine stdout + stderr so a failure printed on either stream is captured.
+// By design, failures in sibling phases (1g, 1j, 1k, 1m) on the seeded fixture
+// do NOT fail this suite — assertions target the 1l slice only. If a future
+// phase tightens against this fixture, audit at that time, don't auto-fail here.
 const extractPhase1l = (r: RunResult): string => {
   const combined = `${r.stdout}\n${r.stderr}`;
   const lines = combined.split("\n");
