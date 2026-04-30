@@ -92,10 +92,114 @@ describe("bin/onboard-status.fish --unmute", () => {
     expect(ramp).toMatch(/## Cadence Mutes\n\n\(none\)/);
   });
 
+  test("velocity unmute round-trip restores (none)", () => {
+    const ws = makeWorkspace(5);
+    run(".", "--mute", "velocity", ws);
+    run(".", "--unmute", "velocity", ws);
+    const ramp = readFileSync(join(ws, "RAMP.md"), "utf8");
+    expect(ramp).toMatch(/## Cadence Mutes\n\n\(none\)/);
+  });
+
   test("--status reflects mute state in output", () => {
     const ws = makeWorkspace(5);
     run(".", "--mute", "velocity", ws);
     const r = run(".", "--status", ws);
     expect(r.stdout).toContain("- velocity");
+  });
+
+  test("muting both then unmuting one leaves the other listed (no (none) reinsertion)", () => {
+    const ws = makeWorkspace(5);
+    run(".", "--mute", "milestone", ws);
+    run(".", "--mute", "velocity", ws);
+    let ramp = readFileSync(join(ws, "RAMP.md"), "utf8");
+    expect(ramp).toMatch(/- milestone\n- velocity\n/);
+    run(".", "--unmute", "milestone", ws);
+    ramp = readFileSync(join(ws, "RAMP.md"), "utf8");
+    expect(ramp).toMatch(/## Cadence Mutes\n\n- velocity\n/);
+    expect(ramp).not.toMatch(/\(none\)/);
+  });
+});
+
+describe("bin/onboard-status.fish argument and state-file errors", () => {
+  test("--status with no path exits 2", () => {
+    const r = run(".", "--status");
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("missing workspace path");
+  });
+
+  test("--mute with category but no path exits 2", () => {
+    const r = run(".", "--mute", "milestone");
+    expect(r.exitCode).toBe(2);
+  });
+
+  test("missing RAMP.md exits 1", () => {
+    const root = mkdtempSync(join(tmpdir(), "onboard-status-test-"));
+    fixtures.push(root);
+    const ws = join(root, "empty-ws");
+    mkdirSync(ws, { recursive: true });
+    const r = run(".", "--status", ws);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toContain("no RAMP.md");
+  });
+
+  test("missing ## Cadence Mutes section exits 1 with actionable stderr", () => {
+    const root = mkdtempSync(join(tmpdir(), "onboard-status-test-"));
+    fixtures.push(root);
+    const ws = join(root, "ws-no-mutes");
+    mkdirSync(ws, { recursive: true });
+    writeFileSync(
+      join(ws, "RAMP.md"),
+      `# Ramp\n\nStarted: 2026-04-25\n\n| Week | Milestone | Status |\n|---|---|---|\n| W0 | x | [x] |\n`,
+    );
+    const r = run(".", "--status", ws);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toContain("Cadence Mutes");
+  });
+
+  test("missing Started: line exits 1 with actionable stderr", () => {
+    const root = mkdtempSync(join(tmpdir(), "onboard-status-test-"));
+    fixtures.push(root);
+    const ws = join(root, "ws-no-started");
+    mkdirSync(ws, { recursive: true });
+    writeFileSync(
+      join(ws, "RAMP.md"),
+      `# Ramp\n\nCadence: standard\n\n| Week | Milestone | Status |\n|---|---|---|\n| W0 | x | [x] |\n\n## Cadence Mutes\n\n(none)\n`,
+    );
+    const r = run(".", "--status", ws);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toContain("Started");
+  });
+
+  test("future Started: date exits 1 (negative elapsed)", () => {
+    const ws = makeWorkspace(-5);
+    const r = run(".", "--status", ws);
+    expect(r.exitCode).toBe(1);
+    expect(r.stderr).toContain("future");
+  });
+});
+
+describe("bin/onboard-status.fish --status output integrity", () => {
+  test("preserves trailing newline through mute round-trip", () => {
+    const ws = makeWorkspace(5);
+    run(".", "--mute", "milestone", ws);
+    run(".", "--unmute", "milestone", ws);
+    const ramp = readFileSync(join(ws, "RAMP.md"), "utf8");
+    expect(ramp.endsWith("\n")).toBe(true);
+  });
+
+  test("(all checked) branch when no unchecked rows", () => {
+    const root = mkdtempSync(join(tmpdir(), "onboard-status-test-"));
+    fixtures.push(root);
+    const ws = join(root, "ws-all-checked");
+    mkdirSync(ws, { recursive: true });
+    const started = new Date(Date.now() - 5 * 86_400_000).toISOString().slice(0, 10);
+    writeFileSync(
+      join(ws, "RAMP.md"),
+      `# Ramp\n\nStarted: ${started}\n\n| Week | Milestone | Status |\n|---|---|---|\n` +
+      `| W0 | x | [x] |\n| W2 | y | [x] |\n\n## Cadence Mutes\n\n(none)\n`,
+    );
+    const r = run(".", "--status", ws);
+    expect(r.exitCode).toBe(0);
+    expect(r.stdout).toContain("Next milestone: (all checked)");
   });
 });
