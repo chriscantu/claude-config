@@ -4,6 +4,8 @@
 
 **Goal:** Enforce the raw → sanitized confidentiality boundary at the filesystem and skill layers. Add per-observation sanitization tags via a new `/onboard --capture` wrapper (Q1 decision: wrap, do not modify `/1on1-prep`). Add path-based refusal in `/swot` and `/present` so neither will read `<workspace>/interviews/raw/`. Add an attribution-pattern pre-render gate that scans deck markdown for stakeholder names from `<workspace>/stakeholders/map.md` (Q2 decision: word-boundary case-insensitive regex over name strings extracted from `map.md`). Refusal + attribution logic lives in ONE place — `bin/onboard-guard.ts` (TypeScript per `memory/onboard_fish_vs_ts_inflection.md`) — called from skill bodies as a guard.
 
+**Task 0 — port `bin/onboard-status.fish` → `bin/onboard-status.ts`** (added 2026-04-30 per PR #217 review retrospective): the Phase 2 fish helper hardened during PR #217 review now sits at the fish-vs-TS inflection (~110 LOC, 5 load-bearing `string replace -r` chains, cross-platform `date` fallback, fish `math --scale=0` quirk surfaced via Linux CI). Phase 3 work compounds the parse/transform load (NAGS.md tail-read for `--status`, `<workspace>/.scaffold-warnings.log` surfacing, `mcp__scheduled-tasks__list_scheduled_tasks` JSON cross-check). Port up-front before adding load. See `memory/onboard_fish_vs_ts_inflection.md` for the inflection rule and the recommendation.
+
 **Architecture:** Phase 1 + Phase 2 helpers untouched. New TS module `bin/onboard-guard.ts` exposes two subcommands (`refuse-raw <path>` and `attribution-check <deck-md> <map-md>`), both exit nonzero on violation. `/swot` and `/present` SKILL.md prepend a guard call before reading user-supplied paths. `/onboard` SKILL.md gains `--capture <person>` (delegates the memory-graph write to `/1on1-prep`, then runs the /onboard-owned tag-and-store flow that prompts `attributable | aggregate-only | redact` per observation and writes to `interviews/raw/`) and a `sanitize` helper that emits `interviews/sanitized/`. The pre-render attribution gate fires before `/present` is invoked from the W4/W8 milestone hand-offs.
 
 **Tech Stack:** TypeScript + `bun:test` (helper + tests; `bun run` executes `.ts` natively, no `tsx` wrapper). Fish shell for thin dispatch in `bin/onboard-guard.fish` (one-line shim that calls `bun run bin/onboard-guard.ts`) — but the canonical entry point is `bun run` directly. Skill markdown edits for `/swot`, `/present`, `/onboard`.
@@ -30,14 +32,14 @@ Tasks 1–7 + Task 9 do NOT depend on Phase 2 execution and may proceed in paral
 
 ## Execution Mode
 
-**[Execution mode: single-implementer]** Plan: 9 tasks, ~200 LOC functional change, 1 new TS helper + 3 modified SKILL.md files (`/onboard`, `/swot`, `/present`; `/1on1-prep` UNCHANGED per Q1) + 2 new test files (unit + cross-skill integration).
+**[Execution mode: single-implementer]** Plan: **10 tasks** (Task 0 added), ~**320 LOC** functional change, **2 new TS helpers** (`onboard-status.ts` port + `onboard-guard.ts`) + 3 modified SKILL.md files (`/onboard`, `/swot`, `/present`; `/1on1-prep` UNCHANGED per Q1) + 2 new test files (unit + cross-skill integration). Task 0's port is purely mechanical (existing `tests/onboard-status.test.ts` re-runs unchanged after swapping the test runner from `fish` to `bun run`); no design questions, no review surface widening — fits the single-implementer profile.
 
 Per `rules/execution-mode.md`:
 
-- **Subagent-driven conjunctive triggers:** ≥5 tasks ✓ AND ≥2 files ✓ AND ≥300 LOC ✗ — **fails on LOC.**
-- **Subagent-driven OR clause** (integration coupling): the refusal contract spans 3 skills + 1 helper, which initially appeared to fire this clause. On closer read, however, the call-sites are simple shim insertions (one `bun run bin/onboard-guard.ts ...` line per skill) — the contract surface is concentrated in `bin/onboard-guard.ts` itself, where unit tests + the cross-skill integration test (Task 9) catch drift far more cheaply than per-task spec review on three near-identical shim insertions.
-- **Single-implementer triggers (ANY of):** "each task is a TDD increment ≤50 LOC" fires — Tasks 1-4 are sub-50-LOC TDD pairs around the guard, Tasks 5-8 are markdown edits, Task 9 is the integration test. The guard total (~120 LOC) is >50 but is split across two TDD pairs (refuse-raw + attribution-check).
-- **Tie-break:** "when both modes' triggers fire, single-implementer wins."
+- **Subagent-driven conjunctive triggers:** ≥5 tasks ✓ AND ≥2 files ✓ AND ≥300 LOC ✓ (now ~320 with Task 0). The conjunctive trigger fires post-amendment.
+- **Subagent-driven OR clause** (integration coupling): the refusal contract spans 3 skills + 1 helper, which initially appeared to fire this clause. On closer read, however, the call-sites are simple shim insertions (one `bun run bin/onboard-guard.ts ...` line per skill) — the contract surface is concentrated in `bin/onboard-guard.ts` itself, where unit tests + the cross-skill integration test (Task 9) catch drift far more cheaply than per-task spec review on three near-identical shim insertions. Task 0's port is mechanical and behavior-locked by the existing test suite — no spec drift surface.
+- **Single-implementer triggers (ANY of):** "each task is a TDD increment ≤50 LOC" fires — Task 0 is mechanical port against frozen test contract, Tasks 1-4 are sub-50-LOC TDD pairs around the guard, Tasks 5-8 are markdown edits, Task 9 is the integration test. The guard total (~120 LOC) is >50 but is split across two TDD pairs (refuse-raw + attribution-check); Task 0 (~120 LOC) is one mechanical translation against an existing test contract — no design surface.
+- **Tie-break:** "when both modes' triggers fire, single-implementer wins." Both modes' triggers now fire post-Task-0 (conjunctive trigger crossed the LOC threshold), so the explicit tie-break rule applies.
 
 The load-bearing verify (Task 9 cross-skill integration test) replaces what per-task spec review would catch — a regression in any SKILL.md call-site fails the integration test loudly. Single-implementer + thorough Self-Review Checklist run at the end is the right cost/coverage trade.
 
@@ -57,6 +59,9 @@ The load-bearing verify (Task 9 cross-skill integration test) replaces what per-
 
 | File | Status | Responsibility | Cross-skill flag |
 |---|---|---|---|
+| `bin/onboard-status.ts` | **new (port)** | TS port of `bin/onboard-status.fish` (Phase 2). Same three modes (`--status`, `--mute`, `--unmute`), same exit-code contract, same RAMP.md schema-invariant guards. Argv parsed with a small flag-parser; date math via native `Date`; section edits via line-array splicing rather than multi-line regex. Behavior frozen by `tests/onboard-status.test.ts` (existing). Shebang `#!/usr/bin/env bun`. | **Task 0** |
+| `bin/onboard-status.fish` | **delete** | Removed after Task 0's port verifies green. No bilingual maintenance window. | **Task 0** |
+| `tests/onboard-status.test.ts` | **modify** | Single-line change: swap `spawnSync("fish", [SCRIPT, ...args], …)` → `spawnSync("bun", ["run", SCRIPT, ...args], …)`. SCRIPT path becomes `bin/onboard-status.ts`. All 16 test bodies untouched. | **Task 0** |
 | `bin/onboard-guard.ts` | new | Two subcommands: `refuse-raw <path>` (exit 0 if path is NOT inside any `interviews/raw/`, exit 2 with explicit error if it IS); `attribution-check <deck-md> <map-md>` (exit 0 on no match, exit 3 with match report on hit). Pure functions exported for unit test. | — |
 | `tests/onboard-guard.test.ts` | new | `bun:test` suite with `mkdtempSync` fixtures. Covers refuse-raw (path inside / path outside / nested raw dir / symlink-to-raw — flagged not implemented), attribution-check (zero-match clean / single-match / multi-match / case-insensitive / word-boundary respects substring non-match like "Christopher" not matching map name "Chris"). | — |
 | `tests/onboard-integration.test.ts` | new | Cross-skill fixture test: scaffolds a workspace via `bin/onboard-scaffold.fish`, writes a sample raw note + a sample deck markdown that quotes a stakeholder by name, asserts `bin/onboard-guard.ts refuse-raw <raw-file>` exits nonzero AND `attribution-check <deck> <map.md>` exits nonzero with the expected line:offset report. This is the load-bearing verify for Phase 3. | — |
@@ -67,7 +72,129 @@ The load-bearing verify (Task 9 cross-skill integration test) replaces what per-
 | `skills/present/SKILL.md` | modify | Prepend a guard call to Revise mode (any path the user passes that points at `slides.md`) AND the source paths in Generate/Assist mode if the user pastes from a workspace path. Same shim pattern as `/swot`. Link to `skills/onboard/refusal-contract.md`. | **cross-skill** — refusal call-site |
 | `skills/1on1-prep/SKILL.md` | **NOT MODIFIED** | Per Q1-B. Confirmed by the Self-Review Checklist's spec-coverage scan — if Q1 flips to A in implementation review, the implementation PR (NOT this plan) re-scopes. | **Q1-B** — explicit non-modification is the design |
 
-Phase 3 introduces zero modifications to Phase 1 or Phase 2 source (`bin/onboard-scaffold.fish`, `bin/onboard-status.fish`, `skills/onboard/cadence-nags.md`) and zero modifications to existing tests.
+Phase 3 introduces zero modifications to Phase 1 source (`bin/onboard-scaffold.fish`) and zero modifications to existing tests' contract. Phase 2 source is touched ONLY by Task 0: `bin/onboard-status.fish` is replaced by `bin/onboard-status.ts` (port; behavior frozen by `tests/onboard-status.test.ts`, runner swap fish → bun). `skills/onboard/cadence-nags.md` is unchanged.
+
+---
+
+## Task 0 — Port `bin/onboard-status.fish` → `bin/onboard-status.ts` (mechanical, behavior-locked)
+
+**Why this task exists:** Phase 2's fish helper hardened during PR #217 review and now sits at the fish-vs-TS inflection (~110 LOC, 5 load-bearing `string replace -r` chains, cross-platform `date` fallback, fish `math --scale=0` Linux/macOS quirk). Phase 3 work compounds parse/transform load (NAGS.md tail-read, `<workspace>/.scaffold-warnings.log` surfacing, `mcp__scheduled-tasks__list_scheduled_tasks` JSON cross-check). Port BEFORE adding load. See `memory/onboard_fish_vs_ts_inflection.md`.
+
+**Behavior contract (frozen):** the existing `tests/onboard-status.test.ts` (16 tests, all green on PR #217) IS the contract. Any port must pass the suite unchanged after the test runner swap. No tests added, no tests removed in Task 0.
+
+**Files:**
+- Create: `bin/onboard-status.ts`
+- Modify: `tests/onboard-status.test.ts` (test runner swap only — one line)
+- Delete: `bin/onboard-status.fish` (after Step 4 verifies green)
+
+- [ ] **Step 1: Stub the TS port + swap the test runner**
+
+Create `bin/onboard-status.ts` with `#!/usr/bin/env bun` and a `process.argv`-based flag parser; modify the test runner shim:
+
+```typescript
+// tests/onboard-status.test.ts (one-line swap, otherwise unchanged)
+const SCRIPT = join(REPO, "bin", "onboard-status.ts");
+// ...
+const r = spawnSync("bun", ["run", SCRIPT, ...args], { cwd, encoding: "utf8" });
+```
+
+- [ ] **Step 2: Run tests, confirm they fail (stub is empty)**
+
+```fish
+bun test tests/onboard-status.test.ts
+```
+
+Expected: 16/16 FAIL — stub returns wrong exit codes, no output.
+
+- [ ] **Step 3: Implement the three modes in TS**
+
+Translate fish → TS one mode at a time. Suggested layout (~120 LOC total):
+
+```typescript
+// bin/onboard-status.ts (sketch)
+#!/usr/bin/env bun
+import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
+
+const args = process.argv.slice(2);
+// parse --status / --mute <cat> / --unmute <cat> + workspace path
+// validate workspace, RAMP.md presence, '## Cadence Mutes' header, category whitelist
+// dispatch to status() | mute(category) | unmute(category)
+
+function status(ws: string) { /* parse Started:, compute elapsed_days, find next [ ] row, list mutes */ }
+function mute(ws: string, cat: string) { /* line-array edit: drop (none), append `- <cat>` if absent */ }
+function unmute(ws: string, cat: string) { /* line-array edit: drop `- <cat>`, restore (none) if list empty */ }
+```
+
+Translation rules:
+- `string match -r 'Started:\s*([0-9-]+)'` → `text.match(/^Started:\s+([0-9-]+)$/m)`
+- `date -j -f / date -d` → `new Date(\`${started}T00:00:00\`)` then `.getTime()` — uniform across platforms, no fork/exec
+- `string replace -r '(## Cadence Mutes\n\n)\(none\)\n' …` → split on `\n## Cadence Mutes\n\n`, edit the slice, rejoin
+- `printf '%s\n' $ramp > $file` → `writeFileSync(file, content.endsWith("\n") ? content : content + "\n")`
+- Exit codes: 0 (success), 1 (state error: missing RAMP.md, missing section, malformed Started, future date), 2 (arg error)
+
+- [ ] **Step 4: Run tests, confirm they pass**
+
+```fish
+bun test tests/onboard-status.test.ts
+```
+
+Expected: 16/16 PASS — same coverage as fish helper.
+
+- [ ] **Step 5: Smoke test (mirror the Phase 2 plan smoke)**
+
+```fish
+set -l scratch (mktemp -d)
+bin/onboard-scaffold.fish --target $scratch/onboard-smoke --cadence standard --no-gh
+bun run bin/onboard-status.ts --status $scratch/onboard-smoke
+bun run bin/onboard-status.ts --mute milestone $scratch/onboard-smoke
+bun run bin/onboard-status.ts --status $scratch/onboard-smoke
+bun run bin/onboard-status.ts --unmute milestone $scratch/onboard-smoke
+tail -c 1 $scratch/onboard-smoke/RAMP.md | xxd  # expect 0a (trailing LF preserved)
+rm -rf $scratch
+```
+
+Expected: identical output shape to Phase 2's fish smoke.
+
+- [ ] **Step 6: Delete the fish helper + update SKILL.md call-sites**
+
+```fish
+git rm bin/onboard-status.fish
+```
+
+Update `skills/onboard/SKILL.md` "Status, mute, and unmute" section: change `bin/onboard-status.fish` → `bun run bin/onboard-status.ts` in all three command lines.
+
+- [ ] **Step 7: Final verify**
+
+```fish
+bun test tests/onboard-status.test.ts
+bun test tests/onboard-scaffold.test.ts  # Phase 1 regression
+bunx tsc --noEmit
+fish validate.fish
+```
+
+All green required before advancing to Task 1.
+
+- [ ] **Step 8: Commit**
+
+```fish
+git add bin/onboard-status.ts tests/onboard-status.test.ts skills/onboard/SKILL.md
+git commit -m "onboard-status: port fish helper to TypeScript (#12)
+
+Phase 3 inflection — see memory/onboard_fish_vs_ts_inflection.md. Behavior
+frozen by tests/onboard-status.test.ts (16 tests unchanged). Eliminates
+fish list-vs-string-collect fragility, BSD-vs-GNU date forking, and
+fish math --scale=0 Linux/macOS quirk surfaced in PR #217 CI.
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+
+git rm bin/onboard-status.fish
+git commit -m "onboard-status: remove fish helper after TS port (#12)
+
+Co-Authored-By: Claude Opus 4.7 (1M context) <noreply@anthropic.com>"
+```
+
+**Stop condition:** if any of the 16 existing tests cannot be made to pass without changing the test body itself, STOP. The test contract is the behavior contract; modifying tests to match a weaker port is forbidden. Surface the divergence to the user before continuing.
 
 ---
 
