@@ -45,6 +45,12 @@ if test -e $target
     end
 end
 
-# Body filled in subsequent tasks.
 mkdir -p $target
+mkdir -p $target/stakeholders
+mkdir -p $target/interviews/raw
+mkdir -p $target/interviews/sanitized
+mkdir -p $target/swot
+mkdir -p $target/decks/slidev
+mkdir -p $target/decisions
+
 exit 0

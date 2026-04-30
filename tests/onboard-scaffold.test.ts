@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, existsSync, statSync, readFileSync, chmodSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -44,5 +44,26 @@ describe("bin/onboard-scaffold.fish", () => {
 
     expect(r.exitCode).not.toBe(0);
     expect(r.stderr).toContain("refusing to scaffold");
+  });
+
+  test("creates the full directory tree", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+
+    const r = runScaffold(root, "--target", target, "--cadence", "standard", "--no-gh");
+
+    expect(r.exitCode).toBe(0);
+    for (const sub of [
+      "stakeholders",
+      "interviews/raw",
+      "interviews/sanitized",
+      "swot",
+      "decks/slidev",
+      "decisions",
+    ]) {
+      const p = join(target, sub);
+      expect(existsSync(p)).toBe(true);
+      expect(statSync(p).isDirectory()).toBe(true);
+    }
   });
 });
