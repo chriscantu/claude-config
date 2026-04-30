@@ -46,7 +46,7 @@ optionally created private GitHub remote (user-confirmed at scaffold time).
    > Create a private GitHub repo for this ramp now? Y/N (default Y)
 
    → verify: user answers Y or N
-5. Run `bin/onboard-scaffold.fish --target <path> --cadence <preset> --gh-create yes|no`. → verify: exit 0; target dir exists with `RAMP.md`, `.gitignore`, `stakeholders/map.md`, and a `.git` dir
+5. Run `bin/onboard-scaffold.fish --target <path> --cadence <preset> --gh-create yes|no`. → verify: exit 0; target dir exists with `RAMP.md`, `.gitignore`, `stakeholders/map.md`, a `.git` dir, and the per-org subdirs `stakeholders/`, `interviews/raw/`, `interviews/sanitized/`, `swot/`, `decks/slidev/`, `decisions/`
 6. Capture manager-handoff inputs (see [manager-handoff.md](manager-handoff.md))
    directly into `<target>/stakeholders/map.md` via the section prompts there.
    → verify: each of the four section headers has at least the canonical "(none yet)" placeholder OR captured content

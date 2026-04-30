@@ -13,7 +13,9 @@ Ask the user (one section at a time):
 Capture verbatim names + 1-line roles. Do NOT capture candid commentary here — that
 belongs in `/1on1-prep` raw notes.
 
-After capture, commit:
+After capture, commit. This is the **second** commit — `bin/onboard-scaffold.fish`
+already created the initial scaffold commit (`Scaffold /onboard workspace`) before
+this handoff step runs:
 
 ```fish
 git -C <target> add stakeholders/map.md

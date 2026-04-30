@@ -6,7 +6,12 @@ flags.
 
 ## Directory layout
 
-See spec section "Workspace Layout" in `docs/superpowers/specs/2026-04-30-onboard-design.md`.
+The script creates: `stakeholders/`, `interviews/raw/`, `interviews/sanitized/`,
+`swot/`, `decks/slidev/`, `decisions/` plus `RAMP.md`, `.gitignore`, and
+`stakeholders/map.md` at the workspace root.
+
+See spec section "Workspace Layout" in `docs/superpowers/specs/2026-04-30-onboard-design.md`
+for rationale.
 
 ## .gitignore contents
 

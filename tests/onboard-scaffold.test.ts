@@ -11,7 +11,42 @@ type RunResult = { exitCode: number; stdout: string; stderr: string };
 
 const runScaffold = (cwd: string, ...args: string[]): RunResult => {
   const result = spawnSync("fish", [SCRIPT, ...args], { cwd, encoding: "utf8" });
-  if (result.error) throw result.error;
+  if (result.error) {
+    throw new Error(`spawn fish failed for args [${args.join(" ")}]: ${result.error.message}`);
+  }
+  return {
+    exitCode: result.status ?? -1,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
+};
+
+type GhStubBehavior = { exit?: number; stderr?: string };
+type GhStub = { stubDir: string; sentinel: string };
+
+const makeGhStub = (root: string, behavior: GhStubBehavior = {}): GhStub => {
+  const stubDir = join(root, "stubs");
+  mkdirSync(stubDir);
+  const sentinel = join(root, "gh-args.txt");
+  const exit = behavior.exit ?? 0;
+  const stderrLine = behavior.stderr ? `echo "${behavior.stderr}" >&2\n` : "";
+  writeFileSync(
+    join(stubDir, "gh"),
+    `#!/usr/bin/env sh\nprintf '%s\\n' "$@" > "${sentinel}"\n${stderrLine}exit ${exit}\n`,
+  );
+  chmodSync(join(stubDir, "gh"), 0o755);
+  return { stubDir, sentinel };
+};
+
+const runWithStub = (cwd: string, stub: GhStub, ...args: string[]): RunResult => {
+  const result = spawnSync("fish", [SCRIPT, ...args], {
+    cwd,
+    encoding: "utf8",
+    env: { ...process.env, PATH: `${stub.stubDir}:${process.env.PATH}` },
+  });
+  if (result.error) {
+    throw new Error(`spawn fish failed for args [${args.join(" ")}]: ${result.error.message}`);
+  }
   return {
     exitCode: result.status ?? -1,
     stdout: result.stdout,
@@ -182,29 +217,12 @@ describe("bin/onboard-scaffold.fish", () => {
   test("gh repo create is invoked when --gh-create yes is passed", () => {
     const root = makeFixture();
     const target = join(root, "onboard-acme");
+    const stub = makeGhStub(root);
 
-    const stubDir = join(root, "stubs");
-    mkdirSync(stubDir);
-    const sentinel = join(root, "gh-args.txt");
-    writeFileSync(
-      join(stubDir, "gh"),
-      `#!/usr/bin/env sh\nprintf '%s\\n' "$@" > "${sentinel}"\nexit 0\n`,
-    );
-    chmodSync(join(stubDir, "gh"), 0o755);
+    const r = runWithStub(root, stub, "--target", target, "--cadence", "standard", "--gh-create", "yes");
 
-    const result = spawnSync(
-      "fish",
-      [SCRIPT, "--target", target, "--cadence", "standard", "--gh-create", "yes"],
-      {
-        cwd: root,
-        encoding: "utf8",
-        env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` },
-      },
-    );
-
-    expect(result.status).toBe(0);
-
-    const args = readFileSync(sentinel, "utf8").trim().split("\n");
+    expect(r.exitCode).toBe(0);
+    const args = readFileSync(stub.sentinel, "utf8").trim().split("\n");
     expect(args).toContain("repo");
     expect(args).toContain("create");
     expect(args).toContain("--private");
@@ -213,79 +231,47 @@ describe("bin/onboard-scaffold.fish", () => {
     expect(args.some((a) => a.startsWith("--source="))).toBe(true);
   });
 
+  test("gh is NOT invoked when --gh-create no is passed", () => {
+    const root = makeFixture();
+    const target = join(root, "onboard-acme");
+    const stub = makeGhStub(root);
+
+    const r = runWithStub(root, stub, "--target", target, "--cadence", "standard", "--gh-create", "no");
+
+    expect(r.exitCode).toBe(0);
+    expect(existsSync(stub.sentinel)).toBe(false);
+  });
+
   test("--no-gh overrides --gh-create yes (precedence)", () => {
     const root = makeFixture();
     const target = join(root, "onboard-acme");
+    const stub = makeGhStub(root);
 
-    const stubDir = join(root, "stubs");
-    mkdirSync(stubDir);
-    const sentinel = join(root, "gh-args.txt");
-    writeFileSync(
-      join(stubDir, "gh"),
-      `#!/usr/bin/env sh\nprintf 'STUB-RAN' > "${sentinel}"\nexit 0\n`,
-    );
-    chmodSync(join(stubDir, "gh"), 0o755);
+    const r = runWithStub(root, stub, "--target", target, "--cadence", "standard", "--gh-create", "yes", "--no-gh");
 
-    const result = spawnSync(
-      "fish",
-      [SCRIPT, "--target", target, "--cadence", "standard", "--gh-create", "yes", "--no-gh"],
-      {
-        cwd: root,
-        encoding: "utf8",
-        env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` },
-      },
-    );
-
-    expect(result.status).toBe(0);
-    expect(existsSync(sentinel)).toBe(false);
+    expect(r.exitCode).toBe(0);
+    expect(existsSync(stub.sentinel)).toBe(false);
   });
 
-  test("propagates non-zero exit when gh repo create fails", () => {
+  test("propagates exit 3 when gh repo create fails", () => {
     const root = makeFixture();
     const target = join(root, "onboard-acme");
+    const stub = makeGhStub(root, { exit: 7, stderr: "auth required" });
 
-    const stubDir = join(root, "stubs");
-    mkdirSync(stubDir);
-    writeFileSync(
-      join(stubDir, "gh"),
-      `#!/usr/bin/env sh\necho "auth required" >&2\nexit 7\n`,
-    );
-    chmodSync(join(stubDir, "gh"), 0o755);
+    const r = runWithStub(root, stub, "--target", target, "--cadence", "standard", "--gh-create", "yes");
 
-    const result = spawnSync(
-      "fish",
-      [SCRIPT, "--target", target, "--cadence", "standard", "--gh-create", "yes"],
-      {
-        cwd: root,
-        encoding: "utf8",
-        env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` },
-      },
-    );
-
-    expect(result.status).not.toBe(0);
-    expect(result.stderr).toContain("gh repo create failed");
+    expect(r.exitCode).toBe(3);
+    expect(r.stderr).toContain("gh repo create failed");
     expect(existsSync(join(target, "RAMP.md"))).toBe(true);
   });
 
   test("gh is NOT invoked when --no-gh is passed", () => {
     const root = makeFixture();
     const target = join(root, "onboard-acme");
+    const stub = makeGhStub(root);
 
-    const stubDir = join(root, "stubs");
-    mkdirSync(stubDir);
-    const sentinel = join(root, "gh-args.txt");
-    writeFileSync(
-      join(stubDir, "gh"),
-      `#!/usr/bin/env sh\nprintf 'STUB-RAN' > "${sentinel}"\nexit 0\n`,
-    );
-    chmodSync(join(stubDir, "gh"), 0o755);
+    runWithStub(root, stub, "--target", target, "--cadence", "standard", "--no-gh");
 
-    spawnSync("fish", [SCRIPT, "--target", target, "--cadence", "standard", "--no-gh"], {
-      cwd: root,
-      encoding: "utf8",
-      env: { ...process.env, PATH: `${stubDir}:${process.env.PATH}` },
-    });
-
-    expect(existsSync(sentinel)).toBe(false);
+    expect(existsSync(stub.sentinel)).toBe(false);
   });
 });
