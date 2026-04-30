@@ -53,7 +53,7 @@ const assertExit = (label: string, r: RunResult, expected: "zero" | "non-zero") 
   const ok = expected === "zero" ? r.exitCode === 0 : r.exitCode !== 0;
   if (!ok) {
     throw new Error(
-      `${label}: expected ${expected} exit, got ${r.exitCode}\n--- stdout ---\n${r.stdout}--- stderr ---\n${r.stderr}`,
+      `${label}: expected ${expected} exit, got ${r.exitCode}\n--- stdout ---\n${r.stdout.endsWith("\n") ? r.stdout : r.stdout + "\n"}--- stderr ---\n${r.stderr}`,
     );
   }
 };
