@@ -55,52 +55,14 @@ optionally created private GitHub remote (user-confirmed at scaffold time).
    > Workspace ready at <path>. Next: invoke /stakeholder-map to flesh out the seed
    > and /1on1-prep when you book your first interview.
 
-8. **Register the cadence-nag scheduled task** (Phase 2).
-
-   a. Read [cadence-nags.md](cadence-nags.md) and copy the literal text inside
-      the "Description body" code fence into a working buffer.
-
-   b. Perform exactly two literal find/replace pairs on the buffer (string
-      replace, NOT regex — placeholders appear verbatim):
-
-      | Find | Replace with |
-      |---|---|
-      | `{{WORKSPACE_ABS_PATH}}` | absolute path of the scaffolded workspace (e.g., `/Users/<user>/repos/onboard-acme`) |
-      | `{{ORG_SLUG}}` | kebab-case org slug (the basename of the workspace minus the `onboard-` prefix) |
-
-      After substitution, scan the buffer for any remaining `{{` token. If any
-      exist, ABORT and surface the missed placeholder. Do not pass an
-      under-substituted body to the MCP. Note: angle-bracket markers like
-      `<ISO date>` are RUNTIME-side placeholders for the autonomous session
-      itself — do NOT scan for `<...>` pairs (would false-positive on every
-      scaffold). Only `{{NAME}}` is a scaffold-time placeholder.
-
-   c. Call:
-
-      ```
-      mcp__scheduled-tasks__create_scheduled_task(
-        taskName       = "onboard-{{ORG_SLUG}}-cadence",
-        cronExpression = "0 9 * * *",
-        description    = <substituted buffer from step b>,
-      )
-      ```
-
-      The `taskName` argument also takes a literal `{{ORG_SLUG}}` substitution.
-
-   d. If the MCP tool is unavailable OR the call fails, you MUST:
-
-      i.   Append a one-line warning to `<workspace>/.scaffold-warnings.log`:
-           `<ISO date>  cadence-nag-not-registered  <reason: tool unavailable | call failed: <err>>`
-      ii.  Replace the user-facing "Workspace ready" success message from
-           step 7 with: "Workspace partially ready — cadence-nag scheduler
-           NOT registered. See `<workspace>/.scaffold-warnings.log`. Re-run
-           `/onboard --register-nags <org>` once the scheduled-tasks MCP is
-           available." (The `--register-nags` flag is Phase 5; until then,
-           the warning persists on disk so a human can re-scaffold or
-           manually invoke the MCP.)
-      iii. Do NOT silently continue. The persistent on-disk warning is the
-           contract — a transient terminal echo is insufficient (scrolls
-           off, never recoverable).
+8. **Register the cadence-nag scheduled task** (Phase 2). Run the
+   scaffold-time registration protocol in [cadence-nags.md](cadence-nags.md)
+   § "Scaffold-time registration protocol" — Step A (substitute
+   `{{WORKSPACE_ABS_PATH}}` + `{{ORG_SLUG}}` placeholders, scan for missed
+   `{{` tokens), Step B (call `mcp__scheduled-tasks__create_scheduled_task`),
+   Step C (on MCP unavailable or call failure, append to
+   `<workspace>/.scaffold-warnings.log` and surface the partial-ready
+   message). Do NOT silently continue on failure.
 
 ## Status, mute, and unmute
 
@@ -131,7 +93,7 @@ downstream synthesis consumes `interviews/sanitized/` exclusively.
 ## Pre-render attribution gate (Phase 3)
 
 Before invoking `/present` for any milestone reflect-back (W4 interim, W8
-final), MUST run the attribution check:
+final), MUST run:
 
 ```fish
 bun run "$CLAUDE_PROJECT_DIR/bin/onboard-guard.ts" attribution-check \
@@ -139,23 +101,16 @@ bun run "$CLAUDE_PROJECT_DIR/bin/onboard-guard.ts" attribution-check \
   <workspace>/stakeholders/map.md
 ```
 
-`CLAUDE_PROJECT_DIR` is the harness-provided absolute path to the repository
-root. If unset, resolve by walking up from CWD until a `.git` directory is
-found.
+(`CLAUDE_PROJECT_DIR` is harness-provided; if unset, walk up from CWD until a
+`.git` directory is found.)
 
-Exit code 3 means the deck contains stakeholder names from `map.md`.
-Surface the guard's stderr (file:line:phrase report) to the user and
-require explicit `override` token before proceeding. Anything else aborts.
+On exit 3, surface the guard's stderr (file:line:phrase report) and require
+the literal `override` token before proceeding. Override is enforced HERE in
+the SKILL.md body — the helper is pure, no interactive I/O. Per-render, no
+persistent state.
 
-**Override is enforced HERE, by the SKILL.md body — not by the guard
-itself.** The helper exits 3 and emits the report; the calling skill
-prompts for `override` and decides whether to proceed. This keeps the
-helper pure (no interactive I/O) and centralizes UX in the skill.
-
-See [refusal-contract.md](refusal-contract.md) for override semantics.
-
-The gate runs PER render — re-renders re-check. There is no persistent
-override state.
+See [refusal-contract.md](refusal-contract.md) for the full exit-code table
+and override semantics.
 
 ## Backtracking
 
