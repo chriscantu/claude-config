@@ -32,11 +32,30 @@ const runLinkConfig = (home: string, ...args: string[]): RunResult => {
     env: { ...process.env, HOME: home },
     encoding: "utf8",
   });
+  // spawn itself failed (fish missing, fork limit, etc.) → status is null
+  // and result.error holds the real cause. Surface it directly so a CI
+  // failure shows the spawn error instead of a misleading "exit -1".
+  if (result.error) throw result.error;
   return {
     exitCode: result.status ?? -1,
     stdout: result.stdout,
     stderr: result.stderr,
   };
+};
+
+// expect(...).toBe(0) on a non-zero exit shows only the diff. The fish
+// origin printed the captured log on failure so CI logs explained why the
+// script exited non-zero. Preserve that affordance: throw an Error whose
+// message includes label + stdout + stderr when a run did not match
+// expectations. Use for exit-code assertions and the rare cases where the
+// next assertion depends on the run having succeeded.
+const assertExit = (label: string, r: RunResult, expected: "zero" | "non-zero") => {
+  const ok = expected === "zero" ? r.exitCode === 0 : r.exitCode !== 0;
+  if (!ok) {
+    throw new Error(
+      `${label}: expected ${expected} exit, got ${r.exitCode}\n--- stdout ---\n${r.stdout}--- stderr ---\n${r.stderr}`,
+    );
+  }
 };
 
 const fixtures: string[] = [];
@@ -62,10 +81,10 @@ describe("link-config.fish round-trip", () => {
     const home = makeFixtureHome();
 
     const install = runLinkConfig(home, "--install");
-    expect(install.exitCode).toBe(0);
+    assertExit("--install on empty HOME", install, "zero");
 
     const check = runLinkConfig(home, "--check");
-    expect(check.exitCode).toBe(0);
+    assertExit("--check after clean install", check, "zero");
 
     const badLines = check.stdout
       .split("\n")
@@ -77,10 +96,10 @@ describe("link-config.fish round-trip", () => {
     const home = makeFixtureHome();
 
     const first = runLinkConfig(home, "--install");
-    expect(first.exitCode).toBe(0);
+    assertExit("first --install", first, "zero");
 
     const second = runLinkConfig(home, "--install");
-    expect(second.exitCode).toBe(0);
+    assertExit("second --install", second, "zero");
 
     const summary = second.stdout
       .split("\n")
@@ -96,7 +115,7 @@ describe("link-config.fish round-trip", () => {
     const home = makeFixtureHome();
 
     const install = runLinkConfig(home, "--install");
-    expect(install.exitCode).toBe(0);
+    assertExit("setup --install", install, "zero");
 
     // Break one symlink: re-point CLAUDE.md (always present) at a
     // nonexistent target.
@@ -107,7 +126,7 @@ describe("link-config.fish round-trip", () => {
     symlinkSync(`/tmp/nonexistent-link-target-${nonce}`, brokenDst);
 
     const check = runLinkConfig(home, "--check");
-    expect(check.exitCode).not.toBe(0);
+    assertExit("--check on broken symlink", check, "non-zero");
     const staleLine = check.stdout
       .split("\n")
       .find((line) => /^STALE link:.*CLAUDE\.md/.test(line));
