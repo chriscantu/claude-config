@@ -1,71 +1,79 @@
 ---
 name: onboard
 description: >
-  Use when the user says /onboard, "<trigger phrase>", or <situation that
-  warrants this skill>. One sentence per trigger class — name WHEN to invoke,
-  not WHAT the skill does. Do NOT use when <anti-trigger — situation where
-  another skill or no skill fits better>. Avoid trigger overlap with existing
-  skills (audit `skills/*/SKILL.md` per #73).
+  Use when the user says /onboard <org>, "scaffold a new ramp", "set up
+  onboarding workspace for <org>", or starts a new senior eng leader role.
+  Day-0 scaffolder for a per-org ramp workspace; Phase 1 only — cadence nags,
+  confidentiality enforcement, Calendar integration, and graduation ship in
+  later phases. Do NOT use for codebase / architecture onboarding (see
+  `architecture-overview` skill, issue #44).
 status: experimental
 version: 0.1.0
 ---
 
-# <Skill Title>
+# /onboard — Senior Eng Leader 90-Day Ramp Orchestrator
 
-<!--
-  TEMPLATE NOTES — delete this comment block before merging.
+Phase 1 (this implementation): scaffolds a per-org git-isolated workspace at
+`~/repos/onboard-<org>/` with the canonical directory tree, `.gitignore`,
+`RAMP.md` from a chosen cadence preset, stakeholder seed file, and an
+auto-prompted private GitHub remote.
 
-  Required frontmatter (loader-enforced via validate.fish):
-    - name: must equal the directory name (kebab-case)
-    - description: triggers + when-to-use; multi-line with `>` is fine
-
-  Client-defined frontmatter (not loader-enforced; conventional):
-    - status: one of `experimental` | `stable` | `deprecated` (see #76)
-    - version: semver-ish; bump on behavioral change
-
-  Body shape (progressive disclosure — see #71):
-    - Keep SKILL.md thin. Push depth into `references/<topic>.md`.
-    - Lead with one-line announce string the model speaks on invocation.
-    - Then: When to Use / When NOT / Procedure / Backtracking / References.
-
-  Evals:
-    - At least one eval in `evals/evals.json` before status: stable.
-    - HARD-GATE-promoted skills target ≥4 structural assertions per ADR #0005.
-    - Reference `tests/EVALS.md` for assertion-type rubric.
-    - `evals.json` is NOT scaffolded (the runner rejects empty arrays). Create
-      it from the snippet in `evals/README.md` when you author the first eval.
-
-  bin/new-skill substitutes the literal `onboard` for the slug. Don't
-  introduce `onboard` as real text in any future template body — it will
-  be rewritten in every spawned skill.
--->
-
-One-paragraph statement of what this skill does and why it exists.
-
-**Announce at start:** "I'm using the onboard skill to <verb the user-visible action>."
+**Announce at start:** "I'm using the onboard skill to scaffold your <org> ramp workspace."
 
 ## When to Use
 
-- <Trigger 1 — concrete user phrasing or situation>
-- <Trigger 2>
+- `/onboard <org-name>` — day-0 scaffold for a new senior leadership role
+- "Set up onboarding workspace for <org>"
+- "Scaffold a new ramp"
 
 ## When NOT to Use
 
-- <Anti-trigger — situation where another skill or no skill fits better>
-- <Avoid overlap with: list adjacent skills>
+- Codebase / architecture onboarding (use `architecture-overview`, issue #44)
+- Resuming a graduated ramp (Phase 5 territory; not yet implemented)
+- Cadence-nag re-arming, mute toggles, calendar integration (Phases 2–4)
 
 ## Procedure
 
-1. <Step> → verify: <observable check>
-2. <Step> → verify: <observable check>
+1. Confirm the org slug. Default to a kebab-case form of the org name. → verify: user confirms or supplies override
+2. Confirm the workspace target path. Default `~/repos/onboard-<slug>/`. → verify: path is absolute, parent exists
+3. Ask the cadence preset:
+
+   > Pick cadence: aggressive | **standard** | relaxed
+
+   → verify: user picks one of the three valid values
+4. Ask whether to create a private GitHub remote:
+
+   > Create a private GitHub repo for this ramp now? Y/N (default Y)
+
+   → verify: user answers Y or N
+5. Run `bin/onboard-scaffold.fish --target <path> --cadence <preset> --gh-create yes|no`. → verify: exit 0; target dir exists with `RAMP.md`, `.gitignore`, `stakeholders/map.md`, and a `.git` dir
+6. Capture manager-handoff inputs (see [manager-handoff.md](manager-handoff.md))
+   directly into `<target>/stakeholders/map.md` via the section prompts there.
+   → verify: each of the four section headers has at least the canonical "(none yet)" placeholder OR captured content
+7. Print next-step guidance:
+
+   > Workspace ready at <path>. Next: invoke /stakeholder-map to flesh out the seed
+   > and /1on1-prep when you book your first interview.
 
 ## Backtracking
 
-If <validation question> fails, return to <prior step> and <action>. Do not
-advance with a known-wrong shape.
+If `bin/onboard-scaffold.fish` exits non-zero, surface the stderr directly to
+the user and stop. The most common cause is the target dir already containing
+files (clobber-refusal); ask the user whether to choose a different path.
+
+## What Phase 1 deliberately does NOT do
+
+- Schedule milestone or activity-velocity nags (Phase 2)
+- Enforce the raw → sanitized confidentiality boundary at downstream-skill read time
+  (Phase 3 — directory layout and `.gitignore` are in place but the read-refusal
+  logic in `/swot` and `/present` is wired up later)
+- Calendar API integration (Phase 4)
+- `--graduate` retro + archive (Phase 5)
 
 ## References
 
 Read on demand, not upfront:
 
-<!-- - [topic.md](references/topic.md) — <one-line summary of what's there> -->
+- [scaffold.md](scaffold.md) — dir layout, scaffold flow, helper flag reference
+- [ramp-template.md](ramp-template.md) — RAMP.md preset templates
+- [manager-handoff.md](manager-handoff.md) — manager-handoff capture prompts
