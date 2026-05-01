@@ -57,6 +57,11 @@ const makeWorkspace = (org = "acme"): string => {
   mkdirSync(ws, { recursive: true });
   // Init git repo so isCleanTree + tag/commit can run.
   git(ws, "init", "-q", "-b", "main");
+  // Persist git identity LOCAL to the workspace so commits made from
+  // runGraduate (which spawns git without an env override) succeed on
+  // CI runners that have no global gitconfig.
+  git(ws, "config", "user.email", GIT_ENV.GIT_AUTHOR_EMAIL);
+  git(ws, "config", "user.name", GIT_ENV.GIT_AUTHOR_NAME);
   writeFileSync(join(ws, "RAMP.md"), `# Ramp\n\nStarted: 2026-01-01\n`);
   git(ws, "add", "RAMP.md");
   git(ws, "commit", "-q", "-m", "scaffold");

@@ -40,6 +40,11 @@ const scaffoldWorkspace = (org: string): string => {
   if (r.status !== 0) {
     throw new Error(`scaffold failed: ${r.stderr}`);
   }
+  // Persist git identity LOCAL to the workspace so subsequent commits
+  // made from runGraduate (which spawns git without an env override)
+  // succeed on CI runners that have no global gitconfig.
+  spawnSync("git", ["-C", target, "config", "user.email", GIT_ENV.GIT_AUTHOR_EMAIL]);
+  spawnSync("git", ["-C", target, "config", "user.name", GIT_ENV.GIT_AUTHOR_NAME]);
   return target;
 };
 
