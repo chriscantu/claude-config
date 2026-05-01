@@ -70,7 +70,7 @@ optionally created private GitHub remote (user-confirmed at scaffold time).
 Prints elapsed days, next unchecked milestone, and current mutes.
 
 `/onboard --mute <category>` → run `bun run bin/onboard-status.ts --mute <category> <workspace-path>`.
-Categories: `milestone` | `velocity`. (`calendar` is Phase 4.) Mute state persists in
+Categories: `milestone` | `velocity` | `calendar`. Mute state persists in
 `RAMP.md` `## Cadence Mutes`.
 
 `/onboard --unmute <category>` → run `bun run bin/onboard-status.ts --unmute <category> <workspace-path>`.
@@ -112,6 +112,27 @@ persistent state.
 See [refusal-contract.md](refusal-contract.md) for the full exit-code table
 and override semantics.
 
+## Calendar paste (Phase 4)
+
+`/onboard --calendar-paste <workspace>` reads a Calendar attendee summary
+from stdin, parses it, diffs against `<workspace>/stakeholders/map.md`, and
+writes unmatched invitees to `<workspace>/calendar-suggestions.md` for user
+review. The cron-fired cadence-nag worker reminds on Mondays when paste is
+7+ days stale.
+
+```fish
+# Common usage — paste from clipboard, pipe to helper
+pbpaste | bun run "$CLAUDE_PROJECT_DIR/bin/onboard-calendar.ts" paste <workspace>
+```
+
+(`CLAUDE_PROJECT_DIR` is harness-provided; if unset, walk up from CWD until
+a `.git` directory is found.)
+
+Paste-only is Phase 4 by design (live MCP scan deferred). See
+[calendar-paste.md](calendar-paste.md) for the format taxonomy, diff-key
+limitations, suggestions-file shape, and override semantics. Mute via
+`/onboard --mute calendar` per the existing status helper.
+
 ## Backtracking
 
 If `bin/onboard-scaffold.fish` exits non-zero, surface the stderr directly to
@@ -120,7 +141,7 @@ files (clobber-refusal); ask the user whether to choose a different path.
 
 ## What this skill deliberately does NOT do (yet)
 
-- Calendar API integration (Phase 4)
+- Live Calendar API/MCP scan — Phase 4 ships paste-only; live scan deferred
 - `--graduate` retro + archive, including unscheduling the cadence task (Phase 5)
 
 ## References

@@ -12,7 +12,7 @@ The autonomous session below depends on three RAMP.md schema invariants. If
 description body of every live MCP-registered cadence task must be updated:
 
 1. `Started: YYYY-MM-DD` line — single source of truth for elapsed time.
-2. `## Cadence Mutes` section header with `^- (milestone|velocity)$` lines
+2. `## Cadence Mutes` section header with `^- (milestone|velocity|calendar)$` lines
    (or literal `(none)`).
 3. `| W<n> | <milestone text> | [ ] |` (unchecked) / `| W<n> | … | [x] |`
    (checked) — table-row format, double-pipe delimited, with `<n>` the
@@ -121,7 +121,7 @@ Steps:
    - Parse `Started:` (YYYY-MM-DD). If missing or unparseable, abort
      after logging the same orphaned-tasks line above (class `corrupt`).
    - Parse `## Cadence Mutes`. Build a set of muted categories from
-     lines matching `^- (milestone|velocity)$`.
+     lines matching `^- (milestone|velocity|calendar)$`.
 
 2. Compute elapsed_days = today - Started. elapsed_weeks = floor(elapsed_days / 7).
    If elapsed_days < 0, abort (RAMP.md Started: is in the future — log to
@@ -181,12 +181,41 @@ Steps:
    Dedupe by grepping NAGS.md for the exact prefix `<ISO date>  velocity`
    (two-space delimiter, literal). If any match for today, skip.
 
-5. After the checks (whether or not anything was appended), update a
+5. **Calendar-stale check** (skip if `calendar` is muted):
+
+   Mondays only — if `today.getDay() !== 1` (where 0=Sun, 1=Mon), skip
+   this step entirely. The check is a weekly nudge, not daily, to avoid
+   burying NAGS.md.
+
+   Read `<workspace>/.calendar-last-paste`:
+   - If missing → build the candidate line:
+
+         <ISO date>  calendar  paste new invitee summary (no paste yet)
+
+   - If present, parse the single ISO date line. If `today - paste_date >= 7d`,
+     build:
+
+         <ISO date>  calendar  paste new invitee summary (last paste N+ days ago)
+
+     where N is the integer day count.
+
+   - If present and < 7 days stale, do not nag.
+
+   Dedupe by grepping NAGS.md for the exact prefix `<ISO date>  calendar`
+   (two-space delimiter, literal). If any match for today, skip.
+
+   The autonomous worker MUST NOT invoke `/onboard --calendar-paste`,
+   `mcp__5726bf10-7325-408d-9c0c-e32eaf106ac5__list_events` (or any other
+   `mcp__*__list_events` / `mcp__*__get_event` Calendar surface), `fetch(...)`,
+   or any other HTTP / network / MCP call. Calendar paste is foreground
+   user-initiated only. The cron's job is to remind, not to scan.
+
+6. After the checks (whether or not anything was appended), update a
    liveness stamp at {{WORKSPACE_ABS_PATH}}/.cadence-last-fire with
    the ISO date. This single-line file lets `/onboard --status` confirm
    the cron is alive even on no-op fires.
 
-6. Constraints:
+7. Constraints:
    - Workspace path is absolute. Treat any relative path as a bug; abort.
    - Do NOT modify RAMP.md.
    - Do NOT push to remote.
@@ -206,7 +235,7 @@ Steps:
 
 ## What this doc deliberately does NOT cover
 
-- Calendar-watch nag class — Phase 4.
+- Calendar live MCP scan — deferred (Phase 4 ships paste-only; live scan in a later phase).
 - Removal at `--graduate` — Phase 5 (will call
   `mcp__scheduled-tasks__update_scheduled_task` or the deletion equivalent).
 - Surfacing orphan/corrupt warnings to a foreground user — Phase 3 will

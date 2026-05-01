@@ -1,7 +1,7 @@
 // tests/onboard-guard.test.ts
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, mkdirSync, writeFileSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -60,6 +60,38 @@ describe("bin/onboard-guard.ts refuse-raw", () => {
     writeFileSync(nested, "Notes\n");
     const r = run("refuse-raw", nested);
     expect(r.exitCode).toBe(2);
+  });
+});
+
+describe("bin/onboard-guard.ts refuse-raw — symlink hardening (Phase 4)", () => {
+  test("exits 2 when path is a symlink whose target is inside interviews/raw", () => {
+    const ws = makeWorkspace();
+    const real = join(ws, "interviews", "raw", "2026-04-15-sarah.md");
+    writeFileSync(real, "Verbatim notes\n");
+    const link = join(ws, "shortcut-to-sarah.md");
+    symlinkSync(real, link);
+    const r = run("refuse-raw", link);
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("interviews/raw");
+  });
+
+  test("exits 0 when symlink target is outside interviews/raw", () => {
+    const ws = makeWorkspace();
+    const real = join(ws, "interviews", "sanitized", "themes.md");
+    writeFileSync(real, "## Theme A\n");
+    const link = join(ws, "shortcut-to-themes.md");
+    symlinkSync(real, link);
+    const r = run("refuse-raw", link);
+    expect(r.exitCode).toBe(0);
+  });
+
+  test("exits 2 when symlink is broken (target missing — safer default)", () => {
+    const ws = makeWorkspace();
+    const link = join(ws, "dangling.md");
+    symlinkSync(join(ws, "interviews", "raw", "missing.md"), link);
+    const r = run("refuse-raw", link);
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("broken symlink");
   });
 });
 

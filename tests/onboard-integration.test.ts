@@ -114,3 +114,57 @@ describe("Phase 3 cross-skill integration", () => {
     expect(r.exitCode).toBe(0);
   });
 });
+
+describe("Phase 4 calendar paste", () => {
+  test("scaffold + map.md seed + freeform paste → suggestions + stamp + NAGS", () => {
+    const ws = scaffoldWorkspace("acme");
+    const mapPath = join(ws, "stakeholders", "map.md");
+    const existing = readFileSync(mapPath, "utf8");
+    writeFileSync(
+      mapPath,
+      existing + "\n## Direct reports\n\n- Sarah Chen — Senior Engineer\n",
+    );
+
+    const cal = join(REPO, "bin", "onboard-calendar.ts");
+    const r = spawnSync(
+      "bun",
+      ["run", cal, "paste", ws],
+      {
+        input: "Sarah Chen <sarah@acme.com>\nPriya Patel <priya@acme.com>\n",
+        encoding: "utf8",
+      },
+    );
+    expect(r.status).toBe(0);
+
+    const suggestions = readFileSync(join(ws, "calendar-suggestions.md"), "utf8");
+    expect(suggestions).toContain("Priya Patel");
+    expect(suggestions).not.toContain("Sarah Chen");
+
+    const stamp = readFileSync(join(ws, ".calendar-last-paste"), "utf8").trim();
+    expect(stamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    const nags = readFileSync(join(ws, "NAGS.md"), "utf8");
+    const today = new Date().toISOString().slice(0, 10);
+    expect(nags).toContain(`${today}  calendar  1 new invitee pending review`);
+  });
+
+  test("re-running paste on same day does not duplicate NAGS line", () => {
+    const ws = scaffoldWorkspace("acme");
+    writeFileSync(
+      join(ws, "stakeholders", "map.md"),
+      "# Stakeholder Map\n\n## Direct reports\n\n- Sarah Chen — SE\n",
+    );
+    const cal = join(REPO, "bin", "onboard-calendar.ts");
+    const input = "Priya Patel <priya@acme.com>\n";
+
+    spawnSync("bun", ["run", cal, "paste", ws], { input, encoding: "utf8" });
+    spawnSync("bun", ["run", cal, "paste", ws], { input, encoding: "utf8" });
+
+    const nags = readFileSync(join(ws, "NAGS.md"), "utf8");
+    const today = new Date().toISOString().slice(0, 10);
+    const matches = nags.split("\n").filter((l) =>
+      l.startsWith(`${today}  calendar  `),
+    );
+    expect(matches.length).toBe(1);
+  });
+});

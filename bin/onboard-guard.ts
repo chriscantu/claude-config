@@ -6,26 +6,48 @@
 //   attribution-check <deck> <map>   Exit 3 if <deck> markdown contains stakeholder
 //                                    names extracted from <map>.
 
-import { readFileSync } from "node:fs";
-import { basename, resolve, sep } from "node:path";
+import { readFileSync, realpathSync } from "node:fs";
+import { basename, sep } from "node:path";
 
 const RAW_SEGMENT = `${sep}interviews${sep}raw${sep}`;
 
-export const isInsideRaw = (path: string): boolean => {
-  const abs = resolve(path);
-  return (abs + sep).includes(RAW_SEGMENT);
+type RawCheck =
+  | { kind: "broken"; input: string }
+  | { kind: "inside"; input: string; resolved: string }
+  | { kind: "outside"; input: string; resolved: string };
+
+export const checkPath = (path: string): RawCheck => {
+  let resolved: string;
+  try {
+    resolved = realpathSync(path);
+  } catch {
+    return { kind: "broken", input: path };
+  }
+  const insideRaw = (resolved + sep).includes(RAW_SEGMENT);
+  return insideRaw
+    ? { kind: "inside", input: path, resolved }
+    : { kind: "outside", input: path, resolved };
 };
 
 const refuseRaw = (path: string): number => {
-  if (isInsideRaw(path)) {
-    process.stderr.write(
-      `refused: ${path} is inside interviews/raw/\n` +
-      `Downstream skills (/swot, /present) read interviews/sanitized/ exclusively.\n` +
-      `See skills/onboard/refusal-contract.md.\n`,
-    );
-    return 2;
+  const check = checkPath(path);
+  switch (check.kind) {
+    case "broken":
+      process.stderr.write(
+        `refused: broken symlink at ${check.input} (target missing; refusing as safer default)\n` +
+        `See skills/onboard/refusal-contract.md.\n`,
+      );
+      return 2;
+    case "inside":
+      process.stderr.write(
+        `refused: ${check.input} (resolves to ${check.resolved}) is inside interviews/raw/\n` +
+        `Downstream skills (/swot, /present) read interviews/sanitized/ exclusively.\n` +
+        `See skills/onboard/refusal-contract.md.\n`,
+      );
+      return 2;
+    case "outside":
+      return 0;
   }
-  return 0;
 };
 
 // Extract names from map.md bullet leaders. A bullet line is `- <name> — <role>`
