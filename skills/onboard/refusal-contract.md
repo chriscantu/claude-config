@@ -14,9 +14,9 @@ codes:
 | 2 | Path is inside `interviews/raw/` (refused) | abort with the guard's stderr message; surface to the user; do NOT read the file |
 | 64 | Misuse (wrong arg count) | bug — file an issue |
 
-Detection rule: the absolute path of the argument contains the literal segment
-`/interviews/raw/` anywhere. Symlink traversal is NOT followed (Phase 3 limitation,
-see "What Phase 4 picks up").
+Detection rule: the path is resolved via `realpathSync` before the
+`/interviews/raw/` segment check. Symlinks pointing at raw notes refuse;
+broken symlinks (target missing) refuse as the safer default.
 
 ## Attribution — `bin/onboard-guard.ts attribution-check <deck.md> <map.md>`
 
@@ -43,7 +43,6 @@ whole bullet text as the name. Names are deduplicated; the regex is built as
 
 ## What this contract deliberately does NOT cover
 
-- Symlink-to-raw traversal (Phase 4 hardening).
 - Nicknames, misspellings, pronouns ("she", "they") — false-negatives accepted as
   Phase 3 residual risk; tracked for Phase 4.
 - Refusal of memory-MCP reads of raw notes — `/1on1-prep` writes only to memory
