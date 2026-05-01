@@ -205,9 +205,10 @@ Steps:
    (two-space delimiter, literal). If any match for today, skip.
 
    The autonomous worker MUST NOT invoke `/onboard --calendar-paste`,
-   `mcp__5726bf10-…__list_events`, or any HTTP/MCP call. Calendar paste
-   is foreground user-initiated only. The cron's job is to remind, not to
-   scan.
+   `mcp__5726bf10-7325-408d-9c0c-e32eaf106ac5__list_events` (or any other
+   `mcp__*__list_events` / `mcp__*__get_event` Calendar surface), `fetch(...)`,
+   or any other HTTP / network / MCP call. Calendar paste is foreground
+   user-initiated only. The cron's job is to remind, not to scan.
 
 6. After the checks (whether or not anything was appended), update a
    liveness stamp at {{WORKSPACE_ABS_PATH}}/.cadence-last-fire with
