@@ -154,8 +154,41 @@ const printStatus = (ws: string, original: string): number => {
   return 0;
 };
 
+const printGraduated = (ws: string, gradPath: string): number => {
+  const raw = readFileSync(gradPath, "utf8").trim();
+  const date = raw.split("\n")[0] ?? "";
+  if (date.length === 0) {
+    process.stderr.write(
+      `${gradPath} exists but is empty — graduation date missing.\n` +
+      `Inspect with \`cat ${gradPath}\`; rewrite with the ISO date the ramp ` +
+      `was graduated, or delete the file to ungraduate.\n`,
+    );
+    return 1;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    process.stderr.write(
+      `${gradPath} first line is not an ISO YYYY-MM-DD date: '${date}'.\n` +
+      `Inspect with \`cat ${gradPath}\`; sentinel may be corrupted.\n`,
+    );
+    return 1;
+  }
+  process.stdout.write(`Workspace: ${ws}\n`);
+  process.stdout.write(`Status: graduated ${date}\n`);
+  return 0;
+};
+
 const main = (): number => {
   const { mode, category, ws } = parseArgs(process.argv.slice(2));
+
+  // Phase 5: graduated short-circuit. The .graduated sentinel marks a
+  // ramp as closed; --status surfaces the graduation date and skips the
+  // live-ramp summary. --mute / --unmute fall through to existing
+  // behavior (the user may still need to edit RAMP.md mutes during a
+  // post-graduation re-open).
+  const gradPath = join(ws, ".graduated");
+  if (mode === "status" && existsSync(gradPath)) {
+    return printGraduated(ws, gradPath);
+  }
 
   const rampPath = join(ws, "RAMP.md");
   if (!existsSync(rampPath)) die(`no RAMP.md at ${ws}`, 1);

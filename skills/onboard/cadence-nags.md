@@ -93,11 +93,16 @@ If the MCP tool is unavailable OR the call fails, you MUST:
 2. Replace the user-facing "Workspace ready" success message with:
 
    > Workspace partially ready — cadence-nag scheduler NOT registered. See
-   > `<workspace>/.scaffold-warnings.log`. Re-run `/onboard --register-nags
-   > <org>` once the scheduled-tasks MCP is available.
+   > `<workspace>/.scaffold-warnings.log`. Once the scheduled-tasks MCP is
+   > available, manually re-run Step B of this protocol: substitute
+   > `{{WORKSPACE_ABS_PATH}}` and `{{ORG_SLUG}}` in the description body
+   > below, then call
+   > `mcp__scheduled-tasks__create_scheduled_task(taskName, cronExpression,
+   > description)` with the values from § "Registration parameters".
 
-   (The `--register-nags` flag is Phase 5; until then, the warning persists
-   on disk so a human can re-scaffold or manually invoke the MCP.)
+   (No `--register-nags` flag exists — there is no helper to retry on the
+   user's behalf. The persistent on-disk warning is the contract; recovery
+   is a manual MCP call against the description body below.)
 
 3. Do NOT silently continue. The persistent on-disk warning is the
    contract — a transient terminal echo is insufficient (scrolls off,
@@ -113,6 +118,29 @@ RAMP file: {{WORKSPACE_ABS_PATH}}/RAMP.md
 Nags file: {{WORKSPACE_ABS_PATH}}/NAGS.md
 
 Steps:
+
+0.5. **Graduated-workspace guard** — defense-in-depth safety net.
+
+   Before any other check, stat {{WORKSPACE_ABS_PATH}}/.graduated. If the
+   file exists, the ramp has been graduated; the cron MUST NOT proceed.
+
+   Read the file's first line as `<grad-date>` (ISO YYYY-MM-DD). Then,
+   subject to the existing two-space-delimited NAGS.md dedupe contract,
+   append exactly one line to {{WORKSPACE_ABS_PATH}}/NAGS.md:
+
+       <ISO date>  graduated  no-op (graduated <grad-date>)
+
+   Dedupe key: `<ISO date>  graduated` prefix. If a line with that prefix
+   already exists for today, skip the append. Then exit the autonomous
+   session cleanly. Do NOT read RAMP.md, do NOT run the milestone /
+   velocity / calendar checks, do NOT update the liveness stamp.
+
+   Rationale: the primary stop mechanism is
+   `mcp__scheduled-tasks__update_scheduled_task` with `enabled: false`
+   (called from `bin/onboard-graduate.ts` Step 8). If that MCP call
+   failed at graduate time, was reverted, or the cron entry was
+   re-enabled by hand, the on-disk sentinel still silences fires.
+   Stat-only — does NOT widen the autonomous worker's tool surface.
 
 1. Read {{WORKSPACE_ABS_PATH}}/RAMP.md.
    - If the file is missing, append one line to {{WORKSPACE_ABS_PATH}}/../onboard-orphaned-tasks.log:
@@ -236,8 +264,12 @@ Steps:
 ## What this doc deliberately does NOT cover
 
 - Calendar live MCP scan — deferred (Phase 4 ships paste-only; live scan in a later phase).
-- Removal at `--graduate` — Phase 5 (will call
-  `mcp__scheduled-tasks__update_scheduled_task` or the deletion equivalent).
 - Surfacing orphan/corrupt warnings to a foreground user — Phase 3 will
   add a `--status` check that reads `<parent>/onboard-orphaned-tasks.log`
   and surfaces unresolved orphans.
+
+The autonomous session now handles graduated workspaces directly via the
+Step 0.5 guard above. The primary cron-stop is
+`mcp__scheduled-tasks__update_scheduled_task(taskId, enabled: false)`
+called from `bin/onboard-graduate.ts`; the Step 0.5 guard is the
+defense-in-depth backstop.

@@ -41,10 +41,33 @@ colon are recognized role separators. Bullets with no separator contribute the
 whole bullet text as the name. Names are deduplicated; the regex is built as
 `\b(name1|name2|...)\b/i`.
 
+## Known blind spots — manual scan required
+
+The regex-based attribution gate is high-precision/low-recall by design:
+it catches exact mapped-name substrings only. Four classes of leakage
+slip through and MUST be caught by the author-side manual scan
+documented in [SKILL.md](SKILL.md) § "Pre-render attribution gate —
+manual-pass checklist":
+
+1. **Short-form names** — "Jon" for "Jonathan", "Sue" for "Susan".
+2. **Misspellings within edit distance 2** — "Jonathon" / "Jonathan".
+3. **Pronouns near quote contexts** — "she said…" + a unique role.
+4. **Organizational shorthand** — "the CFO", "my manager", "our
+   director of X" phrases that map to a single identifiable person.
+
+The high-precision/low-recall design is deliberate: a low-precision
+regex would surface false-positives on every render and erode the
+override discipline. Closing the recall gap with heuristics
+(Levenshtein, alias tables, pronoun coreference) is a Phase 6 decision
+contingent on real-ramp evidence that the manual checklist is
+insufficient.
+
 ## What this contract deliberately does NOT cover
 
-- Nicknames, misspellings, pronouns ("she", "they") — false-negatives accepted as
-  Phase 3 residual risk; tracked for Phase 4.
+- Heuristic attribution coverage (alias tables from memory-MCP entity
+  shape, Levenshtein-distance matching for misspellings, pronoun
+  coreference) — Phase 6 if real-ramp evidence demonstrates the manual
+  checklist + author-side scan is insufficient.
 - Refusal of memory-MCP reads of raw notes — `/1on1-prep` writes only to memory
   graph, and the wrapper command (`/onboard --capture`) is the only producer of
   `interviews/raw/` markdown. Memory-graph reads are NOT path-checked.
