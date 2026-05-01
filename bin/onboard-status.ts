@@ -154,8 +154,25 @@ const printStatus = (ws: string, original: string): number => {
   return 0;
 };
 
+const printGraduated = (ws: string, gradPath: string): number => {
+  const date = readFileSync(gradPath, "utf8").trim().split("\n")[0] ?? "";
+  process.stdout.write(`Workspace: ${ws}\n`);
+  process.stdout.write(`Status: graduated ${date}\n`);
+  return 0;
+};
+
 const main = (): number => {
   const { mode, category, ws } = parseArgs(process.argv.slice(2));
+
+  // Phase 5: graduated short-circuit. The .graduated sentinel marks a
+  // ramp as closed; --status surfaces the graduation date and skips the
+  // live-ramp summary. --mute / --unmute fall through to existing
+  // behavior (the user may still need to edit RAMP.md mutes during a
+  // post-graduation re-open).
+  const gradPath = join(ws, ".graduated");
+  if (mode === "status" && existsSync(gradPath)) {
+    return printGraduated(ws, gradPath);
+  }
 
   const rampPath = join(ws, "RAMP.md");
   if (!existsSync(rampPath)) die(`no RAMP.md at ${ws}`, 1);

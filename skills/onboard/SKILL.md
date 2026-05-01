@@ -29,8 +29,8 @@ optionally created private GitHub remote (user-confirmed at scaffold time).
 ## When NOT to Use
 
 - Codebase / architecture onboarding (use `architecture-overview`, issue #44)
-- Resuming a graduated ramp (Phase 5 territory; not yet implemented)
-- Cadence-nag re-arming, mute toggles, calendar integration (Phases 2–4)
+- Resuming a graduated ramp — see [graduate.md](graduate.md) § "Manual
+  recovery / Ungraduate"
 
 ## Procedure
 
@@ -133,6 +133,50 @@ Paste-only is Phase 4 by design (live MCP scan deferred). See
 limitations, suggestions-file shape, and override semantics. Mute via
 `/onboard --mute calendar` per the existing status helper.
 
+## Graduate (Phase 5)
+
+`/onboard --graduate <workspace>` closes a 90-day ramp. The 9-step
+idempotent flow (detect prior graduation → verify clean tree → compose
+retro → commit → tag → push → pause cron via MCP → write `.graduated`
+sentinel → print summary) is documented in [graduate.md](graduate.md).
+
+```fish
+bun run "$CLAUDE_PROJECT_DIR/bin/onboard-graduate.ts" graduate <workspace>
+```
+
+Re-running on a graduated workspace exits 0 with an "already graduated"
+warning. `--force` re-applies every step idempotently. The cadence-nag
+autonomous session has a defense-in-depth `.graduated` guard
+([cadence-nags.md](cadence-nags.md) Step 0.5) that no-ops fires even if
+the MCP pause failed.
+
+## Pre-render attribution gate — manual-pass checklist
+
+Before invoking `/present` for any milestone reflect-back (W4 interim,
+W8 final), run the regex-based attribution gate (see § "Pre-render
+attribution gate (Phase 3)" above) AND walk this manual checklist. The
+regex gate is high-precision/low-recall by design — it catches exact
+mapped-name substrings but cannot catch the four classes below. Treat
+the manual scan as load-bearing, not optional.
+
+1. **Short-form names** — scan the deck for short forms of mapped
+   stakeholders: "Jon" if `map.md` has "Jonathan", "Sue" for "Susan",
+   "Mike" for "Michael". The regex matches whole tokens of the canonical
+   form only.
+2. **Misspellings** — scan for variants within edit distance 2 of any
+   mapped name ("Jonathon" / "Jonathan", "Cathy" / "Kathy"). A single
+   transposed character defeats the literal-match regex.
+3. **Pronouns near quote contexts** — scan for "he", "she", "they"
+   within 1–2 sentences of a quoted observation. A pronoun + a unique
+   role phrase ("the CFO said…") is identifying even without a name.
+4. **Organizational shorthand** — scan for "the CFO", "my manager",
+   "our director of X", "the platform lead" — phrases that map to a
+   single identifiable person in context.
+
+Override the regex gate ONLY after this manual scan returns clean. The
+regex gate's literal-name matches are NEVER overridable on a single
+sweep — re-author the deck with aggregate framing first.
+
 ## Backtracking
 
 If `bin/onboard-scaffold.fish` exits non-zero, surface the stderr directly to
@@ -141,8 +185,10 @@ files (clobber-refusal); ask the user whether to choose a different path.
 
 ## What this skill deliberately does NOT do (yet)
 
-- Live Calendar API/MCP scan — Phase 4 ships paste-only; live scan deferred
-- `--graduate` retro + archive, including unscheduling the cadence task (Phase 5)
+- Live Calendar MCP scan, attribution heuristics (alias / Levenshtein /
+  pronoun), and `map.md` email-match schema — Phase 6, pending real-ramp
+  evidence that the manual paste path + attribution checklist are
+  insufficient.
 
 ## References
 
@@ -151,3 +197,4 @@ Read on demand, not upfront:
 - [scaffold.md](scaffold.md) — dir layout, scaffold flow, helper flag reference
 - [ramp-template.md](ramp-template.md) — RAMP.md preset templates
 - [manager-handoff.md](manager-handoff.md) — manager-handoff capture prompts
+- [graduate.md](graduate.md) — `/onboard --graduate` flow, retro template, recovery

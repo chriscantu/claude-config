@@ -1,9 +1,17 @@
 // tests/onboard-integration.test.ts
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdtempSync,
+  rmSync,
+  mkdirSync,
+  writeFileSync,
+  readFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
+import { runGraduate, type ScheduledTaskInfo } from "../bin/onboard-graduate.ts";
 
 const REPO = resolve(import.meta.dir, "..");
 const SCAFFOLD = join(REPO, "bin", "onboard-scaffold.fish");
@@ -166,5 +174,194 @@ describe("Phase 4 calendar paste", () => {
       l.startsWith(`${today}  calendar  `),
     );
     expect(matches.length).toBe(1);
+  });
+});
+
+describe("Phase 5 full-ramp lifecycle", () => {
+  const RETRO_BODY = `## What worked
+The biweekly cadence.
+
+## What didn't work
+Calendar paste cadence.
+
+## Key relationships
+Manager + peers + skip-level + a senior IC.
+
+## Top decisions
+Platform freeze + interview rotation.
+
+## What I would do differently
+Start /1on1-prep earlier.
+`;
+
+  const writeRetroFixture = (root: string, body: string): string => {
+    const fixtureRoot = mkdtempSync(join(tmpdir(), "onboard-graduate-fixture-"));
+    fixtures.push(fixtureRoot);
+    const p = join(fixtureRoot, "retro.md");
+    writeFileSync(p, body);
+    return p;
+  };
+
+  type RecordedUpdate = { taskId: string; enabled: boolean };
+
+  const stubMcp = (tasks: ScheduledTaskInfo[]) => {
+    const updates: RecordedUpdate[] = [];
+    return {
+      lister: () => tasks,
+      updater: (taskId: string, enabled: boolean) => {
+        updates.push({ taskId, enabled });
+      },
+      updates,
+    };
+  };
+
+  // The git commits the lifecycle test creates run inside the scaffolded
+  // workspace, which already has a .git from the scaffold. The scaffold
+  // commits an initial state; we add fixture data + commit it cleanly so
+  // graduate's clean-tree gate passes.
+  const commitFixtures = (ws: string): void => {
+    const r = spawnSync(
+      "git",
+      ["-C", ws, "add", "-A"],
+      { encoding: "utf8" },
+    );
+    if (r.status !== 0) throw new Error(`git add: ${r.stderr}`);
+    const c = spawnSync(
+      "git",
+      ["-C", ws, "commit", "-q", "-m", "lifecycle fixtures"],
+      { encoding: "utf8", env: { ...process.env, ...GIT_ENV } },
+    );
+    if (c.status !== 0) throw new Error(`git commit: ${c.stderr}`);
+  };
+
+  test("scaffold → sanitized note → calendar paste → graduate end-to-end", () => {
+    const ws = scaffoldWorkspace("acme");
+
+    // Simulate Phase 2 cron registration: record a stable taskId we will
+    // later assert was paused. The scaffold does not call MCP itself
+    // (model-orchestrated step), so we synthesize the registration here.
+    const RECORDED_ID = "task-acme-cadence-uuid";
+    const tasks: ScheduledTaskInfo[] = [
+      { taskId: RECORDED_ID, taskName: "onboard-acme-cadence" },
+    ];
+    const mcp = stubMcp(tasks);
+
+    // Phase 3: a sanitized note exists.
+    const today = new Date().toISOString().slice(0, 10);
+    writeFileSync(
+      join(ws, "interviews", "sanitized", `${today}-themes.md`),
+      "# Sanitized themes\n\n- Multiple leaders noted: platform rewrite overdue.\n",
+    );
+
+    // Phase 4: calendar paste stamp.
+    writeFileSync(join(ws, ".calendar-last-paste"), `${today}\n`);
+
+    // Commit fixtures so the working tree is clean for graduate.
+    commitFixtures(ws);
+
+    // Run graduate with the MCP stub.
+    const retro = writeRetroFixture(ws, RETRO_BODY);
+    const code = runGraduate({
+      workspace: ws,
+      orgSlug: "acme",
+      retroFromPath: retro,
+      mcpLister: mcp.lister,
+      mcpUpdater: mcp.updater,
+      today,
+    });
+    expect(code).toBe(0);
+
+    // Assert post-conditions.
+    const retroOnDisk = readFileSync(join(ws, "decisions", "retro.md"), "utf8");
+    expect(retroOnDisk).toContain("biweekly cadence");
+    expect(retroOnDisk).toContain("Platform freeze");
+    expect(retroOnDisk).toContain("Start /1on1-prep earlier");
+
+    const tagList = spawnSync(
+      "git",
+      ["-C", ws, "tag", "--list"],
+      { encoding: "utf8" },
+    ).stdout.trim().split("\n").filter(Boolean);
+    expect(tagList).toContain(`ramp-graduated-${today}`);
+
+    expect(mcp.updates).toEqual([{ taskId: RECORDED_ID, enabled: false }]);
+
+    expect(readFileSync(join(ws, ".graduated"), "utf8").trim()).toBe(today);
+
+    // Re-run without --force: idempotent skip.
+    const code2 = runGraduate({
+      workspace: ws,
+      orgSlug: "acme",
+      retroFromPath: retro,
+      mcpLister: mcp.lister,
+      mcpUpdater: mcp.updater,
+      today,
+    });
+    expect(code2).toBe(0);
+    expect(mcp.updates.length).toBe(1); // no new update call
+
+    // Re-run with --force: re-applies; tag does not duplicate (git tag
+    // is idempotent against existing name); MCP update is re-issued.
+    const code3 = runGraduate({
+      workspace: ws,
+      orgSlug: "acme",
+      force: true,
+      retroFromPath: retro,
+      mcpLister: mcp.lister,
+      mcpUpdater: mcp.updater,
+      today,
+    });
+    expect(code3).toBe(0);
+    const tagList2 = spawnSync(
+      "git",
+      ["-C", ws, "tag", "--list"],
+      { encoding: "utf8" },
+    ).stdout.trim().split("\n").filter(Boolean);
+    const todayTagCount = tagList2.filter(
+      (t) => t === `ramp-graduated-${today}`,
+    ).length;
+    expect(todayTagCount).toBe(1);
+    expect(mcp.updates.length).toBe(2); // re-issued under --force
+
+    // onboard-status.ts surfaces graduated state.
+    const status = spawnSync(
+      "bun",
+      ["run", join(REPO, "bin", "onboard-status.ts"), "--status", ws],
+      { encoding: "utf8" },
+    );
+    expect(status.status).toBe(0);
+    expect(status.stdout).toContain(`Status: graduated ${today}`);
+    expect(status.stdout).not.toContain("Next milestone");
+    expect(status.stdout).not.toContain("Mutes");
+  });
+
+  test("CLI subprocess (no MCP injection) writes warnings.log + continues", () => {
+    const ws = scaffoldWorkspace("acme");
+    const today = new Date().toISOString().slice(0, 10);
+
+    const retroFixtureRoot = mkdtempSync(
+      join(tmpdir(), "onboard-graduate-cli-fixture-"),
+    );
+    fixtures.push(retroFixtureRoot);
+    const retro = join(retroFixtureRoot, "retro.md");
+    writeFileSync(retro, RETRO_BODY);
+
+    const r = spawnSync(
+      "bun",
+      [
+        "run",
+        join(REPO, "bin", "onboard-graduate.ts"),
+        "graduate",
+        ws,
+        "--retro-from",
+        retro,
+      ],
+      { encoding: "utf8", env: { ...process.env, ...GIT_ENV } },
+    );
+
+    expect(r.status).toBe(0);
+    expect(existsSync(join(ws, ".graduated"))).toBe(true);
+    const warnings = readFileSync(join(ws, ".graduate-warnings.log"), "utf8");
+    expect(warnings).toContain("mcp-not-configured");
   });
 });
