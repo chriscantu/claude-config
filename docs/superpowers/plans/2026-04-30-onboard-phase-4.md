@@ -77,9 +77,9 @@ The load-bearing verify (Task 11 cross-skill integration test) replaces what per
 
 | File | Status | Responsibility | Cross-skill flag |
 |---|---|---|---|
-| `bin/onboard-calendar.ts` | **new** | Three subcommands. `parse <path-or-->` reads stdin (`-`) or file, emits normalized `{name, email}[]` JSON. `diff <events.json> <map.md>` emits unmatched invitees (uses `extractNames()` from `bin/onboard-guard.ts` — re-exported, single source of truth). `paste <workspace>` end-to-end: stdin → parse → diff → write `<workspace>/calendar-suggestions.md` (versioned by ISO date, append-only) + write `<workspace>/.calendar-last-paste` ISO-date stamp + append a single `calendar  N new invitees pending review …` line to `<workspace>/NAGS.md` (subject to Phase 2 dedupe contract). Pure functions exported for unit test. Shebang `#!/usr/bin/env bun`. | — |
+| `bin/onboard-calendar.ts` | **new** | Three subcommands. `parse <path \| ->` reads stdin (`-`) or file, emits normalized `{name, email}[]` JSON. `diff <events.json \| -> <map.md>` reads events from file OR stdin (`-`), emits unmatched invitees (uses `extractNames()` from `bin/onboard-guard.ts`, single source of truth). Stdin support enables pipe chains: `cal parse - <paste.txt \| cal diff - map.md`. `paste <workspace>` end-to-end: stdin → parse → diff → write `<workspace>/calendar-suggestions.md` (overwritten per run) + write `<workspace>/.calendar-last-paste` ISO-date stamp + append a single `calendar  N new invitees pending review …` line to `<workspace>/NAGS.md` (subject to Phase 2 dedupe contract). Pure functions exported for unit test. Shebang `#!/usr/bin/env bun`. | — |
 | `tests/onboard-calendar.test.ts` | **new** | `bun:test` suite with `mkdtempSync` fixtures. Covers parser (freeform / ICS subset / mixed-format / empty input / blank lines), diff (zero match / single match / multiple match / case-insensitive name match / EMPTY map.md returns all invitees as unmatched), and `paste` end-to-end (suggestions file shape, stamp file content, NAGS.md single-line append). | — |
-| `bin/onboard-guard.ts` | **modify** (~10 LOC) | `refuse-raw` resolves via `realpathSync` before the existing segment check. Broken-symlink case (target missing) → catch the throw, REFUSE (exit 2 with "refused: broken symlink at <path>"). Existing `isInsideRaw()` export keeps its current semantics — the symlink-aware variant is a NEW exported helper `isInsideRawResolved()`; the CLI dispatch uses the resolved variant. Existing tests stay green; new tests in Task 1 cover the resolved variant. | — |
+| `bin/onboard-guard.ts` | **modify** (~15 LOC, net) | `refuse-raw` resolves via `realpathSync` before the segment check. Broken-symlink case (target missing) → REFUSE (exit 2 with "refused: broken symlink at <path>"). Old `isInsideRaw()` string-based export is **deleted** (no callers; YAGNI). Single canonical `checkPath()` resolver returns a `RawCheck` discriminated union; `refuseRaw()` formats stderr from it. One realpath try/catch site, no duplication. Existing tests stay green (the deleted export was never imported externally — verify with `grep -rn isInsideRaw bin/ tests/ skills/` before deleting); new tests in Task 1 cover the resolved variant. | — |
 | `tests/onboard-guard.test.ts` | **modify** | Three new tests: (a) symlink-to-raw refused after realpath; (b) symlink-to-sanitized allowed (target outside `interviews/raw/`); (c) broken symlink refused (safer default). Existing 16+ tests untouched. | — |
 | `bin/onboard-status.ts` | **modify** (~3 LOC) | Extend `CATEGORIES` tuple to `["milestone", "velocity", "calendar"] as const`. Update the misuse error message to include `calendar`. Existing 16 tests in `tests/onboard-status.test.ts` stay green; one new test in Task 5 asserts `--mute calendar` round-trips through the section-edit logic. | — |
 | `tests/onboard-status.test.ts` | **modify** | Add ONE new test: `--mute calendar <ws>` writes `- calendar` into `## Cadence Mutes` body and `--unmute calendar <ws>` reverses it. Same pattern as the existing milestone/velocity tests. | — |
@@ -158,52 +158,62 @@ git commit -m "Add failing tests for onboard-guard symlink hardening (#12)"
 **Files:**
 - Modify: `bin/onboard-guard.ts`
 
-- [ ] **Step 1: Add `isInsideRawResolved` and route the CLI through it**
+- [ ] **Step 0: Pre-flight grep — confirm `isInsideRaw` has zero external callers**
+
+```fish
+grep -rn "isInsideRaw" bin/ tests/ skills/ docs/
+```
+
+Expected: matches in `bin/onboard-guard.ts` only (the definition + internal use). If any test or skill imports it, STOP — converting those callers is out of Phase 4 scope and the plan must amend before proceeding.
+
+- [ ] **Step 1: Replace string-based `isInsideRaw` with a single realpath-resolving resolver**
+
+The string-based `isInsideRaw()` export is removed (no internal callers; YAGNI per Karpathy #2). One canonical resolver returns a small struct; `refuseRaw()` formats stderr from it.
 
 ```typescript
 import { realpathSync } from "node:fs";
 
-export const isInsideRawResolved = (path: string): boolean => {
+type RawCheck =
+  | { kind: "broken"; input: string }
+  | { kind: "inside"; input: string; resolved: string }
+  | { kind: "outside"; input: string; resolved: string };
+
+export const checkPath = (path: string): RawCheck => {
   let resolved: string;
   try {
     resolved = realpathSync(path);
   } catch {
-    // Broken symlink (target missing) — refuse as safer default.
-    // Caller distinguishes via the explicit "broken symlink" stderr.
-    return true;
+    return { kind: "broken", input: path };
   }
-  return (resolved + sep).includes(RAW_SEGMENT);
+  const insideRaw = (resolved + sep).includes(RAW_SEGMENT);
+  return insideRaw
+    ? { kind: "inside", input: path, resolved }
+    : { kind: "outside", input: path, resolved };
 };
 
 const refuseRaw = (path: string): number => {
-  let resolved: string;
-  let broken = false;
-  try {
-    resolved = realpathSync(path);
-  } catch {
-    resolved = resolve(path);
-    broken = true;
+  const check = checkPath(path);
+  switch (check.kind) {
+    case "broken":
+      process.stderr.write(
+        `refused: broken symlink at ${check.input} (target missing; refusing as safer default)\n` +
+        `See skills/onboard/refusal-contract.md.\n`,
+      );
+      return 2;
+    case "inside":
+      process.stderr.write(
+        `refused: ${check.input} (resolves to ${check.resolved}) is inside interviews/raw/\n` +
+        `Downstream skills (/swot, /present) read interviews/sanitized/ exclusively.\n` +
+        `See skills/onboard/refusal-contract.md.\n`,
+      );
+      return 2;
+    case "outside":
+      return 0;
   }
-  if (broken) {
-    process.stderr.write(
-      `refused: broken symlink at ${path} (target missing; refusing as safer default)\n` +
-      `See skills/onboard/refusal-contract.md.\n`,
-    );
-    return 2;
-  }
-  if ((resolved + sep).includes(RAW_SEGMENT)) {
-    process.stderr.write(
-      `refused: ${path} (resolves to ${resolved}) is inside interviews/raw/\n` +
-      `Downstream skills (/swot, /present) read interviews/sanitized/ exclusively.\n` +
-      `See skills/onboard/refusal-contract.md.\n`,
-    );
-    return 2;
-  }
-  return 0;
 };
 ```
 
-The existing `isInsideRaw()` export stays as-is (string-based, no symlink resolution) — kept for callers that want the cheap check. New `isInsideRawResolved()` is the canonical dispatcher.
+Old `isInsideRaw()` export is **deleted**. Single canonical resolver; no speculative API surface (Karpathy #2). The `RawCheck` discriminated union is the contract; `checkPath` is the single realpath try/catch site (no DRY violation).
 
 - [ ] **Step 2: Run unit tests, confirm pass**
 
@@ -352,9 +362,14 @@ import { extractNames } from "./onboard-guard.ts";
 
 export type Event = { name: string; email: string | null };
 
+// Precedence (most-specific → least-specific). Order is load-bearing —
+// ICS lines are unambiguous; bracketed `<email>` lines must be tried before
+// the freeform separator regex (which would otherwise consume the leading
+// `<` as a separator and corrupt the email capture); bare-name fallback
+// is last. Tests in tests/onboard-calendar.test.ts assert each branch.
 const ICS_LINE = /^ATTENDEE;CN=(.+?):mailto:(.+)$/;
-const FREEFORM_NAME_EMAIL = /^(.+?)\s*[<—\-]\s*([^\s<>—\-]+@[^\s<>]+)>?\s*$/;
 const BARE_EMAIL_BRACKET = /^(.+?)\s*<([^<>]+)>\s*$/;
+const FREEFORM_NAME_EMAIL = /^(.+?)\s*[—\-]\s*([^\s<>—\-]+@[^\s<>]+)\s*$/;
 
 export const parsePaste = (text: string): Event[] => {
   const events: Event[] = [];
@@ -578,6 +593,18 @@ describe("bin/onboard-calendar.ts diff", () => {
     expect(r.exitCode).toBe(0);
     expect(JSON.parse(r.stdout)).toEqual([{ name: "Sarah Chen", email: null }]);
   });
+
+  test("reads events from stdin when first arg is '-' (pipe-chain support)", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Sarah Chen"]);
+    const events = JSON.stringify([
+      { name: "Sarah Chen", email: null },
+      { name: "Priya Patel", email: null },
+    ]);
+    const r = runCal(events, "diff", "-", map);
+    expect(r.exitCode).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual([{ name: "Priya Patel", email: null }]);
+  });
 });
 
 describe("bin/onboard-calendar.ts paste (end-to-end)", () => {
@@ -633,8 +660,9 @@ export const diffEvents = (events: Event[], mapMarkdown: string): Event[] => {
 
 const todayIso = (): string => new Date().toISOString().slice(0, 10);
 
-const cmdDiff = (eventsPath: string, mapPath: string): number => {
-  const events = JSON.parse(readFileSync(eventsPath, "utf8")) as Event[];
+const cmdDiff = (eventsPathOrDash: string, mapPath: string): number => {
+  const eventsJson = readInput(eventsPathOrDash); // '-' = stdin, else file
+  const events = JSON.parse(eventsJson) as Event[];
   const map = readFileSync(mapPath, "utf8");
   const unmatched = diffEvents(events, map);
   process.stdout.write(JSON.stringify(unmatched) + "\n");
@@ -694,10 +722,6 @@ const cmdPaste = (workspace: string): number => {
     date,
     `${unmatched.length} new ${noun} pending review (see calendar-suggestions.md)`,
   );
-
-  process.stdout.write(
-    `Paste ingested: ${events.length} attendees, ${unmatched.length} unmatched.\n`,
-  );
   return 0;
 };
 ```
@@ -707,7 +731,7 @@ Wire the new branches into `main()`:
 ```typescript
     case "diff":
       if (args.length !== 2) {
-        process.stderr.write("usage: onboard-calendar diff <events.json> <map.md>\n");
+        process.stderr.write("usage: onboard-calendar diff <events.json | -> <map.md>\n");
         return 64;
       }
       return cmdDiff(args[0]!, args[1]!);
@@ -745,17 +769,32 @@ git commit -m "onboard-calendar: diff + paste subcommands (#12)"
 
 ---
 
-## Task 7 — Wire `cadence-nags.md` Step 4.5 (calendar-stale Monday-only check)
+## Task 7 — Wire `cadence-nags.md` calendar-stale Monday-only check
 
 **Files:**
 - Modify: `skills/onboard/cadence-nags.md`
 
-- [ ] **Step 1: Insert Step 4.5 between existing Step 4 (Velocity check) and Step 5 (liveness stamp)**
+**Verify-gap acknowledgement (Karpathy #4 honesty):** the cadence-nag autonomous session is described in markdown for an LLM to follow at cron-fire time, NOT a script with a unit-testable surface. `fish validate.fish` checks structural anchors only (presence of expected H2 headers, no broken markdown links); it does NOT execute the protocol. The Monday-only branch, the `.calendar-last-paste` mtime read, and the dedupe behavior are FUNDAMENTALLY NOT UNIT-TESTABLE in this architecture. Coverage rests on (a) careful prose review at PR time, (b) the `bin/onboard-calendar.ts` paste path EMITS the file the cron reads (so the producer side IS unit-tested in Task 6), (c) post-merge live observation of the first Monday fire. This gap is intentional (cron-as-LLM-prompt was a Phase 2 design choice) and is not closed by Phase 4.
 
-Locate the Step 5 anchor (the line beginning `5. After the checks (whether or not anything was appended)`) and insert above it:
+- [ ] **Step 1: Renumber the existing Step 5 to Step 6, then insert the new Step 5**
+
+The existing `cadence-nags.md` autonomous-session protocol numbers the liveness-stamp step as `5.` and the constraints block as `6.`. To insert the calendar-stale check between the velocity check (Step 4) and the liveness stamp WITHOUT introducing a `4.5` (Markdown ordered lists do not render fractional indices), renumber: existing Step 5 → Step 6 (liveness stamp), existing Step 6 → Step 7 (constraints). Adjust any prose cross-references in the file. Then insert the new Step 5 between Step 4 (velocity) and the renumbered Step 6 (liveness stamp).
+
+After renumber, the file's tail reads:
+
+```
+6. After the checks (whether or not anything was appended), update a
+   liveness stamp at {{WORKSPACE_ABS_PATH}}/.cadence-last-fire …
+
+7. Constraints:
+   - Workspace path is absolute. Treat any relative path as a bug; abort.
+   …
+```
+
+Then insert above the renumbered Step 6:
 
 ```markdown
-4.5. **Calendar-stale check** (skip if `calendar` is muted):
+5. **Calendar-stale check** (skip if `calendar` is muted):
 
    Mondays only — if `today.getDay() !== 1` (where 0=Sun, 1=Mon), skip
    this step entirely. The check is a weekly nudge, not daily, to avoid
@@ -1192,6 +1231,16 @@ gh pr create --title "/onboard Phase 4 — calendar-watch paste + symlink harden
 
 5. **Single source of truth for stakeholder-name parsing** — `bin/onboard-calendar.ts diff` imports `extractNames` from `bin/onboard-guard.ts`. Verify with grep:
    - `grep -n "extractNames" bin/*.ts` → 2 lines (one definition in `onboard-guard.ts`, one import in `onboard-calendar.ts`). No duplicate regex.
+   - `grep -n "isInsideRaw\b" bin/ tests/ skills/` → ZERO matches (the old string-based export was deleted in Task 2; no callers were using it). Single canonical resolver `checkPath()` returns a `RawCheck` discriminated union.
+
+5a. **SOLID + Karpathy compliance** (added 2026-04-30 plan-amendment review):
+   - **SRP** — `parsePaste / diffEvents / formatSuggestions / appendNagDeduped` decomposed; `cmdPaste` is the orchestrator only (no business logic inline).
+   - **OCP** — `CATEGORIES` tuple in `onboard-status.ts` is closed for modification; one-line additive extension is the right shape at this enum size (over-engineering to abstract).
+   - **ISP** — three subcommands independently invocable. Both `parse` and `diff` accept `-` for stdin, enabling pipe chains (`cal parse - <paste.txt | cal diff - map.md`). Internal consistency.
+   - **DIP** — file I/O direct via `node:fs`; no injection (correct for a CLI helper, would be over-engineering otherwise).
+   - **Karpathy #2 Simplicity** — old `isInsideRaw()` deleted (no callers, no speculative API surface). One canonical `checkPath()` resolver.
+   - **Karpathy #3 Surgical** — Step renumber in `cadence-nags.md` is 5→6 + 6→7, no fractional indices. Single realpath try/catch in `checkPath()`, no DRY duplication.
+   - **Karpathy #4 Goal-Driven verify-gap** — Task 7 cron protocol cannot be unit-tested (markdown-for-LLM, no script surface). Acknowledged explicitly in Task 7 preamble; producer side IS unit-tested in Task 6 (paste path emits the file the cron reads). Coverage gap intentional, not closed by Phase 4.
 
 6. **Phase 2 dedupe contract honored** — paste run appends a SINGLE NAGS line per day, dedupe-keyed by `<ISO date>  calendar  ` prefix (literal two-space delimiter, NOT a regex). Re-running paste same-day does not duplicate (Task 11 step 1 second test asserts this). Per-invitee detail lives in `calendar-suggestions.md`, not NAGS.md.
 
