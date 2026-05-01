@@ -6,14 +6,14 @@
 //   bin/onboard-status.ts --mute     <category> <workspace-path>
 //   bin/onboard-status.ts --unmute   <category> <workspace-path>
 //
-// Categories: milestone | velocity   (calendar is Phase 4)
+// Categories: milestone | velocity | calendar
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 
 type Mode = "status" | "mute" | "unmute";
 
-const CATEGORIES = ["milestone", "velocity"] as const;
+const CATEGORIES = ["milestone", "velocity", "calendar"] as const;
 type Category = (typeof CATEGORIES)[number];
 
 const die = (msg: string, code: number): never => {
@@ -163,7 +163,7 @@ const main = (): number => {
   if (mode === "mute" || mode === "unmute") {
     if (!isCategory(category)) {
       die(
-        `unknown category: ${category} (allowed: milestone | velocity)`,
+        `unknown category: ${category} (allowed: milestone | velocity | calendar)`,
         2,
       );
     }

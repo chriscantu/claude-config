@@ -118,6 +118,19 @@ describe("bin/onboard-status.ts --unmute", () => {
     expect(ramp).toMatch(/## Cadence Mutes\n\n- velocity\n/);
     expect(ramp).not.toMatch(/\(none\)/);
   });
+
+  test("--mute calendar persists in section body (Phase 4)", () => {
+    const ws = makeWorkspace(5);
+    const r1 = run(".", "--mute", "calendar", ws);
+    expect(r1.exitCode).toBe(0);
+    const ramp = readFileSync(join(ws, "RAMP.md"), "utf8");
+    expect(ramp).toMatch(/## Cadence Mutes\n\n- calendar\n/);
+
+    const r2 = run(".", "--unmute", "calendar", ws);
+    expect(r2.exitCode).toBe(0);
+    const after = readFileSync(join(ws, "RAMP.md"), "utf8");
+    expect(after).toMatch(/## Cadence Mutes\n\n\(none\)\n/);
+  });
 });
 
 describe("bin/onboard-status.ts argument and state-file errors", () => {
