@@ -5,7 +5,7 @@ based on the `--cadence` flag.
 
 > **Schema invariants** — three structural elements below are read by the cadence-nag
 > autonomous worker (see [cadence-nags.md](cadence-nags.md)) and by
-> [bin/onboard-status.fish](../../bin/onboard-status.fish):
+> [bin/onboard-status.ts](../../bin/onboard-status.ts):
 >
 > 1. `Started: YYYY-MM-DD` line (single source of truth for elapsed time)
 > 2. `## Cadence Mutes` section header (mute-state persistence)

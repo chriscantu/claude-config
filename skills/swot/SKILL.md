@@ -36,6 +36,33 @@ to pending-sync. Check for existing pending-sync files.
 `--sync` drains pending-sync files (see [pending-sync.md](pending-sync.md)).
 `--read` triggers artifact-pointed capture.
 
+## Confidentiality Refusal
+
+When the caller passes `--read <path>` AND the path is local (not a URL), MUST
+run the refusal guard before reading the file:
+
+```fish
+bun run "$CLAUDE_PROJECT_DIR/bin/onboard-guard.ts" refuse-raw <path>
+```
+
+`CLAUDE_PROJECT_DIR` is the harness-provided absolute path to the repository
+root. If the env var is not set (e.g., the skill is being executed outside the
+harness), resolve the repo root by walking up from CWD until a `.git`
+directory is found.
+
+Exit-code contract for this call-site:
+
+| Exit | Meaning | Action |
+|---|---|---|
+| 0 | Path is outside any `interviews/raw/` directory | proceed to read |
+| 2 | Path is inside `interviews/raw/` (refused) | surface stderr, abort, do NOT read the file |
+| 64 | Misuse (wrong arg count) | bug — file an issue |
+
+The guard is a no-op for URLs and paths outside any /onboard workspace —
+exits 0, /swot proceeds normally. The canonical contract (override policy
+across all call-sites, name-extraction rules, Phase 4 deferred items) lives
+in the onboard skill's `refusal-contract.md`.
+
 ## Org Lookup
 
 `mcp__memory__search_nodes({ query: "<org-name>" })` — exact match (with " SWOT"

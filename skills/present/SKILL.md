@@ -35,6 +35,32 @@ Determine how the user invoked the skill:
 
 If unclear, ask: "Are you starting from scratch, working from existing notes, or revising a deck you already have?"
 
+## Confidentiality Refusal (when invoked from an /onboard workspace)
+
+When the entry path is a `slides.md` path (Revise mode) OR the user pastes
+content from a workspace path (Assist mode), MUST run the refusal guard
+before reading the source:
+
+```fish
+bun run "$CLAUDE_PROJECT_DIR/bin/onboard-guard.ts" refuse-raw <path>
+```
+
+`CLAUDE_PROJECT_DIR` is the harness-provided absolute path to the repository
+root. If the env var is not set, resolve the repo root by walking up from
+CWD until a `.git` directory is found.
+
+Exit-code contract for this call-site:
+
+| Exit | Meaning | Action |
+|---|---|---|
+| 0 | Path is outside any `interviews/raw/` directory | proceed to read |
+| 2 | Path is inside `interviews/raw/` (refused) | surface stderr, abort, do NOT read the file |
+| 64 | Misuse (wrong arg count) | bug — file an issue |
+
+The guard is a no-op for non-workspace paths — exits 0, /present proceeds.
+The canonical contract (override policy, name-extraction rules, deferred
+items) lives in the onboard skill's `refusal-contract.md`.
+
 ## Step 1: Audience & Intake
 
 Ask these questions **one at a time**:

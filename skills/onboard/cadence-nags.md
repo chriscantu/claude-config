@@ -45,8 +45,63 @@ dedupe. Do not change.
 
 Scaffold-time placeholders use `{{NAME}}` form so they do not collide with
 runtime-side angle-bracket markers (`<ISO date>`, `<n>`, etc.) used by the
-autonomous session itself. SKILL.md's substitution-completeness scan
+autonomous session itself. The substitution-completeness scan below
 greps for the literal `{{` token; angle brackets are NOT scanned.
+
+## Scaffold-time registration protocol
+
+SKILL.md Procedure step 8 dispatches here. Run these steps verbatim.
+
+### Step A — Substitute placeholders
+
+Copy the literal text inside the "Description body" code fence below into a
+working buffer. Perform exactly two literal find/replace pairs (string
+replace, NOT regex — placeholders appear verbatim):
+
+| Find | Replace with |
+|---|---|
+| `{{WORKSPACE_ABS_PATH}}` | absolute path of the scaffolded workspace (e.g., `/Users/<user>/repos/onboard-acme`) |
+| `{{ORG_SLUG}}` | kebab-case org slug (basename of the workspace minus the `onboard-` prefix) |
+
+After substitution, scan the buffer for any remaining `{{` token. If any
+exist, ABORT and surface the missed placeholder. Do not pass an
+under-substituted body to the MCP. Note: angle-bracket markers like
+`<ISO date>` are RUNTIME-side placeholders for the autonomous session
+itself — do NOT scan for `<...>` pairs (would false-positive on every
+scaffold). Only `{{NAME}}` is a scaffold-time placeholder.
+
+### Step B — Call the MCP
+
+```
+mcp__scheduled-tasks__create_scheduled_task(
+  taskName       = "onboard-{{ORG_SLUG}}-cadence",
+  cronExpression = "0 9 * * *",
+  description    = <substituted buffer from Step A>,
+)
+```
+
+The `taskName` argument also takes a literal `{{ORG_SLUG}}` substitution.
+
+### Step C — Failure fallback (MCP unavailable or call fails)
+
+If the MCP tool is unavailable OR the call fails, you MUST:
+
+1. Append a one-line warning to `<workspace>/.scaffold-warnings.log`:
+
+       <ISO date>  cadence-nag-not-registered  <reason: tool unavailable | call failed: <err>>
+
+2. Replace the user-facing "Workspace ready" success message with:
+
+   > Workspace partially ready — cadence-nag scheduler NOT registered. See
+   > `<workspace>/.scaffold-warnings.log`. Re-run `/onboard --register-nags
+   > <org>` once the scheduled-tasks MCP is available.
+
+   (The `--register-nags` flag is Phase 5; until then, the warning persists
+   on disk so a human can re-scaffold or manually invoke the MCP.)
+
+3. Do NOT silently continue. The persistent on-disk warning is the
+   contract — a transient terminal echo is insufficient (scrolls off,
+   never recoverable).
 
 ## Description body (substitute placeholders before passing to MCP)
 
