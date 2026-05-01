@@ -70,3 +70,111 @@ describe("bin/onboard-calendar.ts parse", () => {
     expect(JSON.parse(r.stdout)).toEqual([]);
   });
 });
+
+const writeMap = (ws: string, names: string[]): string => {
+  const path = join(ws, "stakeholders", "map.md");
+  const body =
+    "# Stakeholder Map\n\n## Direct reports\n\n" +
+    names.map((n) => `- ${n} — Engineer\n`).join("");
+  writeFileSync(path, body);
+  return path;
+};
+
+const makeWorkspace = (): string => {
+  const root = mkdtempSync(join(tmpdir(), "onboard-cal-"));
+  fixtures.push(root);
+  mkdirSync(join(root, "stakeholders"), { recursive: true });
+  mkdirSync(join(root, "interviews", "raw"), { recursive: true });
+  // RAMP.md needed for the cron NAGS dedupe path; keep it minimal.
+  writeFileSync(
+    join(root, "RAMP.md"),
+    "Started: 2026-04-01\n\n## Cadence Mutes\n\n(none)\n",
+  );
+  return root;
+};
+
+describe("bin/onboard-calendar.ts diff", () => {
+  test("emits unmatched invitees only", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Sarah Chen", "Marcus Diaz"]);
+    const events = JSON.stringify([
+      { name: "Sarah Chen", email: "sarah@acme.com" },
+      { name: "Priya Patel", email: "priya@acme.com" },
+    ]);
+    const eventsFile = join(ws, "events.json");
+    writeFileSync(eventsFile, events);
+    const r = runCal("", "diff", eventsFile, map);
+    expect(r.exitCode).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual([
+      { name: "Priya Patel", email: "priya@acme.com" },
+    ]);
+  });
+
+  test("matches case-insensitively on display name", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Sarah Chen"]);
+    const events = JSON.stringify([{ name: "sarah chen", email: null }]);
+    const eventsFile = join(ws, "events.json");
+    writeFileSync(eventsFile, events);
+    const r = runCal("", "diff", eventsFile, map);
+    expect(r.exitCode).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual([]);
+  });
+
+  test("empty map.md returns all invitees as unmatched", () => {
+    const ws = makeWorkspace();
+    writeFileSync(join(ws, "stakeholders", "map.md"), "# Stakeholder Map\n\n");
+    const events = JSON.stringify([{ name: "Sarah Chen", email: null }]);
+    const eventsFile = join(ws, "events.json");
+    writeFileSync(eventsFile, events);
+    const r = runCal("", "diff", eventsFile, join(ws, "stakeholders", "map.md"));
+    expect(r.exitCode).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual([{ name: "Sarah Chen", email: null }]);
+  });
+
+  test("reads events from stdin when first arg is '-' (pipe-chain support)", () => {
+    const ws = makeWorkspace();
+    const map = writeMap(ws, ["Sarah Chen"]);
+    const events = JSON.stringify([
+      { name: "Sarah Chen", email: null },
+      { name: "Priya Patel", email: null },
+    ]);
+    const r = runCal(events, "diff", "-", map);
+    expect(r.exitCode).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual([{ name: "Priya Patel", email: null }]);
+  });
+});
+
+describe("bin/onboard-calendar.ts paste (end-to-end)", () => {
+  test("writes suggestions.md, stamp file, and single NAGS line", () => {
+    const ws = makeWorkspace();
+    writeMap(ws, ["Sarah Chen"]);
+    const r = runCal(
+      "Sarah Chen <sarah@acme.com>\nPriya Patel <priya@acme.com>\n",
+      "paste",
+      ws,
+    );
+    expect(r.exitCode).toBe(0);
+
+    const suggestions = readFileSync(join(ws, "calendar-suggestions.md"), "utf8");
+    expect(suggestions).toContain("Priya Patel");
+    expect(suggestions).not.toContain("Sarah Chen");
+
+    const stamp = readFileSync(join(ws, ".calendar-last-paste"), "utf8").trim();
+    expect(stamp).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+
+    const nags = readFileSync(join(ws, "NAGS.md"), "utf8");
+    const today = new Date().toISOString().slice(0, 10);
+    expect(nags).toContain(`${today}  calendar  1 new invitee pending review`);
+  });
+
+  test("zero unmatched → no suggestions file written, NAGS line still informs zero", () => {
+    const ws = makeWorkspace();
+    writeMap(ws, ["Sarah Chen"]);
+    const r = runCal("Sarah Chen <sarah@acme.com>\n", "paste", ws);
+    expect(r.exitCode).toBe(0);
+    expect(existsSync(join(ws, "calendar-suggestions.md"))).toBe(false);
+    const nags = readFileSync(join(ws, "NAGS.md"), "utf8");
+    expect(nags).toContain("calendar  0 new invitees");
+  });
+});
