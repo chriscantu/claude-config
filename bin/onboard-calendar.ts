@@ -19,7 +19,13 @@ export type Event = { name: string; email: string | null };
 // is last. Tests in tests/onboard-calendar.test.ts assert each branch.
 const ICS_LINE = /^ATTENDEE;CN=(.+?):mailto:(.+)$/;
 const BARE_EMAIL_BRACKET = /^(.+?)\s*<([^<>]+)>\s*$/;
-const FREEFORM_NAME_EMAIL = /^(.+?)\s*[—\-]\s*([^\s<>—\-]+@[^\s<>]+)\s*$/;
+// Email-local charclass excludes whitespace, angle brackets, and em-dash —
+// but PERMITS hyphen, since legitimate addresses like `first-last@acme.com`
+// must round-trip through the separator branch. The separator regex
+// `\s*[—\-]\s*` requires whitespace flanking, so a hyphen inside a local
+// part (no surrounding whitespace) is not eligible to be re-interpreted as
+// a separator on backtrack — non-ambiguous.
+const FREEFORM_NAME_EMAIL = /^(.+?)\s*[—\-]\s*([^\s<>—]+@[^\s<>]+)\s*$/;
 
 export const parsePaste = (text: string): Event[] => {
   const events: Event[] = [];

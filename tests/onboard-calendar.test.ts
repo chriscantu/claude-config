@@ -69,6 +69,22 @@ describe("bin/onboard-calendar.ts parse", () => {
     expect(r.exitCode).toBe(0);
     expect(JSON.parse(r.stdout)).toEqual([]);
   });
+
+  test("freeform separator preserves hyphen in email local-part", () => {
+    const r = runCal("Sarah Chen — first-last@acme.com\n", "parse", "-");
+    expect(r.exitCode).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual([
+      { name: "Sarah Chen", email: "first-last@acme.com" },
+    ]);
+  });
+
+  test("bracket form preserves hyphen in email local-part", () => {
+    const r = runCal("Sarah Chen <first-last@acme.com>\n", "parse", "-");
+    expect(r.exitCode).toBe(0);
+    expect(JSON.parse(r.stdout)).toEqual([
+      { name: "Sarah Chen", email: "first-last@acme.com" },
+    ]);
+  });
 });
 
 const writeMap = (ws: string, names: string[]): string => {
