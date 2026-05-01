@@ -16,8 +16,13 @@ jobs:
       - uses: actions/checkout@v6
 
       - name: Install fish shell
+        # Use Ubuntu universe (fish 3.3+ on 22.04) instead of the upstream
+        # PPA. The PPA fetch via launchpad.net is a single-origin failure
+        # mode for CI — confirmed by a Launchpad-unreachable incident on
+        # 2026-05-01 that stalled this job indefinitely. Universe is
+        # mirrored, cached on Actions runners, and ships a fish version
+        # sufficient for everything this repo uses (no post-3.3 features).
         run: |
-          sudo apt-add-repository -y ppa:fish-shell/release-3
           sudo apt-get update
           sudo apt-get install -y fish
           fish --version
