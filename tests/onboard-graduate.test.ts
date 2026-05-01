@@ -154,6 +154,46 @@ describe("writeSentinel()", () => {
     expect(path).toBe(join(ws, ".graduated"));
     expect(readFileSync(path, "utf8").trim()).toBe("2026-05-01");
   });
+
+  test("overwrites prior content (--force re-issues sentinel)", () => {
+    const ws = makeWorkspace();
+    writeSentinel(ws, "2026-04-30");
+    writeSentinel(ws, "2026-05-01");
+    expect(readFileSync(join(ws, ".graduated"), "utf8").trim()).toBe(
+      "2026-05-01",
+    );
+  });
+});
+
+// ---------- isCleanTree (RUNTIME_SENTINELS allowlist) ----------
+
+describe("isCleanTree() — runtime sentinel allowlist", () => {
+  // Each name in RUNTIME_SENTINELS must NOT cause isCleanTree to fail —
+  // these are runtime artifacts the /onboard surface produces and the
+  // graduate flow must tolerate when re-running --force.
+  const RUNTIME_SENTINELS = [
+    ".graduated",
+    ".graduate-warnings.log",
+    ".calendar-last-paste",
+    ".cadence-last-fire",
+    ".scaffold-warnings.log",
+    "NAGS.md",
+    "calendar-suggestions.md",
+  ];
+
+  for (const name of RUNTIME_SENTINELS) {
+    test(`untracked ${name} does not trip clean-tree gate`, () => {
+      const ws = makeWorkspace();
+      writeFileSync(join(ws, name), "sentinel content\n");
+      expect(isCleanTree(ws)).toBe(true);
+    });
+  }
+
+  test("non-allowlisted untracked file does trip the gate", () => {
+    const ws = makeWorkspace();
+    writeFileSync(join(ws, "user-wip.md"), "user work in progress\n");
+    expect(isCleanTree(ws)).toBe(false);
+  });
 });
 
 // ---------- runGraduate (orchestrator) ----------
@@ -399,5 +439,96 @@ describe("runGraduate() — MCP failure", () => {
     );
     expect(warnings).toContain("task not found");
     expect(mcp.updates.length).toBe(0);
+  });
+
+  test("logs mcp-update-failed when updater throws after task found", () => {
+    const ws = makeWorkspace("acme");
+    const retro = writeRetroFixture(ws, RETRO_BODY);
+
+    const code = runGraduate({
+      workspace: ws,
+      orgSlug: "acme",
+      retroFromPath: retro,
+      mcpLister: () => [
+        { taskId: "task-acme-uuid", taskName: "onboard-acme-cadence" },
+      ],
+      mcpUpdater: () => {
+        throw new Error("scheduling backend rejected update");
+      },
+      today: "2026-05-01",
+    });
+
+    expect(code).toBe(0);
+    expect(existsSync(join(ws, ".graduated"))).toBe(true);
+    const warnings = readFileSync(
+      join(ws, ".graduate-warnings.log"),
+      "utf8",
+    );
+    expect(warnings).toMatch(
+      /^2026-05-01 {2}mcp-update-failed {2}taskId=task-acme-uuid err=scheduling backend rejected update$/m,
+    );
+  });
+
+  test("logs the safe-stringified error when updater throws non-Error", () => {
+    const ws = makeWorkspace("acme");
+    const retro = writeRetroFixture(ws, RETRO_BODY);
+
+    const code = runGraduate({
+      workspace: ws,
+      orgSlug: "acme",
+      retroFromPath: retro,
+      mcpLister: () => [
+        { taskId: "task-x", taskName: "onboard-acme-cadence" },
+      ],
+      // Throws a plain string — `(e as Error).message` would have
+      // produced `undefined` here. errMsg() coerces via String(e).
+      mcpUpdater: () => { throw "rate limited"; },
+      today: "2026-05-01",
+    });
+
+    expect(code).toBe(0);
+    const warnings = readFileSync(
+      join(ws, ".graduate-warnings.log"),
+      "utf8",
+    );
+    expect(warnings).toContain("err=rate limited");
+    expect(warnings).not.toContain("err=undefined");
+  });
+});
+
+// ---------- runGraduate — push failure ----------
+
+describe("runGraduate() — push failure", () => {
+  test("bogus remote produces push-failed warning + sentinel still written", () => {
+    const ws = makeWorkspace("acme");
+    const retro = writeRetroFixture(ws, RETRO_BODY);
+
+    // Add a remote that will provably fail to push (file:// to a path
+    // that does not exist). git push --tags exits non-zero; the helper
+    // must log and continue.
+    const bogusRemote = join(ws, "..", "definitely-not-a-repo.git");
+    git(ws, "remote", "add", "origin", `file://${bogusRemote}`);
+
+    const mcp = stubMcp([
+      { taskId: "task-acme", taskName: "onboard-acme-cadence" },
+    ]);
+    const code = runGraduate({
+      workspace: ws,
+      orgSlug: "acme",
+      retroFromPath: retro,
+      mcpLister: mcp.lister,
+      mcpUpdater: mcp.updater,
+      today: "2026-05-01",
+    });
+
+    expect(code).toBe(0);
+    expect(existsSync(join(ws, ".graduated"))).toBe(true);
+    const warnings = readFileSync(
+      join(ws, ".graduate-warnings.log"),
+      "utf8",
+    );
+    expect(warnings).toMatch(
+      /^2026-05-01 {2}push-failed {2}git push --tags exited /m,
+    );
   });
 });

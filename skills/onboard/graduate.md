@@ -31,8 +31,15 @@ Re-running `--graduate` after partial failure picks up where it left off.
    `basename(workspace)` (stripping the `onboard-` prefix).
 2. **Prior-graduation check** — if `<workspace>/.graduated` exists and
    `--force` is absent, print "already graduated" and exit 0.
-2a. **Clean-tree check** — if `git status --porcelain` is non-empty,
-   abort exit 2. Commit or stash, then re-run.
+2a. **Clean-tree check** — if `git status --porcelain` is non-empty
+   AFTER filtering the runtime-sentinel allowlist, abort exit 2. The
+   allowlist (`RUNTIME_SENTINELS` in `bin/onboard-graduate.ts`) is
+   `.graduated`, `.graduate-warnings.log`, `.calendar-last-paste`,
+   `.cadence-last-fire`, `.scaffold-warnings.log`, `NAGS.md`,
+   `calendar-suggestions.md` — these are runtime sentinels written by
+   the /onboard surface itself and are expected to appear untracked in
+   a live ramp. Any OTHER untracked or modified file is the user's
+   work in progress; abort. Commit or stash, then re-run.
 3. **Compose retro** — if `<workspace>/decisions/retro.md` does NOT
    exist, prompt with the 5-question template (see below) to stderr and
    read the user's response from stdin (or `--retro-from`). Write to

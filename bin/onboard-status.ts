@@ -155,7 +155,23 @@ const printStatus = (ws: string, original: string): number => {
 };
 
 const printGraduated = (ws: string, gradPath: string): number => {
-  const date = readFileSync(gradPath, "utf8").trim().split("\n")[0] ?? "";
+  const raw = readFileSync(gradPath, "utf8").trim();
+  const date = raw.split("\n")[0] ?? "";
+  if (date.length === 0) {
+    process.stderr.write(
+      `${gradPath} exists but is empty — graduation date missing.\n` +
+      `Inspect with \`cat ${gradPath}\`; rewrite with the ISO date the ramp ` +
+      `was graduated, or delete the file to ungraduate.\n`,
+    );
+    return 1;
+  }
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    process.stderr.write(
+      `${gradPath} first line is not an ISO YYYY-MM-DD date: '${date}'.\n` +
+      `Inspect with \`cat ${gradPath}\`; sentinel may be corrupted.\n`,
+    );
+    return 1;
+  }
   process.stdout.write(`Workspace: ${ws}\n`);
   process.stdout.write(`Status: graduated ${date}\n`);
   return 0;

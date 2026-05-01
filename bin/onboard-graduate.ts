@@ -51,22 +51,39 @@ const RUNTIME_SENTINELS: ReadonlySet<string> = new Set([
   "calendar-suggestions.md",
 ]);
 
-export const isCleanTree = (workspace: string): boolean => {
+export type CleanTreeResult =
+  | { kind: "clean" }
+  | { kind: "dirty"; paths: string[] }
+  | { kind: "git-failed"; reason: string };
+
+export const checkCleanTree = (workspace: string): CleanTreeResult => {
   const r = spawnSync("git", ["status", "--porcelain"], {
     cwd: workspace,
     encoding: "utf8",
   });
-  if (r.status !== 0) return false;
+  if (r.error) {
+    return { kind: "git-failed", reason: `spawn: ${(r.error as Error).message}` };
+  }
+  if (r.status !== 0) {
+    return {
+      kind: "git-failed",
+      reason: `exit ${r.status ?? "?"}: ${(r.stderr ?? "").trim() || "(no stderr)"}`,
+    };
+  }
   const lines = r.stdout.split("\n").filter((l) => l.length > 0);
+  const offending: string[] = [];
   for (const line of lines) {
     // Porcelain v1 format: `XY <path>` (two-char status + space + path).
     // Untracked rename forms (`?? old -> new`) do not occur for these
     // sentinels — they are top-level paths written in place.
     const path = line.slice(3);
-    if (!RUNTIME_SENTINELS.has(path)) return false;
+    if (!RUNTIME_SENTINELS.has(path)) offending.push(path);
   }
-  return true;
+  return offending.length === 0 ? { kind: "clean" } : { kind: "dirty", paths: offending };
 };
+
+export const isCleanTree = (workspace: string): boolean =>
+  checkCleanTree(workspace).kind === "clean";
 
 export const findCadenceTask = (
   orgSlug: string,
@@ -123,23 +140,60 @@ export type GraduateOpts = {
   today?: string;
 };
 
+// UTC-based date stamp. Used for tag name, sentinel content, and
+// warning-log timestamps. Threading the same `today` through the entire
+// run keeps tag/sentinel/warnings aligned even across UTC midnight.
 const todayIso = (): string => new Date().toISOString().slice(0, 10);
+
+// Safe stringification of unknown thrown values. `e instanceof Error`
+// preserves the .message when it exists; everything else falls through
+// to `String(e)`. Avoids the `errMsg(e) → "undefined"` trap
+// when MCP throws a string, number, or plain object.
+const errMsg = (e: unknown): string =>
+  e instanceof Error ? e.message : String(e);
 
 const deriveOrgSlug = (workspace: string): string => {
   const b = basename(workspace);
   return b.startsWith("onboard-") ? b.slice("onboard-".length) : b;
 };
 
-const appendWarning = (workspace: string, line: string): void => {
-  appendFileSync(
-    join(workspace, ".graduate-warnings.log"),
-    `${todayIso()}  ${line}\n`,
-  );
+// Append-only warning log. Wrapped in try/catch because the call sites
+// are themselves error-recovery paths — a write failure here must not
+// crash the orchestrator and abandon the .graduated sentinel.
+const appendWarning = (workspace: string, today: string, line: string): void => {
+  try {
+    appendFileSync(
+      join(workspace, ".graduate-warnings.log"),
+      `${today}  ${line}\n`,
+    );
+  } catch (e) {
+    process.stderr.write(
+      `could not write .graduate-warnings.log at ${workspace}: ${errMsg(e)}\n` +
+      `(warning would have been: ${line})\n`,
+    );
+  }
 };
 
-const gitOut = (cwd: string, args: string[]):
-  { code: number; stdout: string; stderr: string } => {
+type GitResult = {
+  code: number;
+  stdout: string;
+  stderr: string;
+  spawnError?: string;
+};
+
+const gitOut = (cwd: string, args: string[]): GitResult => {
   const r = spawnSync("git", args, { cwd, encoding: "utf8" });
+  if (r.error) {
+    // ENOENT (git not installed) and EACCES (binary unrunnable) surface
+    // here; status is null. Distinguishing this from a non-zero exit
+    // gives callers a clear "git itself unavailable" signal.
+    return {
+      code: -1,
+      stdout: r.stdout ?? "",
+      stderr: r.stderr ?? "",
+      spawnError: errMsg(r.error),
+    };
+  }
   return {
     code: r.status ?? -1,
     stdout: r.stdout ?? "",
@@ -188,9 +242,18 @@ export const runGraduate = (opts: GraduateOpts): number => {
   }
 
   // Step 2a: clean tree check.
-  if (!isCleanTree(workspace)) {
+  const tree = checkCleanTree(workspace);
+  if (tree.kind === "git-failed") {
     process.stderr.write(
-      `aborting: working tree at ${workspace} has uncommitted changes\n` +
+      `aborting: git status failed at ${workspace}: ${tree.reason}\n` +
+      `Verify git is installed and ${workspace} is a git repository, then re-run.\n`,
+    );
+    return 2;
+  }
+  if (tree.kind === "dirty") {
+    process.stderr.write(
+      `aborting: working tree at ${workspace} has uncommitted changes:\n` +
+      tree.paths.map((p) => `  ${p}\n`).join("") +
       `Commit or stash, then re-run --graduate.\n`,
     );
     return 2;
@@ -209,7 +272,26 @@ export const runGraduate = (opts: GraduateOpts): number => {
       process.stderr.write(
         `\n--- Paste your completed retro and EOF (Ctrl-D) when done ---\n`,
       );
-      body = readFileSync(0, "utf8");
+      try {
+        body = readFileSync(0, "utf8");
+      } catch (e) {
+        process.stderr.write(
+          `aborting: could not read retro from stdin: ${errMsg(e)}\n` +
+          `Retry with --retro-from <path> if pasting interactively is not viable.\n`,
+        );
+        return 1;
+      }
+      // Minimum-shape validation: the retro template has 5 ## headings.
+      // A body missing the section structure is almost certainly a
+      // partial paste (Ctrl-C mid-input) and would commit as garbage.
+      const headingCount = (body.match(/^## /gm) ?? []).length;
+      if (body.trim().length === 0 || headingCount < 5) {
+        process.stderr.write(
+          `aborting: retro body is empty or missing the 5 expected '## ' ` +
+          `section headings (found ${headingCount}). Re-run --graduate.\n`,
+        );
+        return 1;
+      }
     }
     writeFileSync(retroPath, body);
     process.stdout.write(`wrote retro: ${retroPath}\n`);
@@ -222,19 +304,32 @@ export const runGraduate = (opts: GraduateOpts): number => {
       process.stderr.write(`git add failed: ${add.stderr}\n`);
       return 1;
     }
-    const commit = gitOut(workspace, [
-      "commit",
-      "-q",
-      "-m",
-      `graduate: retro for ${orgSlug}`,
-    ]);
-    if (commit.code !== 0) {
-      // Empty commit (already committed via prior partial run) is the only
-      // expected non-zero here; surface anything else as a hard failure.
-      process.stderr.write(`git commit failed: ${commit.stderr}\n`);
-      return 1;
+    // Detect "nothing to commit" before the commit attempt — partial
+    // prior runs may have already staged + committed retro.md without
+    // updating the HEAD log shape `headHasRetro` expects.
+    const staged = gitOut(workspace, ["diff", "--cached", "--quiet"]);
+    if (staged.code === 0) {
+      // Index has no staged changes; treat as already-committed and
+      // skip the commit entirely.
+      process.stdout.write(`retro already committed (no staged diff)\n`);
+    } else {
+      const commit = gitOut(workspace, [
+        "commit",
+        "-q",
+        "-m",
+        `graduate: retro for ${orgSlug}`,
+      ]);
+      if (commit.code !== 0) {
+        process.stderr.write(
+          `git commit failed: ${commit.stderr.trim() || "(no stderr)"}\n` +
+          `decisions/retro.md is staged but uncommitted at ${workspace}.\n` +
+          `Run \`git -C ${workspace} status\` to inspect; commit manually or ` +
+          `\`git -C ${workspace} reset HEAD decisions/retro.md\` to retry.\n`,
+        );
+        return 1;
+      }
+      process.stdout.write(`committed retro\n`);
     }
-    process.stdout.write(`committed retro\n`);
   }
 
   // Step 5: tag.
@@ -258,6 +353,7 @@ export const runGraduate = (opts: GraduateOpts): number => {
       pushStatus = "push-failed";
       appendWarning(
         workspace,
+        today,
         `push-failed  git push --tags exited ${p.code}: ${p.stderr.trim()}`,
       );
     }
@@ -276,13 +372,15 @@ export const runGraduate = (opts: GraduateOpts): number => {
           cronStatus = "mcp-failed";
           appendWarning(
             workspace,
-            `mcp-update-failed  taskId=${taskId} err=${(e as Error).message}`,
+            today,
+            `mcp-update-failed  taskId=${taskId} err=${errMsg(e)}`,
           );
         }
       } else {
         cronStatus = "task-not-found";
         appendWarning(
           workspace,
+          today,
           `mcp-task-not-found  task not found for slug=${orgSlug} ` +
           `(may have been deleted or never registered)`,
         );
@@ -291,12 +389,14 @@ export const runGraduate = (opts: GraduateOpts): number => {
       cronStatus = "mcp-failed";
       appendWarning(
         workspace,
-        `mcp-list-failed  err=${(e as Error).message}`,
+        today,
+        `mcp-list-failed  err=${errMsg(e)}`,
       );
     }
   } else {
     appendWarning(
       workspace,
+      today,
       `mcp-not-configured  no MCP lister/updater injected; ` +
       `manually pause via mcp__scheduled-tasks__update_scheduled_task`,
     );

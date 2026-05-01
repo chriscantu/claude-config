@@ -173,9 +173,31 @@ the manual scan as load-bearing, not optional.
    "our director of X", "the platform lead" — phrases that map to a
    single identifiable person in context.
 
-Override the regex gate ONLY after this manual scan returns clean. The
-regex gate's literal-name matches are NEVER overridable on a single
-sweep — re-author the deck with aggregate framing first.
+**Per-render scope.** Re-walk all four classes on EVERY render, not
+just the first time. The override token is per-render (see
+[refusal-contract.md](refusal-contract.md) "Override semantics") — a
+re-render of the same deck must re-pass the manual scan AND re-issue
+`override` if the regex gate still fires. A once-per-deck sign-off is
+NOT compliant with this contract.
+
+**Procedure for the four classes:**
+
+1. **Short-form names** — for each name in `map.md`, generate the
+   standard short forms (Jonathan → Jon / Jonny; Susan → Sue / Susie;
+   Michael → Mike / Mick) and grep the deck literal for each.
+2. **Misspellings** — for each name, scan the deck for variants within
+   edit distance 2 (one transposition or two single-character changes).
+   When in doubt, search for substrings of the canonical name (≥4
+   chars).
+3. **Pronouns near quote contexts** — grep the deck for `\b(he|she|they)\b`
+   and inspect each match's surrounding 2 sentences for a unique role
+   phrase ("the CFO said", "our director of X").
+4. **Organizational shorthand** — grep for "the (CFO|VP|director|head|
+   manager|lead)" and inspect each match for a single-person referent.
+
+Override the regex gate ONLY after this manual scan returns clean for
+THIS specific render. Literal-name regex matches are NEVER overridable
+on a single sweep — re-author the deck with aggregate framing first.
 
 ## Backtracking
 

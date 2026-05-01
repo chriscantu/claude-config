@@ -93,11 +93,16 @@ If the MCP tool is unavailable OR the call fails, you MUST:
 2. Replace the user-facing "Workspace ready" success message with:
 
    > Workspace partially ready — cadence-nag scheduler NOT registered. See
-   > `<workspace>/.scaffold-warnings.log`. Re-run `/onboard --register-nags
-   > <org>` once the scheduled-tasks MCP is available.
+   > `<workspace>/.scaffold-warnings.log`. Once the scheduled-tasks MCP is
+   > available, manually re-run Step B of this protocol: substitute
+   > `{{WORKSPACE_ABS_PATH}}` and `{{ORG_SLUG}}` in the description body
+   > below, then call
+   > `mcp__scheduled-tasks__create_scheduled_task(taskName, cronExpression,
+   > description)` with the values from § "Registration parameters".
 
-   (The `--register-nags` flag is Phase 5; until then, the warning persists
-   on disk so a human can re-scaffold or manually invoke the MCP.)
+   (No `--register-nags` flag exists — there is no helper to retry on the
+   user's behalf. The persistent on-disk warning is the contract; recovery
+   is a manual MCP call against the description body below.)
 
 3. Do NOT silently continue. The persistent on-disk warning is the
    contract — a transient terminal echo is insufficient (scrolls off,
