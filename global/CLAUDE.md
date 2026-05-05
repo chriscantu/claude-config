@@ -25,8 +25,6 @@
 
 ## Development Defaults
 - **TypeScript is required for all new projects** — server-side code is TypeScript, no exceptions. Client-side and tooling default to TypeScript; deviate only when the runtime forbids it (e.g. raw shell scripts, build-config `.mjs` where TS toolchain isn't justified)
-- When scaffolding: pick a TS-first template, install `typescript` + `@types/*` upfront, configure `tsconfig.json` with `strict: true`
-- Migrating an existing JS file you're modifying substantially: convert to TS as part of the change unless the user explicitly scopes it as JS-only
 - TDD — pragmatic: tests accompany implementation, test-first for non-trivial logic (`Coding Principles #4 — Goal-Driven Execution` produces the per-step verify criteria; `Verification (IMPORTANT)` enforces them at the end)
 - Follow industry best practice for package manager and runtime per project
 
