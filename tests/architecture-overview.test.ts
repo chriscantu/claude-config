@@ -16,3 +16,26 @@ describe("repoStats — path validation", () => {
     await expect(repoStats("/nonexistent/path")).rejects.toThrow();
   });
 });
+
+describe("repoStats — manifests", () => {
+  test("detects package.json with deps + devDeps", async () => {
+    const result = await repoStats(fixture("ts-only"));
+    const pkg = result.manifests.find((m) => m.type === "package.json");
+    expect(pkg).toBeDefined();
+    expect(pkg?.deps).toContain("express");
+    expect(pkg?.deps).toContain("pg");
+    expect(pkg?.devDeps).toContain("vitest");
+  });
+
+  test("detects go.mod deps", async () => {
+    const result = await repoStats(fixture("go-only"));
+    const gm = result.manifests.find((m) => m.type === "go.mod");
+    expect(gm).toBeDefined();
+    expect(gm?.deps).toContain("github.com/lib/pq");
+  });
+
+  test("returns empty manifests array for no-manifest fixture", async () => {
+    const result = await repoStats(fixture("no-manifest"));
+    expect(result.manifests).toEqual([]);
+  });
+});
