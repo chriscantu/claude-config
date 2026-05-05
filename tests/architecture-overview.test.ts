@@ -15,6 +15,12 @@ describe("repoStats — path validation", () => {
   test("throws on missing path", async () => {
     await expect(repoStats("/nonexistent/path")).rejects.toThrow();
   });
+
+  test("resolves relative path inputs to absolute name + path", async () => {
+    const result = await repoStats(".");
+    expect(result.name).not.toBe(".");
+    expect(result.path.startsWith("/")).toBe(true);
+  });
 });
 
 describe("repoStats — manifests", () => {

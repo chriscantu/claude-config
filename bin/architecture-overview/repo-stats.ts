@@ -1,6 +1,6 @@
 import { spawnSync } from "child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
-import { basename, join } from "path";
+import { basename, join, resolve } from "path";
 
 export interface RepoStats {
   name: string;
@@ -247,8 +247,8 @@ export async function repoStats(path: string): Promise<RepoStats> {
   }
 
   return {
-    name: basename(path),
-    path,
+    name: basename(resolve(path)),
+    path: resolve(path),
     git: scanGit(path),
     languages: scanLanguages(path),
     manifests: scanManifests(path),
