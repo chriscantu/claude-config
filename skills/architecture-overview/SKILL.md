@@ -87,7 +87,7 @@ Two parallel sources per repo:
   walk source, produce inventory / dependencies / data-flow / integrations
   narrative. Italic-default — only mark a claim plain when the agent cites file:line
   evidence.
-- **`bunx run bin/architecture-overview/repo-stats.ts --repo <path> --json`** for
+- **`bunx run bin/architecture-overview/repo-stats.ts --repo <path>`** for
   deterministic metrics — capture stdout JSON.
 
 ### 5. Aggregate

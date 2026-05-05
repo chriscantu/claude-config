@@ -5,7 +5,7 @@ import { basename, join, resolve } from "path";
 export interface RepoStats {
   name: string;
   path: string;
-  git: GitInfo | null;
+  git: GitInfo;
   languages: Record<string, number>;
   manifests: ManifestEntry[];
   metrics: Metrics;

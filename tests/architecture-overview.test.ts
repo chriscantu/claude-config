@@ -99,3 +99,21 @@ describe("repoStats — languages", () => {
     expect(result.languages).toEqual({});
   });
 });
+
+describe("repoStats — monorepo", () => {
+  test("monorepo fixture surfaces root manifest with workspaces field", async () => {
+    const result = await repoStats(fixture("monorepo"));
+    const pkg = result.manifests.find((m) => m.type === "package.json");
+    expect(pkg).toBeDefined();
+    // Root package.json has no dependencies (only `private` + `workspaces`).
+    expect(pkg?.deps ?? []).toEqual([]);
+    // Root package.json has no devDependencies in the fixture.
+    expect(pkg?.devDeps ?? []).toEqual([]);
+  });
+
+  test("monorepo fixture counts files across nested packages", async () => {
+    const result = await repoStats(fixture("monorepo"));
+    // 1 root package.json + 2 nested service package.json = 3 files
+    expect(result.metrics.fileCount).toBe(3);
+  });
+});

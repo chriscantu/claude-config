@@ -12,12 +12,16 @@ generated_at: 2026-05-05T16:45:00Z
 repos:
   - name: billing-service
     path: ~/work/billing
-    head_sha: a1b2c3d
+    head_sha: a1b2c3d4e5f6
 language_ref: ../../references/architecture-language.md
 ---
 
 > *Italics = inferred. Plain = code-grounded.*
 ```
+
+> The `language_ref` path is relative to the OUTPUT file's parent directory,
+> not the repo root. Adjust per output location depth. See `SKILL.md` Step 8
+> for full guidance.
 
 ## File 1 — `inventory.md`
 

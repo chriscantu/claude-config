@@ -1327,7 +1327,7 @@ echo "## Summary
 ## Test plan
 - [ ] \`fish validate.fish\` passes
 - [ ] \`./bin/link-config.fish --check\` passes
-- [ ] \`bun test tests/architecture-overview.test.ts\` all green (10 tests)
+- [ ] \`bun test tests/architecture-overview.test.ts\` all green (16 tests)
 - [ ] \`bunx tsc --noEmit\` clean
 - [ ] Smoke: /architecture-overview against claude-config produces 4 valid markdown files with italic markers
 - [ ] Smoke: URL input clones to cache and renders inventory entry

@@ -146,10 +146,10 @@ generated_at: 2026-05-05T16:45:00Z
 repos:
   - name: billing-service
     path: ~/work/billing
-    head_sha: a1b2c3d
+    head_sha: a1b2c3d4e5f6
   - name: users-service
     path: ~/.cache/architecture-overview/github.com/acme/users
-    head_sha: 4e5f6a7
+    head_sha: 4e5f6a7b8c9d
 language_ref: ../../references/architecture-language.md
 ---
 
@@ -176,7 +176,7 @@ language_ref: ../../references/architecture-language.md
   "name": "billing-service",
   "git": {
     "isGitRepo": true,
-    "headSha": "a1b2c3d",
+    "headSha": "a1b2c3d4e5f6",
     "lastCommitAt": "2026-04-12T14:23:00Z",
     "ageInDays": 23
   },
