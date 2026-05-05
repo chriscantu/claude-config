@@ -47,6 +47,25 @@ const SKIP_DIRS = new Set([
 
 const TEST_DIR_NAMES = new Set(["tests", "test", "__tests__", "spec"]);
 
+const ENV_VAR_RE = /\b([A-Z][A-Z0-9_]{2,})\b/g;
+const INFRA_SUFFIX_RE = /_(?:URL|KEY|TOKEN|SECRET|DSN|HOST|PORT|API)$/;
+
+const LANGUAGE_BY_EXT: Record<string, string> = {
+  ".ts": "TypeScript",
+  ".tsx": "TypeScript",
+  ".js": "JavaScript",
+  ".jsx": "JavaScript",
+  ".mjs": "JavaScript",
+  ".cjs": "JavaScript",
+  ".py": "Python",
+  ".go": "Go",
+  ".rs": "Rust",
+  ".rb": "Ruby",
+  ".java": "Java",
+  ".kt": "Kotlin",
+  ".kts": "Kotlin",
+};
+
 function* walk(root: string, current = root): Generator<string> {
   for (const entry of readdirSync(current)) {
     if (SKIP_DIRS.has(entry)) continue;
@@ -102,7 +121,6 @@ function scanIntegrations(repoPath: string): Integrations {
     }
   }
 
-  const ENV_VAR_RE = /\b([A-Z][A-Z0-9_]{2,})\b/g;
   for (const filePath of walk(repoPath)) {
     if (!/\.(ts|tsx|js|jsx|py|go|rs|rb|java|kt|env)$/.test(filePath)) continue;
     let content = "";
@@ -111,7 +129,7 @@ function scanIntegrations(repoPath: string): Integrations {
     } catch { continue; }
     for (const match of content.matchAll(ENV_VAR_RE)) {
       const v = match[1];
-      if (/_(?:URL|KEY|TOKEN|SECRET|DSN|HOST|PORT|API)$/.test(v)) {
+      if (INFRA_SUFFIX_RE.test(v)) {
         envVarsReferenced.add(v);
       }
     }
@@ -197,6 +215,32 @@ function scanManifests(repoPath: string): ManifestEntry[] {
   return entries;
 }
 
+function scanLanguages(repoPath: string): Record<string, number> {
+  const locByLang: Record<string, number> = {};
+
+  for (const filePath of walk(repoPath)) {
+    const dotIdx = filePath.lastIndexOf(".");
+    // skip dot-files (.gitkeep, .gitignore) and files with no extension
+    if (dotIdx === -1 || filePath[dotIdx - 1] === "/" || filePath[dotIdx - 1] === undefined) continue;
+    const ext = filePath.slice(dotIdx);
+    const lang = LANGUAGE_BY_EXT[ext] ?? "other";
+    let content = "";
+    try {
+      content = readFileSync(filePath, "utf8");
+    } catch { continue; }
+    locByLang[lang] = (locByLang[lang] ?? 0) + content.split("\n").length;
+  }
+
+  const totalLoc = Object.values(locByLang).reduce((a, b) => a + b, 0);
+  if (totalLoc === 0) return {};
+
+  const fractions = Object.entries(locByLang)
+    .map(([lang, loc]) => [lang, Math.round((loc / totalLoc) * 100) / 100] as [string, number])
+    .sort((a, b) => b[1] - a[1]);
+
+  return Object.fromEntries(fractions);
+}
+
 export async function repoStats(path: string): Promise<RepoStats> {
   if (!existsSync(path) || !statSync(path).isDirectory()) {
     throw new Error(`path not readable or not a directory: ${path}`);
@@ -206,7 +250,7 @@ export async function repoStats(path: string): Promise<RepoStats> {
     name: basename(path),
     path,
     git: scanGit(path),
-    languages: {},
+    languages: scanLanguages(path),
     manifests: scanManifests(path),
     metrics: scanMetrics(path),
     integrations: scanIntegrations(path),
@@ -218,7 +262,7 @@ if (import.meta.main) {
   const args = process.argv.slice(2);
   const repoIdx = args.indexOf("--repo");
   if (repoIdx === -1 || !args[repoIdx + 1]) {
-    console.error("usage: bun run repo-stats.ts --repo <path> [--json]");
+    console.error("usage: bun run repo-stats.ts --repo <path>");
     process.exit(1);
   }
   repoStats(args[repoIdx + 1])

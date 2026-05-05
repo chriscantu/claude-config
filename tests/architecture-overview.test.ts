@@ -73,3 +73,23 @@ describe("repoStats — integrations", () => {
     expect(Array.isArray(result.integrations.envVarsReferenced)).toBe(true);
   });
 });
+
+describe("repoStats — languages", () => {
+  test("ts-only fixture reports TypeScript dominant", async () => {
+    const result = await repoStats(fixture("ts-only"));
+    expect(result.languages.TypeScript).toBeGreaterThan(0);
+    const total = Object.values(result.languages).reduce((a, b) => a + b, 0);
+    expect(total).toBeGreaterThan(0.99);
+    expect(total).toBeLessThanOrEqual(1.01);
+  });
+
+  test("go-only fixture reports Go", async () => {
+    const result = await repoStats(fixture("go-only"));
+    expect(result.languages.Go).toBeGreaterThan(0);
+  });
+
+  test("empty fixture returns empty languages", async () => {
+    const result = await repoStats(fixture("empty"));
+    expect(result.languages).toEqual({});
+  });
+});
