@@ -52,3 +52,24 @@ describe("repoStats — git info", () => {
     expect(result.git?.headSha).toMatch(/^[0-9a-f]{7,40}$/);
   });
 });
+
+describe("repoStats — metrics", () => {
+  test("counts files and detects test directory", async () => {
+    const result = await repoStats(fixture("ts-only"));
+    expect(result.metrics.fileCount).toBeGreaterThan(0);
+    expect(result.metrics.hasTestDir).toBe(true);
+    expect(result.metrics.testFileCount).toBeGreaterThanOrEqual(1);
+  });
+
+  test("hasTestDir is false for fixtures without tests/", async () => {
+    const result = await repoStats(fixture("go-only"));
+    expect(result.metrics.hasTestDir).toBe(false);
+  });
+});
+
+describe("repoStats — integrations", () => {
+  test("detects env-var references", async () => {
+    const result = await repoStats(fixture("ts-only"));
+    expect(Array.isArray(result.integrations.envVarsReferenced)).toBe(true);
+  });
+});

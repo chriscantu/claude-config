@@ -41,6 +41,89 @@ export interface Integrations {
   ciConfigs: string[];
 }
 
+const SKIP_DIRS = new Set([
+  "node_modules", "vendor", ".git", "dist", "build", ".next", "target", "__pycache__",
+]);
+
+const TEST_DIR_NAMES = new Set(["tests", "test", "__tests__", "spec"]);
+
+function* walk(root: string, current = root): Generator<string> {
+  for (const entry of readdirSync(current)) {
+    if (SKIP_DIRS.has(entry)) continue;
+    const full = join(current, entry);
+    const st = statSync(full);
+    if (st.isDirectory()) yield* walk(root, full);
+    else if (st.isFile() && st.size <= 1_048_576) yield full;
+  }
+}
+
+function scanMetrics(repoPath: string): Metrics {
+  let fileCount = 0;
+  let loc = 0;
+  let testFileCount = 0;
+  let hasTestDir = false;
+  let todoFixmeCount = 0;
+
+  for (const entry of readdirSync(repoPath)) {
+    if (TEST_DIR_NAMES.has(entry)) {
+      try {
+        if (statSync(join(repoPath, entry)).isDirectory()) hasTestDir = true;
+      } catch { /* ignore */ }
+    }
+  }
+
+  for (const filePath of walk(repoPath)) {
+    fileCount++;
+    if (/(?:^|\/)(?:.*\.test\.|.*_test\.)/.test(filePath)) testFileCount++;
+    let content = "";
+    try {
+      content = readFileSync(filePath, "utf8");
+    } catch { continue; }
+    loc += content.split("\n").length;
+    todoFixmeCount += (content.match(/\b(?:TODO|FIXME)\b/g) ?? []).length;
+  }
+
+  return { fileCount, loc, testFileCount, hasTestDir, todoFixmeCount };
+}
+
+function scanIntegrations(repoPath: string): Integrations {
+  const envVarsReferenced = new Set<string>();
+  let dockerfilePresent = false;
+  const ciConfigs: string[] = [];
+
+  if (existsSync(join(repoPath, "Dockerfile"))) dockerfilePresent = true;
+
+  const ghWorkflows = join(repoPath, ".github", "workflows");
+  if (existsSync(ghWorkflows)) {
+    for (const f of readdirSync(ghWorkflows)) {
+      if (f.endsWith(".yml") || f.endsWith(".yaml")) {
+        ciConfigs.push(`.github/workflows/${f}`);
+      }
+    }
+  }
+
+  const ENV_VAR_RE = /\b([A-Z][A-Z0-9_]{2,})\b/g;
+  for (const filePath of walk(repoPath)) {
+    if (!/\.(ts|tsx|js|jsx|py|go|rs|rb|java|kt|env)$/.test(filePath)) continue;
+    let content = "";
+    try {
+      content = readFileSync(filePath, "utf8");
+    } catch { continue; }
+    for (const match of content.matchAll(ENV_VAR_RE)) {
+      const v = match[1];
+      if (/_(?:URL|KEY|TOKEN|SECRET|DSN|HOST|PORT|API)$/.test(v)) {
+        envVarsReferenced.add(v);
+      }
+    }
+  }
+
+  return {
+    envVarsReferenced: [...envVarsReferenced].sort(),
+    dockerfilePresent,
+    ciConfigs,
+  };
+}
+
 function scanGit(repoPath: string): GitInfo {
   const dotGit = join(repoPath, ".git");
   if (!existsSync(dotGit)) {
@@ -125,18 +208,8 @@ export async function repoStats(path: string): Promise<RepoStats> {
     git: scanGit(path),
     languages: {},
     manifests: scanManifests(path),
-    metrics: {
-      fileCount: 0,
-      loc: 0,
-      testFileCount: 0,
-      hasTestDir: false,
-      todoFixmeCount: 0,
-    },
-    integrations: {
-      envVarsReferenced: [],
-      dockerfilePresent: false,
-      ciConfigs: [],
-    },
+    metrics: scanMetrics(path),
+    integrations: scanIntegrations(path),
     errors: [],
   };
 }
