@@ -10,22 +10,20 @@ export interface RepoStats {
   manifests: ManifestEntry[];
   metrics: Metrics;
   integrations: Integrations;
-  errors: string[];
 }
 
-export interface GitInfo {
-  isGitRepo: boolean;
-  headSha: string | null;
-  lastCommitAt: string | null;
-  ageInDays: number | null;
-}
+export type GitInfo =
+  | { isGitRepo: false }
+  | {
+      isGitRepo: true;
+      headSha: string | null;
+      lastCommitAt: string | null;
+      ageInDays: number | null;
+    };
 
-export interface ManifestEntry {
-  type: string;
-  deps?: string[];
-  devDeps?: string[];
-  error?: string;
-}
+export type ManifestEntry =
+  | { type: string; deps?: string[]; devDeps?: string[] }
+  | { type: string; error: string };
 
 export interface Metrics {
   fileCount: number;
@@ -67,10 +65,21 @@ const LANGUAGE_BY_EXT: Record<string, string> = {
 };
 
 function* walk(root: string, current = root): Generator<string> {
-  for (const entry of readdirSync(current)) {
+  let entries: string[];
+  try {
+    entries = readdirSync(current);
+  } catch {
+    return;
+  }
+  for (const entry of entries) {
     if (SKIP_DIRS.has(entry)) continue;
     const full = join(current, entry);
-    const st = statSync(full);
+    let st: ReturnType<typeof statSync>;
+    try {
+      st = statSync(full);
+    } catch {
+      continue;
+    }
     if (st.isDirectory()) yield* walk(root, full);
     else if (st.isFile() && st.size <= 1_048_576) yield full;
   }
@@ -145,7 +154,7 @@ function scanIntegrations(repoPath: string): Integrations {
 function scanGit(repoPath: string): GitInfo {
   const dotGit = join(repoPath, ".git");
   if (!existsSync(dotGit)) {
-    return { isGitRepo: false, headSha: null, lastCommitAt: null, ageInDays: null };
+    return { isGitRepo: false };
   }
 
   const sha = spawnSync("git", ["-C", repoPath, "rev-parse", "HEAD"], { encoding: "utf8" });
@@ -208,7 +217,7 @@ function scanManifests(repoPath: string): ManifestEntry[] {
     try {
       entries.push(parseManifest(file, readFileSync(fullPath, "utf8")));
     } catch (e) {
-      entries.push({ type: file, error: (e as Error).message });
+      entries.push({ type: file, error: `${fullPath}: ${(e as Error).message}` });
     }
   }
 
@@ -254,7 +263,6 @@ export async function repoStats(path: string): Promise<RepoStats> {
     manifests: scanManifests(path),
     metrics: scanMetrics(path),
     integrations: scanIntegrations(path),
-    errors: [],
   };
 }
 

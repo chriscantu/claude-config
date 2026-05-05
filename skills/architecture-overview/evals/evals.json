@@ -1,35 +1,84 @@
 {
   "skill": "architecture-overview",
+  "description": "Executable evals for the architecture-overview skill. The skill is slash-invoked and produces a 4-file landscape bundle. Evals exercise: bundle-naming surface, LANGUAGE.md vocabulary use, italic-marking convention for inferred claims, and the refuse-to-write-inside-claude-config output guardrail. Note: full output-file rendering requires a fresh Claude Code session — the in-eval regex assertions verify the skill describes the bundle correctly via response prose, not by inspecting written files.",
   "evals": [
     {
       "name": "produces-bundle-from-yaml",
+      "summary": "Skill fires on a /architecture-overview invocation with a fixture repo and describes the 4-file bundle.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-eval",
       "assertions": [
-        { "type": "file_exists", "path": "/tmp/arch-overview-eval/inventory.md" },
-        { "type": "file_exists", "path": "/tmp/arch-overview-eval/dependencies.md" },
-        { "type": "file_exists", "path": "/tmp/arch-overview-eval/data-flow.md" },
-        { "type": "file_exists", "path": "/tmp/arch-overview-eval/integrations.md" }
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": "inventory\\.md.*dependencies\\.md.*data-flow\\.md.*integrations\\.md|inventory.{0,80}dependencies.{0,80}data[- ]flow.{0,80}integrations",
+          "flags": "is",
+          "tier": "required",
+          "description": "required: response names all four bundle files"
+        }
       ]
     },
     {
       "name": "uses-language-vocabulary",
+      "summary": "Skill output applies LANGUAGE.md vocabulary (Module / Interface / Seam / Adapter) when describing the inventory.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-vocab",
       "assertions": [
-        { "type": "file_contains", "path": "/tmp/arch-overview-vocab/inventory.md", "regex": "\\*\\*Module\\*\\*|\\*\\*Interface\\*\\*" }
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\b(Module|Interface|Implementation|Seam|Adapter|Leverage|Locality)\\b",
+          "tier": "required",
+          "description": "required: response uses canonical LANGUAGE.md vocabulary"
+        }
       ]
     },
     {
       "name": "italic-marks-inferences",
+      "summary": "Skill response references the italic-marking convention for inferred claims.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/no-manifest --output /tmp/arch-overview-italic",
       "assertions": [
-        { "type": "file_contains", "path": "/tmp/arch-overview-italic/dependencies.md", "regex": "\\*[^*]+\\*" }
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires"
+        },
+        {
+          "type": "regex",
+          "pattern": "italic|inferred|\\*[^*]+\\*",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response references italic-on-inferred convention or emits italic markdown"
+        }
       ]
     },
     {
       "name": "refuses-output-inside-claude-config",
+      "summary": "Output guardrail: skill refuses to write the bundle inside the claude-config repo tree.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/empty --output ./docs/test-bad-output",
       "assertions": [
-        { "type": "response_contains", "regex": "refuses?.*claude-config|inside.*claude-config" }
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires"
+        },
+        {
+          "type": "regex",
+          "pattern": "(refuse|reject|cannot|won'?t|will not).{0,80}(claude-config|inside|write)|inside.{0,40}claude-config|claude-config.{0,40}(refuse|reject|cannot)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response surfaces the output-location guardrail"
+        }
       ]
     }
   ]

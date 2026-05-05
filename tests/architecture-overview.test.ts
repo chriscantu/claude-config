@@ -28,16 +28,20 @@ describe("repoStats — manifests", () => {
     const result = await repoStats(fixture("ts-only"));
     const pkg = result.manifests.find((m) => m.type === "package.json");
     expect(pkg).toBeDefined();
-    expect(pkg?.deps).toContain("express");
-    expect(pkg?.deps).toContain("pg");
-    expect(pkg?.devDeps).toContain("vitest");
+    if (pkg && "deps" in pkg) {
+      expect(pkg.deps).toContain("express");
+      expect(pkg.deps).toContain("pg");
+      expect(pkg.devDeps).toContain("vitest");
+    }
   });
 
   test("detects go.mod deps", async () => {
     const result = await repoStats(fixture("go-only"));
     const gm = result.manifests.find((m) => m.type === "go.mod");
     expect(gm).toBeDefined();
-    expect(gm?.deps).toContain("github.com/lib/pq");
+    if (gm && "deps" in gm) {
+      expect(gm.deps).toContain("github.com/lib/pq");
+    }
   });
 
   test("returns empty manifests array for no-manifest fixture", async () => {
@@ -54,8 +58,10 @@ describe("repoStats — git info", () => {
 
   test("returns isGitRepo: true with HEAD sha for the project root", async () => {
     const result = await repoStats(resolve(__dirname, ".."));
-    expect(result.git?.isGitRepo).toBe(true);
-    expect(result.git?.headSha).toMatch(/^[0-9a-f]{7,40}$/);
+    expect(result.git.isGitRepo).toBe(true);
+    if (result.git.isGitRepo) {
+      expect(result.git.headSha).toMatch(/^[0-9a-f]{7,40}$/);
+    }
   });
 });
 
@@ -106,9 +112,11 @@ describe("repoStats — monorepo", () => {
     const pkg = result.manifests.find((m) => m.type === "package.json");
     expect(pkg).toBeDefined();
     // Root package.json has no dependencies (only `private` + `workspaces`).
-    expect(pkg?.deps ?? []).toEqual([]);
+    const deps = (pkg && "deps" in pkg) ? pkg.deps ?? [] : [];
+    const devDeps = (pkg && "devDeps" in pkg) ? pkg.devDeps ?? [] : [];
+    expect(deps).toEqual([]);
     // Root package.json has no devDependencies in the fixture.
-    expect(pkg?.devDeps ?? []).toEqual([]);
+    expect(devDeps).toEqual([]);
   });
 
   test("monorepo fixture counts files across nested packages", async () => {

@@ -87,7 +87,7 @@ Two parallel sources per repo:
   walk source, produce inventory / dependencies / data-flow / integrations
   narrative. Italic-default — only mark a claim plain when the agent cites file:line
   evidence.
-- **`bunx run bin/architecture-overview/repo-stats.ts --repo <path>`** for
+- **`bun run bin/architecture-overview/repo-stats.ts --repo <path>`** for
   deterministic metrics — capture stdout JSON.
 
 ### 5. Aggregate
@@ -119,18 +119,19 @@ Write 4 files at the resolved output path. Frontmatter format defined in
 
 **Path-relativity note for `language_ref` in frontmatter**: The example
 `language_ref: ../../references/architecture-language.md` in `output-format.md` is
-relative to the OUTPUT file's parent directory (e.g., from
+relative to the OUTPUT file's parent directory. Worked example: from
 `~/repos/onboard-acme/architecture/inventory.md`, that path resolves to
-`~/repos/architecture-language.md`). Adjust the path emitted in actual frontmatter to
-match the output location's depth from the canonical vocab file. If the bundle is
-landing outside the repo tree entirely, emit an absolute path or a URL to the
-canonical file in the user's `claude-config` clone.
+`~/repos/references/architecture-language.md` (two levels up from `architecture/`
+lands in `~/repos/`, then descends into `references/`). Adjust the path emitted in
+actual frontmatter to match the output location's depth from the canonical vocab
+file. If the bundle is landing outside the repo tree entirely, emit an absolute
+path or a URL to the canonical file in the user's `claude-config` clone.
 
 ### 9. Done
 
 Print summary:
 
-> "Wrote 4 files at `<path>`. <N> repos scanned. <M> errors (see frontmatter)."
+> "Wrote 4 files at `<path>`. <N> repos scanned."
 
 ## Composition
 
