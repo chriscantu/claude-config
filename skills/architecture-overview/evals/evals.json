@@ -1,0 +1,36 @@
+{
+  "skill": "architecture-overview",
+  "evals": [
+    {
+      "name": "produces-bundle-from-yaml",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-eval",
+      "assertions": [
+        { "type": "file_exists", "path": "/tmp/arch-overview-eval/inventory.md" },
+        { "type": "file_exists", "path": "/tmp/arch-overview-eval/dependencies.md" },
+        { "type": "file_exists", "path": "/tmp/arch-overview-eval/data-flow.md" },
+        { "type": "file_exists", "path": "/tmp/arch-overview-eval/integrations.md" }
+      ]
+    },
+    {
+      "name": "uses-language-vocabulary",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-vocab",
+      "assertions": [
+        { "type": "file_contains", "path": "/tmp/arch-overview-vocab/inventory.md", "regex": "\\*\\*Module\\*\\*|\\*\\*Interface\\*\\*" }
+      ]
+    },
+    {
+      "name": "italic-marks-inferences",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/no-manifest --output /tmp/arch-overview-italic",
+      "assertions": [
+        { "type": "file_contains", "path": "/tmp/arch-overview-italic/dependencies.md", "regex": "\\*[^*]+\\*" }
+      ]
+    },
+    {
+      "name": "refuses-output-inside-claude-config",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/empty --output ./docs/test-bad-output",
+      "assertions": [
+        { "type": "response_contains", "regex": "refuses?.*claude-config|inside.*claude-config" }
+      ]
+    }
+  ]
+}
