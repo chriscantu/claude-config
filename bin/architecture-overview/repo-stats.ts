@@ -213,3 +213,18 @@ export async function repoStats(path: string): Promise<RepoStats> {
     errors: [],
   };
 }
+
+if (import.meta.main) {
+  const args = process.argv.slice(2);
+  const repoIdx = args.indexOf("--repo");
+  if (repoIdx === -1 || !args[repoIdx + 1]) {
+    console.error("usage: bun run repo-stats.ts --repo <path> [--json]");
+    process.exit(1);
+  }
+  repoStats(args[repoIdx + 1])
+    .then((result) => console.log(JSON.stringify(result, null, 2)))
+    .catch((err) => {
+      console.error(err.message);
+      process.exit(1);
+    });
+}
