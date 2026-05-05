@@ -155,9 +155,9 @@ function scanIntegrations(repoPath: string): Integrations {
       content = readFileSync(filePath, "utf8");
     } catch { continue; }
     for (const match of content.matchAll(ENV_VAR_RE)) {
-      const v = match[1];
-      if (INFRA_SUFFIX_RE.test(v)) {
-        envVarsReferenced.add(v);
+      const envVarName = match[1];
+      if (INFRA_SUFFIX_RE.test(envVarName)) {
+        envVarsReferenced.add(envVarName);
       }
     }
   }
@@ -216,10 +216,10 @@ function parseManifest(type: string, content: string): ManifestEntry {
     const requireBlock = content.match(GO_MOD_REQUIRE_BLOCK_RE);
     const lines = requireBlock
       ? requireBlock[1].trim().split("\n")
-      : content.split("\n").filter((l) => l.trim().startsWith("require "));
+      : content.split("\n").filter((line) => line.trim().startsWith("require "));
     const deps = lines
-      .map((l) => l.replace(GO_MOD_REQUIRE_LINE_PREFIX_RE, "").trim().split(/\s+/)[0])
-      .filter((d) => d && !d.startsWith("//"));
+      .map((line) => line.replace(GO_MOD_REQUIRE_LINE_PREFIX_RE, "").trim().split(/\s+/)[0])
+      .filter((dep) => dep && !dep.startsWith("//"));
     return { type, deps };
   }
   return { type };
@@ -234,8 +234,8 @@ function scanManifests(repoPath: string): ManifestEntry[] {
     const fullPath = join(repoPath, file);
     try {
       entries.push(parseManifest(file, readFileSync(fullPath, "utf8")));
-    } catch (e) {
-      entries.push({ type: file, error: `${fullPath}: ${(e as Error).message}` });
+    } catch (err) {
+      entries.push({ type: file, error: `${fullPath}: ${(err as Error).message}` });
     }
   }
 
@@ -258,12 +258,12 @@ function scanLanguages(repoPath: string): Record<string, number> {
     locByLang[lang] = (locByLang[lang] ?? 0) + content.split("\n").length;
   }
 
-  const totalLoc = Object.values(locByLang).reduce((a, b) => a + b, 0);
+  const totalLoc = Object.values(locByLang).reduce((sum, loc) => sum + loc, 0);
   if (totalLoc === 0) return {};
 
   const fractions = Object.entries(locByLang)
     .map(([lang, loc]) => [lang, Math.round((loc / totalLoc) * 100) / 100] as [string, number])
-    .sort((a, b) => b[1] - a[1]);
+    .sort(([, aFraction], [, bFraction]) => bFraction - aFraction);
 
   return Object.fromEntries(fractions);
 }
