@@ -1,3 +1,4 @@
+import { spawnSync } from "child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
 import { basename, join } from "path";
 
@@ -38,6 +39,29 @@ export interface Integrations {
   envVarsReferenced: string[];
   dockerfilePresent: boolean;
   ciConfigs: string[];
+}
+
+function scanGit(repoPath: string): GitInfo {
+  const dotGit = join(repoPath, ".git");
+  if (!existsSync(dotGit)) {
+    return { isGitRepo: false, headSha: null, lastCommitAt: null, ageInDays: null };
+  }
+
+  const sha = spawnSync("git", ["-C", repoPath, "rev-parse", "HEAD"], { encoding: "utf8" });
+  const lastCommit = spawnSync(
+    "git",
+    ["-C", repoPath, "log", "-1", "--format=%cI"],
+    { encoding: "utf8" },
+  );
+
+  const headSha = sha.status === 0 ? sha.stdout.trim().slice(0, 12) : null;
+  const lastCommitAt = lastCommit.status === 0 ? lastCommit.stdout.trim() : null;
+  const ageInDays =
+    lastCommitAt !== null
+      ? Math.floor((Date.now() - new Date(lastCommitAt).getTime()) / 86_400_000)
+      : null;
+
+  return { isGitRepo: true, headSha, lastCommitAt, ageInDays };
 }
 
 const MANIFEST_FILES = [
@@ -98,7 +122,7 @@ export async function repoStats(path: string): Promise<RepoStats> {
   return {
     name: basename(path),
     path,
-    git: null,
+    git: scanGit(path),
     languages: {},
     manifests: scanManifests(path),
     metrics: {

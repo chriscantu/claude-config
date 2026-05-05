@@ -39,3 +39,16 @@ describe("repoStats — manifests", () => {
     expect(result.manifests).toEqual([]);
   });
 });
+
+describe("repoStats — git info", () => {
+  test("returns isGitRepo: false for non-git fixture", async () => {
+    const result = await repoStats(fixture("non-git"));
+    expect(result.git?.isGitRepo).toBe(false);
+  });
+
+  test("returns isGitRepo: true with HEAD sha for the project root", async () => {
+    const result = await repoStats(resolve(__dirname, ".."));
+    expect(result.git?.isGitRepo).toBe(true);
+    expect(result.git?.headSha).toMatch(/^[0-9a-f]{7,40}$/);
+  });
+});
