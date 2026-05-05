@@ -101,8 +101,8 @@ hard / soft / auto-skipped / edge-case matrix.
 
 - Auto-discovery handshake with `/improve-codebase-architecture` not implemented
 - ADR-conflict surfacing not implemented (skill reads ADRs but doesn't grade)
-- Brittleness heuristic nomination deferred (observation-only)
-- Mermaid graph render deferred (text output only)
+- Brittleness heuristic nomination deferred (observation-only) — intent-grounding follow-up: #228
+- Mermaid graph render deferred (text output only) — follow-up: #227
 - Concept-validation phase enforcing italic-on-inferred deferred (convention only)
 - Non-UTF8 binary detection in `repo-stats.ts` is best-effort (size-only filter; non-UTF8 first-8KB check deferred)
 - `envVarsReferenced` test coverage in `repo-stats.ts` is structural (Array.isArray) only — no fixture currently exercises a positive match
