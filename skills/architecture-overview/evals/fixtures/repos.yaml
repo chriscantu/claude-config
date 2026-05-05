@@ -1,9 +1,0 @@
-context:
-  org: "Fixture Org"
-  role: "Test Engineer"
-  date_started: "2026-04-26"
-repos:
-  - path: ./skills/architecture-overview/evals/fixtures/repo-a
-    purpose: "Order API"
-  - path: ./skills/architecture-overview/evals/fixtures/repo-b
-  - path: ./skills/architecture-overview/evals/fixtures/repo-empty
