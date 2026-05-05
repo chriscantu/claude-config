@@ -39,8 +39,6 @@ discovery-mode landscape across the supplied repos."
 
 ## Glossary (canonical: [`architecture-language.md`](../../references/architecture-language.md))
 
-Use these terms exactly:
-
 - **Module** — anything with an interface and an implementation
 - **Interface** — everything a caller must know
 - **Implementation** — what's inside
@@ -55,91 +53,44 @@ Avoid: "component", "service", "API", "boundary".
 ## Process
 
 ### 1. Parse Input
-
-Resolve `--repos` into `[{name, source: path | url}]`. Reject unparseable entries
-with a clear error.
+Resolve `--repos` into `[{name, source: path | url}]`. Reject unparseable entries with a clear error.
 
 ### 2. Cache Prompt (URL Inputs Only)
-
-If any entry is a URL AND `--clone-cache` was not supplied, emit a conversational
-prompt:
-
-> "I'll need to clone the URL repos. Default cache: `~/.cache/architecture-overview/`.
-> Press enter or type 'default' to accept, or supply a path."
-
-Wait for user reply. Treat empty / "default" / "yes" as accept-default.
+If any entry is a URL and `--clone-cache` was not supplied, prompt: _"Default cache: `~/.cache/architecture-overview/`. Enter to accept or supply a path."_ Treat empty / "default" / "yes" as accept.
 
 ### 3. Resolve Repos (Parallel)
-
-For each entry:
-
-- **Path** → verify readable directory; bail-soft on error (record in repo entry,
-  don't abort the whole run).
-- **URL** → `git clone --depth=1 <url> <cache>/<host>/<owner>/<repo>` if not
-  already present; `git fetch --depth=1` unless `--no-fetch`. Auth failures surface
-  as inferred-only inventory entries.
+- **Path** → verify readable directory; bail-soft on error (record, don't abort).
+- **URL** → `git clone --depth=1` if not cached; `git fetch --depth=1` unless `--no-fetch`. Auth failures → inferred-only entries.
 
 ### 4. Walk (Parallel per Repo)
-
-Two parallel sources per repo:
-
-- **`Explore` subagent** for narrative — read `CONTEXT.md` / ADRs if present,
-  walk source, produce inventory / dependencies / data-flow / integrations
-  narrative. Italic-default — only mark a claim plain when the agent cites file:line
-  evidence.
-- **`bun run bin/architecture-overview/repo-stats.ts --repo <path>`** for
-  deterministic metrics — capture stdout JSON.
+- **`Explore` subagent** — read `CONTEXT.md` / ADRs, walk source, produce inventory / dependencies / data-flow / integrations narrative. Italic-default; plain only when agent cites file:line evidence.
+- **`bun run bin/architecture-overview/repo-stats.ts --repo <path>`** — capture stdout JSON for deterministic metrics.
 
 ### 5. Aggregate
-
-Merge per-repo records (narrative + metrics) in memory. Cross-repo edge resolution:
-if repo A has a manifest dep matching repo B's package name, emit edge `A → B
-[observed]`.
+Merge per-repo records. Cross-repo edge resolution: if repo A manifest dep matches repo B's package name, emit edge `A → B [observed]`.
 
 ### 6. Vocab Pass
-
-Rewrite all narrative claims using the LANGUAGE.md terms above. If a target repo has
-`CONTEXT.md`, apply its domain terms inline. Italic-mark claims without explicit
-code evidence.
+Rewrite narrative using LANGUAGE.md terms; apply per-repo `CONTEXT.md` domain terms if present.
 
 ### 7. Output Guardrails
-
-- Refuse if resolved output path is inside `claude-config` (verified via
-  `git rev-parse --show-toplevel` from the output dir).
-- Default output resolution:
-  - Exactly one `~/repos/onboard-*/` workspace exists → default to
-    `<workspace>/architecture/`.
-  - Zero workspaces OR more than one → require `--output <path>`. Print candidates
-    if multiple.
+- Refuse if output path is inside `claude-config` (verified via `git rev-parse --show-toplevel`).
+- Default: exactly one `~/repos/onboard-*/` workspace → `<workspace>/architecture/`; zero or multiple → require `--output <path>`.
 
 ### 8. Render
+Write 4 files at the resolved output path. Frontmatter format: [`references/output-format.md`](references/output-format.md).
 
-Write 4 files at the resolved output path. Frontmatter format defined in
-[`references/output-format.md`](references/output-format.md).
-
-**Path-relativity note for `language_ref` in frontmatter**: The example
-`language_ref: ../../references/architecture-language.md` in `output-format.md` is
-relative to the OUTPUT file's parent directory. Worked example: from
-`~/repos/onboard-acme/architecture/inventory.md`, that path resolves to
-`~/repos/references/architecture-language.md` (two levels up from `architecture/`
-lands in `~/repos/`, then descends into `references/`). Adjust the path emitted in
-actual frontmatter to match the output location's depth from the canonical vocab
-file. If the bundle is landing outside the repo tree entirely, emit an absolute
-path or a URL to the canonical file in the user's `claude-config` clone.
+**`language_ref` path** is relative to each output file's parent directory. From
+`~/repos/onboard-acme/architecture/inventory.md`, `../../references/architecture-language.md`
+resolves to `~/repos/references/architecture-language.md`. If the bundle lands
+outside the repo tree, emit an absolute path or a URL.
 
 ### 9. Done
-
-Print summary:
-
-> "Wrote 4 files at `<path>`. <N> repos scanned."
+Print: _"Wrote 4 files at `<path>`. <N> repos scanned."_
 
 ## Composition
 
-- **`/improve-codebase-architecture`** — consumes this output (loose composition;
-  vocabulary is the contract). Run this skill first; user holds bundle context
-  while running the deepening-grader.
-- **`/onboard`** — leader's broader ramp toolkit. Future versions may auto-invoke
-  this skill; for now it is opt-in.
+- **`/improve-codebase-architecture`** — consumes this output (vocabulary is the contract). Run first; user holds bundle context while running the deepening-grader.
+- **`/onboard`** — leader's broader ramp toolkit. Future versions may auto-invoke this skill; for now it is opt-in.
 
 ## Repo Requirements
 

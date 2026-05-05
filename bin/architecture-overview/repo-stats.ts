@@ -1,6 +1,6 @@
 import { spawnSync } from "child_process";
 import { existsSync, readFileSync, readdirSync, statSync } from "fs";
-import { basename, join, resolve } from "path";
+import { basename, extname, join, resolve } from "path";
 
 export interface RepoStats {
   name: string;
@@ -45,8 +45,26 @@ const SKIP_DIRS = new Set([
 
 const TEST_DIR_NAMES = new Set(["tests", "test", "__tests__", "spec"]);
 
+// --- Module-scoped regex / extension constants ---
+
 const ENV_VAR_RE = /\b([A-Z][A-Z0-9_]{2,})\b/g;
 const INFRA_SUFFIX_RE = /_(?:URL|KEY|TOKEN|SECRET|DSN|HOST|PORT|API)$/;
+
+// Matches test files by path segment: foo.test.ts, foo_test.go, etc.
+const TEST_FILE_RE = /(?:^|\/)(?:.*\.test\.|.*_test\.)/;
+
+// Counts brittleness signals in source content
+const TODO_FIXME_RE = /\b(?:TODO|FIXME)\b/g;
+
+// Extensions whose source content is worth scanning for env var references
+const SCANNABLE_SOURCE_EXTS = new Set([
+  ".ts", ".tsx", ".js", ".jsx", ".py", ".go", ".rs", ".rb", ".java", ".kt", ".env",
+]);
+
+// go.mod has two require syntaxes — a parenthesized block (multiple deps) and a flat
+// `require pkg version` line (single dep). Helpers below match both.
+const GO_MOD_REQUIRE_BLOCK_RE = /require\s*\(([\s\S]*?)\)/;
+const GO_MOD_REQUIRE_LINE_PREFIX_RE = /^require\s+/;
 
 const LANGUAGE_BY_EXT: Record<string, string> = {
   ".ts": "TypeScript",
@@ -102,13 +120,13 @@ function scanMetrics(repoPath: string): Metrics {
 
   for (const filePath of walk(repoPath)) {
     fileCount++;
-    if (/(?:^|\/)(?:.*\.test\.|.*_test\.)/.test(filePath)) testFileCount++;
+    if (TEST_FILE_RE.test(filePath)) testFileCount++;
     let content = "";
     try {
       content = readFileSync(filePath, "utf8");
     } catch { continue; }
     loc += content.split("\n").length;
-    todoFixmeCount += (content.match(/\b(?:TODO|FIXME)\b/g) ?? []).length;
+    todoFixmeCount += (content.match(TODO_FIXME_RE) ?? []).length;
   }
 
   return { fileCount, loc, testFileCount, hasTestDir, todoFixmeCount };
@@ -131,7 +149,7 @@ function scanIntegrations(repoPath: string): Integrations {
   }
 
   for (const filePath of walk(repoPath)) {
-    if (!/\.(ts|tsx|js|jsx|py|go|rs|rb|java|kt|env)$/.test(filePath)) continue;
+    if (!SCANNABLE_SOURCE_EXTS.has(extname(filePath))) continue;
     let content = "";
     try {
       content = readFileSync(filePath, "utf8");
@@ -195,12 +213,12 @@ function parseManifest(type: string, content: string): ManifestEntry {
     };
   }
   if (type === "go.mod") {
-    const requireBlock = content.match(/require\s*\(([\s\S]*?)\)/);
+    const requireBlock = content.match(GO_MOD_REQUIRE_BLOCK_RE);
     const lines = requireBlock
       ? requireBlock[1].trim().split("\n")
       : content.split("\n").filter((l) => l.trim().startsWith("require "));
     const deps = lines
-      .map((l) => l.replace(/^require\s+/, "").trim().split(/\s+/)[0])
+      .map((l) => l.replace(GO_MOD_REQUIRE_LINE_PREFIX_RE, "").trim().split(/\s+/)[0])
       .filter((d) => d && !d.startsWith("//"));
     return { type, deps };
   }
