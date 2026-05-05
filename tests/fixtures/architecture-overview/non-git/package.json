@@ -1,0 +1,1 @@
+{ "name": "non-git-fixture", "dependencies": { "lodash": "^4.17.21" } }

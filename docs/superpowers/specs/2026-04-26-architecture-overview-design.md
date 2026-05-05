@@ -1,8 +1,11 @@
 # `/architecture-overview` — Design Spec
 
 **Issue:** #44
-**Status:** Approved (2026-04-26)
-**Scope:** MVP (sections 1-4 only; Mermaid + challenge pass + risk-register feed deferred to v2)
+**Status:** **Superseded** (2026-05-05) — see [`2026-05-05-architecture-overview-design.md`](2026-05-05-architecture-overview-design.md)
+**Original status:** Approved (2026-04-26)
+**Scope (original):** MVP (sections 1-4 only; Mermaid + challenge pass + risk-register feed deferred to v2)
+
+> **Why superseded**: vocabulary-alignment requirement with `/improve-codebase-architecture` (LANGUAGE.md), 4-file bundle vs single doc for org-scale, italic-not-`⚠` inference marking, URL input + clone-cache, Bun TS helper for deterministic metrics. The 04-26 design captured the discovery-mode shape; the 05-05 revision extends it to compose cleanly with the deepening-grader skill.
 
 ## Problem
 

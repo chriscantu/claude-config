@@ -37,3 +37,10 @@ operational burden | Must assess ongoing operational cost
 NEVER.*claim.*works.*without|NEVER say.*should work | Must enforce run-it-and-prove-it culture
 tsc --noEmit | Must verify TypeScript compilation
 write.*test.*before|reproducing test | Bug fixes must start with reproducing test
+
+# Architecture vocabulary (canonical: references/architecture-language.md)
+[Mm]odule.*[Ii]nterface | LANGUAGE Module/Interface pair must remain canonical
+[Dd]eep.*[Ss]hallow | LANGUAGE depth axis must remain canonical
+[Ss]eam | LANGUAGE seam term must remain canonical
+[Aa]dapter | LANGUAGE adapter term must remain canonical
+[Ll]everage.*[Ll]ocality|[Ll]ocality.*[Ll]everage | LANGUAGE leverage/locality pair must remain canonical

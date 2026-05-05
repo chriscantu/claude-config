@@ -45,7 +45,7 @@ deepening opportunities — refactors that turn shallow modules into deep ones."
 
 Use these terms exactly in every suggestion. Consistent language is the point —
 don't drift into "component," "service," "API," or "boundary." Full definitions
-in [LANGUAGE.md](references/LANGUAGE.md).
+in [LANGUAGE.md](../../references/architecture-language.md).
 
 - **Module** — anything with an interface and an implementation (function, class,
   package, slice). Distinct from JS/Python language-level *modules* (files,
@@ -63,7 +63,7 @@ in [LANGUAGE.md](references/LANGUAGE.md).
 - **Locality** — what maintainers get from depth: change, bugs, knowledge
   concentrated in one place.
 
-Key principles (see [LANGUAGE.md](references/LANGUAGE.md) for the full list):
+Key principles (see [LANGUAGE.md](../../references/architecture-language.md) for the full list):
 
 - **Deletion test**: imagine deleting the module. If complexity vanishes, it was a
   pass-through. If complexity reappears across N callers, it was earning its keep.
@@ -116,7 +116,7 @@ Present a numbered list of deepening opportunities. For each candidate:
   would improve
 
 **Use `CONTEXT.md` vocabulary for the domain (if present), and
-[LANGUAGE.md](references/LANGUAGE.md) vocabulary for the architecture.** If
+[LANGUAGE.md](../../references/architecture-language.md) vocabulary for the architecture.** If
 `CONTEXT.md` defines "Order," talk about "the Order intake module" — not "the
 FooBarHandler," and not "the Order service."
 

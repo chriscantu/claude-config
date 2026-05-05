@@ -1,141 +1,109 @@
 ---
 name: architecture-overview
-description: >
-  Use when user says /architecture-overview, "map the architecture", "landscape of
-  these repos", or wants a whole-system technical inventory across multiple repos
-  for new-role onboarding. Produces inventory + dep map + data flow + integrations
-  doc with code citations and flagged inferences. Do NOT use for single-repo deep
-  dive (use /onboard), new-system design (use /sdr), or organizational/people
-  landscape analysis (use /swot).
+description: Slash-invoked discovery-mode skill that scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) using the canonical LANGUAGE.md vocabulary (Module / Interface / Depth / Seam / Adapter / Leverage / Locality). Use when a new senior eng leader needs a credible whole-system mental model on day 3-7 of a ramp. Do NOT use for single-repo deepening grading (use /improve-codebase-architecture), a single architectural choice (use /adr), a system-level design record (use /sdr), or tool/framework adoption (use /tech-radar).
 disable-model-invocation: true
+status: experimental
+version: 0.1.0
 ---
 
-# /architecture-overview — Whole-System Landscape
+# Architecture Overview
 
-Discovery-mode architecture skill. Produces a landscape document covering systems,
-dependencies, data flows, and external integrations across a list of repos.
+Discovery-mode multi-repo landscape mapper. Walks each repo with an Explore subagent
+for narrative discovery and runs `bin/architecture-overview/repo-stats.ts` for
+deterministic metrics. Produces 4 markdown files using shared architectural
+vocabulary so downstream skills (notably `/improve-codebase-architecture`) consume
+without retranslation.
 
-**Announce:** "I'm using the architecture-overview skill to map the whole-system
-landscape — code-grounded claims only, with flagged inferences for anything I can't
-cite directly."
+**Announce at start:** "I'm using the architecture-overview skill to produce a
+discovery-mode landscape across the supplied repos."
 
 ## When To Use
 
-- User starting in a new role and needs day-3 mental model of the whole system
-- User has multiple repos and wants a single landscape doc
+- New eng leader needs day-3 whole-system mental model
 - User explicitly invokes `/architecture-overview`
+- User asks to "map the architecture", "produce a landscape doc", "list the services"
 
 ## When NOT To Use
 
-- Single-repo deep dive → use `/onboard` (when available)
-- New-system design → use `/sdr`
-- Impact analysis of one specific change → use `/cross-project`
-- Organizational/people landscape (strengths, weaknesses, stakeholders) → use `/swot`
-- Architecture *evaluation* (deep/shallow grading, deepening opportunities) → use `/improve-codebase-architecture`
+- Single-repo deepening grading → `/improve-codebase-architecture`
+- Single architectural choice with named alternatives → `/adr`
+- System-level design record → `/sdr`
+- Tool/framework adoption evaluation → `/tech-radar`
 
 ## Inputs
 
-**Default config path:** `docs/onboarding/repos.yaml`
+- `--repos <yaml-or-csv>` — path to a `repos.yaml` config OR comma-separated paths/URLs
+- `--output <path>` — override default output dir
+- `--clone-cache <path>` — override URL clone target (default `~/.cache/architecture-overview/`)
+- `--no-fetch` — skip `git fetch` on already-cached URL clones
 
-**Override:** `/architecture-overview <path-to-yaml>`
+## Glossary (canonical: [`architecture-language.md`](../../references/architecture-language.md))
 
-**If no config found:** offer to create one from
-`templates/repos.yaml.template`. Do NOT proceed without explicit repo paths.
+- **Module** — anything with an interface and an implementation
+- **Interface** — everything a caller must know
+- **Implementation** — what's inside
+- **Depth** — leverage at the interface
+- **Seam** — where the interface lives
+- **Adapter** — concrete thing satisfying an interface at a seam
+- **Leverage** — what callers get from depth
+- **Locality** — what maintainers get from depth
 
-**Config shape:**
+Avoid: "component", "service", "API", "boundary".
 
-```yaml
-context:
-  org: "Acme Corp"
-  role: "VP Engineering"
-  date_started: "2026-05-01"
-repos:
-  - path: ~/repos/acme-api
-    purpose: "Public REST API"        # optional
-    owner: "Platform team"            # optional
-  - path: ~/repos/acme-worker
-```
+## Process
 
-## Workflow
+### 1. Parse Input
+Resolve `--repos` into `[{name, source: path | url}]`. Reject unparseable entries with a clear error.
 
-### Step 1: Validate inputs
+### 2. Cache Prompt (URL Inputs Only)
+If any entry is a URL and `--clone-cache` was not supplied, prompt: _"Default cache: `~/.cache/architecture-overview/`. Enter to accept or supply a path."_ Treat empty / "default" / "yes" as accept.
 
-- Resolve config path (arg → default → prompt-create)
-- For each repo path: verify directory exists and is readable
-- Skipped repos go in "Gaps" section, not silently dropped
+### 3. Resolve Repos (Parallel)
+- **Path** → verify readable directory; bail-soft on error (record, don't abort).
+- **URL** → `git clone --depth=1` if not cached; `git fetch --depth=1` unless `--no-fetch`. Auth failures → inferred-only entries.
 
-### Step 2: Per-repo scan
+### 4. Walk (Parallel per Repo)
+- **`Explore` subagent** — read `CONTEXT.md` / ADRs, walk source, produce inventory / dependencies / data-flow / integrations narrative. Italic-default; plain only when agent cites file:line evidence.
+- **`bun run bin/architecture-overview/repo-stats.ts --repo <path>`** — capture stdout JSON for deterministic metrics.
 
-For each repo, extract code-grounded facts. Cite file paths for every claim.
+### 5. Aggregate
+Merge per-repo records. Cross-repo edge resolution: if repo A manifest dep matches repo B's package name, emit edge `A → B [observed]`.
 
-**Code-grounded extractions:**
-- Stack: read `package.json`, `Cargo.toml`, `go.mod`, `pyproject.toml`, `Gemfile`, `pom.xml`
-- Direct deps: top 10 from manifest dep list (manifest order; alphabetical fallback)
-- Service hints: `Dockerfile`, `docker-compose.yml`, `k8s/*.yaml`, `serverless.yml`, `Procfile`
-- Purpose: first heading in README, or first non-blank paragraph after any
-  frontmatter/badge block (cap search at 100 lines)
-- ADRs/SDRs: search `adrs/*.md`, `docs/adrs/*.md`, `sdrs/*.md`, `doc/adr/*.md`,
-  `architecture/decisions/*.md`. If 0 found, emit a Gaps item ("ADR location
-  unknown — repo may use a non-standard convention"), don't silently report 0.
-- Entry points: `main.*`, `index.*`, `cmd/*/main.go`, `src/main/`
+### 6. Vocab Pass
+Rewrite narrative using LANGUAGE.md terms; apply per-repo `CONTEXT.md` domain terms if present.
 
-**Flagged inferences (prefix `⚠ inferred —` always):**
-- Likely externals from env vars (`*_URL`, `*_API_KEY`, `DATABASE_URL`)
-- Inter-repo calls inferred from import patterns or domain names
-- Owner team inferred from CODEOWNERS or commit-author frequency
+### 7. Output Guardrails
+- Refuse if output path is inside `claude-config` (verified via `git rev-parse --show-toplevel`).
+- Default: exactly one `~/repos/onboard-*/` workspace → `<workspace>/architecture/`; zero or multiple → require `--output <path>`.
 
-**How to fill the per-repo template's `{{externals_block}}` slot:**
-- Code-grounded (Dockerfile, docker-compose, manifest dep): `<service> (citation: <path>)` — NO `⚠` prefix
-- Env-var-only inference: `⚠ inferred — <service> (env: <VAR_NAME>, confirm)`
-- None found: `none identified`
+### 8. Render
+Write 4 files at the resolved output path. Frontmatter format: [`references/output-format.md`](references/output-format.md).
 
-**Refusal cases:**
-- No manifest + no Dockerfile + no entry point → list under "Gaps", do NOT
-  fabricate purpose
-- Path unreadable → list under "Gaps"
-- Repo > 10k files → cap depth, note truncation in Gaps
+**`language_ref` path** is relative to each output file's parent directory. From
+`~/repos/onboard-acme/architecture/inventory.md`, `../../references/architecture-language.md`
+resolves to `~/repos/references/architecture-language.md`. If the bundle lands
+outside the repo tree, emit an absolute path or a URL.
 
-Emit each repo using `templates/per-repo-section.md.template`.
+### 9. Done
+Print: _"Wrote 4 files at `<path>`. <N> repos scanned."_
 
-### Step 3: Cross-reference pass
+## Composition
 
-- Dedupe externals across repos for Section 4 (External Integrations)
-- Find shared externals (e.g., 3 services share Postgres) → flag as data-gravity
-  in Gaps
-- Find inter-repo dependency cycles → flag in Gaps
+- **`/improve-codebase-architecture`** — consumes this output (vocabulary is the contract). Run first; user holds bundle context while running the deepening-grader.
+- **`/onboard`** — leader's broader ramp toolkit. Future versions may auto-invoke this skill; for now it is opt-in.
 
-### Step 4: Archive prior doc
+## Repo Requirements
 
-- If `docs/architecture/landscape.md` exists, copy it to
-  `docs/architecture/archive/landscape-YYYY-MM-DD-HHMM.md` first
-- Then proceed to write the new canonical doc
+See [`references/repo-requirements.md`](references/repo-requirements.md) for the
+hard / soft / auto-skipped / edge-case matrix.
 
-### Step 5: Render landscape.md
+## Known Gaps (v0.1.0 — Experimental)
 
-Use `templates/landscape.md.template`. Fill the mustache placeholders:
-- `{{org}}` from `context.org`
-- `{{date}}` = today (ISO 8601: YYYY-MM-DD)
-- `{{inventory_rows}}` = inventory table rows from per-repo scans (Section 1)
-- `{{dependency_lines}}` = dependency map bullets, direct + flagged inferences (Section 2)
-- `{{ingress}}` / `{{storage}}` / `{{egress}}` = data flow (Section 3)
-- `{{integration_rows}}` = external integrations table rows, deduped (Section 4)
-- `{{gaps}}` = aggregated gaps from per-repo scans + cross-reference pass
-- `{{per_repo_detail}}` = per-repo blocks (one per repo, using the per-repo template)
-
-Preserve the template's heading numbering exactly (`## 1. Systems Inventory`, `## 2. Dependency Map`, etc.) — do NOT improvise alternative section names like "Section 1:".
-
-### Step 6: Summary
-
-Print: `Landscape captured. <N> repos, <M> flagged inferences, <K> gaps. Next: probe gaps in 1:1s.` (substitute actual counts for the angle-bracketed values).
-
-## Anti-Hallucination Guardrails (load-bearing)
-
-- Every claim in inventory/deps/integrations sections MUST cite file path; if no
-  citation, prefix `⚠ inferred —`
-- Owner claims without CODEOWNERS evidence MUST be `⚠ inferred` or `⚠ unknown`
-- NEVER invent service names not present in code/config
-- Final pass: for each named service, library, or tool appearing in the
-  inventory/deps/integrations sections, confirm it has either a `(citation:
-  <path>)` reference OR a `⚠ inferred —` prefix. Flag any without either.
-  (Skip section headings, bold field labels, and template-supplied tokens —
-  this check targets named entities in claim positions only.)
+- Auto-discovery handshake with `/improve-codebase-architecture` not implemented
+- ADR-conflict surfacing not implemented (skill reads ADRs but doesn't grade)
+- Brittleness heuristic nomination deferred (observation-only) — intent-grounding follow-up: #228
+- Mermaid graph render deferred (text output only) — follow-up: #227
+- Concept-validation phase enforcing italic-on-inferred deferred (convention only)
+- Non-UTF8 binary detection in `repo-stats.ts` is best-effort (size-only filter; non-UTF8 first-8KB check deferred)
+- `envVarsReferenced` test coverage in `repo-stats.ts` is structural (Array.isArray) only — no fixture currently exercises a positive match
+- LOC count uses `content.split("\n").length` which is +1 for files ending in newline
