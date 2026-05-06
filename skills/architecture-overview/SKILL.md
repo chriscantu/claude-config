@@ -1,9 +1,9 @@
 ---
 name: architecture-overview
-description: Slash-invoked discovery-mode skill that scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) using the canonical LANGUAGE.md vocabulary (Module / Interface / Depth / Seam / Adapter / Leverage / Locality). Use when a new senior eng leader needs a credible whole-system mental model on day 3-7 of a ramp. Do NOT use for single-repo deepening grading (use /improve-codebase-architecture), a single architectural choice (use /adr), a system-level design record (use /sdr), or tool/framework adoption (use /tech-radar).
+description: Slash-invoked discovery-mode skill that scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) using the canonical LANGUAGE.md vocabulary. Use when a new senior eng leader needs a credible whole-system mental model on day 3-7 of a ramp. Do NOT use for single-repo deepening grading (use /improve-codebase-architecture), a single architectural choice (use /adr), a system-level design record (use /sdr), or tool/framework adoption (use /tech-radar).
 disable-model-invocation: true
 status: experimental
-version: 0.3.0
+version: 0.3.1
 ---
 
 # Architecture Overview
@@ -37,88 +37,33 @@ discovery-mode landscape across the supplied repos."
 - `--clone-cache <path>` — override URL clone target (default `~/.cache/architecture-overview/`)
 - `--no-fetch` — skip `git fetch` on already-cached URL clones
 
-## Glossary (canonical: [`architecture-language.md`](../../references/architecture-language.md))
+## Vocabulary
 
-- **Module** — anything with an interface and an implementation
-- **Interface** — everything a caller must know
-- **Implementation** — what's inside
-- **Depth** — leverage at the interface
-- **Seam** — where the interface lives
-- **Adapter** — concrete thing satisfying an interface at a seam
-- **Leverage** — what callers get from depth
-- **Locality** — what maintainers get from depth
-
-Avoid `component` / `service` / `API` / `boundary` as **descriptive vocabulary** —
-use the canonical Module / Interface / Adapter terms instead. Literal product
-names (`Stripe API`) and repo names (`auth-svc`) in node labels are fine; the ban
-is on coining new vocab, not on quoting proper nouns. Full guidance:
-[`output-format.md`](references/output-format.md).
+Canonical: [`architecture-language.md`](../../references/architecture-language.md). Module / Interface / Seam / Adapter / Depth / Leverage / Locality. Avoid `component` / `service` / `API` / `boundary` as descriptive vocab — see [`output-format.md`](references/output-format.md) for the proper-noun carve-out.
 
 ## Process
 
 ### 1. Parse Input
 Resolve `--repos` into `[{name, source: path | url}]`. Reject unparseable entries with a clear error.
 
-### 2. Cache Prompt (URL Inputs Only)
-If any entry is a URL and `--clone-cache` was not supplied, prompt: _"Default cache: `~/.cache/architecture-overview/`. Enter to accept or supply a path."_ Treat empty / "default" / "yes" as accept.
-
-### 3. Resolve Repos (Parallel)
+### 2. Resolve Repos (Parallel)
+- **Cache prompt (URL inputs only)** — if `--clone-cache` not supplied, prompt: _"Default cache: `~/.cache/architecture-overview/`. Enter to accept or supply a path."_ Empty / "default" / "yes" = accept.
 - **Path** → verify readable directory; bail-soft on error (record, don't abort).
 - **URL** → `git clone --depth=1` if not cached; `git fetch --depth=1` unless `--no-fetch`. Auth failures → inferred-only entries.
 
-### 4. Walk (Parallel per Repo)
-- **`Explore` subagent** — read `CONTEXT.md` / ADRs, walk source, produce inventory / dependencies / data-flow / integrations narrative. Italic-default; plain only when agent cites file:line evidence.
+### 3. Walk (Parallel per Repo)
+- **`Explore` subagent** — read `CONTEXT.md` / ADRs and walk source. Produce four narrative threads: inventory (Module / Interface / Implementation / Signals), dependencies (Seam / Adapter / Observed-via), data-flow (numbered lifecycle steps), integrations (external SaaS).
+- **Italic-default; plain only when the agent cites file:line evidence.** Inferences (manifest absence, env-var implies dep, conventional naming) → italic. Code-grounded claims (import at `src/x.ts:42`, env var read in `config.ts`) → plain. The agent applies the convention while writing the narrative — it is NOT a post-pass.
 - **`bun run bin/architecture-overview/repo-stats.ts --repo <path>`** — capture stdout JSON for deterministic metrics.
 
-### 5. Aggregate
-Merge per-repo records. Cross-repo edge resolution: if repo A manifest dep matches repo B's package name, emit edge `A → B [observed]`.
+### 4. Aggregate + Vocab Pass
+Merge per-repo records. Cross-repo edge resolution: if repo A's manifest dep matches repo B's package name, emit edge `A → B [observed]`. Apply LANGUAGE.md vocab interleaved with the merge — per-repo `CONTEXT.md` domain terms layered on top. Single pass, not two; narrative is written once with the right vocab.
 
-### 6. Vocab Pass
-Rewrite narrative using LANGUAGE.md terms; apply per-repo `CONTEXT.md` domain terms if present.
-
-### 7. Output Guardrails
-- Refuse if output path is inside `claude-config` (verified via `git rev-parse --show-toplevel`).
-- Default: exactly one `~/repos/onboard-*/` workspace → `<workspace>/architecture/`; zero or multiple → require `--output <path>`.
-
-### 8. Render
-Write 4 files at the resolved output path. Frontmatter format: [`references/output-format.md`](references/output-format.md).
-
-**`language_ref` path** is relative to each output file's parent directory. From
-`~/repos/onboard-acme/architecture/inventory.md`, `../../references/architecture-language.md`
-resolves to `~/repos/references/architecture-language.md`. If the bundle lands
-outside the repo tree, emit an absolute path or a URL.
-
-**Mermaid diagrams** — emit a fenced ` ```mermaid ` block alongside the prose in
-`inventory.md` (per-repo `### Context` block — C4 Level 1 `graph TB` of actor +
-system + adjacent systems), `dependencies.md` (`graph LR` of Module → Module edges),
-and `data-flow.md` (`flowchart TD` of numbered lifecycle steps). Solid `-->` =
-observed, dashed `-.->` = inferred (edge label prefixed `inferred:` to mirror the
-italic-on-inferred convention used in prose; mermaid does not render edge
-labels in italic). Cap ~12 nodes per block; split per domain
-(`### Domain: Auth`) or per flow (`### Flow: Signup`) when larger.
-
-**Conditional emission (sufficient-complexity floor)** — skip the block
-when synthesis is too sparse to beat prose. Apply per-block (per file,
-per `### Domain:` / `### Flow:` split if used):
-
-- `graph TB` (inventory C4 Context): emit when ≥1 actor AND ≥1 adjacent
-  system (observed OR inferred). Otherwise skip.
-- `graph LR` (dependencies): emit when ≥2 Modules AND ≥1 Seam edge
-  (observed OR inferred). Otherwise skip.
-- `flowchart TD` (data-flow): emit when ≥3 lifecycle steps. Otherwise skip.
-
-When skipping, replace the block with a one-line blockquote in the same
-position so the reader sees synthesis happened:
-
-```markdown
-> _diagram skipped: <reason — e.g., single-Module landscape; no Seam edges discovered>_
-```
-
-Templates and shape examples:
-[`references/output-format.md`](references/output-format.md).
-
-### 9. Done
-Print: _"Wrote 4 files at `<path>`. <N> repos scanned."_
+### 5. Render
+- **Output guardrails** — refuse if output path is inside `claude-config` (`git rev-parse --show-toplevel`). Default: exactly one `~/repos/onboard-*/` workspace → `<workspace>/architecture/`; zero or multiple → require `--output <path>`.
+- **Write 4 files** at the resolved output path. Frontmatter format: [`references/output-format.md`](references/output-format.md). `language_ref` is relative to each output file's parent directory; emit an absolute path or URL when the bundle lands outside the repo tree.
+- **Mermaid** — render blocks per [`output-format.md`](references/output-format.md): `graph TB` in inventory.md (C4 Context), `graph LR` in dependencies.md, `flowchart TD` in data-flow.md. Each diagram has a sufficient-complexity floor; below it, replace with `> _diagram skipped: <reason>_`.
+- **Done** — print _"Wrote 4 files at `<path>`. <N> repos scanned."_
 
 ## Composition
 
@@ -130,7 +75,7 @@ Print: _"Wrote 4 files at `<path>`. <N> repos scanned."_
 See [`references/repo-requirements.md`](references/repo-requirements.md) for the
 hard / soft / auto-skipped / edge-case matrix.
 
-## Known Gaps (v0.3.0 — Experimental)
+## Known Gaps (v0.3.1 — Experimental)
 
 - Auto-discovery handshake with `/improve-codebase-architecture` not implemented
 - ADR-conflict surfacing not implemented (skill reads ADRs but doesn't grade)
