@@ -63,6 +63,44 @@
       ]
     },
     {
+      "name": "skips-mermaid-graph-when-below-complexity-floor",
+      "summary": "Skill skips the dependencies.md graph LR block (with skip-note blockquote) when synthesis is below the sufficient-complexity floor — single-Module landscape has no Seam edges to render.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/no-manifest --output /tmp/arch-overview-skip-graph-eval ; then show me what dependencies.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": ">\\s*_diagram skipped:",
+          "tier": "required",
+          "description": "required: response includes the structured skip-note blockquote (`> _diagram skipped:`) when below complexity floor (single-Module landscape) — tight match avoids false-positive on conversational mention"
+        }
+      ]
+    },
+    {
+      "name": "skips-mermaid-flowchart-when-below-complexity-floor",
+      "summary": "Skill skips the data-flow.md flowchart TD block (with skip-note blockquote) when lifecycle steps fall below the floor (≥3) — single-file fixture yields too few steps to render.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/no-manifest --output /tmp/arch-overview-skip-flow-eval ; then show me what data-flow.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": ">\\s*_diagram skipped:",
+          "tier": "required",
+          "description": "required: response includes the structured skip-note blockquote (`> _diagram skipped:`) when below complexity floor (sparse lifecycle)"
+        }
+      ]
+    },
+    {
       "name": "uses-language-vocabulary",
       "summary": "Skill output applies LANGUAGE.md vocabulary (Module / Interface / Seam / Adapter) when describing the inventory.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-vocab",

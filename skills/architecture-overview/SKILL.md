@@ -91,6 +91,22 @@ dashed `-.->` = inferred (edge label prefixed `inferred:` to mirror the
 italic-on-inferred convention used in prose; mermaid does not render edge
 labels in italic). Cap ~12 nodes per block; split per domain
 (`### Domain: Auth`) or per flow (`### Flow: Signup`) when larger.
+
+**Conditional emission (sufficient-complexity floor)** — skip the block
+when synthesis is too sparse to beat prose. Apply per-block (per file,
+per `### Domain:` / `### Flow:` split if used):
+
+- `graph LR` (dependencies): emit when ≥2 Modules AND ≥1 Seam edge
+  (observed OR inferred). Otherwise skip.
+- `flowchart TD` (data-flow): emit when ≥3 lifecycle steps. Otherwise skip.
+
+When skipping, replace the block with a one-line blockquote in the same
+position so the reader sees synthesis happened:
+
+```markdown
+> _diagram skipped: <reason — e.g., single-Module landscape; no Seam edges discovered>_
+```
+
 Templates and shape examples:
 [`references/output-format.md`](references/output-format.md).
 

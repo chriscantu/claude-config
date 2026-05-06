@@ -86,6 +86,15 @@ graph LR
   matching mermaid keywords (`end`, `subgraph`, `class`, `click`, `style`).
 - **Cap**: ~12 nodes per block. Larger landscapes split per domain
   (`### Domain: Auth`, `### Domain: Billing`), one mermaid block each.
+- **Sufficient-complexity floor**: emit only when ≥2 Modules AND ≥1 Seam
+  edge (observed OR inferred). Below floor, skip the block and replace
+  with a one-line blockquote in the same position:
+
+  ```markdown
+  > _diagram skipped: single-Module landscape; no Seam edges discovered._
+  ```
+
+  Apply per `### Domain:` sub-section when split.
 
 ## File 3 — `data-flow.md`
 
@@ -113,6 +122,15 @@ flowchart TD
   read or write step. Same convention as `dependencies.md`.
 - **Cap**: ~12 nodes per block. Larger lifecycles split per flow
   (`### Flow: Signup`, `### Flow: Checkout`), one mermaid block each.
+- **Sufficient-complexity floor**: emit only when ≥3 lifecycle steps.
+  Below floor, skip the block and replace with a one-line blockquote
+  in the same position:
+
+  ```markdown
+  > _diagram skipped: 2 lifecycle steps — too sparse for flowchart._
+  ```
+
+  Apply per `### Flow:` sub-section when split.
 
 ## File 4 — `integrations.md`
 
