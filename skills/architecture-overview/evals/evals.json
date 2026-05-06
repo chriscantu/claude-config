@@ -117,6 +117,26 @@
       ]
     },
     {
+      "name": "mermaid-c4-context-actor-uses-person-prefix",
+      "summary": "C4 Context mermaid block actor nodes use the `Person: <name>` prefix per output-format.md:80 (closes #254 problem 1).",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-person-prefix-eval ; then show me what inventory.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?\\bPerson:\\s",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: at least one node label inside the C4 Context mermaid fence uses the `Person: ` prefix per output-format.md actor-vocab contract. Catches drift to bare actor labels (`actor1[Platform Engineer]`) which would silently erode the visual actor-vs-system distinction. Anchored inside the fenced mermaid block (mirrors `emits-c4-context-block` `[\\s\\S]{0,500}` co-location bound) so prose mentions of `Person:` outside the diagram cannot trigger a false pass."
+        }
+      ]
+    },
+    {
       "name": "c4-context-no-banned-vocab-labels",
       "summary": "Negative-vocab assertion: C4 Context block must not use `service:` / `component:` / `API:` as descriptive node-label vocabulary (closes #232 I-3, applies testing-strategy.md §4 negative-twin convention; ban list per output-format.md line 81).",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-no-banned-vocab-eval ; then show me what inventory.md contains",
@@ -133,6 +153,44 @@
           "flags": "i",
           "tier": "required",
           "description": "required: within the `graph TB` mermaid block (C4 Context), banned descriptive vocabulary (`service:`, `component:`, `API:`) must NOT appear as node labels. Scoped to the fenced mermaid block so post-block prose ('Stripe service: charges customers') cannot trigger a false ban. Literal proper nouns like `billing-service` and `Stripe API` are unaffected (no colon). Banned list mirrors output-format.md:81 exactly. Negative twin to uses-language-vocabulary per testing-strategy.md §4."
+        }
+      ]
+    },
+    {
+      "name": "skips-c4-context-when-actor-only",
+      "summary": "C4 Context emit floor is `(≥1 actor AND ≥1 adjacent)`. Fixture clears actor half (README names actor) but fails adjacent half (zero deps, zero env, zero I/O) → AND fails → skip path. Catches regression flipping `&&` to `||` (closes #254 problem 2 split-AND coverage).",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/actor-only --output /tmp/arch-overview-actor-only-eval ; then show me what inventory.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": ">\\s*_diagram skipped:",
+          "tier": "required",
+          "description": "required: response includes the canonical skip-note blockquote (`> _diagram skipped:`) — actor-only fixture trips the adjacent half of the AND floor. An OR-regression would emit the C4 block; this assertion fails on emit, catches the regression."
+        }
+      ]
+    },
+    {
+      "name": "skips-c4-context-when-adjacent-only",
+      "summary": "C4 Context emit floor is `(≥1 actor AND ≥1 adjacent)`. Fixture clears adjacent half (`pg` dep + `DATABASE_URL`) but fails actor half (no README → no actor signal) → AND fails → skip path. Catches regression flipping `&&` to `||` (closes #254 problem 2 split-AND coverage).",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/adjacent-only --output /tmp/arch-overview-adjacent-only-eval ; then show me what inventory.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": ">\\s*_diagram skipped:",
+          "tier": "required",
+          "description": "required: response includes the canonical skip-note blockquote (`> _diagram skipped:`) — adjacent-only fixture trips the actor half of the AND floor. An OR-regression would emit the C4 block; this assertion fails on emit, catches the regression."
         }
       ]
     },
