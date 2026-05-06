@@ -76,6 +76,23 @@ Pattern documented here so future contributors expanding negative twins (contain
 
 All four twins additionally apply the fence-crossing bound from §3: the segment between `graph\s+TB` and the violation uses `(?:(?!```)[\s\S])*?`, not the unbounded `[\s\S]*?`, so a violation in a later mermaid block cannot leak into the C4 Context assertion ([#268](https://github.com/chriscantu/claude-config/issues/268)).
 
+#### Positive-presence floor for absence-of-violation negative twins
+
+A `not_regex` assertion checks *absence of a violation*, which a vacuously empty target satisfies trivially. If the model emits a C4 block containing only the actor node (omitting the system-under-doc and adjacent rectangles entirely), every `Person:`-not-on-non-actor-* negative twin passes — there are no non-actor rectangles to violate the rule. Positive-only coverage on the actor side (`mermaid-c4-context-actor-uses-person-prefix`) does not catch this because it asserts actor-presence, which the regression preserves.
+
+**Convention:** when a negative-twin family asserts absence-of-violation across a node class (non-actor cylinders + non-actor rectangles + ID-less rectangles), pair it with a positive-presence floor asserting the node class is non-empty. The pair shape:
+
+| Assertion | Type | Catches |
+|---|---|---|
+| Negative twin family | `not_regex` × N | Vocab/shape inversion across each sub-shape |
+| Positive-presence floor | `regex` (this convention) | Block-emission regression that empties the node class entirely |
+
+For C4 Context, the positive-presence floor is `c4-context-emits-non-actor-rectangle-presence` ([#266](https://github.com/chriscantu/claude-config/issues/266)): asserts ≥1 identifier-prefixed non-actor rectangle exists inside `graph TB`, mirroring the ID-prefix discrimination shape of its negative-twin sibling (`(?!actor)[A-Za-z][\w-]*\[(?!\()`). The same `### Context[\s\S]{0,500}` co-location bound (§3) and `(?:(?!```)[\s\S])*?` fence-crossing bound (§3, [#268](https://github.com/chriscantu/claude-config/issues/268)) apply — a non-actor rectangle in a later mermaid block (deps `graph LR`, data-flow `flowchart TD`) must not false-pass an empty C4 block.
+
+Fixture-specific positive-presence assertions (e.g., `stripe[` rectangle for `ts-with-context/`) layer on top of the generic floor when the fixture deterministically forces a specific adjacent — these pin the exact node declaration so a regression that emits the inferred-edge prose (`-.->` + `inferred:`) but omits the node declaration itself is caught directly, rather than leaning on lazy-match satisfiability of sibling evals.
+
+**Scope decision (#266):** positive-presence floor is added per-block, not generically across all mermaid blocks — the contract that "a C4 block must have ≥2 nodes beyond the actor" is a per-block invariant. Cross-block presence (deps / data-flow) is a separate audit (out of scope for #266).
+
 ### 5. Fixture suitability — exercise the contract, not the renderer
 
 A fixture's job is to deterministically push the skill into the state under test. If the fixture *might* trip the assertion depending on model interpretation, the eval is testing the model, not the contract.
