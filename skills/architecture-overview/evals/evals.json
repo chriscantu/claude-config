@@ -118,7 +118,7 @@
     },
     {
       "name": "mermaid-c4-context-actor-uses-person-prefix",
-      "summary": "C4 Context mermaid block actor nodes use the `Person: <name>` prefix per output-format.md:80 (closes #254 problem 1).",
+      "summary": "C4 Context mermaid block actor nodes use the `Person: <name>` prefix per output-format.md actor-vocab contract (closes #254 problem 1).",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-person-prefix-eval ; then show me what inventory.md contains",
       "assertions": [
         {
@@ -158,7 +158,7 @@
     },
     {
       "name": "c4-context-no-banned-vocab-labels",
-      "summary": "Negative-vocab assertion: C4 Context block must not use `service:` / `component:` / `API:` as descriptive node-label vocabulary (closes #232 I-3, applies testing-strategy.md §4 negative-twin convention; ban list per output-format.md line 81).",
+      "summary": "Negative-vocab assertion: C4 Context block must not use `service:` / `component:` / `API:` as descriptive node-label vocabulary (closes #232 I-3, applies testing-strategy.md §4 negative-twin convention; ban list per output-format.md vocab-discipline contract).",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-no-banned-vocab-eval ; then show me what inventory.md contains",
       "assertions": [
         {
