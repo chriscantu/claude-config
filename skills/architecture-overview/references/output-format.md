@@ -50,7 +50,9 @@ Per-repo entry. Each entry uses LANGUAGE.md vocab:
 
 Per-repo `### Context` block. Visualizes the repo as a Module at system
 scope: actor(s) on one side, the system under doc in the middle, adjacent
-systems (other Modules, datastores, external SaaS) on the other.
+systems (other Modules, datastores, external SaaS) on the other. Use
+`graph TB` so the actor stacks above the system, mirroring C4's canonical
+vertical reading; switch to `graph LR` only when width exceeds height.
 
 ```mermaid
 graph TB
@@ -59,11 +61,13 @@ graph TB
   stripe["Stripe API"]
   postgres[(postgres)]
   notif["notif-svc"]
+  ledger["inferred: ledger-svc"]
 
   actor --> system
   system --> stripe
   system --> postgres
   system -.->|inferred: emits invoice.paid| notif
+  system -.-> ledger
 ```
 
 - **Solid `-->`** = observed (manifest dep, env var, code reference,
@@ -71,20 +75,27 @@ graph TB
 - **Dashed `-.->`** = inferred. Edge label prefixed `inferred:` to mirror
   the italic-on-inferred convention used in prose (mermaid does not render
   edge labels in italic). For label-less edges, prefix the adjacent node's
-  display label with `inferred: ` instead.
+  display label with `inferred: ` instead — see `ledger` in the example.
 - **Vocab**: the repo IS a Module visualized at system scope. Adjacent
   things are adjacent Modules. `Person:` prefix labels actors. Avoid
-  "service" / "component" / "API" — LANGUAGE.md vocabulary carries.
+  "service" / "component" / "API" as **descriptive vocabulary** — use
+  Module / Interface / Adapter from LANGUAGE.md. Literal product names
+  (`Stripe API`) and repo names (`notif-svc`) in node labels are fine —
+  the ban is on coining new vocab, not on quoting proper nouns.
 - **Datastores** = `[(name)]` cylinder shape — same convention as
-  `dependencies.md`.
+  `dependencies.md`. External SaaS use the rectangle shape.
 - **Node IDs**: hyphens are fine. Quote IDs containing dots, spaces, or
   matching mermaid keywords (`end`, `subgraph`, `class`, `click`, `style`).
 - **Sufficient-complexity floor**: emit only when ≥1 actor AND ≥1 adjacent
-  system (observed OR inferred). Below floor, skip the block and replace
-  with a one-line blockquote in the same position:
+  system (observed OR inferred). The floor is intentionally lighter than
+  `dependencies.md` (≥2 Modules + ≥1 Seam edge) — C4 Context is *about
+  boundaries*, so a single Module with one external dep clears it; the
+  deps diagram is *about internal Module wiring*, which one Module
+  cannot illustrate. Below floor, skip the block and replace with a
+  one-line blockquote in the same position:
 
   ```markdown
-  > _C4 Context skipped: no adjacent systems discovered — single isolated Module._
+  > _diagram skipped: no adjacent systems discovered — single isolated Module._
   ```
 
 ## File 2 — `dependencies.md`

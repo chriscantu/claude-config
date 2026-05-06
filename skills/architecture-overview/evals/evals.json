@@ -101,9 +101,9 @@
         },
         {
           "type": "regex",
-          "pattern": ">\\s*_C4 Context skipped:",
+          "pattern": ">\\s*_diagram skipped:",
           "tier": "required",
-          "description": "required: response includes the structured skip-note blockquote (`> _C4 Context skipped:`) when below complexity floor (no adjacent systems) — tight match avoids false-positive on conversational mention"
+          "description": "required: response includes the structured skip-note blockquote (`> _diagram skipped:`) when below complexity floor (no adjacent systems) — same prefix as deps + flow skip evals; tight match avoids false-positive on conversational mention"
         }
       ]
     },
