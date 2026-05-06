@@ -137,8 +137,8 @@
       ]
     },
     {
-      "name": "c4-context-person-prefix-only-on-actors",
-      "summary": "Negative twin to `mermaid-c4-context-actor-uses-person-prefix`: the `Person:` prefix must NOT appear inside a cylinder-shape `[(...)]` node (datastore) per output-format.md actor-vocab contract — datastores are not actors. Closes #257 (testing-strategy.md §4 negative-twin convention).",
+      "name": "c4-context-person-prefix-not-on-cylinders",
+      "summary": "Negative twin (cylinder scope) to `mermaid-c4-context-actor-uses-person-prefix`: the `Person:` prefix must NOT appear inside a cylinder-shape `[(...)]` node (datastore) under `### Context` per output-format.md datastore-shape contract — datastores are not actors. Closes #257 (testing-strategy.md §4 negative-twin convention). Rectangle-shape inversion (e.g., external SaaS mislabeled as actor) is a separate regression class tracked elsewhere.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-person-non-actor-eval ; then show me what inventory.md contains",
       "assertions": [
         {
@@ -149,10 +149,10 @@
         },
         {
           "type": "not_regex",
-          "pattern": "```mermaid[\\s\\S]*?graph\\s+TB[\\s\\S]*?\\[\\([^\\)]*?Person:[\\s\\S]*?```",
+          "pattern": "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?graph\\s+TB[\\s\\S]*?\\[\\([^\\)]*?Person:",
           "flags": "i",
           "tier": "required",
-          "description": "required: within the `graph TB` mermaid block (C4 Context), the `Person:` prefix must NOT appear inside a cylinder-shape `[(...)]` node label. Catches vocab inversion (`postgres[(Person: postgres)]`) where a datastore is mislabeled as an actor. Scoped to the fenced mermaid block so prose mentions cannot trigger a false ban. Pattern matches `[(` followed by any non-`)` chars then `Person:` — only fires when the `Person:` token is enclosed inside a cylinder, which mermaid reserves for datastores per output-format.md datastore-shape contract. Negative twin to `mermaid-c4-context-actor-uses-person-prefix` per testing-strategy.md §4."
+          "description": "required: under the `### Context` header, within the C4 `graph TB` mermaid block, the `Person:` prefix must NOT appear inside a cylinder-shape `[(...)]` node label. Catches the cylinder sub-case of vocab inversion (`postgres[(Person: postgres)]`) — mermaid reserves cylinders for datastores per output-format.md datastore-shape contract. Anchored on the `### Context[\\s\\S]{0,500}` co-location bound (mirrors positive twin `mermaid-c4-context-actor-uses-person-prefix` and testing-strategy.md §3) so violations in later mermaid blocks (deps `graph LR`, data-flow `flowchart TD`) cannot trigger a false ban on a clean C4 block. Scope is cylinder-only by design — rectangle inversion (e.g., `stripe[\"Person: Stripe API\"]`) needs a different regex shape and is out of scope here. Negative twin to `mermaid-c4-context-actor-uses-person-prefix` per testing-strategy.md §4."
         }
       ]
     },
@@ -169,10 +169,10 @@
         },
         {
           "type": "not_regex",
-          "pattern": "```mermaid[\\s\\S]*?graph\\s+TB[\\s\\S]*?\\b(service|component|API):[\\s\\S]*?```",
+          "pattern": "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?graph\\s+TB[\\s\\S]*?\\b(service|component|API):",
           "flags": "i",
           "tier": "required",
-          "description": "required: within the `graph TB` mermaid block (C4 Context), banned descriptive vocabulary (`service:`, `component:`, `API:`) must NOT appear as node labels. Scoped to the fenced mermaid block so post-block prose ('Stripe service: charges customers') cannot trigger a false ban. Literal proper nouns like `billing-service` and `Stripe API` are unaffected (no colon). Banned list mirrors output-format.md:81 exactly. Negative twin to uses-language-vocabulary per testing-strategy.md §4."
+          "description": "required: under the `### Context` header, within the C4 `graph TB` mermaid block, banned descriptive vocabulary (`service:`, `component:`, `API:`) must NOT appear as node labels. Anchored on the `### Context[\\s\\S]{0,500}` co-location bound per testing-strategy.md §3 so post-block prose ('Stripe service: charges customers') and later mermaid blocks (deps `graph LR`, data-flow `flowchart TD`) cannot trigger a false ban on a clean C4 block. Literal proper nouns like `billing-service` and `Stripe API` are unaffected (no colon). Banned list mirrors output-format.md vocab-discipline contract exactly. Negative twin to uses-language-vocabulary per testing-strategy.md §4."
         }
       ]
     },
