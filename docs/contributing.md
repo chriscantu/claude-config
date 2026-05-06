@@ -59,6 +59,16 @@ disable-model-invocation: true
 
 Skip this on pipeline-mandatory skills (`define-the-problem`, `systems-analysis`, `fat-marker-sketch`) and on skills where auto-trigger value outweighs false-positive cost (`adr`, `sdr`, `tech-radar`).
 
+### Cross-bundle references
+
+Anthropic skill anatomy expects each skill to be self-contained in its bundle directory (`skills/<name>/`). Skills SHOULD keep their references inside `skills/<name>/references/`.
+
+**One exception is recorded in this repo:** [`references/architecture-language.md`](../references/architecture-language.md) at the repo root is shared by `/architecture-overview` and `/improve-codebase-architecture` via `../../references/architecture-language.md` deep-links. The shared file IS the integration contract between the two skills — duplication would invent a drift surface that corrupts both skills' outputs.
+
+This layout is **monorepo-only** and **hostile to Anthropic `.skill` packaging**. See [ADR #0013](../adrs/0013-shared-vocab-monorepo-only.md) for the trade-off accepted, the deferred packaging strategy, and the constraint that any future packager MUST be TypeScript/Bun (no Python in this repo).
+
+Do NOT add new cross-bundle deep-links without an ADR documenting the trade-off.
+
 ## Add an Agent
 
 Create a `.md` file in `agents/` with frontmatter:

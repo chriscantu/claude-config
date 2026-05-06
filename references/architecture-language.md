@@ -4,6 +4,15 @@ Shared vocabulary for every suggestion this skill makes. Use these terms
 exactly — don't substitute "component," "service," "API," or "boundary."
 Consistent language is the whole point.
 
+> **Note — cross-bundle file.** This file is shared by `/architecture-overview`
+> and `/improve-codebase-architecture` via repo-relative deep-links
+> (`../../references/architecture-language.md`). Single-source by design — the
+> vocabulary IS the integration contract between the two skills. This layout
+> is **monorepo-only** and **hostile to Anthropic `.skill` packaging** (no
+> `../../` follow-through in the reference packager). See
+> [ADR #0013](../adrs/0013-shared-vocab-monorepo-only.md) for the full
+> decision and the deferred packaging strategy.
+
 ## Terms
 
 **Module**
