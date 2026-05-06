@@ -1,6 +1,6 @@
 ---
 name: architecture-overview
-description: Slash-invoked discovery-mode skill that scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) using the canonical LANGUAGE.md vocabulary (Module / Interface / Depth / Seam / Adapter / Leverage / Locality). Use when a new senior eng leader needs a credible whole-system mental model on day 3-7 of a ramp. Do NOT use for single-repo deepening grading (use /improve-codebase-architecture), a single architectural choice (use /adr), a system-level design record (use /sdr), or tool/framework adoption (use /tech-radar).
+description: Slash-invoked discovery-mode skill that scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) using the canonical LANGUAGE.md vocabulary. Use when a new senior eng leader needs a credible whole-system mental model on day 3-7 of a ramp. Do NOT use for single-repo deepening grading (use /improve-codebase-architecture), a single architectural choice (use /adr), a system-level design record (use /sdr), or tool/framework adoption (use /tech-radar).
 disable-model-invocation: true
 status: experimental
 version: 0.3.1
@@ -37,9 +37,9 @@ discovery-mode landscape across the supplied repos."
 - `--clone-cache <path>` — override URL clone target (default `~/.cache/architecture-overview/`)
 - `--no-fetch` — skip `git fetch` on already-cached URL clones
 
-## Glossary
+## Vocabulary
 
-**Vocabulary** — canonical: [`architecture-language.md`](../../references/architecture-language.md). Module / Interface / Seam / Adapter / Depth / Leverage / Locality. Avoid `component` / `service` / `API` / `boundary` as descriptive vocab — see [`output-format.md`](references/output-format.md) for the proper-noun carve-out.
+Canonical: [`architecture-language.md`](../../references/architecture-language.md). Module / Interface / Seam / Adapter / Depth / Leverage / Locality. Avoid `component` / `service` / `API` / `boundary` as descriptive vocab — see [`output-format.md`](references/output-format.md) for the proper-noun carve-out.
 
 ## Process
 
