@@ -129,10 +129,10 @@
         },
         {
           "type": "regex",
-          "pattern": "###\\s+Context[\\s\\S]*?\\bPerson:\\s",
+          "pattern": "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?\\bPerson:\\s",
           "flags": "i",
           "tier": "required",
-          "description": "required: at least one node label under `### Context` uses the `Person: ` prefix per output-format.md:80 actor-vocab contract. Catches drift to bare actor labels (`actor1[Platform Engineer]`) which would silently erode the visual actor-vs-system distinction. Anchored to the `### Context` header so prose mentions of `Person:` elsewhere in response cannot trigger a false pass."
+          "description": "required: at least one node label inside the C4 Context mermaid fence uses the `Person: ` prefix per output-format.md actor-vocab contract. Catches drift to bare actor labels (`actor1[Platform Engineer]`) which would silently erode the visual actor-vs-system distinction. Anchored inside the fenced mermaid block (mirrors `emits-c4-context-block` `[\\s\\S]{0,500}` co-location bound) so prose mentions of `Person:` outside the diagram cannot trigger a false pass."
         }
       ]
     },
