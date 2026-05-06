@@ -43,7 +43,7 @@ Architect review post-#233 (R2) flagged this as a portability defect requiring a
 |---|--------|--------|------|------------|------------------------|
 | 1 | **Accept — document monorepo-only** | tiny (this ADR + 1 contributor note + 1 file-header line) | low | yes | yes — decision recorded, packaging deferred |
 | 2 | Inline references at package time | medium — requires new TS/Bun packager (Anthropic's is Python; out per concern above); inlining `../../` paths is non-trivial | medium — new tooling = new bugs | yes | no — solves a hypothetical, not actual, problem |
-| 3 | Duplicate file into both bundles + add `validate.fish` drift phase | medium — copy + new validate phase | medium — drift gate is imperfect; relies on humans noticing CI failure | yes | yes, but premature |
+| 3 | Duplicate file into both bundles + add `validate.fish` drift phase | low–medium — copy is trivial; drift phase reuses well-trodden Phase 1g/1j/1l infrastructure (~50 LOC of fish/TS) | medium — drift gate is imperfect; relies on humans noticing CI failure | yes | yes, but premature absent a fork or packaging consumer |
 | 4 | Promote to a sibling skill (`/architecture-language`) the other two depend on | high — Anthropic does not document a skill-dependency mechanism; would need to invent one | high — speculative | partial | no — speculative ground |
 
 ## Decision
@@ -54,9 +54,9 @@ Rationale:
 
 1. **No real defect today.** No packager exists; no `.skill` is shipped from this repo. The "broken bundle" is hypothetical.
 2. **Karpathy #2 (Simplicity First).** Minimum that solves the stated problem. The stated problem is "the decision needs to be documented" — Option 1 documents it.
-3. **Vocab single-source is load-bearing.** Options 2 / 3 / 4 each introduce drift surfaces or speculative tooling for a problem nobody is hitting. Option 1 preserves the integration contract intact.
-4. **Reversible.** If `.skill` packaging becomes load-bearing, this ADR will be superseded by one selecting Option 2 or 3 (Option 4 stays speculative until Anthropic documents skill dependencies).
-5. **No Python.** If a packager is later built, it must be TS/Bun. This ADR records the constraint so the future ADR doesn't accidentally pull in `package_skill.py`.
+3. **Vocab single-source is load-bearing.** Options 2 / 3 / 4 each introduce drift surfaces or speculative tooling for a problem nobody is hitting. Option 1 preserves the integration contract intact. (Option 3 is the closest competitor — the drift phase itself is cheap given existing 1g/1j/1l infrastructure — but a drift gate is still a new failure mode for a problem no consumer has reported.)
+4. **Reversible.** If `.skill` packaging becomes load-bearing OR if a fork-style consumer materializes, this ADR will be superseded by one selecting Option 2 or 3 (Option 4 stays speculative until Anthropic documents skill dependencies). See [Abort signal](#abort-signal) below for the concrete reopen triggers.
+5. **No Python (within the scope of this ADR).** If a packager is later built, it must be TS/Bun. This ADR records the constraint so the future ADR doesn't accidentally pull in `package_skill.py`. The constraint is binding here; a future ADR may relitigate the stack choice if the trade-off changes (e.g., Anthropic's packager becomes a de facto standard with a maintained Python implementation worth adopting).
 
 ## Consequences
 
@@ -65,6 +65,22 @@ Rationale:
 - New header note in [`references/architecture-language.md`](../references/architecture-language.md): single-source, monorepo-only, `.skill`-bundle hostile.
 - New section in [`docs/contributing.md`](../docs/contributing.md): cross-bundle reference policy (when allowed, what trade-off this ADR accepted).
 - Both consuming SKILL.md files are unchanged — their `../../references/...` deep-links remain canonical for this repo.
+
+### Fork-consumer hostility (named consequence)
+
+"Monorepo-only" silently means **fork-hostile**. A user who copies just `skills/improve-codebase-architecture/` (or `skills/architecture-overview/`) into their own repo gets a dangling `../../references/architecture-language.md` deep-link — both skills will fail to render the vocabulary section. Mitigation today: the `references/architecture-language.md` header note warns this stakeholder; consuming SKILL.md files do not. Acceptable risk while consumers are internal-only. Materialization of an external fork consumer is one of the [abort signals](#abort-signal) below.
+
+<a id="abort-signal"></a>
+### Abort signal — concrete triggers for reopening
+
+This ADR is reversible only if reversal triggers are observable. Reopen with a superseding ADR when ANY of:
+
+1. **First user-filed packaging issue** — a `.skill` packaging request against either consumer skill, where the user is not willing to accept "use the monorepo" as the answer.
+2. **First fork-consumer report** — an issue or external use indicating someone is forking a single skill out of this repo and hitting the dangling deep-link.
+3. **Drift incident in the canonical file** — if the vocabulary file is edited in a way that requires both consuming skills to update their narratives in lockstep AND that requirement is silently missed (caught post-merge), the single-source-of-truth claim is weakened and Option 3 (duplicate + drift phase) becomes more attractive.
+4. **Anthropic packager standardization** — Anthropic's `package_skill.py` (or a TS/Bun successor) becomes the documented and widely-used distribution mechanism for skills. At that point Option 1 stops paying its way.
+
+Operationalization: each issue filed under #239's milestone or labelled `architect-review-post-233` should be checked against this list. Quarterly review of open issues against this ADR is the lightweight mechanism; no automated `validate.fish` phase added (the signal is human-mediated, not file-mediated).
 
 ### Future packaging
 
@@ -86,6 +102,8 @@ If `.skill` packaging becomes load-bearing:
 - [x] Header note added to canonical vocab file warning of the monorepo coupling
 - [x] Contributor doc explains the cross-bundle policy
 - [x] No Python introduced
+- [x] Fork-consumer consequence named explicitly
+- [x] Abort signal defined with concrete observable triggers
 
 ## References
 
