@@ -48,7 +48,11 @@ discovery-mode landscape across the supplied repos."
 - **Leverage** — what callers get from depth
 - **Locality** — what maintainers get from depth
 
-Avoid: "component", "service", "API", "boundary".
+Avoid `component` / `service` / `API` / `boundary` as **descriptive vocabulary** —
+use the canonical Module / Interface / Adapter terms instead. Literal product
+names (`Stripe API`) and repo names (`auth-svc`) in node labels are fine; the ban
+is on coining new vocab, not on quoting proper nouns. Full guidance:
+[`output-format.md`](references/output-format.md).
 
 ## Process
 

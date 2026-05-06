@@ -1,6 +1,6 @@
 {
   "skill": "architecture-overview",
-  "description": "Executable evals for the architecture-overview skill. The skill is slash-invoked and produces a 4-file landscape bundle. Evals exercise: bundle-naming surface, LANGUAGE.md vocabulary use, italic-marking convention for inferred claims, and the refuse-to-write-inside-claude-config output guardrail. Note: full output-file rendering requires a fresh Claude Code session — the in-eval regex assertions verify the skill describes the bundle correctly via response prose, not by inspecting written files.",
+  "description": "Executable evals for the architecture-overview skill. The skill is slash-invoked and produces a 4-file landscape bundle. Evals exercise: bundle-naming surface, LANGUAGE.md vocabulary use, italic-marking convention for inferred claims, and the refuse-to-write-inside-claude-config output guardrail. Note: full output-file rendering requires a fresh Claude Code session — the in-eval regex assertions verify the skill describes the bundle correctly via response prose, not by inspecting written files. Design principles for adding new evals: see ../references/testing-strategy.md (skill-fired floor, tight regex, anchor co-location, negative-assertion convention for vocabulary discipline, fixture-to-criterion mapping).",
   "evals": [
     {
       "name": "produces-bundle-from-yaml",
