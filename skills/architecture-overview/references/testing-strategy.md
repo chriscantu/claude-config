@@ -41,6 +41,8 @@ Mermaid block assertions should anchor to the section header they live under:
 
 Retroactive anchoring for v0.2 evals (`emits-mermaid-dependency-block`, `emits-mermaid-flowchart-block`) and v0.3 (`emits-c4-context-block`) landed via [#232](https://github.com/chriscantu/claude-config/issues/232).
 
+**Fence-crossing bound — canonical pattern shape.** When an assertion targets a violation *inside* a specific mermaid block (e.g., a `Person:` inversion under `### Context`'s `graph TB` block), the lazy run between the block's opening token and the violation MUST refuse to cross the closing ``` fence. Use `(?:(?!```)[\s\S])*?` in place of `[\s\S]*?` for that segment. Without the fence-crossing bound, a violation in a *later* mermaid block (deps `graph LR`, data-flow `flowchart TD`) leaks into the assertion and false-bans a clean target block. The `### Context[\s\S]{0,500}` co-location bound only governs the run from the section header to the *first* fence — it does not bound the run from `graph TB` to the violation. Closes [#268](https://github.com/chriscantu/claude-config/issues/268).
+
 ### 4. Negative-assertion convention (vocabulary discipline)
 
 **Every positive vocabulary assertion needs a negative twin.** Vocabulary contracts are violated by *commission* (using a banned term) more often than by *omission* (failing to use a canonical term). Positive-only coverage gives false confidence.
@@ -70,6 +72,8 @@ Brittleness trade-offs acknowledged (both directions):
 - **False-negative direction** — conversely, a non-actor node whose ID coincidentally starts with `actor` (e.g., `actorOfNotaryService` for an external SaaS) would slip past. Mitigation is the same positive-bound rewrite; until then, this miss is documented and accepted.
 
 Pattern documented here so future contributors expanding negative twins (container/component-level vocab inversion at C4 Level 2+, prose vocab inversion outside mermaid) understand why one twin uses shape alone and the other layers ID discrimination on top.
+
+All three twins additionally apply the fence-crossing bound from §3: the segment between `graph\s+TB` and the violation uses `(?:(?!```)[\s\S])*?`, not the unbounded `[\s\S]*?`, so a violation in a later mermaid block cannot leak into the C4 Context assertion ([#268](https://github.com/chriscantu/claude-config/issues/268)).
 
 ### 5. Fixture suitability — exercise the contract, not the renderer
 
