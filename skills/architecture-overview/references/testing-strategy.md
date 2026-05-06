@@ -56,6 +56,17 @@ The negative twin scopes its match to the section under contract — a global ne
 
 Negative-twin coverage for the C4 Context block landed via [#232](https://github.com/chriscantu/claude-config/issues/232) as `c4-context-no-banned-vocab-labels`. The dependencies.md / data-flow.md negative twins remain open work.
 
+#### Regex-design rationale: shape-discriminated negative twins for `Person:` actor-vocab
+
+The `Person:` prefix is reserved for actor nodes per output-format.md actor-vocab contract. Inversion (the prefix on a non-actor node) splits into two regression classes by mermaid node shape, each needing a different regex shape:
+
+- **Cylinder scope** (`c4-context-person-prefix-not-on-cylinders`, #257) — shape-only discrimination. Cylinders `[(...)]` are reserved for datastores per output-format.md datastore-shape contract. Any `Person:` inside a cylinder is a violation regardless of node ID. Pattern: `\[\([^\)]*?Person:`.
+- **Rectangle scope** (`c4-context-person-prefix-not-on-non-actor-rectangles`, #261) — shape-only is impossible. Actors AND systems-under-doc AND external SaaS all use rectangles. Pattern uses ID-prefix discrimination: `(?!actor)[A-Za-z][\w-]*\[(?!\()[^\]]*?Person:` with the `\[(?!\()` rectangle-not-cylinder opener and `(?!actor)` lookahead anchored to the canonical `actor` ID convention from output-format.md's example. The `(?<![A-Za-z0-9_-])` lookbehind prevents mid-identifier matches; `i` flag covers `Actor` capitalization drift.
+
+Brittleness trade-off acknowledged: ID-prefix discrimination depends on the model emitting `actor` / `actor1` / etc. for actor nodes, per the canonical example. Drift to `engineer1[…]` or `user[…]` for legitimate actor nodes would false-positive — that drift is itself a vocab convention violation worth surfacing, but if it lands as an accepted alternative, the regex needs a positive-bound rewrite (every `Person:` must co-occur with the actor edge, not with a fixed ID prefix).
+
+Pattern documented here so future contributors expanding negative twins (container/component-level vocab inversion at C4 Level 2+, prose vocab inversion outside mermaid) understand why one twin uses shape alone and the other layers ID discrimination on top.
+
 ### 5. Fixture suitability — exercise the contract, not the renderer
 
 A fixture's job is to deterministically push the skill into the state under test. If the fixture *might* trip the assertion depending on model interpretation, the eval is testing the model, not the contract.
