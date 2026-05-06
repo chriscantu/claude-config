@@ -2,9 +2,9 @@
 // Inspect or mute cadence nags for an /onboard workspace.
 //
 // Usage:
-//   bin/onboard-status.ts --status   <workspace-path>
-//   bin/onboard-status.ts --mute     <category> <workspace-path>
-//   bin/onboard-status.ts --unmute   <category> <workspace-path>
+//   skills/onboard/scripts/onboard-status.ts --status   <workspace-path>
+//   skills/onboard/scripts/onboard-status.ts --mute     <category> <workspace-path>
+//   skills/onboard/scripts/onboard-status.ts --unmute   <category> <workspace-path>
 //
 // Categories: milestone | velocity | calendar
 

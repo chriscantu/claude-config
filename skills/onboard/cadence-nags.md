@@ -137,7 +137,7 @@ Steps:
 
    Rationale: the primary stop mechanism is
    `mcp__scheduled-tasks__update_scheduled_task` with `enabled: false`
-   (called from `bin/onboard-graduate.ts` Step 8). If that MCP call
+   (called from `skills/onboard/scripts/onboard-graduate.ts` Step 8). If that MCP call
    failed at graduate time, was reverted, or the cron entry was
    re-enabled by hand, the on-disk sentinel still silences fires.
    Stat-only — does NOT widen the autonomous worker's tool surface.
@@ -271,5 +271,5 @@ Steps:
 The autonomous session now handles graduated workspaces directly via the
 Step 0.5 guard above. The primary cron-stop is
 `mcp__scheduled-tasks__update_scheduled_task(taskId, enabled: false)`
-called from `bin/onboard-graduate.ts`; the Step 0.5 guard is the
+called from `skills/onboard/scripts/onboard-graduate.ts`; the Step 0.5 guard is the
 defense-in-depth backstop.

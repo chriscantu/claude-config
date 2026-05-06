@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const REPO = resolve(import.meta.dir, "..");
-const GUARD = join(REPO, "bin", "onboard-guard.ts");
+const GUARD = join(REPO, "skills", "onboard", "scripts", "onboard-guard.ts");
 
 type RunResult = { exitCode: number; stdout: string; stderr: string };
 
@@ -34,7 +34,7 @@ afterEach(() => {
   }
 });
 
-describe("bin/onboard-guard.ts refuse-raw", () => {
+describe("skills/onboard/scripts/onboard-guard.ts refuse-raw", () => {
   test("exits 0 when path is outside interviews/raw", () => {
     const ws = makeWorkspace();
     const sanitized = join(ws, "interviews", "sanitized", "themes.md");
@@ -63,7 +63,7 @@ describe("bin/onboard-guard.ts refuse-raw", () => {
   });
 });
 
-describe("bin/onboard-guard.ts refuse-raw — symlink hardening (Phase 4)", () => {
+describe("skills/onboard/scripts/onboard-guard.ts refuse-raw — symlink hardening (Phase 4)", () => {
   test("exits 2 when path is a symlink whose target is inside interviews/raw", () => {
     const ws = makeWorkspace();
     const real = join(ws, "interviews", "raw", "2026-04-15-sarah.md");
@@ -111,7 +111,7 @@ const writeDeck = (ws: string, body: string): string => {
   return path;
 };
 
-describe("bin/onboard-guard.ts attribution-check", () => {
+describe("skills/onboard/scripts/onboard-guard.ts attribution-check", () => {
   test("exits 0 when deck has no stakeholder name matches", () => {
     const ws = makeWorkspace();
     const map = writeMap(ws, ["Sarah Chen", "Marcus Diaz"]);
@@ -209,7 +209,7 @@ describe("bin/onboard-guard.ts attribution-check", () => {
   });
 });
 
-describe("bin/onboard-guard.ts misuse", () => {
+describe("skills/onboard/scripts/onboard-guard.ts misuse", () => {
   test("unknown subcommand exits 64", () => {
     const r = run("nonsense");
     expect(r.exitCode).toBe(64);

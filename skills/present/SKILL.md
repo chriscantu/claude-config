@@ -42,7 +42,7 @@ content from a workspace path (Assist mode), MUST run the refusal guard
 before reading the source:
 
 ```fish
-bun run "$CLAUDE_PROJECT_DIR/bin/onboard-guard.ts" refuse-raw <path>
+bun run "$CLAUDE_PROJECT_DIR/skills/onboard/scripts/onboard-guard.ts" refuse-raw <path>
 ```
 
 `CLAUDE_PROJECT_DIR` is the harness-provided absolute path to the repository

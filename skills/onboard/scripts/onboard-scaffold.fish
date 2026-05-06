@@ -2,7 +2,7 @@
 # Scaffold a per-org onboarding workspace.
 #
 # Usage:
-#   bin/onboard-scaffold.fish --target <path> --cadence <preset> [--gh-create yes|no] [--no-gh]
+#   skills/onboard/scripts/onboard-scaffold.fish --target <path> --cadence <preset> [--gh-create yes|no] [--no-gh]
 #
 # --target     absolute path to the workspace dir (must not exist or be empty)
 # --cadence    aggressive | standard | relaxed

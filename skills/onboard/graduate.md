@@ -8,7 +8,7 @@ safety net (see [cadence-nags.md](cadence-nags.md) Step 0.5).
 ## Synopsis
 
 ```fish
-bun run "$CLAUDE_PROJECT_DIR/bin/onboard-graduate.ts" graduate <workspace> \
+bun run "$CLAUDE_PROJECT_DIR/skills/onboard/scripts/onboard-graduate.ts" graduate <workspace> \
   [--force] [--retro-from <path>]
 ```
 
@@ -33,7 +33,7 @@ Re-running `--graduate` after partial failure picks up where it left off.
    `--force` is absent, print "already graduated" and exit 0.
 2a. **Clean-tree check** — if `git status --porcelain` is non-empty
    AFTER filtering the runtime-sentinel allowlist, abort exit 2. The
-   allowlist (`RUNTIME_SENTINELS` in `bin/onboard-graduate.ts`) is
+   allowlist (`RUNTIME_SENTINELS` in `skills/onboard/scripts/onboard-graduate.ts`) is
    `.graduated`, `.graduate-warnings.log`, `.calendar-last-paste`,
    `.cadence-last-fire`, `.scaffold-warnings.log`, `NAGS.md`,
    `calendar-suggestions.md` — these are runtime sentinels written by

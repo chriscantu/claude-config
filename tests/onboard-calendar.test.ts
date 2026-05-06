@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const REPO = resolve(import.meta.dir, "..");
-const CAL = join(REPO, "bin", "onboard-calendar.ts");
+const CAL = join(REPO, "skills", "onboard", "scripts", "onboard-calendar.ts");
 
 const fixtures: string[] = [];
 
@@ -21,7 +21,7 @@ afterEach(() => {
   }
 });
 
-describe("bin/onboard-calendar.ts parse", () => {
+describe("skills/onboard/scripts/onboard-calendar.ts parse", () => {
   test("parses freeform 'Name <email>' lines", () => {
     const input = "Sarah Chen <sarah@acme.com>\nMarcus Diaz <marcus@acme.com>\n";
     const r = runCal(input, "parse", "-");
@@ -109,7 +109,7 @@ const makeWorkspace = (): string => {
   return root;
 };
 
-describe("bin/onboard-calendar.ts diff", () => {
+describe("skills/onboard/scripts/onboard-calendar.ts diff", () => {
   test("emits unmatched invitees only", () => {
     const ws = makeWorkspace();
     const map = writeMap(ws, ["Sarah Chen", "Marcus Diaz"]);
@@ -161,7 +161,7 @@ describe("bin/onboard-calendar.ts diff", () => {
   });
 });
 
-describe("bin/onboard-calendar.ts paste (end-to-end)", () => {
+describe("skills/onboard/scripts/onboard-calendar.ts paste (end-to-end)", () => {
   test("writes suggestions.md, stamp file, and single NAGS line", () => {
     const ws = makeWorkspace();
     writeMap(ws, ["Sarah Chen"]);

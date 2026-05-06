@@ -6,7 +6,7 @@ Tired-you at month 2 of a real ramp. Each scenario ≤3 commands.
 
 1. Verify `<workspace>/.graduated` exists. If yes, the cadence-nags.md
    Step 0.5 guard already silences the cron.
-2. `bun run bin/onboard-graduate.ts graduate <workspace> --force` —
+2. `bun run skills/onboard/scripts/onboard-graduate.ts graduate <workspace> --force` —
    re-issues the MCP pause idempotently.
 3. Still firing: `mcp__scheduled-tasks__update_scheduled_task(<taskId>,
    enabled: false)`. Look up `<taskId>` via `list_scheduled_tasks`
@@ -14,7 +14,7 @@ Tired-you at month 2 of a real ramp. Each scenario ≤3 commands.
 
 ## 2. Retro write failed mid-flight
 
-Re-run `bun run bin/onboard-graduate.ts graduate <workspace>`. The
+Re-run `bun run skills/onboard/scripts/onboard-graduate.ts graduate <workspace>`. The
 skip-if-exists check on `decisions/retro.md` picks up where the prior
 run stopped. Edit a partial `retro.md` before re-running.
 
@@ -52,7 +52,7 @@ stash; re-run.
 
 ## Known invariant deviations
 
-Audit of `bin/onboard-*.ts` (try/catch on every MCP call, stdout+stderr
+Audit of `skills/onboard/scripts/onboard-*.ts` (try/catch on every MCP call, stdout+stderr
 on every git op, logged path on every file write, validated user input).
 
 - `onboard-status.ts` mute/unmute and `onboard-calendar.ts` paste write
