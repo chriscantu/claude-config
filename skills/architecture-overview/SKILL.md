@@ -9,7 +9,7 @@ version: 0.3.1
 # Architecture Overview
 
 Discovery-mode multi-repo landscape mapper. Walks each repo with an Explore subagent
-for narrative discovery and runs `bin/architecture-overview/repo-stats.ts` for
+for narrative discovery and runs `skills/architecture-overview/scripts/repo-stats.ts` for
 deterministic metrics. Produces 4 markdown files using shared architectural
 vocabulary so downstream skills (notably `/improve-codebase-architecture`) consume
 without retranslation.
@@ -54,7 +54,7 @@ Resolve `--repos` into `[{name, source: path | url}]`. Reject unparseable entrie
 ### 3. Walk (Parallel per Repo)
 - **`Explore` subagent** — read `CONTEXT.md` / ADRs and walk source. Produce four narrative threads: inventory (Module / Interface / Implementation / Signals), dependencies (Seam / Adapter / Observed-via), data-flow (numbered lifecycle steps), integrations (external SaaS).
 - **Italic-default; plain only when the agent cites file:line evidence.** Inferences (manifest absence, env-var implies dep, conventional naming) → italic. Code-grounded claims (import at `src/x.ts:42`, env var read in `config.ts`) → plain. The agent applies the convention while writing the narrative — it is NOT a post-pass.
-- **`bun run bin/architecture-overview/repo-stats.ts --repo <path>`** — capture stdout JSON for deterministic metrics.
+- **`bun run skills/architecture-overview/scripts/repo-stats.ts --repo <path>`** — capture stdout JSON for deterministic metrics.
 
 ### 4. Aggregate + Vocab Pass
 Merge per-repo records. Cross-repo edge resolution: if repo A's manifest dep matches repo B's package name, emit edge `A → B [observed]`. Apply LANGUAGE.md vocab interleaved with the merge — per-repo `CONTEXT.md` domain terms layered on top. Single pass, not two; narrative is written once with the right vocab.
