@@ -23,6 +23,84 @@
       ]
     },
     {
+      "name": "emits-mermaid-dependency-block",
+      "summary": "Skill output for dependencies.md includes a mermaid block (graph LR shape) per v0.2.0 render contract.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-mermaid-eval ; then show me what dependencies.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": "```mermaid[\\s\\S]*?graph\\s+LR",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response includes a mermaid block with graph LR for dependencies.md"
+        }
+      ]
+    },
+    {
+      "name": "emits-mermaid-flowchart-block",
+      "summary": "Skill output for data-flow.md includes a mermaid block (flowchart TD shape) per v0.2.0 render contract.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-flowchart-eval ; then show me what data-flow.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": "```mermaid[\\s\\S]*?flowchart\\s+TD",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response includes a mermaid block with flowchart TD for data-flow.md"
+        }
+      ]
+    },
+    {
+      "name": "skips-mermaid-graph-when-below-complexity-floor",
+      "summary": "Skill skips the dependencies.md graph LR block (with skip-note blockquote) when synthesis is below the sufficient-complexity floor — single-Module landscape has no Seam edges to render.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/no-manifest --output /tmp/arch-overview-skip-graph-eval ; then show me what dependencies.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": ">\\s*_diagram skipped:",
+          "tier": "required",
+          "description": "required: response includes the structured skip-note blockquote (`> _diagram skipped:`) when below complexity floor (single-Module landscape) — tight match avoids false-positive on conversational mention"
+        }
+      ]
+    },
+    {
+      "name": "skips-mermaid-flowchart-when-below-complexity-floor",
+      "summary": "Skill skips the data-flow.md flowchart TD block (with skip-note blockquote) when lifecycle steps fall below the floor (≥3) — single-file fixture yields too few steps to render.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/no-manifest --output /tmp/arch-overview-skip-flow-eval ; then show me what data-flow.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": ">\\s*_diagram skipped:",
+          "tier": "required",
+          "description": "required: response includes the structured skip-note blockquote (`> _diagram skipped:`) when below complexity floor (sparse lifecycle)"
+        }
+      ]
+    },
+    {
       "name": "uses-language-vocabulary",
       "summary": "Skill output applies LANGUAGE.md vocabulary (Module / Interface / Seam / Adapter) when describing the inventory.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-vocab",

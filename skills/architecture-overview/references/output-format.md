@@ -58,10 +58,79 @@ repo's package name.
 Italic the entire entry when evidence is inferred (e.g., env var implies dependency
 but no client found).
 
+### Diagram — `graph LR`
+
+Emit a mermaid block alongside the prose. Nodes are Modules (LANGUAGE.md vocab —
+not "service" / "component"). Use repo name as node ID. Edges are Seams; edge label
+names the Adapter (REST path, event topic, shared schema) when known.
+
+```mermaid
+graph LR
+  auth-svc[auth-svc]
+  session-svc[session-svc]
+  notif-svc[notif-svc]
+  postgres[(postgres)]
+
+  auth-svc -->|REST /token| session-svc
+  session-svc -.->|inferred: shared schema| postgres
+  auth-svc -->|emits user.created| notif-svc
+```
+
+- **Solid `-->`** = observed (manifest dep, env var, import, code reference).
+- **Dashed `-.->`** = inferred. Edge label prefixed `inferred:` to mirror the
+  italic-on-inferred convention used in prose (mermaid does not render edge
+  labels in italic).
+- **Datastores** = `[(name)]` cylinder shape — covers any datastore touch
+  (read or write).
+- **Node IDs**: hyphens are fine. Quote IDs containing dots, spaces, or
+  matching mermaid keywords (`end`, `subgraph`, `class`, `click`, `style`).
+- **Cap**: ~12 nodes per block. Larger landscapes split per domain
+  (`### Domain: Auth`, `### Domain: Billing`), one mermaid block each.
+- **Sufficient-complexity floor**: emit only when ≥2 Modules AND ≥1 Seam
+  edge (observed OR inferred). Below floor, skip the block and replace
+  with a one-line blockquote in the same position:
+
+  ```markdown
+  > _diagram skipped: single-Module landscape; no Seam edges discovered._
+  ```
+
+  Apply per `### Domain:` sub-section when split.
+
 ## File 3 — `data-flow.md`
 
 Data lifecycle. Numbered steps. Each step `[observed: <evidence>]` or italicized when
 inferred.
+
+### Diagram — `flowchart TD`
+
+Emit a mermaid block alongside the prose. Nodes mirror the numbered prose
+enumeration. Same observed/inferred convention on edges.
+
+```mermaid
+flowchart TD
+  s1[1. User submits form] --> s2[2. Edge handler validates]
+  s2 --> s3[3. auth-svc issues token]
+  s3 --> s4[(4. session row written)]
+  s4 -.->|inferred: async| s5[5. notif-svc emails receipt]
+```
+
+- **Solid `-->`** = observed.
+- **Dashed `-.->`** = inferred. Edge label prefixed `inferred:` to mirror the
+  italic-on-inferred convention used in prose (mermaid does not render edge
+  labels in italic).
+- **Datastore touches** = `[(text)]` cylinder shape — covers any datastore
+  read or write step. Same convention as `dependencies.md`.
+- **Cap**: ~12 nodes per block. Larger lifecycles split per flow
+  (`### Flow: Signup`, `### Flow: Checkout`), one mermaid block each.
+- **Sufficient-complexity floor**: emit only when ≥3 lifecycle steps.
+  Below floor, skip the block and replace with a one-line blockquote
+  in the same position:
+
+  ```markdown
+  > _diagram skipped: 2 lifecycle steps — too sparse for flowchart._
+  ```
+
+  Apply per `### Flow:` sub-section when split.
 
 ## File 4 — `integrations.md`
 
