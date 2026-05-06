@@ -39,7 +39,7 @@ Mermaid block assertions should anchor to the section header they live under:
 "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?graph\\s+TB"
 ```
 
-Tracked retroactively for v0.2 evals in [#232](https://github.com/chriscantu/claude-config/issues/232).
+Retroactive anchoring for v0.2 evals (`emits-mermaid-dependency-block`, `emits-mermaid-flowchart-block`) and v0.3 (`emits-c4-context-block`) landed via [#232](https://github.com/chriscantu/claude-config/issues/232).
 
 ### 4. Negative-assertion convention (vocabulary discipline)
 
@@ -54,14 +54,15 @@ Concrete example:
 
 The negative twin scopes its match to the section under contract — a global negative `\bservice\b` would fire on prose mentions of the word, not vocab use.
 
-This is a v0.3.1+ design principle; today's suite has the positive half (`uses-language-vocabulary`) but not the negative half. Tracked in [#232](https://github.com/chriscantu/claude-config/issues/232).
+Negative-twin coverage for the C4 Context block landed via [#232](https://github.com/chriscantu/claude-config/issues/232) as `c4-context-no-banned-vocab-labels`. The dependencies.md / data-flow.md negative twins remain open work.
 
 ### 5. Fixture suitability — exercise the contract, not the renderer
 
 A fixture's job is to deterministically push the skill into the state under test. If the fixture *might* trip the assertion depending on model interpretation, the eval is testing the model, not the contract.
 
 - Good: `empty/` for skip-on-no-adjacents — zero content, zero ambiguity.
-- Risky: `ts-only/` for emit-on-≥1-adjacent — depends on model deriving an actor + adjacent system from `package.json` deps.
+- Better: `ts-with-context/` for emit-on-≥1-adjacent — README names the actor explicitly + `.env.example` exposes both observed (`DATABASE_URL` paired with `pg` dep) and inferred (`STRIPE_API_KEY` without client lib) adjacencies; deterministic floor exercise (closes #232 C-1).
+- Avoid: `ts-only/` for C4-emit assertions — relies on the model deriving the actor from manifest deps. Kept for the `emits-mermaid-dependency-block` / `emits-mermaid-flowchart-block` evals where the floor is deterministic from deps + tests alone.
 
 Document fixture-to-criterion mapping in [`tests/fixtures/architecture-overview/README.md`](../../../tests/fixtures/architecture-overview/README.md). Orphan fixtures (no eval consumer) are technical debt, not optionality.
 

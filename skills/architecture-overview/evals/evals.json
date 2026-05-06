@@ -35,10 +35,10 @@
         },
         {
           "type": "regex",
-          "pattern": "```mermaid[\\s\\S]*?graph\\s+LR",
+          "pattern": "###\\s+Diagram[\\s\\S]{0,300}```mermaid[\\s\\S]*?graph\\s+LR",
           "flags": "i",
           "tier": "required",
-          "description": "required: response includes a mermaid block with graph LR for dependencies.md"
+          "description": "required: anchored — `### Diagram` header co-located with graph LR mermaid block per testing-strategy.md §3 (closes #232 I-1)"
         }
       ]
     },
@@ -55,17 +55,17 @@
         },
         {
           "type": "regex",
-          "pattern": "```mermaid[\\s\\S]*?flowchart\\s+TD",
+          "pattern": "###\\s+Diagram[\\s\\S]{0,300}```mermaid[\\s\\S]*?flowchart\\s+TD",
           "flags": "i",
           "tier": "required",
-          "description": "required: response includes a mermaid block with flowchart TD for data-flow.md"
+          "description": "required: anchored — `### Diagram` header co-located with flowchart TD mermaid block per testing-strategy.md §3 (closes #232 I-1)"
         }
       ]
     },
     {
       "name": "emits-c4-context-block",
-      "summary": "Skill output for inventory.md per-repo entry includes a C4 Level 1 mermaid block (graph TB shape) per v0.3.0 render contract.",
-      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-c4-context-eval ; then show me what inventory.md contains",
+      "summary": "Skill output for inventory.md per-repo entry includes a C4 Level 1 mermaid block (graph TB shape) under the `### Context` header per v0.3.0 render contract.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-context-eval ; then show me what inventory.md contains",
       "assertions": [
         {
           "type": "skill_invoked",
@@ -75,16 +75,57 @@
         },
         {
           "type": "regex",
-          "pattern": "###\\s+Context",
+          "pattern": "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?graph\\s+TB",
+          "flags": "i",
           "tier": "required",
-          "description": "required: response includes the per-repo `### Context` sub-section header for inventory.md"
+          "description": "required: anchored — `### Context` header co-located with graph TB mermaid block per testing-strategy.md §3 (closes #232 I-1; collapses prior split assertions). Fixture switched to ts-with-context for deterministic actor + adjacent floor (closes #232 C-1)."
+        }
+      ]
+    },
+    {
+      "name": "mermaid-c4-context-line-style-and-inferred-prefix",
+      "summary": "C4 Context mermaid block uses dashed `-.->` edge syntax with `inferred:` prefix for unverified adjacent systems (closes #232 C-2 + C-3).",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-line-style-eval ; then show me what inventory.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
         },
         {
           "type": "regex",
-          "pattern": "```mermaid[\\s\\S]*?graph\\s+TB",
+          "pattern": "###\\s+Context[\\s\\S]*?-\\.->",
           "flags": "i",
           "tier": "required",
-          "description": "required: response includes a mermaid block with graph TB (C4 Level 1) for inventory.md Context"
+          "description": "required: dashed `-.->` edge syntax appears under `### Context` — fixture exposes Stripe API via env var without client lib, forcing inferred-edge emission per output-format.md line-style contract"
+        },
+        {
+          "type": "regex",
+          "pattern": "###\\s+Context[\\s\\S]*?inferred:",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: `inferred:` edge-label prefix appears under `### Context` — mirrors italic-on-inferred prose convention (mermaid won't render italic markdown)"
+        }
+      ]
+    },
+    {
+      "name": "c4-context-no-banned-vocab-labels",
+      "summary": "Negative-vocab assertion: C4 Context block must not use `service:` or `component:` as descriptive node-label vocabulary (closes #232 I-3, applies testing-strategy.md §4 negative-twin convention).",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-no-banned-vocab-eval ; then show me what inventory.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "###\\s+Context[\\s\\S]{0,800}\\b(service|component):",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: within `### Context` block, banned descriptive vocabulary (`service:`, `component:`) must NOT appear as node labels. Literal proper nouns like `billing-service` are unaffected (no colon). Negative twin to uses-language-vocabulary per testing-strategy.md §4."
         }
       ]
     },

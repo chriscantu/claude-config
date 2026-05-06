@@ -9,7 +9,9 @@ Each fixture is a minimal repo shape that exercises a specific eval contract. Ne
 | `produces-bundle-from-yaml` | `ts-only/` | Minimal happy-path: package.json + src + tests; all 4 bundle files have something to render |
 | `emits-mermaid-dependency-block` | `ts-only/` | express + pg deps yield ≥2 Modules → clears `graph LR` floor |
 | `emits-mermaid-flowchart-block` | `ts-only/` | tests/ + src/ yield ≥3 lifecycle steps → clears `flowchart TD` floor |
-| `emits-c4-context-block` | `ts-only/` | manifest deps + env-implied actor yield ≥1 actor + ≥1 adjacent → clears `graph TB` floor *(see [#232](https://github.com/chriscantu/claude-config/issues/232) — purpose-built fixture proposed for deterministic floor exercise)* |
+| `emits-c4-context-block` | `ts-with-context/` | README names a "platform engineer" actor + `pg` dep yields observed postgres adjacent → clears `graph TB` floor deterministically (no model-derived actor required) |
+| `mermaid-c4-context-line-style-and-inferred-prefix` | `ts-with-context/` | `STRIPE_API_KEY` in `.env.example` without `stripe` SDK in deps → forces inferred-edge emission (`-.->` + `inferred:`) per output-format.md line-style contract |
+| `c4-context-no-banned-vocab-labels` | `ts-with-context/` | Same C4-emit fixture exercises the negative-vocab assertion: model must not use `service:` / `component:` as descriptive labels under `### Context` (testing-strategy.md §4 negative twin) |
 | `skips-mermaid-graph-when-below-complexity-floor` | `no-manifest/` | README + single src file; one Module, zero Seam edges → trips `graph LR` skip |
 | `skips-mermaid-flowchart-when-below-complexity-floor` | `no-manifest/` | Single-file repo yields <3 lifecycle steps → trips `flowchart TD` skip |
 | `skips-c4-context-when-below-complexity-floor` | `empty/` | `.gitkeep` only — zero adjacent systems, zero actors → trips `graph TB` skip on both halves of the AND |
