@@ -177,6 +177,26 @@
       ]
     },
     {
+      "name": "c4-context-person-prefix-not-on-id-less-rectangles",
+      "summary": "Negative twin (ID-less rectangle scope) to `mermaid-c4-context-actor-uses-person-prefix`: the `Person:` prefix must NOT appear inside an ID-less rectangle-shape `[\"...\"]` node under `### Context` per output-format.md actor-vocab contract — actor nodes are required to carry an `actor*` ID per the canonical convention, so any ID-less rectangle carrying `Person:` is an inversion. Closes #265 (testing-strategy.md §4 negative-twin convention). Followup to #264 / #261 — covers the syntactic shape that the ID-prefixed sibling eval (`c4-context-person-prefix-not-on-non-actor-rectangles`) cannot reach because its `[A-Za-z][\\w-]*\\[` segment requires a non-empty identifier before the rectangle opener.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-person-rect-idless-eval ; then show me what inventory.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?graph\\s+TB[\\s\\S]*?(?<![A-Za-z0-9_\\]\\)-])\\[\"[^\"]*Person:",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: under the `### Context` header, within the C4 `graph TB` mermaid block, the `Person:` prefix must NOT appear inside an ID-less rectangle node (`[\"Person: …\"]` declared without a leading identifier). Catches the ID-less sub-case of rectangle vocab inversion that the ID-prefixed sibling eval (`c4-context-person-prefix-not-on-non-actor-rectangles`) misses by construction — its `[A-Za-z][\\w-]*\\[` segment requires a non-empty identifier before the rectangle opener, so mermaid's permitted ID-less form (`graph TB\\n  [\"Person: ledger\"]`) silently slips past. Regex-design rationale (testing-strategy.md §4 / #265): pre-`[` lookbehind `(?<![A-Za-z0-9_\\]\\)-])` excludes letters / digits / `_` / `-` (would be ID-prefixed rectangle, covered by sibling eval) plus `]` / `)` (would be edge syntax or cylinder closer). Whitespace, newline, and `>` (edge arrow tail) all pass — the latter intentional, an edge to an ID-less rectangle (`--> [\"Person: …\"]`) is the same vocab violation. The `\\[\"` opener restricts to quoted-label rectangles; the cylinder opener `[(` is excluded by the `\"` requirement, keeping the cylinder sub-case on its own eval (`c4-context-person-prefix-not-on-cylinders`). The `i` flag is global to the pattern, relaxing `Person:` to `person:` / `PERSON:` since non-canonical casing is itself a vocab violation. Anchored on the `### Context[\\s\\S]{0,500}` co-location bound per testing-strategy.md §3 so violations in later mermaid blocks (deps `graph LR`, data-flow `flowchart TD`) cannot trigger a false ban on a clean C4 block. Negative twin to `mermaid-c4-context-actor-uses-person-prefix` per testing-strategy.md §4; followup sibling to `c4-context-person-prefix-not-on-non-actor-rectangles` (#264) and `c4-context-person-prefix-not-on-cylinders` (#257)."
+        }
+      ]
+    },
+    {
       "name": "c4-context-no-banned-vocab-labels",
       "summary": "Negative-vocab assertion: C4 Context block must not use `service:` / `component:` / `API:` as descriptive node-label vocabulary (closes #232 I-3, applies testing-strategy.md §4 negative-twin convention; ban list per output-format.md vocab-discipline contract).",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-no-banned-vocab-eval ; then show me what inventory.md contains",
