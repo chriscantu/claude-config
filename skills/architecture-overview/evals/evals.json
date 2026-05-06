@@ -102,6 +102,13 @@
         },
         {
           "type": "regex",
+          "pattern": "###\\s+Context[\\s\\S]*?[^.\\-]-->",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: solid `-->` edge syntax also appears under `### Context` — fixture's `pg` dep + `DATABASE_URL` env yield an observed Postgres adjacent. Catches regression where model marks every adjacent as inferred (closes #232 item 1: BOTH solid AND dashed must emit when fixture has both observed and inferred adjacencies). Negative lookbehind via `[^.\\-]` excludes the `.` of `-.->` and the leading `-` of multi-char dashes."
+        },
+        {
+          "type": "regex",
           "pattern": "###\\s+Context[\\s\\S]*?inferred:",
           "flags": "i",
           "tier": "required",
@@ -111,7 +118,7 @@
     },
     {
       "name": "c4-context-no-banned-vocab-labels",
-      "summary": "Negative-vocab assertion: C4 Context block must not use `service:` or `component:` as descriptive node-label vocabulary (closes #232 I-3, applies testing-strategy.md §4 negative-twin convention).",
+      "summary": "Negative-vocab assertion: C4 Context block must not use `service:` / `component:` / `API:` as descriptive node-label vocabulary (closes #232 I-3, applies testing-strategy.md §4 negative-twin convention; ban list per output-format.md line 81).",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-no-banned-vocab-eval ; then show me what inventory.md contains",
       "assertions": [
         {
@@ -122,10 +129,10 @@
         },
         {
           "type": "not_regex",
-          "pattern": "###\\s+Context[\\s\\S]{0,800}\\b(service|component):",
+          "pattern": "```mermaid[\\s\\S]*?graph\\s+TB[\\s\\S]*?\\b(service|component|API):[\\s\\S]*?```",
           "flags": "i",
           "tier": "required",
-          "description": "required: within `### Context` block, banned descriptive vocabulary (`service:`, `component:`) must NOT appear as node labels. Literal proper nouns like `billing-service` are unaffected (no colon). Negative twin to uses-language-vocabulary per testing-strategy.md §4."
+          "description": "required: within the `graph TB` mermaid block (C4 Context), banned descriptive vocabulary (`service:`, `component:`, `API:`) must NOT appear as node labels. Scoped to the fenced mermaid block so post-block prose ('Stripe service: charges customers') cannot trigger a false ban. Literal proper nouns like `billing-service` and `Stripe API` are unaffected (no colon). Banned list mirrors output-format.md:81 exactly. Negative twin to uses-language-vocabulary per testing-strategy.md §4."
         }
       ]
     },
