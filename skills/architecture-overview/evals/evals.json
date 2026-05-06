@@ -63,6 +63,51 @@
       ]
     },
     {
+      "name": "emits-c4-context-block",
+      "summary": "Skill output for inventory.md per-repo entry includes a C4 Level 1 mermaid block (graph TB shape) per v0.3.0 render contract.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-c4-context-eval ; then show me what inventory.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": "###\\s+Context",
+          "tier": "required",
+          "description": "required: response includes the per-repo `### Context` sub-section header for inventory.md"
+        },
+        {
+          "type": "regex",
+          "pattern": "```mermaid[\\s\\S]*?graph\\s+TB",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response includes a mermaid block with graph TB (C4 Level 1) for inventory.md Context"
+        }
+      ]
+    },
+    {
+      "name": "skips-c4-context-when-below-complexity-floor",
+      "summary": "Skill skips the inventory.md C4 Context block (with skip-note blockquote) when synthesis is below the sufficient-complexity floor — single isolated Module with no adjacent systems has nothing to render.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/empty --output /tmp/arch-overview-skip-c4-eval ; then show me what inventory.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": ">\\s*_C4 Context skipped:",
+          "tier": "required",
+          "description": "required: response includes the structured skip-note blockquote (`> _C4 Context skipped:`) when below complexity floor (no adjacent systems) — tight match avoids false-positive on conversational mention"
+        }
+      ]
+    },
+    {
       "name": "skips-mermaid-graph-when-below-complexity-floor",
       "summary": "Skill skips the dependencies.md graph LR block (with skip-note blockquote) when synthesis is below the sufficient-complexity floor — single-Module landscape has no Seam edges to render.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/no-manifest --output /tmp/arch-overview-skip-graph-eval ; then show me what dependencies.md contains",

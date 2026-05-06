@@ -34,6 +34,9 @@ Per-repo entry. Each entry uses LANGUAGE.md vocab:
 **Interface**: <surface visible to callers — protocol, paths, events>.
 **Implementation**: <stack + LOC + entry point>.
 
+### Context
+<C4 Level 1 mermaid block — actor + system + adjacent systems. See shape below.>
+
 **Signals**:
 - Test surface: <test file count + hasTestDir>
 - Last commit: <date> (<N>d ago)
@@ -42,6 +45,47 @@ Per-repo entry. Each entry uses LANGUAGE.md vocab:
 
 *Likely brittleness*: <observation paragraph, italic>.
 ```
+
+### Diagram — `graph TB` (C4 Level 1 / System Context)
+
+Per-repo `### Context` block. Visualizes the repo as a Module at system
+scope: actor(s) on one side, the system under doc in the middle, adjacent
+systems (other Modules, datastores, external SaaS) on the other.
+
+```mermaid
+graph TB
+  actor["Person: platform engineer"]
+  system["billing-service"]
+  stripe["Stripe API"]
+  postgres[(postgres)]
+  notif["notif-svc"]
+
+  actor --> system
+  system --> stripe
+  system --> postgres
+  system -.->|inferred: emits invoice.paid| notif
+```
+
+- **Solid `-->`** = observed (manifest dep, env var, code reference,
+  README mention).
+- **Dashed `-.->`** = inferred. Edge label prefixed `inferred:` to mirror
+  the italic-on-inferred convention used in prose (mermaid does not render
+  edge labels in italic). For label-less edges, prefix the adjacent node's
+  display label with `inferred: ` instead.
+- **Vocab**: the repo IS a Module visualized at system scope. Adjacent
+  things are adjacent Modules. `Person:` prefix labels actors. Avoid
+  "service" / "component" / "API" — LANGUAGE.md vocabulary carries.
+- **Datastores** = `[(name)]` cylinder shape — same convention as
+  `dependencies.md`.
+- **Node IDs**: hyphens are fine. Quote IDs containing dots, spaces, or
+  matching mermaid keywords (`end`, `subgraph`, `class`, `click`, `style`).
+- **Sufficient-complexity floor**: emit only when ≥1 actor AND ≥1 adjacent
+  system (observed OR inferred). Below floor, skip the block and replace
+  with a one-line blockquote in the same position:
+
+  ```markdown
+  > _C4 Context skipped: no adjacent systems discovered — single isolated Module._
+  ```
 
 ## File 2 — `dependencies.md`
 

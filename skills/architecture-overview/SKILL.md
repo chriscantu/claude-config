@@ -3,7 +3,7 @@ name: architecture-overview
 description: Slash-invoked discovery-mode skill that scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) using the canonical LANGUAGE.md vocabulary (Module / Interface / Depth / Seam / Adapter / Leverage / Locality). Use when a new senior eng leader needs a credible whole-system mental model on day 3-7 of a ramp. Do NOT use for single-repo deepening grading (use /improve-codebase-architecture), a single architectural choice (use /adr), a system-level design record (use /sdr), or tool/framework adoption (use /tech-radar).
 disable-model-invocation: true
 status: experimental
-version: 0.2.0
+version: 0.3.0
 ---
 
 # Architecture Overview
@@ -85,9 +85,10 @@ resolves to `~/repos/references/architecture-language.md`. If the bundle lands
 outside the repo tree, emit an absolute path or a URL.
 
 **Mermaid diagrams** — emit a fenced ` ```mermaid ` block alongside the prose in
-`dependencies.md` (`graph LR` of Module → Module edges) and `data-flow.md`
-(`flowchart TD` of numbered lifecycle steps). Solid `-->` = observed,
-dashed `-.->` = inferred (edge label prefixed `inferred:` to mirror the
+`inventory.md` (per-repo `### Context` block — C4 Level 1 `graph TB` of actor +
+system + adjacent systems), `dependencies.md` (`graph LR` of Module → Module edges),
+and `data-flow.md` (`flowchart TD` of numbered lifecycle steps). Solid `-->` =
+observed, dashed `-.->` = inferred (edge label prefixed `inferred:` to mirror the
 italic-on-inferred convention used in prose; mermaid does not render edge
 labels in italic). Cap ~12 nodes per block; split per domain
 (`### Domain: Auth`) or per flow (`### Flow: Signup`) when larger.
@@ -96,6 +97,8 @@ labels in italic). Cap ~12 nodes per block; split per domain
 when synthesis is too sparse to beat prose. Apply per-block (per file,
 per `### Domain:` / `### Flow:` split if used):
 
+- `graph TB` (inventory C4 Context): emit when ≥1 actor AND ≥1 adjacent
+  system (observed OR inferred). Otherwise skip.
 - `graph LR` (dependencies): emit when ≥2 Modules AND ≥1 Seam edge
   (observed OR inferred). Otherwise skip.
 - `flowchart TD` (data-flow): emit when ≥3 lifecycle steps. Otherwise skip.
@@ -123,12 +126,12 @@ Print: _"Wrote 4 files at `<path>`. <N> repos scanned."_
 See [`references/repo-requirements.md`](references/repo-requirements.md) for the
 hard / soft / auto-skipped / edge-case matrix.
 
-## Known Gaps (v0.2.0 — Experimental)
+## Known Gaps (v0.3.0 — Experimental)
 
 - Auto-discovery handshake with `/improve-codebase-architecture` not implemented
 - ADR-conflict surfacing not implemented (skill reads ADRs but doesn't grade)
 - Brittleness heuristic nomination deferred (observation-only) — intent-grounding follow-up: #228
-- C4 context block in `inventory.md` deferred — v0.3 candidate, follow-up: #230
+- C4 Level 2+ (containers/components) deferred — v0.3 lands Level 1 only
 - Concept-validation phase enforcing italic-on-inferred deferred (convention only)
 - Non-UTF8 binary detection in `repo-stats.ts` is best-effort (size-only filter; non-UTF8 first-8KB check deferred)
 - `envVarsReferenced` test coverage in `repo-stats.ts` is structural (Array.isArray) only — no fixture currently exercises a positive match
