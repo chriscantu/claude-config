@@ -71,7 +71,7 @@ Document fixture-to-criterion mapping in [`tests/fixtures/architecture-overview/
 Per-assertion `tier` value drives runner gate behavior:
 
 - `required` — spec-acceptance behaviors (issue acceptance criteria, security guardrails). A failure exits non-zero and gates CI / pre-push hooks.
-- `diagnostic` — polish, discoverability, error-message quality. A failure is reported in output (suffixed `[diagnostic]`) but does NOT gate exit. This is the §6 "advisory" tier — the runner predates the doc and uses the older `diagnostic` name; semantically identical.
+- `diagnostic` — polish, discoverability, error-message quality. A failure is reported in output (suffixed `[diagnostic]`) but does NOT gate exit. The doc historically called this tier "advisory"; the runner schema uses `diagnostic`. Same semantics.
 
 A flaky `diagnostic` assertion should not block ship; a flaky `required` assertion should.
 
@@ -85,7 +85,7 @@ The `skill_invoked` structural floor on every eval ALWAYS stays `required` per �
 
 **Promotion / demotion:** when a contributor flips an assertion's tier, name the rationale in the assertion `description` field (one line). Example: `diagnostic (advisory per §6): pattern is broad three-way OR — polish discipline, not spec acceptance.`
 
-Cross-skill alignment: `diagnostic` is shared semantics across the runner-v2 suite — `sdr`, `systems-analysis`, `define-the-problem`, `fat-marker-sketch`, and `architecture-overview` all use the same tier vocabulary. Renaming `diagnostic` → `advisory` in the runner is a separate decision (large blast radius) — not pursued here. Closes #259.
+Cross-skill alignment: `diagnostic` is shared semantics across every skill that uses `tests/eval-runner-v2.ts` — the tier vocabulary is owned by the runner, not per-skill. Adoption is opt-in per assertion.
 
 ### 7. Skip-blockquote canonical form
 
