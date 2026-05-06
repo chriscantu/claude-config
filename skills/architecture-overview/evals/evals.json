@@ -292,7 +292,7 @@
     },
     {
       "name": "italic-marks-inferences",
-      "summary": "Skill response references the italic-marking convention for inferred claims.",
+      "summary": "Skill response references the italic-marking convention for inferred claims. Polish-tier discipline (testing-strategy.md §6) — content assertion is `diagnostic` so a flake here reports but does not gate ship.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/no-manifest --output /tmp/arch-overview-italic",
       "assertions": [
         {
@@ -305,8 +305,8 @@
           "type": "regex",
           "pattern": "italic|inferred|\\*[^*]+\\*",
           "flags": "i",
-          "tier": "required",
-          "description": "required: response references italic-on-inferred convention or emits italic markdown"
+          "tier": "diagnostic",
+          "description": "diagnostic (advisory per testing-strategy.md §6): response references italic-on-inferred convention or emits italic markdown. Pattern is broad three-way OR (`italic` | `inferred` | any `*…*` markdown) — matches almost any response touching the bundle, so signal is weak. Polish-tier rather than spec-acceptance: a flake should not gate ship. The `skill_invoked` floor above stays `required` — the skill firing IS load-bearing; the italic discipline check is not."
         }
       ]
     },

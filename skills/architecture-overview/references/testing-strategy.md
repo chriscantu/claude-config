@@ -68,12 +68,24 @@ Document fixture-to-criterion mapping in [`tests/fixtures/architecture-overview/
 
 ### 6. Tier policy
 
-All current evals are `tier: required` — passing the suite is launch-gating. As the suite grows past ~15 evals, split:
+Per-assertion `tier` value drives runner gate behavior:
 
-- `required` — spec-acceptance behaviors (issue acceptance criteria, security guardrails)
-- `advisory` — polish, discoverability, error-message quality
+- `required` — spec-acceptance behaviors (issue acceptance criteria, security guardrails). A failure exits non-zero and gates CI / pre-push hooks.
+- `diagnostic` — polish, discoverability, error-message quality. A failure is reported in output (suffixed `[diagnostic]`) but does NOT gate exit. This is the §6 "advisory" tier — the runner predates the doc and uses the older `diagnostic` name; semantically identical.
 
-A flaky `advisory` eval should not block ship; a flaky `required` eval should. Tier split scaffold tracked in #232's adjacent issues.
+A flaky `diagnostic` assertion should not block ship; a flaky `required` assertion should.
+
+**Default for new assertions:** `required`. Demote to `diagnostic` only when:
+
+- The assertion's pattern is too broad to carry strong signal (e.g., a three-way OR matching almost any plausible response — see `italic-marks-inferences` content assertion for an example).
+- The assertion checks polish (italic discipline, advisory-prose presence) rather than a spec-acceptance contract.
+- A flake here would reasonably warn but not block.
+
+The `skill_invoked` structural floor on every eval ALWAYS stays `required` per §1 — the skill firing is load-bearing; without it, every content assertion is conditional.
+
+**Promotion / demotion:** when a contributor flips an assertion's tier, name the rationale in the assertion `description` field (one line). Example: `diagnostic (advisory per §6): pattern is broad three-way OR — polish discipline, not spec acceptance.`
+
+Cross-skill alignment: `diagnostic` is shared semantics across the runner-v2 suite — `sdr`, `systems-analysis`, `define-the-problem`, `fat-marker-sketch`, and `architecture-overview` all use the same tier vocabulary. Renaming `diagnostic` → `advisory` in the runner is a separate decision (large blast radius) — not pursued here. Closes #259.
 
 ### 7. Skip-blockquote canonical form
 
