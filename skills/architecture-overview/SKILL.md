@@ -1,6 +1,6 @@
 ---
 name: architecture-overview
-description: Slash-invoked discovery-mode skill that scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) using the canonical LANGUAGE.md vocabulary. Use when a new senior eng leader needs a credible whole-system mental model on day 3-7 of a ramp. Do NOT use for single-repo deepening grading (use /improve-codebase-architecture), a single architectural choice (use /adr), a system-level design record (use /sdr), or tool/framework adoption (use /tech-radar).
+description: Slash-invoked discovery-mode skill that scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) using the canonical LANGUAGE.md vocabulary. Use when a new senior eng leader joins and asks to "walk me through the architecture", "map the services across our repos", or needs a credible whole-system mental model on day 3-7 of a ramp. Do NOT use for single-repo deepening grading (use /improve-codebase-architecture), a single architectural choice (use /adr), a system-level design record (use /sdr), or tool/framework adoption (use /tech-radar).
 disable-model-invocation: true
 status: experimental
 version: 0.3.1
@@ -60,9 +60,9 @@ Resolve `--repos` into `[{name, source: path | url}]`. Reject unparseable entrie
 Merge per-repo records. Cross-repo edge resolution: if repo A's manifest dep matches repo B's package name, emit edge `A → B [observed]`. Apply LANGUAGE.md vocab interleaved with the merge — per-repo `CONTEXT.md` domain terms layered on top. Single pass, not two; narrative is written once with the right vocab.
 
 ### 5. Render
-- **Output guardrails** — refuse if output path is inside `claude-config` (`git rev-parse --show-toplevel`). Default: exactly one `~/repos/onboard-*/` workspace → `<workspace>/architecture/`; zero or multiple → require `--output <path>`.
-- **Write 4 files** at the resolved output path. Frontmatter format: [`references/output-format.md`](references/output-format.md). `language_ref` is relative to each output file's parent directory; emit an absolute path or URL when the bundle lands outside the repo tree.
-- **Mermaid** — render blocks per [`output-format.md`](references/output-format.md): `graph TB` in inventory.md (C4 Context), `graph LR` in dependencies.md, `flowchart TD` in data-flow.md. Each diagram has a sufficient-complexity floor; below it, replace with `> _diagram skipped: <reason>_`.
+- **Output guardrails** — refuse if output path is inside `claude-config` (`git rev-parse --show-toplevel`) — prevents polluting the source repo with generated landscapes that would re-trigger discovery on the next run. Default: exactly one `~/repos/onboard-*/` workspace → `<workspace>/architecture/` — onboard workspaces are the canonical landing spot per `/onboard` convention; zero or multiple → require `--output <path>` so the user picks intentionally.
+- **Write 4 files** at the resolved output path. Frontmatter format: [`references/output-format.md`](references/output-format.md). `language_ref` is relative to each output file's parent directory — keeps the bundle portable when copied to a different repo; emit an absolute path or URL when the bundle lands outside the repo tree.
+- **Mermaid** — render blocks per [`output-format.md`](references/output-format.md) — single canonical source post-#233 drift-collapse: `graph TB` in inventory.md (C4 Context), `graph LR` in dependencies.md, `flowchart TD` in data-flow.md. Each diagram has a sufficient-complexity floor — low-density diagrams add noise, not signal; below it, replace with `> _diagram skipped: <reason>_`.
 - **Done** — print _"Wrote 4 files at `<path>`. <N> repos scanned."_
 
 ## Composition
