@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 const REPO = resolve(import.meta.dir, "..");
-const SCRIPT = join(REPO, "bin", "onboard-scaffold.fish");
+const SCRIPT = join(REPO, "skills", "onboard", "scripts", "onboard-scaffold.fish");
 
 type RunResult = { exitCode: number; stdout: string; stderr: string };
 
@@ -86,7 +86,7 @@ afterEach(() => {
   }
 });
 
-describe("bin/onboard-scaffold.fish", () => {
+describe("skills/onboard/scripts/onboard-scaffold.fish", () => {
   test("refuses to overwrite an existing non-empty target directory", () => {
     const root = makeFixture();
     const target = join(root, "onboard-acme");

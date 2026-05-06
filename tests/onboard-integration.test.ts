@@ -11,11 +11,11 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { runGraduate, type ScheduledTaskInfo } from "../bin/onboard-graduate.ts";
+import { runGraduate, type ScheduledTaskInfo } from "../skills/onboard/scripts/onboard-graduate.ts";
 
 const REPO = resolve(import.meta.dir, "..");
-const SCAFFOLD = join(REPO, "bin", "onboard-scaffold.fish");
-const GUARD = join(REPO, "bin", "onboard-guard.ts");
+const SCAFFOLD = join(REPO, "skills", "onboard", "scripts", "onboard-scaffold.fish");
+const GUARD = join(REPO, "skills", "onboard", "scripts", "onboard-guard.ts");
 
 const fixtures: string[] = [];
 
@@ -138,7 +138,7 @@ describe("Phase 4 calendar paste", () => {
       existing + "\n## Direct reports\n\n- Sarah Chen — Senior Engineer\n",
     );
 
-    const cal = join(REPO, "bin", "onboard-calendar.ts");
+    const cal = join(REPO, "skills", "onboard", "scripts", "onboard-calendar.ts");
     const r = spawnSync(
       "bun",
       ["run", cal, "paste", ws],
@@ -167,7 +167,7 @@ describe("Phase 4 calendar paste", () => {
       join(ws, "stakeholders", "map.md"),
       "# Stakeholder Map\n\n## Direct reports\n\n- Sarah Chen — SE\n",
     );
-    const cal = join(REPO, "bin", "onboard-calendar.ts");
+    const cal = join(REPO, "skills", "onboard", "scripts", "onboard-calendar.ts");
     const input = "Priya Patel <priya@acme.com>\n";
 
     spawnSync("bun", ["run", cal, "paste", ws], { input, encoding: "utf8" });
@@ -331,7 +331,7 @@ Start /1on1-prep earlier.
     // onboard-status.ts surfaces graduated state.
     const status = spawnSync(
       "bun",
-      ["run", join(REPO, "bin", "onboard-status.ts"), "--status", ws],
+      ["run", join(REPO, "skills", "onboard", "scripts", "onboard-status.ts"), "--status", ws],
       { encoding: "utf8" },
     );
     expect(status.status).toBe(0);
@@ -355,7 +355,7 @@ Start /1on1-prep earlier.
       "bun",
       [
         "run",
-        join(REPO, "bin", "onboard-graduate.ts"),
+        join(REPO, "skills", "onboard", "scripts", "onboard-graduate.ts"),
         "graduate",
         ws,
         "--retro-from",

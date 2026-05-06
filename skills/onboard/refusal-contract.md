@@ -1,9 +1,9 @@
 # Refusal & Attribution Contract — Phase 3
 
-This document is the canonical contract enforced by `bin/onboard-guard.ts`. Skills
+This document is the canonical contract enforced by `skills/onboard/scripts/onboard-guard.ts`. Skills
 that read user-supplied paths or render decks call the guard before proceeding.
 
-## Refusal — `bin/onboard-guard.ts refuse-raw <path>`
+## Refusal — `skills/onboard/scripts/onboard-guard.ts refuse-raw <path>`
 
 `/swot` and `/present` MUST run this before reading any user-supplied path. Exit
 codes:
@@ -18,7 +18,7 @@ Detection rule: the path is resolved via `realpathSync` before the
 `/interviews/raw/` segment check. Symlinks pointing at raw notes refuse;
 broken symlinks (target missing) refuse as the safer default.
 
-## Attribution — `bin/onboard-guard.ts attribution-check <deck.md> <map.md>`
+## Attribution — `skills/onboard/scripts/onboard-guard.ts attribution-check <deck.md> <map.md>`
 
 `/onboard` MUST run this before invoking `/present` for any milestone reflect-back
 (W4 interim, W8 final). Exit codes:

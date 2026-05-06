@@ -1,6 +1,6 @@
 # Manager-Handoff Capture
 
-Run this immediately after `bin/onboard-scaffold.fish` returns 0. The seed file at
+Run this immediately after `skills/onboard/scripts/onboard-scaffold.fish` returns 0. The seed file at
 `<target>/stakeholders/map.md` already has the four canonical section headers.
 
 Ask the user (one section at a time):
@@ -13,7 +13,7 @@ Ask the user (one section at a time):
 Capture verbatim names + 1-line roles. Do NOT capture candid commentary here — that
 belongs in `/1on1-prep` raw notes.
 
-After capture, commit. This is the **second** commit — `bin/onboard-scaffold.fish`
+After capture, commit. This is the **second** commit — `skills/onboard/scripts/onboard-scaffold.fish`
 already created the initial scaffold commit (`Scaffold /onboard workspace`) before
 this handoff step runs:
 

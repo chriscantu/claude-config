@@ -26,7 +26,7 @@ Mixed shapes within a single paste are fine. Order is preserved.
 ## Diff key (Phase 4 limitation)
 
 Match is **display-name only**, case-insensitive, against names extracted from
-`stakeholders/map.md` via `bin/onboard-guard.ts` `extractNames()` (the same
+`stakeholders/map.md` via `skills/onboard/scripts/onboard-guard.ts` `extractNames()` (the same
 helper Phase 3 uses for attribution-check; single source of truth).
 
 **Residual risks** (same bucket as Phase 3 attribution-check):

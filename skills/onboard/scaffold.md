@@ -1,6 +1,6 @@
 # Scaffold Reference
 
-`bin/onboard-scaffold.fish` is the canonical helper. The skill body invokes it; the
+`skills/onboard/scripts/onboard-scaffold.fish` is the canonical helper. The skill body invokes it; the
 script does NOT prompt the user — all prompts happen in `SKILL.md` and are passed as
 flags.
 

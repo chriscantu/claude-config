@@ -20,7 +20,7 @@ import {
   writeSentinel,
   runGraduate,
   type ScheduledTaskInfo,
-} from "../bin/onboard-graduate.ts";
+} from "../skills/onboard/scripts/onboard-graduate.ts";
 
 const REPO = resolve(import.meta.dir, "..");
 

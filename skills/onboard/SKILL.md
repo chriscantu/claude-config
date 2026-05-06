@@ -46,7 +46,7 @@ optionally created private GitHub remote (user-confirmed at scaffold time).
    > Create a private GitHub repo for this ramp now? Y/N (default Y)
 
    → verify: user answers Y or N
-5. Run `bin/onboard-scaffold.fish --target <path> --cadence <preset> --gh-create yes|no`. → verify: exit 0; target dir exists with `RAMP.md`, `.gitignore`, `stakeholders/map.md`, a `.git` dir, and the per-org subdirs `stakeholders/`, `interviews/raw/`, `interviews/sanitized/`, `swot/`, `decks/slidev/`, `decisions/`
+5. Run `skills/onboard/scripts/onboard-scaffold.fish --target <path> --cadence <preset> --gh-create yes|no`. → verify: exit 0; target dir exists with `RAMP.md`, `.gitignore`, `stakeholders/map.md`, a `.git` dir, and the per-org subdirs `stakeholders/`, `interviews/raw/`, `interviews/sanitized/`, `swot/`, `decks/slidev/`, `decisions/`
 6. Capture manager-handoff inputs (see [manager-handoff.md](manager-handoff.md))
    directly into `<target>/stakeholders/map.md` via the section prompts there.
    → verify: each of the four section headers has at least the canonical "(none yet)" placeholder OR captured content
@@ -66,14 +66,14 @@ optionally created private GitHub remote (user-confirmed at scaffold time).
 
 ## Status, mute, and unmute
 
-`/onboard --status <org>` → run `bun run bin/onboard-status.ts --status <workspace-path>`.
+`/onboard --status <org>` → run `bun run skills/onboard/scripts/onboard-status.ts --status <workspace-path>`.
 Prints elapsed days, next unchecked milestone, and current mutes.
 
-`/onboard --mute <category>` → run `bun run bin/onboard-status.ts --mute <category> <workspace-path>`.
+`/onboard --mute <category>` → run `bun run skills/onboard/scripts/onboard-status.ts --mute <category> <workspace-path>`.
 Categories: `milestone` | `velocity` | `calendar`. Mute state persists in
 `RAMP.md` `## Cadence Mutes`.
 
-`/onboard --unmute <category>` → run `bun run bin/onboard-status.ts --unmute <category> <workspace-path>`.
+`/onboard --unmute <category>` → run `bun run skills/onboard/scripts/onboard-status.ts --unmute <category> <workspace-path>`.
 
 ## Capture and sanitize (Phase 3)
 
@@ -96,7 +96,7 @@ Before invoking `/present` for any milestone reflect-back (W4 interim, W8
 final), MUST run:
 
 ```fish
-bun run "$CLAUDE_PROJECT_DIR/bin/onboard-guard.ts" attribution-check \
+bun run "$CLAUDE_PROJECT_DIR/skills/onboard/scripts/onboard-guard.ts" attribution-check \
   <workspace>/decks/slidev/<deck>/slides.md \
   <workspace>/stakeholders/map.md
 ```
@@ -122,7 +122,7 @@ review. The cron-fired cadence-nag worker reminds on Mondays when paste is
 
 ```fish
 # Common usage — paste from clipboard, pipe to helper
-pbpaste | bun run "$CLAUDE_PROJECT_DIR/bin/onboard-calendar.ts" paste <workspace>
+pbpaste | bun run "$CLAUDE_PROJECT_DIR/skills/onboard/scripts/onboard-calendar.ts" paste <workspace>
 ```
 
 (`CLAUDE_PROJECT_DIR` is harness-provided; if unset, walk up from CWD until
@@ -141,7 +141,7 @@ retro → commit → tag → push → pause cron via MCP → write `.graduated`
 sentinel → print summary) is documented in [graduate.md](graduate.md).
 
 ```fish
-bun run "$CLAUDE_PROJECT_DIR/bin/onboard-graduate.ts" graduate <workspace>
+bun run "$CLAUDE_PROJECT_DIR/skills/onboard/scripts/onboard-graduate.ts" graduate <workspace>
 ```
 
 Re-running on a graduated workspace exits 0 with an "already graduated"
@@ -201,7 +201,7 @@ on a single sweep — re-author the deck with aggregate framing first.
 
 ## Backtracking
 
-If `bin/onboard-scaffold.fish` exits non-zero, surface the stderr directly to
+If `skills/onboard/scripts/onboard-scaffold.fish` exits non-zero, surface the stderr directly to
 the user and stop. The most common cause is the target dir already containing
 files (clobber-refusal); ask the user whether to choose a different path.
 
