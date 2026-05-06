@@ -68,12 +68,24 @@ Document fixture-to-criterion mapping in [`tests/fixtures/architecture-overview/
 
 ### 6. Tier policy
 
-All current evals are `tier: required` — passing the suite is launch-gating. As the suite grows past ~15 evals, split:
+Per-assertion `tier` value drives runner gate behavior:
 
-- `required` — spec-acceptance behaviors (issue acceptance criteria, security guardrails)
-- `advisory` — polish, discoverability, error-message quality
+- `required` — spec-acceptance behaviors (issue acceptance criteria, security guardrails). A failure exits non-zero and gates CI / pre-push hooks.
+- `diagnostic` — polish, discoverability, error-message quality. A failure is reported in output (suffixed `[diagnostic]`) but does NOT gate exit. The doc historically called this tier "advisory"; the runner schema uses `diagnostic`. Same semantics.
 
-A flaky `advisory` eval should not block ship; a flaky `required` eval should. Tier split scaffold tracked in #232's adjacent issues.
+A flaky `diagnostic` assertion should not block ship; a flaky `required` assertion should.
+
+**Default for new assertions:** `required`. Demote to `diagnostic` only when:
+
+- The assertion's pattern is too broad to carry strong signal (e.g., a three-way OR matching almost any plausible response — see `italic-marks-inferences` content assertion for an example).
+- The assertion checks polish (italic discipline, advisory-prose presence) rather than a spec-acceptance contract.
+- A flake here would reasonably warn but not block.
+
+The `skill_invoked` structural floor on every eval ALWAYS stays `required` per §1 — the skill firing is load-bearing; without it, every content assertion is conditional.
+
+**Promotion / demotion:** when a contributor flips an assertion's tier, name the rationale in the assertion `description` field (one line). Example: `diagnostic (per testing-strategy.md §6): pattern is broad three-way OR — polish discipline, not spec acceptance. skill_invoked floor stays required.`
+
+Cross-skill alignment: `diagnostic` is shared semantics across every skill that uses `tests/eval-runner-v2.ts` — the tier vocabulary is owned by the runner, not per-skill. Adoption is opt-in per assertion.
 
 ### 7. Skip-blockquote canonical form
 

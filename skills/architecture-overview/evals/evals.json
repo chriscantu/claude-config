@@ -285,8 +285,8 @@
         {
           "type": "regex",
           "pattern": "\\b(Module|Interface|Implementation|Seam|Adapter|Leverage|Locality)\\b",
-          "tier": "required",
-          "description": "required: response uses canonical LANGUAGE.md vocabulary"
+          "tier": "diagnostic",
+          "description": "diagnostic (per testing-strategy.md §6): pattern is broad seven-way OR of common software-engineering words — polish discipline, not spec acceptance. skill_invoked floor stays required."
         }
       ]
     },
@@ -305,8 +305,8 @@
           "type": "regex",
           "pattern": "italic|inferred|\\*[^*]+\\*",
           "flags": "i",
-          "tier": "required",
-          "description": "required: response references italic-on-inferred convention or emits italic markdown"
+          "tier": "diagnostic",
+          "description": "diagnostic (per testing-strategy.md §6): pattern is broad three-way OR (`italic` | `inferred` | any `*…*` markdown) — polish discipline, not spec acceptance. skill_invoked floor stays required."
         }
       ]
     },
