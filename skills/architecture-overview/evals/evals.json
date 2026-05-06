@@ -23,6 +23,26 @@
       ]
     },
     {
+      "name": "emits-mermaid-dependency-block",
+      "summary": "Skill output for dependencies.md includes a mermaid block (graph LR shape) per v0.2.0 render contract.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-mermaid-eval ; then show me what dependencies.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": "```mermaid[\\s\\S]*?graph\\s+LR",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response includes a mermaid block with graph LR for dependencies.md"
+        }
+      ]
+    },
+    {
       "name": "uses-language-vocabulary",
       "summary": "Skill output applies LANGUAGE.md vocabulary (Module / Interface / Seam / Adapter) when describing the inventory.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-only --output /tmp/arch-overview-vocab",
