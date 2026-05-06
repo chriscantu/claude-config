@@ -84,7 +84,7 @@ A `not_regex` assertion checks *absence of a violation*, which a vacuously empty
 
 | Assertion | Type | Catches |
 |---|---|---|
-| Negative twin family | `not_regex` × N | Vocab/shape inversion across each sub-shape |
+| Negative twin family | `not_regex` × N | `Person:`-prefix inversion across each sub-shape |
 | Positive-presence floor | `regex` (this convention) | Block-emission regression that empties the node class entirely |
 
 For C4 Context, the positive-presence floor is `c4-context-emits-non-actor-rectangle-presence` ([#266](https://github.com/chriscantu/claude-config/issues/266)): asserts ≥1 identifier-prefixed non-actor rectangle exists inside `graph TB`, mirroring the ID-prefix discrimination shape of its negative-twin sibling (`(?!actor)[A-Za-z][\w-]*\[(?!\()`). The same `### Context[\s\S]{0,500}` co-location bound (§3) and `(?:(?!```)[\s\S])*?` fence-crossing bound (§3, [#268](https://github.com/chriscantu/claude-config/issues/268)) apply — a non-actor rectangle in a later mermaid block (deps `graph LR`, data-flow `flowchart TD`) must not false-pass an empty C4 block.
