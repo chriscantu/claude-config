@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { repoStats } from "../bin/architecture-overview/repo-stats";
+import { repoStats } from "../skills/architecture-overview/scripts/repo-stats";
 import { resolve } from "path";
 
 const fixture = (name: string) =>
