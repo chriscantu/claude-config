@@ -87,9 +87,11 @@ outside the repo tree, emit an absolute path or a URL.
 **Mermaid diagrams** — emit a fenced ` ```mermaid ` block alongside the prose in
 `dependencies.md` (`graph LR` of Module → Module edges) and `data-flow.md`
 (`flowchart TD` of numbered lifecycle steps). Solid `-->` = observed,
-dashed `-.->` = inferred (edge label prefixed `inferred:` to carry italic
-discipline). Cap ~12 nodes per block; split per domain (`### Domain: Auth`)
-or per flow (`### Flow: Signup`) when larger. Templates and shape examples:
+dashed `-.->` = inferred (edge label prefixed `inferred:` to mirror the
+italic-on-inferred convention used in prose; mermaid does not render edge
+labels in italic). Cap ~12 nodes per block; split per domain
+(`### Domain: Auth`) or per flow (`### Flow: Signup`) when larger.
+Templates and shape examples:
 [`references/output-format.md`](references/output-format.md).
 
 ### 9. Done
@@ -110,7 +112,7 @@ hard / soft / auto-skipped / edge-case matrix.
 - Auto-discovery handshake with `/improve-codebase-architecture` not implemented
 - ADR-conflict surfacing not implemented (skill reads ADRs but doesn't grade)
 - Brittleness heuristic nomination deferred (observation-only) — intent-grounding follow-up: #228
-- C4 context block in `inventory.md` deferred — v0.3 candidate
+- C4 context block in `inventory.md` deferred — v0.3 candidate, follow-up: #230
 - Concept-validation phase enforcing italic-on-inferred deferred (convention only)
 - Non-UTF8 binary detection in `repo-stats.ts` is best-effort (size-only filter; non-UTF8 first-8KB check deferred)
 - `envVarsReferenced` test coverage in `repo-stats.ts` is structural (Array.isArray) only — no fixture currently exercises a positive match

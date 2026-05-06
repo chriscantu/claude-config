@@ -77,8 +77,13 @@ graph LR
 ```
 
 - **Solid `-->`** = observed (manifest dep, env var, import, code reference).
-- **Dashed `-.->`** = inferred. Edge label prefixed `inferred:` to carry italic discipline.
-- **Datastores** = `[(name)]` cylinder shape.
+- **Dashed `-.->`** = inferred. Edge label prefixed `inferred:` to mirror the
+  italic-on-inferred convention used in prose (mermaid does not render edge
+  labels in italic).
+- **Datastores** = `[(name)]` cylinder shape — covers any datastore touch
+  (read or write).
+- **Node IDs**: hyphens are fine. Quote IDs containing dots, spaces, or
+  matching mermaid keywords (`end`, `subgraph`, `class`, `click`, `style`).
 - **Cap**: ~12 nodes per block. Larger landscapes split per domain
   (`### Domain: Auth`, `### Domain: Billing`), one mermaid block each.
 
@@ -101,8 +106,11 @@ flowchart TD
 ```
 
 - **Solid `-->`** = observed.
-- **Dashed `-.->`** = inferred. Edge label prefixed `inferred:`.
-- **Datastore writes** = `[(text)]` cylinder shape.
+- **Dashed `-.->`** = inferred. Edge label prefixed `inferred:` to mirror the
+  italic-on-inferred convention used in prose (mermaid does not render edge
+  labels in italic).
+- **Datastore touches** = `[(text)]` cylinder shape — covers any datastore
+  read or write step. Same convention as `dependencies.md`.
 - **Cap**: ~12 nodes per block. Larger lifecycles split per flow
   (`### Flow: Signup`, `### Flow: Checkout`), one mermaid block each.
 
