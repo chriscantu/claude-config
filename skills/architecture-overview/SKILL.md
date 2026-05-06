@@ -75,13 +75,6 @@ Merge per-repo records. Cross-repo edge resolution: if repo A's manifest dep mat
 See [`references/repo-requirements.md`](references/repo-requirements.md) for the
 hard / soft / auto-skipped / edge-case matrix.
 
-## Known Gaps (v0.3.1 — Experimental)
+## Known Gaps
 
-- Auto-discovery handshake with `/improve-codebase-architecture` not implemented
-- ADR-conflict surfacing not implemented (skill reads ADRs but doesn't grade)
-- Brittleness heuristic nomination deferred (observation-only) — intent-grounding follow-up: #228
-- C4 Level 2+ (containers/components) deferred — v0.3 lands Level 1 only
-- Concept-validation phase enforcing italic-on-inferred deferred (convention only)
-- Non-UTF8 binary detection in `repo-stats.ts` is best-effort (size-only filter; non-UTF8 first-8KB check deferred)
-- `envVarsReferenced` test coverage in `repo-stats.ts` is structural (Array.isArray) only — no fixture currently exercises a positive match
-- LOC count uses `content.split("\n").length` which is +1 for files ending in newline
+See [`references/known-gaps.md`](references/known-gaps.md) for the current v0.3.1 (Experimental) gap list.
