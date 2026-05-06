@@ -240,6 +240,13 @@
           "flags": "i",
           "tier": "required",
           "description": "required: under the `### Context` header, within the C4 `graph TB` mermaid block, the `stripe[` rectangle node must appear. Fixture-specific deterministic floor: `ts-with-context/` exposes `STRIPE_API_KEY` in env without a `stripe` SDK in deps, which the `mermaid-c4-context-line-style-and-inferred-prefix` eval already requires the model to render as an inferred-edge target (`-.->` + `inferred:`). That eval can be satisfied by the textual tokens alone if the lazy match leaks across blocks; this assertion pins the specific node declaration so the regression mode in #266 (model emits the inferred-edge prose but omits the actual `stripe` node declaration) is caught directly. The cylinder opener `[(` is allowed by this pattern but mermaid forbids it for an external SaaS — the negative-twin cylinder eval (#257) catches the inversion. The identifier-boundary lookbehind `(?<![A-Za-z0-9_-])` prevents matching mid-identifier (e.g., `mystripe[`). Anchored on the `### Context[\\s\\S]{0,500}` co-location bound per testing-strategy.md §3; fence-crossing bound `(?:(?!```)[\\s\\S])*?` per #268 prevents leakage from a later mermaid block."
+        },
+        {
+          "type": "regex",
+          "pattern": "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?graph\\s+TB(?:(?!```)[\\s\\S])*?(?<![A-Za-z0-9_-])system\\[",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: under the `### Context` header, within the C4 `graph TB` mermaid block, the `system[` rectangle node (the system-under-doc) must appear. Closes #266 review-followup gap: the generic non-actor rectangle floor in this eval is satisfied by ANY non-actor identifier-prefixed rectangle, so a regression that emits `stripe[` as the only non-actor rectangle and omits the system-under-doc would pass both the generic floor and the `stripe[` fixture pin. The canonical output-format.md example pins the system-under-doc node as `system[\"<repo-name>\"]` (lines 58–62) — this assertion enforces that convention. Brittleness: model drift to a repo-name-derived ID (e.g., `billingservice[`, `billing_service[`) would false-negative — accepted miss, intentional. The miss surfaces convention drift on the canonical `system` ID prefix (parallel to the documented `actor*` ID-prefix brittleness on the negative-twin sibling #261). Identifier-boundary lookbehind `(?<![A-Za-z0-9_-])` prevents mid-identifier match (e.g., `subsystem[`). Anchored on the `### Context[\\s\\S]{0,500}` co-location bound per testing-strategy.md §3; fence-crossing bound `(?:(?!```)[\\s\\S])*?` per #268 prevents leakage from a later mermaid block."
         }
       ]
     },
