@@ -83,7 +83,7 @@ A flaky `diagnostic` assertion should not block ship; a flaky `required` asserti
 
 The `skill_invoked` structural floor on every eval ALWAYS stays `required` per §1 — the skill firing is load-bearing; without it, every content assertion is conditional.
 
-**Promotion / demotion:** when a contributor flips an assertion's tier, name the rationale in the assertion `description` field (one line). Example: `diagnostic (advisory per §6): pattern is broad three-way OR — polish discipline, not spec acceptance.`
+**Promotion / demotion:** when a contributor flips an assertion's tier, name the rationale in the assertion `description` field (one line). Example: `diagnostic (per testing-strategy.md §6): pattern is broad three-way OR — polish discipline, not spec acceptance. skill_invoked floor stays required.`
 
 Cross-skill alignment: `diagnostic` is shared semantics across every skill that uses `tests/eval-runner-v2.ts` — the tier vocabulary is owned by the runner, not per-skill. Adoption is opt-in per assertion.
 
