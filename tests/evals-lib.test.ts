@@ -28,6 +28,7 @@ import {
   extractSessionId,
   extractSignals,
   extractStreamErrorReason,
+  streamHasSuccessfulResult,
   loadEvalFile,
   metaCheck,
   parseStreamJson,
@@ -37,6 +38,7 @@ import {
   suiteExit,
   tallyReliability,
 } from "./evals-lib.ts";
+import { formatRunFailure } from "./eval-runner-v2.ts";
 
 describe("reliabilityOf()", () => {
   test("structural assertion types map to 'structural'", () => {
@@ -687,11 +689,10 @@ describe("extractSessionId()", () => {
 });
 
 describe("extractStreamErrorReason()", () => {
-  test("returns api_error_status + first result line for auth failure", () => {
+  test("returns exact api_error_status + first result line for auth failure", () => {
     // Real shape from `claude --print --output-format stream-json` when the CLI
     // is misauthenticated: result event with is_error:true, api_error_status,
-    // and the auth message in `result`. Issue #278 — substrate masked this as
-    // empty stderr.
+    // and the auth message in `result`.
     const events = [
       { type: "system", subtype: "init", session_id: "s1" },
       {
@@ -702,9 +703,9 @@ describe("extractStreamErrorReason()", () => {
         result: 'Failed to authenticate. API Error: 401 {"type":"error",...}',
       },
     ];
-    const reason = extractStreamErrorReason(events);
-    expect(reason).toContain("api_error_status=401");
-    expect(reason).toContain("Failed to authenticate");
+    expect(extractStreamErrorReason(events)).toBe(
+      'api_error_status=401: Failed to authenticate. API Error: 401 {"type":"error",...}',
+    );
   });
 
   test("returns null when no result event has is_error", () => {
@@ -733,12 +734,134 @@ describe("extractStreamErrorReason()", () => {
     expect(extractStreamErrorReason(events)).toBe("rate_limited");
   });
 
-  test("truncates pathological multi-KB result strings to 200 chars", () => {
-    const huge = "x".repeat(5000);
-    const events = [{ type: "result", is_error: true, api_error_status: 500, result: huge }];
-    const reason = extractStreamErrorReason(events)!;
-    // Format: "api_error_status=500: " (22 chars) + up to 200 chars of result.
-    expect(reason.length).toBeLessThanOrEqual(22 + 200);
+  test("preserves result <=200 chars verbatim", () => {
+    const exact = "x".repeat(200);
+    const events = [{ type: "result", is_error: true, result: exact }];
+    expect(extractStreamErrorReason(events)).toBe(exact);
+  });
+
+  test("truncates result >200 chars at exactly 200 with ellipsis suffix", () => {
+    const over = "x".repeat(201);
+    const events = [{ type: "result", is_error: true, result: over }];
+    expect(extractStreamErrorReason(events)).toBe("x".repeat(200) + "…");
+  });
+
+  test("returns the FIRST is_error result when multiple are present (pin ordering)", () => {
+    const events = [
+      { type: "result", is_error: true, api_error_status: 401, result: "first" },
+      { type: "result", is_error: true, api_error_status: 503, result: "second" },
+    ];
+    expect(extractStreamErrorReason(events)).toBe("api_error_status=401: first");
+  });
+
+  test("ignores is_error on non-result events (system/assistant)", () => {
+    // Pin the type === "result" gate. Without it, a noisy `system` or
+    // `assistant` event with is_error:true would shadow the real result.
+    const events = [
+      { type: "system", is_error: true, result: "noise" },
+      { type: "assistant", is_error: true, result: "more noise" },
+      { type: "result", is_error: false, result: "ok" },
+    ];
+    expect(extractStreamErrorReason(events)).toBeNull();
+  });
+
+  test("requires is_error === true (strict, not truthy)", () => {
+    // Pin strict-equals contract. is_error: 1 / "true" / {} all return null.
+    const events = [{ type: "result", is_error: 1 as unknown, result: "x" }];
+    expect(extractStreamErrorReason(events)).toBeNull();
+  });
+
+  test("treats null api_error_status as missing (uses result fallback)", () => {
+    const events = [
+      { type: "result", is_error: true, api_error_status: null, result: "boom" },
+    ];
+    expect(extractStreamErrorReason(events)).toBe("boom");
+  });
+});
+
+describe("formatRunFailure()", () => {
+  // Pin the precedence used by all three failure-path callsites in
+  // eval-runner-v2.ts: spawn-failure > structured-stream > stderr.
+  const authStdout = JSON.stringify({
+    type: "result",
+    is_error: true,
+    api_error_status: 401,
+    result: "Failed to authenticate. API Error: 401",
+  });
+
+  test("spawn-level failure wins over stream and stderr", () => {
+    expect(
+      formatRunFailure("timed out after 300s (SIGTERM)", null, authStdout, "stderr noise", { prefix: "exit" }),
+    ).toBe("timed out after 300s (SIGTERM)");
+  });
+
+  test("structured stream error wins over stderr (single-turn 'exit' prefix)", () => {
+    expect(formatRunFailure(undefined, 1, authStdout, "stderr noise", { prefix: "exit" })).toBe(
+      "claude exited 1: api_error_status=401: Failed to authenticate. API Error: 401",
+    );
+  });
+
+  test("structured stream error wins over stderr (chain 'raw' prefix has no 'exited N' framing)", () => {
+    expect(formatRunFailure(undefined, 1, authStdout, "stderr noise", { prefix: "raw" })).toBe(
+      "api_error_status=401: Failed to authenticate. API Error: 401",
+    );
+  });
+
+  test("falls back to stderr first line when stream has no error result", () => {
+    expect(formatRunFailure(undefined, 2, "", "boom on line 1\nignored", { prefix: "exit" })).toBe(
+      "claude exited 2: boom on line 1",
+    );
+  });
+
+  test("falls back to '(no stderr)' when both stream and stderr are empty", () => {
+    expect(formatRunFailure(undefined, 1, "", "", { prefix: "exit" })).toBe("claude exited 1: (no stderr)");
+  });
+
+  test("binary garbage in stdout falls through to stderr cleanly (no throw)", () => {
+    const garbage = "\x00\x01not-json{not-json\n}{\n";
+    expect(formatRunFailure(undefined, 1, garbage, "real stderr", { prefix: "exit" })).toBe(
+      "claude exited 1: real stderr",
+    );
+  });
+});
+
+describe("streamHasSuccessfulResult()", () => {
+  test("returns true when stream contains a result with is_error:false", () => {
+    const events = [
+      { type: "system", subtype: "init", session_id: "s1" },
+      { type: "result", is_error: false, result: "hi" },
+    ];
+    expect(streamHasSuccessfulResult(events)).toBe(true);
+  });
+
+  test("returns true when result lacks is_error entirely (treated as success)", () => {
+    const events = [{ type: "result", result: "hi" }];
+    expect(streamHasSuccessfulResult(events)).toBe(true);
+  });
+
+  test("returns false on empty stream — indeterminate is not success", () => {
+    expect(streamHasSuccessfulResult([])).toBe(false);
+  });
+
+  test("returns false when stream has only error result events", () => {
+    const events = [{ type: "result", is_error: true, result: "auth fail" }];
+    expect(streamHasSuccessfulResult(events)).toBe(false);
+  });
+
+  test("returns false when stream has only init/assistant events (killed mid-stream)", () => {
+    const events = [
+      { type: "system", subtype: "init", session_id: "s1" },
+      { type: "assistant", message: { content: [] } },
+    ];
+    expect(streamHasSuccessfulResult(events)).toBe(false);
+  });
+
+  test("ignores is_error:true noise on non-result events", () => {
+    const events = [
+      { type: "system", is_error: true, result: "noise" },
+      { type: "result", is_error: false, result: "real" },
+    ];
+    expect(streamHasSuccessfulResult(events)).toBe(true);
   });
 });
 

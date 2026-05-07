@@ -43,6 +43,7 @@ import {
   extractSessionId,
   extractSignals,
   extractStreamErrorReason,
+  streamHasSuccessfulResult,
   loadEvalFile,
   metaCheck,
   parseStreamJson,
@@ -208,9 +209,7 @@ function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedScratch
     const t1 = runClaude(turnPrompts[0], scratchDir, decoy);
     runs.push(t1);
     if (t1.failure || t1.exitCode !== 0) {
-      const { events: t1ErrEvents } = parseStreamJson(t1.stdout);
-      const streamErr = extractStreamErrorReason(t1ErrEvents);
-      chainFailure = `turn 1 failed: ${t1.failure ?? streamErr ?? `exit ${t1.exitCode}`}`;
+      chainFailure = `turn 1 failed: ${formatRunFailure(t1.failure, t1.exitCode, t1.stdout, t1.stderr, { prefix: "raw" })}`;
       return { turns: runs, sessionId: null, chainFailure };
     }
     const { events: t1Events } = parseStreamJson(t1.stdout);
@@ -229,9 +228,7 @@ function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedScratch
       );
       runs.push(turnRun);
       if (turnRun.failure || turnRun.exitCode !== 0) {
-        const { events: turnErrEvents } = parseStreamJson(turnRun.stdout);
-        const streamErr = extractStreamErrorReason(turnErrEvents);
-        chainFailure = `turn ${i + 1} failed: ${turnRun.failure ?? streamErr ?? `exit ${turnRun.exitCode}`}`;
+        chainFailure = `turn ${i + 1} failed: ${formatRunFailure(turnRun.failure, turnRun.exitCode, turnRun.stdout, turnRun.stderr, { prefix: "raw" })}`;
         // Stop the chain — turn N+1 depends on N succeeding. Assertions for
         // later turns will be counted as failures by the caller.
         return { turns: runs, sessionId, chainFailure };
@@ -258,11 +255,47 @@ function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedScratch
   }
 }
 
+/**
+ * Build the human-readable failure reason for a CliRun that ended badly.
+ * Precedence: spawn-level failure (timeout, ENOENT) > structured stream
+ * error (api_error_status, etc.) > stderr first line. The structured
+ * branch is the one that mattered for #278: CLI emits is_error result
+ * events with empty stderr, so stderr-only fallback masks root cause.
+ *
+ * `prefix` controls whether the structured/stderr reason is prefixed with
+ * `claude exited N: ` (single-turn callers) or returned as-is (chain
+ * callers, which embed it in their own "turn N failed: " framing).
+ *
+ * `parseStreamJson` is implemented to never throw, but defense-in-depth
+ * here: we're already on the failure path, an exception inside the error
+ * handler would bury the original cause.
+ */
+export function formatRunFailure(
+  failure: string | undefined,
+  exitCode: number | null,
+  stdout: string,
+  stderr: string,
+  options: { readonly prefix: "exit" | "raw" },
+): string {
+  if (failure) return failure;
+  let streamErr: string | null = null;
+  try {
+    const { events } = parseStreamJson(stdout);
+    streamErr = extractStreamErrorReason(events);
+  } catch (err) {
+    streamErr = `stream parse failed during failure-handling: ${(err as Error).message}`;
+  }
+  const stderrLine = stderr.trim().split("\n")[0] || "(no stderr)";
+  const detail = streamErr ?? stderrLine;
+  return options.prefix === "exit" ? `claude exited ${exitCode}: ${detail}` : detail;
+}
+
 function colour(s: string, code: string): string {
   return process.stdout.isTTY ? `\x1b[${code}m${s}\x1b[0m` : s;
 }
 const green = (s: string) => colour(s, "32");
 const red = (s: string) => colour(s, "31");
+const yellow = (s: string) => colour(s, "33");
 const dim = (s: string) => colour(s, "2");
 const bold = (s: string) => colour(s, "1");
 
@@ -523,18 +556,45 @@ async function main() {
       process.exit(1);
     }
 
-    // Auth pre-flight: spawn one minimal `claude --print` turn and inspect
-    // the stream-json `result` event. If it carries `is_error:true`, every
-    // subsequent eval turn will fail the same way — fail fast with the
-    // structured reason rather than burning ~10s × N evals to surface the
-    // same error N times. Skip via EVAL_SKIP_AUTH_PROBE=1 (e.g. offline
-    // diagnostic runs that intentionally exercise the failure path).
-    if (process.env.EVAL_SKIP_AUTH_PROBE !== "1") {
+    // Auth pre-flight: spawn one minimal `claude --print` turn and verify
+    // it produces a successful `result` event. Failing fast here saves N
+    // evals × wall-clock from burning on the same auth/billing error.
+    //
+    // The check is "positive signal required" rather than "no error
+    // reason found": empty stdout, killed-mid-stream, or maxBuffer
+    // overflow all yield no error reason but ALSO no success — those are
+    // indeterminate, not pass.
+    if (process.env.EVAL_SKIP_AUTH_PROBE === "1") {
+      // Bypass must be visible. Mirrors the DISABLE_PRESSURE_FLOOR banner
+      // contract in rules/planning.md — silently removing a safety rail
+      // is exactly the failure mode this PR's bug originated from.
+      console.error(
+        yellow("⚠️  Auth pre-flight BYPASSED via EVAL_SKIP_AUTH_PROBE=1. ") +
+          yellow("Unset to restore."),
+      );
+    } else {
+      const PROBE_TIMEOUT_MS = 60_000;
       const probe = spawnSync(
         claudeBin,
         ["--print", "--output-format", "stream-json", "--verbose"],
-        { input: "ping", encoding: "utf8", timeout: 60_000, maxBuffer: 16 * 1024 * 1024 },
+        { input: "ping", encoding: "utf8", timeout: PROBE_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
       );
+      const probeErrno = (probe.error as NodeJS.ErrnoException | undefined)?.code;
+      if (probeErrno === "ETIMEDOUT" || probe.signal === "SIGTERM") {
+        console.error(
+          red(`Error: claude --print pre-flight timed out after ${PROBE_TIMEOUT_MS / 1000}s. `) +
+            "CLI hung before producing a result event (network stall, broken auth provider, or model overload). " +
+            "Bypass with EVAL_SKIP_AUTH_PROBE=1.",
+        );
+        process.exit(1);
+      }
+      if (probe.error) {
+        console.error(
+          red(`Error: claude --print pre-flight could not spawn: ${probe.error.message}\n`) +
+            "Bypass with EVAL_SKIP_AUTH_PROBE=1.",
+        );
+        process.exit(1);
+      }
       const { events: probeEvents } = parseStreamJson(probe.stdout ?? "");
       const probeErr = extractStreamErrorReason(probeEvents);
       if (probeErr) {
@@ -545,12 +605,16 @@ async function main() {
         );
         process.exit(1);
       }
-      // No structured error AND non-zero exit ⇒ probe died before init
-      // (network, missing binary edge case). Surface stderr and bail.
-      if (probe.status !== 0) {
+      // Require a positive signal — a successful `result` event in the
+      // stream. Absence-of-error is not the same as presence-of-success.
+      if (!streamHasSuccessfulResult(probeEvents)) {
         const stderrLine = (probe.stderr ?? "").trim().split("\n")[0] ?? "(no stderr)";
         console.error(
-          red(`Error: claude --print pre-flight exited ${probe.status}: ${stderrLine}\n`) +
+          red(
+            `Error: claude --print pre-flight produced no successful result event ` +
+              `(exit=${probe.status}, stdout=${(probe.stdout ?? "").length}B, events=${probeEvents.length}).\n`,
+          ) +
+            (stderrLine !== "(no stderr)" ? `stderr: ${stderrLine}\n` : "") +
             "Bypass with EVAL_SKIP_AUTH_PROBE=1.",
         );
         process.exit(1);
@@ -630,13 +694,7 @@ async function main() {
 
     if (failure || exitCode !== 0) {
       totalAssertions += e.assertions.length;
-      // Try to surface the structured error from the stream before falling
-      // back to stderr — the CLI often writes auth/billing failures into a
-      // `result` event with `is_error:true` and leaves stderr empty.
-      const { events: errEvents } = parseStreamJson(stdout);
-      const streamErr = extractStreamErrorReason(errEvents);
-      const stderrLine = stderr.trim().split("\n")[0] ?? "(no stderr)";
-      const reason = failure ?? `claude exited ${exitCode}: ${streamErr ?? stderrLine}`;
+      const reason = formatRunFailure(failure, exitCode, stdout, stderr, { prefix: "exit" });
       console.log(`    ${red("✗")} ${reason}`);
       writeTranscript({
         path: transcriptFile,
@@ -941,7 +999,11 @@ async function main() {
   process.exit(exit.exitCode);
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Only auto-run when invoked as a script. Importing the module (e.g. from
+// the test file to exercise `formatRunFailure`) must NOT spawn `main()`.
+if (import.meta.main) {
+  main().catch((err) => {
+    console.error(err);
+    process.exit(1);
+  });
+}

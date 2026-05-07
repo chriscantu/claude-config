@@ -658,14 +658,32 @@ export function extractSessionId(events: readonly StreamEvent[]): string | null 
 /**
  * When `claude --print` exits non-zero, the actionable cause is usually inside
  * the structured stream as a `result` event with `is_error:true` (e.g. auth
- * 401, billing block, model quota). The runner's failure path historically
- * surfaced only `stderr.split("\n")[0]` — empty, because the CLI writes
- * nothing to stderr in these cases — masking root cause as "claude exited 1: ".
+ * 401, billing block, model quota). The CLI writes nothing to stderr for
+ * these structured failures, so falling back to stderr alone surfaces empty
+ * reasons.
  *
  * Returns a short reason string built from `api_error_status` + the first
- * line of `result`, or null if no error result event is present (spawn-time
- * failure, abort before init, etc.).
+ * line of `result` (truncated to 200 chars with an ellipsis when cut), or
+ * null if no error result event is present. A null return is INDETERMINATE,
+ * not a guarantee of success — callers that need a positive health signal
+ * (e.g. pre-flight probes) must verify a non-error `result` event exists,
+ * not just the absence of one.
  */
+/**
+ * Positive health signal — true iff the stream contains at least one
+ * `result` event with `is_error !== true`. Use this in pre-flight probes
+ * instead of `extractStreamErrorReason(events) === null`, which conflates
+ * "no error" with "couldn't tell" (empty stdout, parse failure, killed
+ * mid-stream all return null).
+ */
+export function streamHasSuccessfulResult(events: readonly StreamEvent[]): boolean {
+  for (const ev of events) {
+    if (ev.type !== "result") continue;
+    if ((ev as { is_error?: unknown }).is_error !== true) return true;
+  }
+  return false;
+}
+
 export function extractStreamErrorReason(events: readonly StreamEvent[]): string | null {
   for (const ev of events) {
     if (ev.type !== "result") continue;
@@ -673,7 +691,8 @@ export function extractStreamErrorReason(events: readonly StreamEvent[]): string
     if (isError !== true) continue;
     const status = (ev as { api_error_status?: unknown }).api_error_status;
     const resultText = typeof ev.result === "string" ? ev.result : "";
-    const firstLine = resultText.split("\n")[0]?.slice(0, 200) ?? "";
+    const rawFirstLine = resultText.split("\n")[0] ?? "";
+    const firstLine = rawFirstLine.length > 200 ? rawFirstLine.slice(0, 200) + "…" : rawFirstLine;
     if (typeof status === "number" || typeof status === "string") {
       return firstLine ? `api_error_status=${status}: ${firstLine}` : `api_error_status=${status}`;
     }
