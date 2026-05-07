@@ -33,7 +33,7 @@ Per-repo entry. Each entry uses LANGUAGE.md vocab:
 **Module**: <one-line synthesis of what this module is>.
 **Interface**: <surface visible to callers — protocol, paths, events>.
 **Implementation**: <stack + LOC + entry point>.
-**Intent**: <stated purpose / lifecycle stage / audience — italic-default when unstated>.
+**Intent**: <stated purpose; lifecycle stage; audience — emit all three sub-signals; italic-default any sub-signal that is textually unstated per `SKILL.md` §3>.
 
 ### Context
 <C4 Level 1 mermaid block — actor + system + adjacent systems. See shape below.>

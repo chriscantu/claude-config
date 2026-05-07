@@ -72,7 +72,7 @@ A signal alone is data, not a brittleness verdict. The verdict is the interpreta
 - Foundational shared lib + 47 callers → `*high fan-in (47 callers) — gravity well by design; change-cost is high*` (architectural, NOT brittle).
 - Production service + 6mo idle + 23 unresolved TODOs → `*production module idle 6mo with 23 unresolved TODOs — review backlog*` (genuinely brittle).
 
-If intent is unstated, italic-default the brittleness paragraph itself per the §3 convention — `*intent unstated; treat brittleness signals as observations, not verdicts*` — rather than auto-classifying. Two ramps of real-world data before codifying rigid lifecycle rules.
+If intent is unstated, italic-default the brittleness paragraph itself — extending §3's italic-default-for-inferences discipline — and emit `*intent unstated; treat brittleness signals as observations, not verdicts*` rather than auto-classifying. Two ramps of real-world data before codifying rigid lifecycle rules.
 
 ### 5. Render
 - **Output guardrails** — refuse if output path is inside `claude-config` (`git rev-parse --show-toplevel`) — prevents polluting the source repo with generated landscapes that would re-trigger discovery on the next run. Default: exactly one `~/repos/onboard-*/` workspace → `<workspace>/architecture/` — onboard workspaces are the canonical landing spot per `/onboard` convention; zero or multiple → require `--output <path>` so the user picks intentionally.
