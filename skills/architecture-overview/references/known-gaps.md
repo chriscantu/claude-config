@@ -1,6 +1,6 @@
 # Known Gaps — `/architecture-overview`
 
-Current version: **v0.3.1 (Experimental)**
+Current version: **v0.4.0 (Experimental)**
 
 Limitations the skill ships with. Update on each version bump. Honest gaps beat silent surprise.
 
@@ -8,7 +8,7 @@ Limitations the skill ships with. Update on each version bump. Honest gaps beat 
 
 - Auto-discovery handshake with `/improve-codebase-architecture` not implemented
 - ADR-conflict surfacing not implemented (skill reads ADRs but doesn't grade)
-- Brittleness heuristic nomination deferred (observation-only) — intent-grounding follow-up: #228
+- Brittleness signals are intent-qualified per `SKILL.md` §4 template (closes #228); rigid lifecycle auto-classification (mapping signal density → research/prototype/production tier verdicts via enumerated rules) intentionally deferred — two ramps of real-world data first per #228 constraint. The tier vocabulary itself (research / prototype / production / archived as extraction targets in §3) is in scope and used; only the auto-inference-from-signals leg is deferred
 
 ## Output / Rendering
 

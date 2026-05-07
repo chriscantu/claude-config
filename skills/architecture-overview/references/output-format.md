@@ -33,6 +33,7 @@ Per-repo entry. Each entry uses LANGUAGE.md vocab:
 **Module**: <one-line synthesis of what this module is>.
 **Interface**: <surface visible to callers — protocol, paths, events>.
 **Implementation**: <stack + LOC + entry point>.
+**Intent**: <stated purpose; lifecycle stage; audience — emit all three sub-signals; italic-default any sub-signal that is textually unstated per `SKILL.md` §3>.
 
 ### Context
 <C4 Level 1 mermaid block — actor + system + adjacent systems. See shape below.>
@@ -43,7 +44,7 @@ Per-repo entry. Each entry uses LANGUAGE.md vocab:
 - Manifests: <list>
 - TODO/FIXME: <count>
 
-*Likely brittleness*: <observation paragraph, italic>.
+*Likely brittleness*: <observation paragraph, italic — each signal qualified by intent per template `*<signal> — <interpretation given intent>*`. SKILL.md §4 covers the worked examples.>
 ```
 
 ### Diagram — `graph TB` (C4 Level 1 / System Context)

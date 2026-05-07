@@ -25,6 +25,7 @@ Each fixture is a minimal repo shape that exercises a specific eval contract. Ne
 | `skips-c4-context-when-below-complexity-floor` | `empty/` | `.gitkeep` only — zero adjacent systems, zero actors → trips `graph TB` skip on both halves of the AND |
 | `uses-language-vocabulary` | `ts-only/` | Any successful render exercises Module / Interface / Seam / Adapter prose |
 | `italic-marks-inferences` | `no-manifest/` | Sparse fixture forces inferred-only entries → italic discipline visible |
+| `brittleness-grounded-in-intent` | `research-prototype/` | README explicitly states research-prototype lifecycle + tests deferred by design → exercises intent-qualification (closes #228); positive assertion catches presence of intent qualifier (`prototype` / `deferred` / `expected` / `out of scope` / `not brittle`), `not_regex` twin catches the unqualified `no test surface → brittle` regression class — both `required`-tier per testing-strategy.md §6 (spec-acceptance from issue #228) |
 | `refuses-output-inside-claude-config` | `empty/` | Cheap fixture; output-guardrail eval doesn't care about repo content |
 
 ## Orphaned fixtures (no eval consumer)

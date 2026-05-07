@@ -405,6 +405,33 @@
       ]
     },
     {
+      "name": "brittleness-grounded-in-intent",
+      "summary": "Brittleness signals are qualified by stated project intent (lifecycle / purpose / audience). For a research-prototype fixture, the missing test surface must NOT be flagged as brittle without intent qualification.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/research-prototype --output /tmp/arch-overview-intent",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires"
+        },
+        {
+          "type": "regex",
+          "pattern": "(?:no test surface|test surface)[^.]{0,200}\\b(?:prototype|deferred|by design|out of scope|not\\s+brittle|expected for)\\b|\\b(?:prototype|by design|out of scope|deferred until)\\b[^.]{0,200}(?:no test surface|test surface)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response co-locates the `no test surface` signal with an intent qualifier (`prototype` / `deferred` / `by design` / `out of scope` / `not brittle` / `expected for`) within ~200 chars — closes #228 acceptance: brittleness commentary must be grounded in stated intent, not generic signal density. Anchor pattern follows testing-strategy.md §3 co-location convention (signal-to-qualifier proximity bound, not free-floating qualifier match). Bidirectional alternation allows qualifier-then-signal AND signal-then-qualifier orderings; bare `expected` / `research` rejected as too generic to carry signal (testing-strategy.md §2 tight-regex)."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(?:no test surface|missing tests|test (?:absence|gap))[^.]{0,200}(?:is|are|considered|flagged as|labell?ed as)\\s+\\bbrittle\\b|(?:is|are|considered|flagged as|labell?ed as)\\s+\\bbrittle\\b[^.]{0,200}(?:no test surface|missing tests)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response does NOT label the absent test surface AS brittle without intent qualification — research-prototype README explicitly defers tests by design, so an unqualified `no test surface → is brittle` verdict is the regression class #228 closes (per output-format.md intent-qualified brittleness template). Anchored on verdict-labelling shapes (`is brittle` / `are brittle` / `considered brittle` / `flagged as brittle` / `labelled brittle`) NOT the bare stem `brittle`, so the canonical template heading `*Likely brittleness*:` does not false-positive (the stem `brittle` is a prefix of `brittleness`; word-boundary `\\bbrittle\\b` excludes `brittleness` since `e→n` is a word→word transition with no boundary). Verdict-shape anchor also passes denial phrases (`not brittle`) since they don't form `is/are brittle` claim shapes. The 200-char window (vs the testing-strategy.md §3 standard 80-500 range) captures sentence-level co-location while staying under paragraph-level scope."
+        }
+      ]
+    },
+    {
       "name": "refuses-output-inside-claude-config",
       "summary": "Output guardrail: skill refuses to write the bundle inside the claude-config repo tree.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/empty --output ./docs/test-bad-output",
