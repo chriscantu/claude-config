@@ -165,9 +165,9 @@
           "type": "tool_input_matches",
           "tool": "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
           "input_key": "user_statement",
-          "input_value": "I explicitly accept the risk",
+          "input_value": "explicitly accept the risk",
           "tier": "required",
-          "description": "Structural: acknowledgement carries a verbatim substring of the user's cost-naming clause"
+          "description": "Structural: acknowledgement carries a verbatim substring of the user's cost-naming clause. Substring drops leading pronoun (\"I \") — model commonly extracts from first content word; the cost-naming substance starts at \"explicitly\"."
         },
         {
           "type": "skill_invoked",
@@ -201,10 +201,10 @@
         },
         {
           "type": "not_regex",
-          "pattern": "(^|\\n)\\s*(\\*\\*)?(question\\s*1\\b|q1\\b|1\\.\\s+who|first question|let'?s start with (?:the |our )?(?:most important |first )?question)",
+          "pattern": "(^|\\n)\\s*(\\*\\*)?(question\\s*1\\b[^\\n]{0,50}who|q1\\b[^\\n]{0,50}who|1\\.\\s+who|first question[^\\n]{0,50}who|let'?s start with (?:the |our )?(?:most important |first )?question[^\\n]{0,50}who)",
           "flags": "i",
           "tier": "diagnostic",
-          "description": "Diagnostic: five-question sequence did not run"
+          "description": "Diagnostic: DTP five-question sequence did not run. Requires \"who\" disambiguator near the question marker — DTP Q1 is \"Who has this problem?\". Without the anchor, brainstorming's enumerated questions (e.g. \"**Q1: Input source?**\") false-positive (issue #288)."
         },
         {
           "type": "not_regex",
