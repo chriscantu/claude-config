@@ -27,6 +27,7 @@ import {
   evaluateChain,
   extractSessionId,
   extractSignals,
+  extractStreamErrorReason,
   loadEvalFile,
   metaCheck,
   parseStreamJson,
@@ -682,6 +683,62 @@ describe("extractSessionId()", () => {
       { type: "system", subtype: "init", session_id: "real-sid" },
     ];
     expect(extractSessionId(events)).toBe("real-sid");
+  });
+});
+
+describe("extractStreamErrorReason()", () => {
+  test("returns api_error_status + first result line for auth failure", () => {
+    // Real shape from `claude --print --output-format stream-json` when the CLI
+    // is misauthenticated: result event with is_error:true, api_error_status,
+    // and the auth message in `result`. Issue #278 — substrate masked this as
+    // empty stderr.
+    const events = [
+      { type: "system", subtype: "init", session_id: "s1" },
+      {
+        type: "result",
+        subtype: "success",
+        is_error: true,
+        api_error_status: 401,
+        result: 'Failed to authenticate. API Error: 401 {"type":"error",...}',
+      },
+    ];
+    const reason = extractStreamErrorReason(events);
+    expect(reason).toContain("api_error_status=401");
+    expect(reason).toContain("Failed to authenticate");
+  });
+
+  test("returns null when no result event has is_error", () => {
+    const events = [
+      { type: "system", subtype: "init", session_id: "s1" },
+      { type: "result", subtype: "success", is_error: false, result: "ok" },
+    ];
+    expect(extractStreamErrorReason(events)).toBeNull();
+  });
+
+  test("returns null when stream is empty", () => {
+    expect(extractStreamErrorReason([])).toBeNull();
+  });
+
+  test("falls back to first line of result when api_error_status missing", () => {
+    const events = [
+      { type: "result", is_error: true, result: "model overloaded\nretry later" },
+    ];
+    expect(extractStreamErrorReason(events)).toBe("model overloaded");
+  });
+
+  test("falls back to error field when result is empty", () => {
+    const events = [
+      { type: "result", is_error: true, result: "", error: "rate_limited" },
+    ];
+    expect(extractStreamErrorReason(events)).toBe("rate_limited");
+  });
+
+  test("truncates pathological multi-KB result strings to 200 chars", () => {
+    const huge = "x".repeat(5000);
+    const events = [{ type: "result", is_error: true, api_error_status: 500, result: huge }];
+    const reason = extractStreamErrorReason(events)!;
+    // Format: "api_error_status=500: " (22 chars) + up to 200 chars of result.
+    expect(reason.length).toBeLessThanOrEqual(22 + 200);
   });
 });
 

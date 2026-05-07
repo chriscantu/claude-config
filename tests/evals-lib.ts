@@ -656,6 +656,35 @@ export function extractSessionId(events: readonly StreamEvent[]): string | null 
 }
 
 /**
+ * When `claude --print` exits non-zero, the actionable cause is usually inside
+ * the structured stream as a `result` event with `is_error:true` (e.g. auth
+ * 401, billing block, model quota). The runner's failure path historically
+ * surfaced only `stderr.split("\n")[0]` — empty, because the CLI writes
+ * nothing to stderr in these cases — masking root cause as "claude exited 1: ".
+ *
+ * Returns a short reason string built from `api_error_status` + the first
+ * line of `result`, or null if no error result event is present (spawn-time
+ * failure, abort before init, etc.).
+ */
+export function extractStreamErrorReason(events: readonly StreamEvent[]): string | null {
+  for (const ev of events) {
+    if (ev.type !== "result") continue;
+    const isError = (ev as { is_error?: unknown }).is_error;
+    if (isError !== true) continue;
+    const status = (ev as { api_error_status?: unknown }).api_error_status;
+    const resultText = typeof ev.result === "string" ? ev.result : "";
+    const firstLine = resultText.split("\n")[0]?.slice(0, 200) ?? "";
+    if (typeof status === "number" || typeof status === "string") {
+      return firstLine ? `api_error_status=${status}: ${firstLine}` : `api_error_status=${status}`;
+    }
+    if (firstLine) return firstLine;
+    const errStr = typeof (ev as { error?: unknown }).error === "string" ? (ev as { error: string }).error : "";
+    return errStr || "result.is_error with no detail";
+  }
+  return null;
+}
+
+/**
  * Workarounds encoded here:
  *   - Runs that end on a tool_use produce no `result` event, so `finalText`
  *     falls back to concatenated assistant text. `terminalState` records

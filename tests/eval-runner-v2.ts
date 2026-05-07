@@ -42,6 +42,7 @@ import {
   evaluateChain,
   extractSessionId,
   extractSignals,
+  extractStreamErrorReason,
   loadEvalFile,
   metaCheck,
   parseStreamJson,
@@ -207,7 +208,9 @@ function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedScratch
     const t1 = runClaude(turnPrompts[0], scratchDir, decoy);
     runs.push(t1);
     if (t1.failure || t1.exitCode !== 0) {
-      chainFailure = `turn 1 failed: ${t1.failure ?? `exit ${t1.exitCode}`}`;
+      const { events: t1ErrEvents } = parseStreamJson(t1.stdout);
+      const streamErr = extractStreamErrorReason(t1ErrEvents);
+      chainFailure = `turn 1 failed: ${t1.failure ?? streamErr ?? `exit ${t1.exitCode}`}`;
       return { turns: runs, sessionId: null, chainFailure };
     }
     const { events: t1Events } = parseStreamJson(t1.stdout);
@@ -226,7 +229,9 @@ function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedScratch
       );
       runs.push(turnRun);
       if (turnRun.failure || turnRun.exitCode !== 0) {
-        chainFailure = `turn ${i + 1} failed: ${turnRun.failure ?? `exit ${turnRun.exitCode}`}`;
+        const { events: turnErrEvents } = parseStreamJson(turnRun.stdout);
+        const streamErr = extractStreamErrorReason(turnErrEvents);
+        chainFailure = `turn ${i + 1} failed: ${turnRun.failure ?? streamErr ?? `exit ${turnRun.exitCode}`}`;
         // Stop the chain — turn N+1 depends on N succeeding. Assertions for
         // later turns will be counted as failures by the caller.
         return { turns: runs, sessionId, chainFailure };
@@ -517,6 +522,40 @@ async function main() {
       );
       process.exit(1);
     }
+
+    // Auth pre-flight: spawn one minimal `claude --print` turn and inspect
+    // the stream-json `result` event. If it carries `is_error:true`, every
+    // subsequent eval turn will fail the same way — fail fast with the
+    // structured reason rather than burning ~10s × N evals to surface the
+    // same error N times. Skip via EVAL_SKIP_AUTH_PROBE=1 (e.g. offline
+    // diagnostic runs that intentionally exercise the failure path).
+    if (process.env.EVAL_SKIP_AUTH_PROBE !== "1") {
+      const probe = spawnSync(
+        claudeBin,
+        ["--print", "--output-format", "stream-json", "--verbose"],
+        { input: "ping", encoding: "utf8", timeout: 60_000, maxBuffer: 16 * 1024 * 1024 },
+      );
+      const { events: probeEvents } = parseStreamJson(probe.stdout ?? "");
+      const probeErr = extractStreamErrorReason(probeEvents);
+      if (probeErr) {
+        console.error(
+          red(`Error: claude --print pre-flight failed: ${probeErr}\n`) +
+            "Every eval turn will hit the same error. Fix CLI auth (e.g. `claude /login`, " +
+            "ANTHROPIC_API_KEY, or billing state) and re-run. Bypass with EVAL_SKIP_AUTH_PROBE=1.",
+        );
+        process.exit(1);
+      }
+      // No structured error AND non-zero exit ⇒ probe died before init
+      // (network, missing binary edge case). Surface stderr and bail.
+      if (probe.status !== 0) {
+        const stderrLine = (probe.stderr ?? "").trim().split("\n")[0] ?? "(no stderr)";
+        console.error(
+          red(`Error: claude --print pre-flight exited ${probe.status}: ${stderrLine}\n`) +
+            "Bypass with EVAL_SKIP_AUTH_PROBE=1.",
+        );
+        process.exit(1);
+      }
+    }
   }
 
   mkdirSync(resultsDir, { recursive: true });
@@ -591,7 +630,13 @@ async function main() {
 
     if (failure || exitCode !== 0) {
       totalAssertions += e.assertions.length;
-      const reason = failure ?? `claude exited ${exitCode}: ${stderr.trim().split("\n")[0] ?? "(no stderr)"}`;
+      // Try to surface the structured error from the stream before falling
+      // back to stderr — the CLI often writes auth/billing failures into a
+      // `result` event with `is_error:true` and leaves stderr empty.
+      const { events: errEvents } = parseStreamJson(stdout);
+      const streamErr = extractStreamErrorReason(errEvents);
+      const stderrLine = stderr.trim().split("\n")[0] ?? "(no stderr)";
+      const reason = failure ?? `claude exited ${exitCode}: ${streamErr ?? stderrLine}`;
       console.log(`    ${red("✗")} ${reason}`);
       writeTranscript({
         path: transcriptFile,
