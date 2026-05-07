@@ -817,6 +817,95 @@ end
 
 echo ""
 
+# 1n. Fixture ↔ eval consumer integrity
+# Closes silent-failure mode: stale fixtures rotting in tests/fixtures/<skill>/
+# (rename/delete leaves orphans), and eval prompts referencing fixtures that no
+# longer exist on disk (dangling test paths). For each fixture skill root:
+#   - require tests/fixtures/<skill>/README.md (fixture-to-eval contract doc)
+#   - extract documented orphan list from README's "## Orphaned fixtures" section
+#   - extract fixture references from skills/<skill>/evals/evals.json prompts
+#   - each fixture subdir → consumed by eval, OR listed as documented orphan (warn), else fail
+#   - each eval-referenced fixture path → must exist on disk, else fail
+# Issue #234.
+echo "── Fixture ↔ eval integrity"
+
+set fixture_skill_roots $repo_dir/tests/fixtures/*/
+set fixture_roots_found 0
+for skill_root in $fixture_skill_roots
+    # Glob may leave the literal pattern when no matches — guard with -d.
+    if not test -d $skill_root
+        continue
+    end
+    set fixture_roots_found 1
+    set skill_slug (basename $skill_root)
+    set fixtures_readme "$skill_root/README.md"
+    set evals_json "$repo_dir/skills/$skill_slug/evals/evals.json"
+
+    if not test -f $fixtures_readme
+        fail "tests/fixtures/$skill_slug/README.md missing — fixture-to-eval contract documentation required (Q3-C)"
+        continue
+    end
+
+    if not test -f $evals_json
+        fail "skills/$skill_slug/evals/evals.json missing — fixtures under tests/fixtures/$skill_slug/ have no eval consumer file"
+        continue
+    end
+
+    # Extract orphan list: rows under "## Orphaned fixtures" until next "## "
+    # heading. Match `<name>/` table-cell tokens (first column lists fixture
+    # dirnames with trailing slash). Empty section → empty list, which is fine
+    # only if every fixture is consumed.
+    set orphan_list (awk '
+        /^## Orphaned fixtures/ { in_section = 1; next }
+        /^## / && in_section { in_section = 0 }
+        in_section { print }
+    ' $fixtures_readme | grep -oE '`[a-zA-Z0-9_-]+/`' | string replace -ar '[`/]' '' | sort -u)
+
+    # Extract fixture references from evals.json prompts. grep returns full
+    # path tokens; strip the prefix to get bare fixture names. Capture grep
+    # status separately so I/O errors (status ≥ 2: permission denied, signal)
+    # surface as a distinct fail rather than silently collapsing to "zero
+    # references" — that collapse would mask every dangling-reference fail in
+    # Side B. Mirrors Phase 1g/1l error-status hardening.
+    set ref_names_raw (grep -oE "tests/fixtures/$skill_slug/[a-zA-Z0-9_-]+" $evals_json)
+    set grep_status $status
+    if test $grep_status -ge 2
+        fail "skills/$skill_slug/evals/evals.json: grep returned error status $grep_status (I/O error, permission denied, or signal) while extracting fixture references"
+        continue
+    end
+    set ref_names (printf '%s\n' $ref_names_raw | string replace "tests/fixtures/$skill_slug/" "" | string match -rv '^$' | sort -u)
+
+    # Side A: every fixture subdir must be consumed OR documented as orphan.
+    for fixture_path in $skill_root/*/
+        if not test -d $fixture_path
+            continue
+        end
+        set fixture_name (basename $fixture_path)
+        if contains -- $fixture_name $ref_names
+            pass "tests/fixtures/$skill_slug/$fixture_name consumed by eval"
+        else if contains -- $fixture_name $orphan_list
+            warn "tests/fixtures/$skill_slug/$fixture_name unconsumed but documented as orphan"
+        else
+            fail "tests/fixtures/$skill_slug/$fixture_name has no eval consumer and is not listed under '## Orphaned fixtures' in tests/fixtures/$skill_slug/README.md"
+        end
+    end
+
+    # Side B: every eval-referenced fixture path must exist on disk.
+    for ref_name in $ref_names
+        if test -d "$skill_root$ref_name"
+            pass "evals.json reference tests/fixtures/$skill_slug/$ref_name exists"
+        else
+            fail "skills/$skill_slug/evals/evals.json references tests/fixtures/$skill_slug/$ref_name which does not exist on disk (dangling fixture reference)"
+        end
+    end
+end
+
+if test $fixture_roots_found -eq 0
+    pass "no tests/fixtures/<skill>/ directories — Phase 1n has nothing to validate"
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
