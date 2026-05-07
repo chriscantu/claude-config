@@ -659,7 +659,7 @@ describe("extractSessionId()", () => {
   test("returns session_id from the first system/init event", () => {
     const events = [
       { type: "system", subtype: "hook_started", session_id: "will-be-ignored" },
-      { type: "system", subtype: "init", session_id: "abc-123", model: "claude-opus-4-6" },
+      { type: "system", subtype: "init", session_id: "abc-123", model: "claude-opus-4-7" },
       { type: "assistant", session_id: "abc-123", message: { content: [] } },
     ];
     expect(extractSessionId(events)).toBe("abc-123");
