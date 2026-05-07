@@ -33,8 +33,10 @@ and `commands/` (loaded from `~/.claude/commands/`).
 
    Spawns a `claude --print` session and asserts the rule path appears
    in its loaded context. Exits 0 on found, 1 on missing, 2 on probe
-   error. Uses `haiku` by default (override via `VERIFY_RULE_MODEL=…`)
-   to minimise spend; still costs a real API call per probe, so run
+   error (also: typo'd rule name, since single-rule mode validates the
+   name against the "What lives here" table below — add the row first).
+   Uses `haiku` by default (override via `VERIFY_RULE_MODEL=…`) to
+   minimise spend; still costs a real API call per probe, so run
    selectively rather than wiring into every CI run. See issue #275 for
    rationale and caveats (model variance, auth requirement).
 

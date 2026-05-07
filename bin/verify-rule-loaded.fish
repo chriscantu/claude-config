@@ -23,20 +23,23 @@
 # Exit codes:
 #   0  rule(s) confirmed loaded
 #   1  rule(s) missing from loaded context
-#   2  usage / setup error (no rule arg, claude CLI missing, probe failed)
+#   2  usage / setup error (no rule arg, claude CLI missing, unknown rule
+#      name, probe transport failure, ambiguous model response)
 #
 # Caveats:
 #   - Spawns a real Claude Code session. Requires the user's normal auth
 #     (OAuth/keychain) and incurs API cost per probe. Default model is
-#     `haiku` to minimise spend; override with VERIFY_RULE_MODEL=<model>.
-#   - The probe asks the model a yes/no question; matching on the response
-#     is intentionally tolerant (case-insensitive, looks for literal "YES"
-#     near the start). Model variance is the main failure mode — re-run on
-#     transient miss before treating as a real regression.
+#     read from $default_model (line 53); override with VERIFY_RULE_MODEL=<name>.
+#   - Plain YES/NO contract chosen over `--output-format json` because
+#     `--print` does not guarantee structured output across model tiers.
+#     The strict single-word match (line ~92) absorbs trailing punctuation
+#     but rejects "YES, however..." paraphrases that could otherwise
+#     silently false-positive a missing rule.
 #   - Not run from CI by default (auth + billing). Wire in selectively from
 #     a pre-merge check, or run locally after adding a new rule.
 
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
+set -l readme $repo/rules/README.md
 
 if test (count $argv) -eq 0
     echo "Usage: ./bin/verify-rule-loaded.fish <rule-name> | --all" >&2
@@ -48,26 +51,50 @@ if not type -q claude
     exit 2
 end
 
-set -l model haiku
+set -l default_model haiku
+set -l model $default_model
 if set -q VERIFY_RULE_MODEL
     set model $VERIFY_RULE_MODEL
 end
+# Echo chosen model so a typo'd env var (VERIFY_RULE_MODE=opus → still
+# defaults to haiku) is visible rather than silently ignored.
+echo "Probing with model=$model" >&2
 
-# Probe one rule. Returns 0 if the rule path appears in the loaded context,
-# 1 if missing, 2 on probe failure.
+# Parse rule names from the "What lives here" table in rules/README.md.
+# Couples to the README table format: rows starting with `| \`<name>.md\``.
+# A row whose filename has uppercase, spaces, or no backticks is silently
+# skipped — keep new rules lowercase-kebab to match the regex. validate.fish
+# does not enforce this format, so edits to the table can break --all
+# without an eval failure.
+function each_rule_in_readme --argument-names readme_path
+    if not test -f $readme_path
+        echo "ERROR: rules/README.md not found at $readme_path" >&2
+        return 2
+    end
+    grep -E '^\| `[a-z0-9_-]+\.md`' $readme_path | string replace -r '^\| `([a-z0-9_-]+)\.md`.*$' '$1'
+end
+
+# Probe one rule. Returns 0 if the rule path appears in loaded context,
+# 1 if missing, 2 on probe failure (transport error or ambiguous response).
 function probe_rule --argument-names rule_name model
     set -l path_fragment "rules/$rule_name.md"
     set -l prompt "Scan your loaded system instructions for the exact substring '$path_fragment'. If that path appears in your loaded context (e.g. as a 'Contents of ...' header or a path reference), reply with the single word YES. If it does not appear, reply with the single word NO. Do not call any tools. Do not explain. One word only."
 
-    # --print: non-interactive single-response mode.
-    # --no-session-persistence: don't pollute /resume history with probes.
-    # --output-format text: plain stdout; we tolerate-match below.
-    # --disable-slash-commands: probe should not invoke skills.
-    set -l response (claude --print --model $model --no-session-persistence --output-format text --disable-slash-commands "$prompt" 2>/dev/null)
+    # Capture stderr to a tempfile so a probe failure can surface the
+    # actual claude CLI error (auth expired, rate limit, model unknown)
+    # instead of just rc=N.
+    set -l err_file (mktemp)
+    # Non-interactive, no session pollution, no skill side effects.
+    set -l response (claude --print --model $model --no-session-persistence --output-format text --disable-slash-commands "$prompt" 2>$err_file)
     set -l rc $status
+    set -l err_msg (cat $err_file 2>/dev/null)
+    rm -f $err_file
 
     if test $rc -ne 0
         echo "ERROR: claude --print failed (rc=$rc) for rule '$rule_name'" >&2
+        if test -n "$err_msg"
+            echo "  stderr: $err_msg" >&2
+        end
         return 2
     end
 
@@ -76,14 +103,16 @@ function probe_rule --argument-names rule_name model
         return 2
     end
 
-    # Tolerant match: case-insensitive YES/NO. We require an explicit YES
-    # rather than absence of NO, because a refusal or paraphrase ("I cannot
-    # see system instructions") should fail closed.
+    # Strict single-word match: case-insensitive YES/NO with optional
+    # trailing punctuation/whitespace. Rejects paraphrases like
+    # "YES, however the rule does NOT appear..." (would otherwise leak
+    # through a `^YES\b` match and silently report LOADED when missing).
     set -l upper (string upper -- $response)
-    if string match -rq '^\s*YES\b' -- $upper
+    set -l trimmed (string trim -- $upper)
+    if string match -rq '^YES[.!]?$' -- $trimmed
         return 0
     end
-    if string match -rq '^\s*NO\b' -- $upper
+    if string match -rq '^NO[.!]?$' -- $trimmed
         return 1
     end
 
@@ -92,26 +121,26 @@ function probe_rule --argument-names rule_name model
     return 2
 end
 
-# Parse rule names from the "What lives here" table in rules/README.md.
-# Each row starts with `| \`<name>.md\``. We strip to bare rule name.
-function each_rule_in_readme --argument-names readme_path
-    if not test -f $readme_path
-        echo "ERROR: rules/README.md not found at $readme_path" >&2
-        return 2
-    end
-    # Match lines like: | `planning.md` | HARD-GATE | ...
-    grep -E '^\| `[a-z0-9_-]+\.md`' $readme_path | string replace -r '^\| `([a-z0-9_-]+)\.md`.*$' '$1'
-end
-
+# Build target list. --all uses the README table; single-rule mode
+# validates the name against that same table to fail loudly on typos
+# rather than probing a nonexistent rule and getting NO.
 set -l targets
 if test "$argv[1]" = --all
-    set targets (each_rule_in_readme $repo/rules/README.md)
+    set targets (each_rule_in_readme $readme)
     if test (count $targets) -eq 0
         echo "ERROR: --all parsed zero rule names from rules/README.md" >&2
         exit 2
     end
 else
-    set targets $argv[1]
+    set -l rule_name $argv[1]
+    set -l known (each_rule_in_readme $readme)
+    if not contains -- $rule_name $known
+        echo "ERROR: rule '$rule_name' not in rules/README.md table." >&2
+        echo "       Known rules: $known" >&2
+        echo "       (typo? add the rule to the table first, or check spelling)" >&2
+        exit 2
+    end
+    set targets $rule_name
 end
 
 set -l found 0
