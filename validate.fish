@@ -560,33 +560,86 @@ echo ""
 # 1k. Anchor-link target resolution
 # Phase 1j confirms anchors exist in their canonical file. Phase 1f confirms
 # dependent rules mention the canonical file. Neither catches a typo'd anchor
-# in a deep-link from a dependent — `[label](planning.md#emergancy-bypass-sentinel)`
-# would pass both. This phase greps every `planning.md#<id>` reference inside
-# rules/ and verifies the `<id>` matches an `<a id="...">` actually defined
-# in planning.md.
+# in a cross-rule deep-link — `[label](planning.md#emergancy-bypass-sentinel)`
+# or `[label](disagreement.md#hedge-than-comply)` would pass both. This phase
+# scans every markdown-link cross-rule reference `[…](basename.md#id)` across
+# rules/ and verifies `id` matches an `<a id="...">` defined in
+# `rules/<basename>.md`.
+#
+# Scope: markdown-link form targeting another rule in rules/. The `(`…`)`
+# boundary together with the basename charset (alnum/underscore/dash; no `/`,
+# no `.`) excludes:
+#   - path-prefixed refs like `(../skills/foo/SKILL.md#anchor)` — `.` and `/`
+#     break the basename charset; regex never anchors at the opening paren
+#   - external URLs like `(https://example.com/foo.md#bar)` — `:` and `/` break
+#     the charset before `.md`
+#   - same-file fragment links like `](#section)` — no `basename.md` prefix
+#   - bare prose mentions like `` `planning.md#x` `` in backticks — no `(`
+# Charset for anchor IDs accepts the same set the `<a id>` extractor produces
+# (alnum/underscore/dash), so uppercase or underscore IDs are validated rather
+# than silently skipped.
 echo "── Anchor-link target resolution"
 
-set planning_path "$repo_dir/rules/planning.md"
-if not test -f $planning_path
-    fail "rules/planning.md missing — cannot resolve anchor links"
-else
-    # Build set of defined anchor IDs in planning.md
-    set defined_anchors (grep -oE '<a id="[^"]+"' $planning_path | string replace -r '<a id="' '' | string replace -r '"$' '')
+# Cache defined-anchor lookups so a heavily linked target file is grep'd once.
+# Cache values are joined with the literal two-char sequence `\n` — fish does
+# NOT interpret escapes inside `"\n"` here, so `string join "\n"` writes a
+# literal backslash+n delimiter, and `string split "\n"` reads the same
+# literal delimiter. The round-trip is intact precisely because both sides
+# agree on the literal interpretation; do not switch to real newlines without
+# updating both sides.
+set -l anchor_cache_files
+set -l anchor_cache_anchors
 
-    # Scan every rules/*.md (except planning.md itself) for planning.md#... links
-    for rule_file in $repo_dir/rules/*.md
-        set rule_name (basename $rule_file)
-        if test "$rule_name" = "planning.md"; or test "$rule_name" = "README.md"
+for rule_file in $repo_dir/rules/*.md
+    set rule_name (basename $rule_file)
+    if test "$rule_name" = "README.md"
+        continue
+    end
+    # Extract markdown-link cross-rule references: [text](basename.md#id).
+    set raw_refs (grep -oE '\([A-Za-z0-9_-]+\.md#[A-Za-z0-9_-]+\)' $rule_file)
+    set refs_status $status
+    # grep exit codes: 0 = match, 1 = no-match (both fine), ≥2 = I/O error.
+    # Surface I/O errors explicitly so an unreadable rule file doesn't
+    # silently report zero refs and pass — same hardening as Phase 1l.
+    if test $refs_status -ge 2
+        fail "rules/$rule_name: grep returned error status $refs_status while extracting cross-rule anchor refs"
+        continue
+    end
+    set referenced (string replace -r '^\(' '' -- $raw_refs | string replace -r '\)$' '')
+    for ref in $referenced
+        set parts (string split -m 1 "#" $ref)
+        if test (count $parts) -ne 2
+            fail "rules/$rule_name: malformed anchor ref (expected basename.md#id, got: $ref)"
             continue
         end
-        # Extract anchor IDs referenced as planning.md#<id>
-        set referenced_anchors (grep -oE 'planning\.md#[a-z0-9-]+' $rule_file | string replace -r 'planning\.md#' '')
-        for ref in $referenced_anchors
-            if contains $ref $defined_anchors
-                pass "rules/$rule_name links planning.md#$ref → resolves"
-            else
-                fail "rules/$rule_name links planning.md#$ref → DEAD ANCHOR (not defined in planning.md)"
+        set target_basename $parts[1]
+        set anchor_id $parts[2]
+        set target_path "$repo_dir/rules/$target_basename"
+        if not test -f $target_path
+            # Target file not in rules/ — out of scope. Phase 1f covers
+            # cross-file mentions of canonical files; this phase is anchor
+            # resolution within rules/ only.
+            continue
+        end
+        # Look up cached anchors for this target, or compute and cache.
+        set cache_idx (contains -i -- $target_basename $anchor_cache_files)
+        if test -n "$cache_idx"
+            set defined_anchors (string split "\n" $anchor_cache_anchors[$cache_idx])
+        else
+            set raw_defs (grep -oE '<a id="[^"]+"' $target_path)
+            set defs_status $status
+            if test $defs_status -ge 2
+                fail "rules/$target_basename: grep returned error status $defs_status while extracting <a id> definitions"
+                continue
             end
+            set defined_anchors (string replace -r '^<a id="' '' -- $raw_defs | string replace -r '"$' '')
+            set -a anchor_cache_files $target_basename
+            set -a anchor_cache_anchors (string join "\n" $defined_anchors)
+        end
+        if contains $anchor_id $defined_anchors
+            pass "rules/$rule_name links $target_basename#$anchor_id → resolves"
+        else
+            fail "rules/$rule_name links $target_basename#$anchor_id → DEAD ANCHOR (not defined in rules/$target_basename)"
         end
     end
 end
