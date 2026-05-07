@@ -56,6 +56,15 @@ or tooling before completing the pipeline.
      already satisfied DTP inputs in-thread (named problem + stakes +
      evidence) is Expert Fast-Track, not a pressure framing — validate
      understanding and proceed.
+
+     <a id="fast-track-validation-emission"></a>
+     **Fast-Track validation emission — MANDATORY.** Before proceeding
+     under this carve-out, you MUST emit a line beginning with the
+     literal prefix `Validating my understanding:` followed by a
+     single sentence covering named problem, stakes, and evidence.
+     Absence of this line — or inability to produce the
+     single-sentence summary — means the carve-out does not apply;
+     route to DTP per the floor above.
    - **Slash-prefix planning skill** — invoking a planning-shaped skill
      by slash prefix without a problem statement in args. Concrete
      examples: `/sdr <bare description>`, `/adr <bare description>`,

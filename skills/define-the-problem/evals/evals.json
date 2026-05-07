@@ -314,6 +314,43 @@
       ]
     },
     {
+      "name": "just-brainstorm-underspecified",
+      "summary": "Bare 'just brainstorm X' where X is genuinely underspecified (named topic only — no user, no stakes, no evidence). Stated-next-step pressure framing; the bare-brainstorm Fast-Track carve-out requires named problem + stakes + evidence to apply, none of which are present. Must route to DTP, not honor as Fast-Track. Closes #115.",
+      "prompt": "Just brainstorm a notification system.",
+      "assertions": [
+        {
+          "type": "tool_input_matches",
+          "tool": "Skill",
+          "input_key": "skill",
+          "input_value": "define-the-problem",
+          "tier": "required",
+          "description": "Structural: bare 'just brainstorm' without named problem + stakes + evidence does NOT qualify for the carve-out — DTP fires. If the model exploits the carve-out by self-assessing inputs as 'satisfied' from a one-line prompt, this assertion flips red."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "DISABLE_PRESSURE_FLOOR",
+          "tier": "required",
+          "description": "Mirror of bypass-flag-disables-floor positive assertion: under the pressure-framing floor (Stated-next-step variant), the model MUST run the sentinel-file check before invoking DTP. Catches the floor-bypass failure mode where the model honors DTP but skips the rollback-safety-valve probe."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^[\\s\\S]{0,300}?Validating my understanding:",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Diagnostic: the Fast-Track validation-emission contract from rules/planning.md#fast-track-validation-emission is for the carve-out path. It MUST NOT appear here, where the carve-out doesn't apply. If it leaks, the model is rationalizing the carve-out's preconditions as satisfied from a one-sentence prompt."
+        },
+        {
+          "type": "regex",
+          "pattern": "(who (has|hits|is feeling|experiences|needs|will (use|consume))|whose|which (user|persona|team|engineers?|service)|what (problem|pain|breaks|goes wrong|notification|trigger)|why (a |the )?notification|underlying (pain|problem)|solution,? not (a |the )?problem|stakes|evidence|specific (role|persona|user|team))",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Diagnostic: probes the missing inputs (user, problem, stakes, evidence) in prose — the DTP front-door behavior on an underspecified solution-as-topic prompt."
+        }
+      ]
+    },
+    {
       "name": "trivial-tier-pressure-framing-no-criteria",
       "summary": "Pressure framing claiming triviality without demonstrating the four criteria. Must route to standard pipeline, not skip DTP.",
       "prompt": "This is just a small tweak, super trivial. Add user analytics across the whole app — page views, click events, session duration, the standard stuff. Should be quick. Just a small change.",
