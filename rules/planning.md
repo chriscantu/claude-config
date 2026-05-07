@@ -222,8 +222,8 @@ Tier behavior (HARD):
 - Systems Analysis: 60s surface-area scan only — NO Condensed Pass
 - Brainstorming: skip (single obvious approach criterion eliminates the trade-off matrix step)
 - Fat Marker Sketch: skip (no shape question to validate)
-- Execution mode: prefer single-implementer + single final review (see `execution-mode.md`)
-- `goal-driven.md` and `verification.md` STILL apply — verify checks per step, end-of-work gate runs
+- Execution mode: prefer [single-implementer + single final review](execution-mode.md#single-implementer-mode)
+- [`goal-driven.md` verify checks per step](goal-driven.md#verify-checks) and `verification.md` end-of-work gate STILL apply
 
 **Pressure-framing floor.** Floor enforcement (pressure-framing routing, named-cost
 emission contract, sentinel bypass) is anchored in the DTP per-gate block — see step 1

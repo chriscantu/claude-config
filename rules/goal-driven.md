@@ -17,6 +17,7 @@ If you catch yourself coding without a stated success criterion, STOP. Produce
 the plan. Then resume.
 </HARD-GATE>
 
+<a id="verify-checks"></a>
 ## Required Plan Shape
 
 A goal-driven plan transforms vague asks into verifiable goals:

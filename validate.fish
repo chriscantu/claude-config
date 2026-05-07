@@ -529,7 +529,9 @@ set anchor_registry \
     "emission-contract|planning.md|DTP Emission contract" \
     "pressure-framing-floor|planning.md|DTP Pressure-framing floor" \
     "architectural-invariant|planning.md|DTP Architectural invariant" \
-    "emergency-bypass-sentinel|planning.md|DTP Emergency bypass sentinel"
+    "emergency-bypass-sentinel|planning.md|DTP Emergency bypass sentinel" \
+    "single-implementer-mode|execution-mode.md|Single-implementer execution mode" \
+    "verify-checks|goal-driven.md|Goal-driven verify checks"
 
 for entry in $anchor_registry
     set parts (string split -m 2 "|" $entry)

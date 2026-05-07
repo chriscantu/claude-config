@@ -131,7 +131,7 @@ honor — if you skip the call, produce the full preamble instead.
   preamble's Assumptions + Simpler-Path Challenge belong at the TOP of the
   brainstorming "Propose 2-3 approaches" output, not as a replacement for it.
   Think of this rule as the opening slot of the approach-proposal step.
-- `goal-driven.md` — fires at the START of coding (verify checks per step).
+- `goal-driven.md` — fires at the START of coding ([verify checks per step](goal-driven.md#verify-checks)).
   This rule fires one step earlier, at the START of solution design
   (assumptions + interpretations + simpler path).
 - `fat-marker-sketch.md` — fires AFTER this rule; the preamble here
