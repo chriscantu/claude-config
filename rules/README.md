@@ -105,6 +105,19 @@ validator. Phases relevant to rules:
   loop assert the filter visited every entry — without it, a
   future filter regression that makes every `select(...)` predicate
   miss would re-introduce the silent-skip class issue #203 closed.
+- **1n. Fixture ↔ eval integrity** — for each
+  `tests/fixtures/<skill>/` directory, fails if (a) the fixtures
+  README is missing (fixture-to-eval contract documentation is
+  required); (b) any fixture subdir has no eval consumer in
+  `skills/<skill>/evals/evals.json` AND is not listed under a
+  `## Orphaned fixtures` heading in the fixtures README; or (c)
+  any fixture path referenced by an eval prompt does not exist on
+  disk (dangling reference). Documented orphans warn rather than
+  fail, allowing intentional staging while still surfacing the
+  unconsumed status. Closes the silent-failure mode where stale
+  fixtures rot or eval renames orphan their fixtures undetected
+  (issue #234). Regression coverage:
+  `tests/validate-phase-1n.test.ts`.
 
 Use these in pre-push hooks or CI to catch the silent-failure modes
 (rule not loaded; rule restated and drifted; anchor structurally broken;
