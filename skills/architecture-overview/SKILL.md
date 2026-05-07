@@ -3,7 +3,7 @@ name: architecture-overview
 description: Slash-invoked discovery-mode skill that scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) using the canonical LANGUAGE.md vocabulary. Use when a new senior eng leader joins and asks to "walk me through the architecture", "map the services across our repos", or needs a credible whole-system mental model on day 3-7 of a ramp. Do NOT use for single-repo deepening grading (use /improve-codebase-architecture), a single architectural choice (use /adr), a system-level design record (use /sdr), or tool/framework adoption (use /tech-radar).
 disable-model-invocation: true
 status: experimental
-version: 0.3.1
+version: 0.4.0
 ---
 
 # Architecture Overview
@@ -52,12 +52,27 @@ Resolve `--repos` into `[{name, source: path | url}]`. Reject unparseable entrie
 - **URL** → `git clone --depth=1` if not cached; `git fetch --depth=1` unless `--no-fetch`. Auth failures → inferred-only entries.
 
 ### 3. Walk (Parallel per Repo)
-- **`Explore` subagent** — read `CONTEXT.md` / ADRs and walk source. Produce four narrative threads: inventory (Module / Interface / Implementation / Signals), dependencies (Seam / Adapter / Observed-via), data-flow (numbered lifecycle steps), integrations (external SaaS).
+- **`Explore` subagent — intent first.** Before walking source, read `README.md` and `docs/*.md` (and `CONTEXT.md` / ADRs when present) to extract three signals: (a) **stated purpose** — what the module does, in the project's own words; (b) **lifecycle stage** — research / prototype / production / archived, only when textually signalled; (c) **audience** — internal / external / shared lib. Emit `*intent unstated*` (italic-default) when no textual signal exists; never auto-classify lifecycle from generic signals (caller count, last-commit-age) alone.
+- **Walk source** — produce four narrative threads: inventory (Module / Interface / Implementation / Signals), dependencies (Seam / Adapter / Observed-via), data-flow (numbered lifecycle steps), integrations (external SaaS).
 - **Italic-default; plain only when the agent cites file:line evidence.** Inferences (manifest absence, env-var implies dep, conventional naming) → italic. Code-grounded claims (import at `src/x.ts:42`, env var read in `config.ts`) → plain. The agent applies the convention while writing the narrative — it is NOT a post-pass.
 - **`bun run skills/architecture-overview/scripts/repo-stats.ts --repo <path>`** — capture stdout JSON for deterministic metrics.
 
 ### 4. Aggregate + Vocab Pass
 Merge per-repo records. Cross-repo edge resolution: if repo A's manifest dep matches repo B's package name, emit edge `A → B [observed]`. Apply LANGUAGE.md vocab interleaved with the merge — per-repo `CONTEXT.md` domain terms layered on top. Single pass, not two; narrative is written once with the right vocab.
+
+**Intent-qualified brittleness.** Brittleness signals (no test surface, high fan-in, stale last-commit, high TODO/FIXME density) MUST be qualified by the intent extracted in Step 3 before being labelled `brittle`. Render shape:
+
+```
+*<signal> — <interpretation given intent>*
+```
+
+A signal alone is data, not a brittleness verdict. The verdict is the interpretation; the interpretation is the contract. Worked examples:
+
+- Research prototype + no test directory → `*no test surface — expected for prototype-stage module; tests deferred until pattern stabilizes*` (NOT brittle).
+- Foundational shared lib + 47 callers → `*high fan-in (47 callers) — gravity well by design; change-cost is high*` (architectural, NOT brittle).
+- Production service + 6mo idle + 23 unresolved TODOs → `*production module idle 6mo with 23 unresolved TODOs — review backlog*` (genuinely brittle).
+
+If intent is unstated, italic-default the brittleness paragraph itself per the §3 convention — `*intent unstated; treat brittleness signals as observations, not verdicts*` — rather than auto-classifying. Two ramps of real-world data before codifying rigid lifecycle rules.
 
 ### 5. Render
 - **Output guardrails** — refuse if output path is inside `claude-config` (`git rev-parse --show-toplevel`) — prevents polluting the source repo with generated landscapes that would re-trigger discovery on the next run. Default: exactly one `~/repos/onboard-*/` workspace → `<workspace>/architecture/` — onboard workspaces are the canonical landing spot per `/onboard` convention; zero or multiple → require `--output <path>` so the user picks intentionally.

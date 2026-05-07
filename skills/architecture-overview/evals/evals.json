@@ -405,6 +405,33 @@
       ]
     },
     {
+      "name": "brittleness-grounded-in-intent",
+      "summary": "Brittleness signals are qualified by stated project intent (lifecycle / purpose / audience). For a research-prototype fixture, the missing test surface must NOT be flagged as brittle without intent qualification.",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/research-prototype --output /tmp/arch-overview-intent",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires"
+        },
+        {
+          "type": "regex",
+          "pattern": "(prototype|research|deferred|by design|expected|out of scope|not brittle)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response surfaces an intent qualifier (lifecycle / by-design / scope) extracted from README — closes #228 acceptance: brittleness commentary must be grounded in stated intent, not generic signal density"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "no test surface[^.]{0,80}brittle|missing tests[^.]{0,80}brittle|test (?:absence|gap)[^.]{0,80}brittle|brittle[^.]{0,80}(?:no test surface|missing tests)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response does NOT flag the absent test surface as brittle without intent qualification — research-prototype README explicitly defers tests by design, so an unqualified `no test surface → brittle` claim is the regression class #228 closes (per output-format.md intent-qualified brittleness template)"
+        }
+      ]
+    },
+    {
       "name": "refuses-output-inside-claude-config",
       "summary": "Output guardrail: skill refuses to write the bundle inside the claude-config repo tree.",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/empty --output ./docs/test-bad-output",
