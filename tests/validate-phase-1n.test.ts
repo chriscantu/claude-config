@@ -1,7 +1,14 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
+import { getuid } from "node:process";
 import { join, resolve } from "node:path";
 
 // Regression tests for validate.fish Phase 1n (Fixture ↔ eval integrity).
@@ -17,9 +24,21 @@ import { join, resolve } from "node:path";
 //   B) Eval references a fixture that doesn't exist on disk → hard fail
 //   C) Fixture exists, no eval consumer, NOT in README orphan list → hard fail
 //   D) Fixture exists, no eval consumer, listed in README "## Orphaned
-//      fixtures" → warn-only (no fail)
+//      fixtures" → warn-only (no fail). Asserts negative-twin: NO fail line
+//      mentioning the documented orphan name appears (catches a future fall-
+//      through bug that emits BOTH warn and fail simultaneously).
 //   E) tests/fixtures/<skill>/README.md missing → hard fail
 //      (Q3-C: fixture-to-eval contract documentation required)
+//   F) skills/<skill>/evals/evals.json missing → distinct hard fail
+//      (fixtures present without an eval consumer file)
+//   H) "## Orphaned fixtures" heading renamed (e.g. "### Orphaned fixtures")
+//      → orphan list not recognized → previously-tolerated fixture now fails
+//      (heading is part of the contract; rename must trip the gate)
+//   I) Zero-state: tests/fixtures/ directory absent entirely → Phase 1n
+//      emits the documented zero-state pass and does not regress to fail
+//   J) Unreadable evals.json (chmod 000) → grep I/O error surfaces distinctly
+//      via status ≥ 2 path; not silently misclassified as "zero references"
+//      (which would mask every dangling-fixture fail in Side B)
 //
 // Issue #234, ADR #0012 (TS-native test).
 
@@ -149,6 +168,13 @@ afterEach(() => {
       console.error(`afterEach: refusing to clean non-tmp path ${dir}`);
       continue;
     }
+    // Restore perms in case a test chmod 000'd a file inside (Test J).
+    const restore = spawnSync("chmod", ["-R", "u+rw", dir], { encoding: "utf8" });
+    if (restore.error) {
+      console.error(`afterEach: chmod spawn failed for ${dir}: ${restore.error.message}`);
+    } else if (restore.status !== 0) {
+      console.error(`afterEach: chmod exited ${restore.status} for ${dir}: ${restore.stderr}`);
+    }
     try {
       rmSync(dir, { recursive: true, force: true });
     } catch (e) {
@@ -258,6 +284,10 @@ describe("validate.fish Phase 1n (fixture ↔ eval integrity)", () => {
     expect(out).not.toContain(
       "tests/fixtures/archx/stranded has no eval consumer and is not listed",
     );
+    // Negative-twin: NO fail-line mentioning `stranded` appears anywhere in
+    // the slice. Catches a future fall-through bug that emits BOTH warn and
+    // fail simultaneously (the substring assertion above would still pass).
+    expect(out).not.toMatch(/✗.*stranded/);
   });
 
   test("E: README missing — tests/fixtures/<skill>/README.md absent → hard fail (Q3-C)", () => {
@@ -268,4 +298,86 @@ describe("validate.fish Phase 1n (fixture ↔ eval integrity)", () => {
       "tests/fixtures/archx/README.md missing — fixture-to-eval contract documentation required",
     );
   });
+
+  test("F: evals.json missing — fixtures present without consumer file → distinct hard fail", () => {
+    const { repo, evalsJson } = seedClean();
+    rmSync(evalsJson);
+    const out = extractPhase1n(runValidate(repo));
+    expect(out).toContain(
+      "skills/archx/evals/evals.json missing — fixtures under tests/fixtures/archx/ have no eval consumer file",
+    );
+    // Fail message must be distinct from the README-missing fail (Test E) so
+    // a contributor knows which side of the contract is broken.
+    expect(out).not.toContain("README.md missing — fixture-to-eval");
+  });
+
+  test("H: orphan-section heading renamed (### instead of ##) → orphan unrecognized → hard fail", () => {
+    // The awk parser keys on `^## Orphaned fixtures`. A subsection (`###`) or
+    // capitalized variant must NOT be treated as the canonical orphan list —
+    // otherwise contributors could silently downgrade the section and bypass
+    // the gate.
+    const { repo, fixturesRoot, fixturesReadme } = seedClean();
+    const stranded = join(fixturesRoot, "stranded");
+    mkdirSync(stranded, { recursive: true });
+    writeFileSync(join(stranded, ".gitkeep"), "");
+    writeFileSync(
+      fixturesReadme,
+      [
+        "# Fixtures — archx",
+        "",
+        "## Criterion → Fixture matrix",
+        "",
+        "| Eval | Fixture | Why |",
+        "|---|---|---|",
+        "| `consumes-good` | `good/` | smoke fixture |",
+        "",
+        "### Orphaned fixtures",
+        "",
+        "| Fixture | Intent |",
+        "|---|---|",
+        "| `stranded/` | future eval coverage |",
+        "",
+      ].join("\n"),
+    );
+    const out = extractPhase1n(runValidate(repo));
+    expect(out).toContain(
+      "tests/fixtures/archx/stranded has no eval consumer and is not listed under '## Orphaned fixtures'",
+    );
+    // Must NOT have downgraded to warn — heading rename should not be
+    // silently treated as the canonical orphan list.
+    expect(out).not.toContain(
+      "tests/fixtures/archx/stranded unconsumed but documented as orphan",
+    );
+  });
+
+  test("I: zero-state — no tests/fixtures/ dir at all → Phase 1n emits documented pass, does not fail", () => {
+    const repo = makeRepoFixture();
+    // Deliberately do NOT create tests/fixtures/ — just the standard repo
+    // skeleton from makeRepoFixture(). Phase 1n must not regress to fail
+    // when there's nothing to validate (fresh-repo contract).
+    const out = extractPhase1n(runValidate(repo));
+    expect(out).toContain(
+      "no tests/fixtures/<skill>/ directories — Phase 1n has nothing to validate",
+    );
+    expect(out).not.toMatch(/✗/);
+  });
+
+  // chmod 000 does not block reads when running as root; mirror Phase 1l Test
+  // E and skip explicitly so bun reports the skip rather than silently passing
+  // an assertion that never ran.
+  test.skipIf(getuid?.() === 0)(
+    "J: unreadable evals.json → grep I/O error surfaces distinctly (not silent zero-refs)",
+    () => {
+      const { repo, evalsJson } = seedClean();
+      chmodSync(evalsJson, 0o000);
+      const out = extractPhase1n(runValidate(repo));
+      expect(out).toContain("grep returned error status");
+      expect(out).toContain("skills/archx/evals/evals.json");
+      // Must NOT have silently classified as "no references" — if it had,
+      // every dangling-reference assertion in Side B would have been masked.
+      expect(out).not.toContain(
+        "evals.json reference tests/fixtures/archx/good exists",
+      );
+    },
+  );
 });

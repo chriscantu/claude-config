@@ -862,8 +862,18 @@ for skill_root in $fixture_skill_roots
     ' $fixtures_readme | grep -oE '`[a-zA-Z0-9_-]+/`' | string replace -ar '[`/]' '' | sort -u)
 
     # Extract fixture references from evals.json prompts. grep returns full
-    # path tokens; strip the prefix to get bare fixture names.
-    set ref_names (grep -oE "tests/fixtures/$skill_slug/[a-zA-Z0-9_-]+" $evals_json 2>/dev/null | string replace "tests/fixtures/$skill_slug/" "" | sort -u)
+    # path tokens; strip the prefix to get bare fixture names. Capture grep
+    # status separately so I/O errors (status ≥ 2: permission denied, signal)
+    # surface as a distinct fail rather than silently collapsing to "zero
+    # references" — that collapse would mask every dangling-reference fail in
+    # Side B. Mirrors Phase 1g/1l error-status hardening.
+    set ref_names_raw (grep -oE "tests/fixtures/$skill_slug/[a-zA-Z0-9_-]+" $evals_json)
+    set grep_status $status
+    if test $grep_status -ge 2
+        fail "skills/$skill_slug/evals/evals.json: grep returned error status $grep_status (I/O error, permission denied, or signal) while extracting fixture references"
+        continue
+    end
+    set ref_names (printf '%s\n' $ref_names_raw | string replace "tests/fixtures/$skill_slug/" "" | string match -rv '^$' | sort -u)
 
     # Side A: every fixture subdir must be consumed OR documented as orphan.
     for fixture_path in $skill_root/*/
