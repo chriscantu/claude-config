@@ -1,7 +1,8 @@
 ---
 description: >
-  Fires turn-locally when the user disagrees with a stated agent position
-  or pushes back on a recommendation. Requires new evidence (data, code,
+  Fires turn-locally when the user disagrees with a stated agent position,
+  asserts the agent is wrong, or pushes back on a recommendation.
+  Requires new evidence (data, code,
   constraint, source not previously surfaced) before reversing. Restated
   disagreement, frustration, authority appeals, and repeated assertion
   are NOT new evidence. Reversing absent new evidence is sycophantic
