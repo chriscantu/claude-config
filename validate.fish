@@ -530,6 +530,7 @@ set anchor_registry \
     "pressure-framing-floor|planning.md|DTP Pressure-framing floor" \
     "architectural-invariant|planning.md|DTP Architectural invariant" \
     "emergency-bypass-sentinel|planning.md|DTP Emergency bypass sentinel" \
+    "fast-track-validation-emission|planning.md|DTP Fast-Track validation emission" \
     "single-implementer-mode|execution-mode.md|Single-implementer execution mode" \
     "verify-checks|goal-driven.md|Goal-driven verify checks"
 
