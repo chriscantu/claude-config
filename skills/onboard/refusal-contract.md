@@ -1,7 +1,30 @@
 # Refusal & Attribution Contract — Phase 3
 
+> **Cross-bundle reference — monorepo-only, `.skill`-bundle hostile.** This file is the
+> single-source contract for `onboard-guard.ts`, consumed by `/swot` and `/present` via
+> repo-relative deep-links (`../onboard/refusal-contract.md`). Anthropic's skill packager
+> would not follow the `../` reference; a fork-consumer copying just `skills/swot/` or
+> `skills/present/` into another repo gets a dangling link. Acceptable risk in this
+> monorepo per ADR #0013 (which accepted the same trade-off for shared architecture
+> vocabulary). Reopen if a packaging or fork-consumer reverses the calculus.
+
 This document is the canonical contract enforced by `skills/onboard/scripts/onboard-guard.ts`. Skills
 that read user-supplied paths or render decks call the guard before proceeding.
+
+## Repo-root resolution (all guard call-sites)
+
+All guard invocations need the repo root to locate `skills/onboard/scripts/onboard-guard.ts`. Resolution rule, applied identically by every call-site:
+
+- `$CLAUDE_PROJECT_DIR` is the harness-provided absolute path to the repository root. Use it when set.
+- If the env var is not set (e.g., the skill is being executed outside the harness), resolve the repo root by walking up from CWD until a `.git` directory is found.
+
+Each call-site invokes:
+
+```fish
+bun run "$CLAUDE_PROJECT_DIR/skills/onboard/scripts/onboard-guard.ts" <subcommand> <args>
+```
+
+with the env-var fallback applied per the rule above.
 
 ## Refusal — `skills/onboard/scripts/onboard-guard.ts refuse-raw <path>`
 

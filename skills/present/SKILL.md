@@ -45,21 +45,10 @@ before reading the source:
 bun run "$CLAUDE_PROJECT_DIR/skills/onboard/scripts/onboard-guard.ts" refuse-raw <path>
 ```
 
-`CLAUDE_PROJECT_DIR` is the harness-provided absolute path to the repository
-root. If the env var is not set, resolve the repo root by walking up from
-CWD until a `.git` directory is found.
-
-Exit-code contract for this call-site:
-
-| Exit | Meaning | Action |
-|---|---|---|
-| 0 | Path is outside any `interviews/raw/` directory | proceed to read |
-| 2 | Path is inside `interviews/raw/` (refused) | surface stderr, abort, do NOT read the file |
-| 64 | Misuse (wrong arg count) | bug — file an issue |
-
 The guard is a no-op for non-workspace paths — exits 0, /present proceeds.
-The canonical contract (override policy, name-extraction rules, deferred
-items) lives in the onboard skill's `refusal-contract.md`.
+
+Exit codes, repo-root resolution, and override policy: see
+[../onboard/refusal-contract.md](../onboard/refusal-contract.md).
 
 ## Step 1: Audience & Intake
 

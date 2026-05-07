@@ -44,6 +44,7 @@ OR independently:
 - Tasks have integration coupling that benefits from per-task spec review
   (cross-component contracts, shared state, ordered handoffs)
 
+<a id="single-implementer-mode"></a>
 ### Single-implementer mode
 
 Use single-implementer + single final review (one implementer carries the

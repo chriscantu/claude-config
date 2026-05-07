@@ -101,16 +101,11 @@ bun run "$CLAUDE_PROJECT_DIR/skills/onboard/scripts/onboard-guard.ts" attributio
   <workspace>/stakeholders/map.md
 ```
 
-(`CLAUDE_PROJECT_DIR` is harness-provided; if unset, walk up from CWD until a
-`.git` directory is found.)
+Override is enforced HERE in the SKILL.md body — the helper is pure, no
+interactive I/O. Per-render, no persistent state.
 
-On exit 3, surface the guard's stderr (file:line:phrase report) and require
-the literal `override` token before proceeding. Override is enforced HERE in
-the SKILL.md body — the helper is pure, no interactive I/O. Per-render, no
-persistent state.
-
-See [refusal-contract.md](refusal-contract.md) for the full exit-code table
-and override semantics.
+Exit codes, repo-root resolution, and override semantics: see
+[refusal-contract.md](refusal-contract.md).
 
 ## Calendar paste (Phase 4)
 
