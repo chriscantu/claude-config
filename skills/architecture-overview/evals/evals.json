@@ -217,6 +217,40 @@
       ]
     },
     {
+      "name": "c4-context-emits-non-actor-rectangle-presence",
+      "summary": "Positive-presence twin to the three `Person:`-not-on-non-actor-* negative twins (#257 / #261 / #265): at least one non-actor rectangle must appear inside the C4 `graph TB` block under `### Context`. Closes #266 — without this floor, a regression that omits the system-under-doc + external SaaS rectangles (leaving the actor as the only node) would pass every existing C4 assertion vacuously (negative twins assert absence-of-violation; positive `Person:` eval covers actor only; line-style eval can be satisfied by `inferred:` text alone if the lazy match leaks across blocks).",
+      "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-non-actor-rect-presence-eval ; then show me what inventory.md contains",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "architecture-overview",
+          "tier": "required",
+          "description": "structural: skill fires on slash invocation"
+        },
+        {
+          "type": "regex",
+          "pattern": "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?graph\\s+TB(?:(?!```)[\\s\\S])*?(?<![A-Za-z0-9_-])(?!actor)[A-Za-z][\\w-]*\\[(?!\\()",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: under the `### Context` header, within the C4 `graph TB` mermaid block, at least one identifier-prefixed rectangle node whose ID does not start with `actor` must appear (system-under-doc, external SaaS, or sibling Module). Catches the actor-only regression class flagged in #266 — a skill change that emits only `actor1[\"Person: …\"]` and omits the `system` / `stripe` rectangles entirely would pass every existing C4 assertion vacuously: `mermaid-c4-context-actor-uses-person-prefix` covers the actor node; the three `Person:`-not-on-non-actor-* negative twins (#257 / #261 / #265) assert absence-of-violation, which is trivially satisfied when no non-actor rectangles exist. Regex shape mirrors the ID-prefixed negative twin (`c4-context-person-prefix-not-on-non-actor-rectangles`, #261): `(?<![A-Za-z0-9_-])` identifier-boundary lookbehind, `(?!actor)` ID-prefix discrimination (case-insensitive), `\\[(?!\\()` rectangle-not-cylinder opener so a `postgres[(...)]` cylinder does not satisfy this floor (cylinders are datastores per output-format.md datastore-shape contract, not the system / external SaaS rectangles this floor targets). Anchored on the `### Context[\\s\\S]{0,500}` co-location bound per testing-strategy.md §3 with the fence-crossing bound `(?:(?!```)[\\s\\S])*?` per #268 so a non-actor rectangle in a later mermaid block (deps `graph LR`, data-flow `flowchart TD`) cannot satisfy this floor and false-pass an empty C4 block. Brittleness symmetric with the negative twin: a legitimate non-actor rectangle that coincidentally uses an `actor*` ID (e.g., `actorOfNotaryService`) would not satisfy this floor — same accepted miss documented on the negative twin. Positive-presence convention per testing-strategy.md §4 (positive twin to absence-of-violation negative twins; closes #266)."
+        },
+        {
+          "type": "regex",
+          "pattern": "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?graph\\s+TB(?:(?!```)[\\s\\S])*?(?<![A-Za-z0-9_-])stripe\\[",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: under the `### Context` header, within the C4 `graph TB` mermaid block, the `stripe[` rectangle node must appear. Fixture-specific deterministic floor: `ts-with-context/` exposes `STRIPE_API_KEY` in env without a `stripe` SDK in deps, which the `mermaid-c4-context-line-style-and-inferred-prefix` eval already requires the model to render as an inferred-edge target (`-.->` + `inferred:`). That eval can be satisfied by the textual tokens alone if the lazy match leaks across blocks; this assertion pins the specific node declaration so the regression mode in #266 (model emits the inferred-edge prose but omits the actual `stripe` node declaration) is caught directly. The cylinder opener `[(` is allowed by this pattern but mermaid forbids it for an external SaaS — the negative-twin cylinder eval (#257) catches the inversion. The identifier-boundary lookbehind `(?<![A-Za-z0-9_-])` prevents matching mid-identifier (e.g., `mystripe[`). Anchored on the `### Context[\\s\\S]{0,500}` co-location bound per testing-strategy.md §3; fence-crossing bound `(?:(?!```)[\\s\\S])*?` per #268 prevents leakage from a later mermaid block."
+        },
+        {
+          "type": "regex",
+          "pattern": "###\\s+Context[\\s\\S]{0,500}```mermaid[\\s\\S]*?graph\\s+TB(?:(?!```)[\\s\\S])*?(?<![A-Za-z0-9_-])system\\[",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: under the `### Context` header, within the C4 `graph TB` mermaid block, the `system[` rectangle node (the system-under-doc) must appear. Closes #266 review-followup gap: the generic non-actor rectangle floor in this eval is satisfied by ANY non-actor identifier-prefixed rectangle, so a regression that emits `stripe[` as the only non-actor rectangle and omits the system-under-doc would pass both the generic floor and the `stripe[` fixture pin. The canonical output-format.md example pins the system-under-doc node as `system[\"<repo-name>\"]` (lines 58–62) — this assertion enforces that convention. Brittleness: model drift to a repo-name-derived ID (e.g., `billingservice[`, `billing_service[`) would false-negative — accepted miss, intentional. The miss surfaces convention drift on the canonical `system` ID prefix (parallel to the documented `actor*` ID-prefix brittleness on the negative-twin sibling #261). Identifier-boundary lookbehind `(?<![A-Za-z0-9_-])` prevents mid-identifier match (e.g., `subsystem[`). Anchored on the `### Context[\\s\\S]{0,500}` co-location bound per testing-strategy.md §3; fence-crossing bound `(?:(?!```)[\\s\\S])*?` per #268 prevents leakage from a later mermaid block."
+        }
+      ]
+    },
+    {
       "name": "c4-context-no-banned-vocab-labels",
       "summary": "Negative-vocab assertion: C4 Context block must not use `service:` / `component:` / `API:` as descriptive node-label vocabulary (closes #232 I-3, applies testing-strategy.md §4 negative-twin convention; ban list per output-format.md vocab-discipline contract).",
       "prompt": "/architecture-overview --repos tests/fixtures/architecture-overview/ts-with-context --output /tmp/arch-overview-c4-no-banned-vocab-eval ; then show me what inventory.md contains",
