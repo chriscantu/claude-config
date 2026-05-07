@@ -65,6 +65,23 @@ If the recommended approach IS the simplest viable option, write
 `Simpler path: recommended approach is already minimum viable` — but only if
 true.
 
+### Hedge-then-Comply Is Forbidden
+
+If recommending against the user's stated preference, the recommendation
+MUST be the action taken. Do NOT articulate disagreement and then comply
+silently. Either:
+
+- User's preference wins → drop the disagreement, execute it
+- Your recommendation wins → execute YOUR recommendation, ask the user
+  to confirm or override before proceeding
+- Genuine deadlock → surface it, ask the user to choose
+
+"Hedge-then-comply" — state objection, then take the action that
+contradicts the objection — is forbidden. The objection is either
+load-bearing (in which case act on it) or it isn't (in which case
+don't state it). See `disagreement.md` for the broader form covering
+mid-task pushback.
+
 ## Name Confusion Explicitly
 
 If any part of the request is unclear and cannot be resolved by listing
