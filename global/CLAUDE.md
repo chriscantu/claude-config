@@ -57,6 +57,8 @@ Source: https://github.com/forrestchang/andrej-karpathy-skills — biases toward
 
 **Precedence on conflict.** User instructions > `rules/*.md` HARD-GATEs > Karpathy Coding Principles > general Communication Style / Verification rules above. The more specific rule wins.
 
+**Carve-out for `rules/disagreement.md`.** Restated user assertions absent new evidence are NOT user instructions for the purpose of this precedence — they are pressure framings the disagreement HARD-GATE is designed to handle. Yielding to user authority while preserving judgment (per `rules/disagreement.md`'s Hedge-then-Comply section) is the legitimate path for honoring user instruction; capitulating with claimed agreement is the failure mode the rule prevents. A user instruction with new evidence still wins; a user instruction without new evidence triggers the HARD-GATE's hold-and-request-evidence path.
+
 ### 1. Think Before Coding
 **Don't assume. Don't hide confusion. Surface tradeoffs.** Promoted to a HARD-GATE rule — see `rules/think-before-coding.md` for the enforced version (three-part preamble: Assumptions / Interpretations / Simpler-Path Challenge; skip contract; pipeline placement).
 
