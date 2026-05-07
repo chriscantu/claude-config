@@ -838,13 +838,31 @@ export function evaluate(assertion: ValidatedAssertion, signals: Signals): Asser
         return typeof value === "string" && value.includes(assertion.input_value);
       });
       if (matched) return pass();
-      const seen = signals.toolUses
-        .filter((tu) => tu.name === assertion.tool)
+      const sameToolUses = signals.toolUses.filter((tu) => tu.name === assertion.tool);
+      const seen = sameToolUses
         .map((tu) => JSON.stringify(tu.input[assertion.input_key]))
         .join(", ");
+      // Schema-drift hint: if the assertion pins the Claude Code Skill-tool
+      // contract (tool="Skill", input_key="skill") AND the runner saw zero
+      // Skill tool_uses at all, the most likely cause is upstream rename of
+      // the tool name or input key — not a behavioral regression of the
+      // skill-under-test. Without this hint, on-call sees N identical
+      // failures across unrelated suites and burns time diagnosing each as
+      // a behavioral bug. Closes #113. The hint is conditional on Skill +
+      // skill specifically because that's the contract pinned in PR #112 +
+      // ADR #0004; other tools (Bash, mcp__*) failing is genuinely
+      // behavioral and gets the same fail message they always had.
+      const isSkillContract =
+        assertion.tool === "Skill" && assertion.input_key === "skill";
+      const noSkillFired = sameToolUses.length === 0;
+      const driftHint =
+        isSkillContract && noSkillFired
+          ? " | If multiple Skill tool_input_matches assertions are failing simultaneously, suspect Claude Code Skill-tool schema drift before behavioral regression. See adrs/0004-define-the-problem-mandatory-front-door.md and the _contract_note field in skills/define-the-problem/evals/evals.json."
+          : "";
       return fail(
         `tool_input_matches: no ${assertion.tool} tool_use had ${assertion.input_key}=${JSON.stringify(assertion.input_value)}. ` +
-          `Saw ${assertion.tool}.${assertion.input_key} values: ${seen || "(no matching tool)"}`,
+          `Saw ${assertion.tool}.${assertion.input_key} values: ${seen || "(no matching tool)"}` +
+          driftHint,
       );
     }
     case "not_tool_input_matches": {

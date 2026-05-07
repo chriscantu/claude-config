@@ -1370,6 +1370,68 @@ describe("evaluate() — tool_input_matches", () => {
     const s = sigWithTools([{ name: "Skill", input: { skill: null as unknown as string } }]);
     expect(evaluate(a, s).ok).toBe(false);
   });
+
+  // Schema-drift hint regression coverage (#113). The fail message must
+  // distinguish Claude Code Skill-tool platform drift (tool/key renamed by
+  // upstream → zero Skill tool_uses extracted) from behavioral regression
+  // of the skill-under-test (Skill fired but with wrong slug). Without the
+  // hint, on-call sees N identical "no matching tool" failures across
+  // unrelated suites and burns time diagnosing each as a behavioral bug.
+  test("appends schema-drift hint when Skill contract assertion sees zero Skill tool_uses", () => {
+    const a = v({
+      type: "tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "define-the-problem",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([{ name: "Bash", input: { command: "ls" } }]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.detail).toContain("Skill-tool schema drift");
+      expect(r.detail).toContain("adrs/0004-define-the-problem-mandatory-front-door.md");
+    }
+  });
+
+  test("does NOT append schema-drift hint when Skill fired but with wrong slug (behavioral regression)", () => {
+    // Skill tool was extracted correctly — runner is fine. Failure is the
+    // skill-under-test invoking the wrong sub-skill. Drift hint here would
+    // misdirect the diagnostician.
+    const a = v({
+      type: "tool_input_matches",
+      tool: "Skill",
+      input_key: "skill",
+      input_value: "define-the-problem",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([{ name: "Skill", input: { skill: "systems-analysis" } }]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.detail).not.toContain("schema drift");
+    }
+  });
+
+  test("does NOT append schema-drift hint for non-Skill tools (e.g. Bash failures are always behavioral)", () => {
+    // Hint is conditional on tool="Skill" + input_key="skill" specifically
+    // because that's the contract pinned in PR #112 + ADR #0004. A Bash
+    // assertion failing means the model didn't run the expected command —
+    // a behavioral signal, not platform drift.
+    const a = v({
+      type: "tool_input_matches",
+      tool: "Bash",
+      input_key: "command",
+      input_value: "git push",
+      description: "d",
+    } as Assertion);
+    const s = sigWithTools([{ name: "Skill", input: { skill: "x" } }]);
+    const r = evaluate(a, s);
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.detail).not.toContain("schema drift");
+    }
+  });
 });
 
 describe("validateAssertion() — not_tool_input_matches", () => {
