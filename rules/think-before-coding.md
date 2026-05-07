@@ -65,6 +65,13 @@ If the recommended approach IS the simplest viable option, write
 `Simpler path: recommended approach is already minimum viable` — but only if
 true.
 
+### Hedge-then-Comply
+
+Canonically defined in [disagreement.md § Hedge-then-Comply Is
+Forbidden](disagreement.md#hedge-then-comply). The construct can occur
+whenever the user pushes back on a stated recommendation, not only at
+Solution Design entry, so its canonical home is the turn-local rule.
+
 ## Name Confusion Explicitly
 
 If any part of the request is unclear and cannot be resolved by listing
