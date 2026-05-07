@@ -67,7 +67,7 @@ skill-specific guidance:
 |-----------------|-----------------------------------------------------------------|
 | Prototype / POC | Condensed pass — all five questions but accept brief answers. Produce a 2-3 sentence problem statement. Lightweight red flags (flag only, don't offer investigation). Hand off directly. |
 | Feature         | Full pass — all five questions, red flag assessment, handoff.   |
-| System/Platform | Full pass with deeper investigation likely — expect the Deeper Investigation flow in [references/red-flag-assessment.md](references/red-flag-assessment.md). |
+| System/Platform | Full pass with deeper investigation likely — expect [references/deeper-investigation.md](references/deeper-investigation.md). |
 
 If the user has signaled scope (e.g., "just a quick prototype", "this is a platform
 initiative"), calibrate accordingly. When in doubt, ask: "Is this a prototype, a
@@ -138,8 +138,8 @@ into the Problem field and stub the rest.
 4. If gaps remain after the draft, ask **at most 2 targeted questions** — the
    most decision-affecting ones — rather than walking the full sequence. If
    more than 2 gaps matter, surface them as known unknowns in the statement
-   and let the user decide whether to investigate further (Deeper Investigation
-   flow in [references/red-flag-assessment.md](references/red-flag-assessment.md))
+   and let the user decide whether to investigate further
+   ([references/deeper-investigation.md](references/deeper-investigation.md))
 
 The ≤2 question bound is load-bearing: fast-track that degenerates into the
 five-question sequence defeats the purpose. Skip re-asking, not analysis.
@@ -191,10 +191,11 @@ blast radius". Thin or absent fields are the signal — don't paper over them.
 
 After Step 3 produces the Problem Statement, evaluate it for red flags.
 **Read [references/red-flag-assessment.md](references/red-flag-assessment.md) before
-proceeding.** It contains the five-row red-flag table, the no-flags / flags-detected
-branches, and the Step 4b Deeper Investigation lenses (Design Thinking Depth, First
-Principles Depth). Apply per the reference, then return here for Step 5 — or stay in
-the reference's investigation flow if the user picks "investigate".
+proceeding.** It contains the five-row red-flag table and the no-flags / flags-detected
+branches. If the user picks "investigate" on a red-flag branch, the reference further
+gates to [references/deeper-investigation.md](references/deeper-investigation.md) (Design
+Thinking Depth, First Principles Depth) — load that lazily. Otherwise return here for
+Step 5.
 
 ---
 
@@ -211,7 +212,7 @@ the reference's investigation flow if the user picks "investigate".
 - **Decompose into sub-problems** — brainstorming handles scope
 - **Write a design spec** — brainstorming → fat-marker-sketch → detailed design handles that
 - **Save lightweight-pass output to disk** — it lives in conversation context;
-  only deeper investigation (step 4b) produces a file.
+  only the [Deeper Investigation flow](references/deeper-investigation.md) produces a file.
 
 ---
 

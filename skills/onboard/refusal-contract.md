@@ -1,5 +1,13 @@
 # Refusal & Attribution Contract — Phase 3
 
+> **Cross-bundle reference — monorepo-only, `.skill`-bundle hostile.** This file is the
+> single-source contract for `onboard-guard.ts`, consumed by `/swot` and `/present` via
+> repo-relative deep-links (`../onboard/refusal-contract.md`). Anthropic's skill packager
+> would not follow the `../` reference; a fork-consumer copying just `skills/swot/` or
+> `skills/present/` into another repo gets a dangling link. Acceptable risk in this
+> monorepo per ADR #0013 (which accepted the same trade-off for shared architecture
+> vocabulary). Reopen if a packaging or fork-consumer reverses the calculus.
+
 This document is the canonical contract enforced by `skills/onboard/scripts/onboard-guard.ts`. Skills
 that read user-supplied paths or render decks call the guard before proceeding.
 
