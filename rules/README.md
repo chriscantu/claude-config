@@ -22,7 +22,25 @@ and `commands/` (loaded from `~/.claude/commands/`).
    it will never overwrite a real file at the destination.
 3. **Open a fresh Claude Code session** to load the new rule. Existing
    sessions will not pick it up — rules load at session start.
-4. Verify the rule loaded by asking the new session:
+4. Verify the rule loaded. Two options:
+
+   **Automated probe** (preferred):
+
+   ```
+   ./bin/verify-rule-loaded.fish <rule-name>     # e.g. planning
+   ./bin/verify-rule-loaded.fish --all            # every rule in the table below
+   ```
+
+   Spawns a `claude --print` session and asserts the rule path appears
+   in its loaded context. Exits 0 on found, 1 on missing, 2 on probe
+   error (also: typo'd rule name, since single-rule mode validates the
+   name against the "What lives here" table below — add the row first).
+   Uses `haiku` by default (override via `VERIFY_RULE_MODEL=…`) to
+   minimise spend; still costs a real API call per probe, so run
+   selectively rather than wiring into every CI run. See issue #275 for
+   rationale and caveats (model variance, auth requirement).
+
+   **Manual fallback** — open a fresh session and ask:
 
    > List every rule file currently in your loaded system instructions.
    > Quote the first sentence of each. Do not Read from disk.
