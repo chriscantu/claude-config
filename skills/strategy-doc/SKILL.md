@@ -43,8 +43,8 @@ Do not check upstream skill state (SWOT / stakeholder / arch availability) here 
 
 | Mode | Effect |
 |---|---|
-| `draft` (default) | Read existing doc (or scaffold from template), pull upstream evidence per [synthesis.md](synthesis.md), populate inside-fence content. Preserve outside-fence user prose. **After the Write tool completes, run `cat <path-to-decisions-file>` via the Bash tool** so the rendered doc lands in the transcript verbatim. The Bash output is the user-visible artifact — do NOT replace it with a prose summary, and do NOT skip the cat step under any terseness/compression mode (the cat output bypasses prose compression). |
-| `review` | Read the doc; emit it via `cat <path>` (Bash tool) so the full markdown reaches the transcript verbatim. No mutation. No checks. Same anti-compression rule as draft. |
+| `draft` (default) | Read existing doc (or scaffold from template), pull upstream evidence per [synthesis.md](synthesis.md), populate inside-fence content. Preserve outside-fence user prose. **After writing, output the complete file content verbatim to the terminal** (read the file back and print every line including user prose between and below fences) so the user can review it. Do NOT substitute a summary or status message for the full content. |
+| `review` | Read the doc; render section-by-section to terminal (print the full markdown content). No mutation. No checks. |
 | `challenge` | Run layered checks per [challenge-checks.md](challenge-checks.md). Layer 1 fail skips 2-3. Layer 2 fail gates Layer 3 behind `--continue`. All clean → offer `/present` handoff per [export-present.md](export-present.md). |
 
 ## Doc location
