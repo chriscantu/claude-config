@@ -22,13 +22,18 @@ Personal note-collator for the 90-day-plan deliverable of a senior eng leader ra
 ## Invocation
 
 ```
-/strategy-doc <org> [--mode=draft|review|challenge] [--workspace <path>]
+/strategy-doc <org> [--mode=draft|review|challenge] [--workspace <path>] [--continue]
 ```
 
 `<org>` is required. Default mode is `draft`.
 
+**Flags:**
+- `--mode=draft|review|challenge` — see [Mode routing](#mode-routing).
+- `--workspace <path>` — override the default `~/repos/onboard-<org>/` resolution. Supports eval fixtures and custom locations.
+- `--continue` — only meaningful with `--mode=challenge`. After a Layer 2 quality failure, re-run with this flag to advance to the Layer 3 (consistency, advisory) pass anyway. Skipping Layer 2 fixes is a deliberate choice; the user takes ownership.
+
 **Workspace resolution order:**
-1. `--workspace <path>` if provided — use that path directly (supports eval fixtures and custom locations).
+1. `--workspace <path>` if provided — use that path directly.
 2. Otherwise, `~/repos/onboard-<org>/`.
 
 ## Prerequisites (refuse if missing)
@@ -51,9 +56,22 @@ Do not check upstream skill state (SWOT / stakeholder / arch availability) here 
 
 Single artifact per ramp at `<workspace>/decisions/<creation-date>-90-day-plan.md`.
 
-- First `--mode=draft` run: create `<workspace>/decisions/<today>-90-day-plan.md` from template.
-- Subsequent `--mode=draft` runs: glob `<workspace>/decisions/*-90-day-plan.md` → mutate the existing file (latest mtime if multiple). Do NOT create a new dated file.
-- Multiple `*-90-day-plan.md` files present (user manually duplicated): refuse mutation, list files, ask user to consolidate. One artifact per ramp is invariant.
+**Glob outcome routing** — every `--mode=draft` run starts with `glob <workspace>/decisions/*-90-day-plan.md`:
+
+| Glob result | Action |
+|---|---|
+| 0 files | First-run path. Create `<workspace>/decisions/<today>-90-day-plan.md` from template. (Create `decisions/` if it doesn't exist — matches `/onboard` Phase 1 contract.) |
+| 1 file | Mutate that file in place. Do NOT create a new dated file even if today differs from the file's date. |
+| 2+ files | Refuse mutation. Emit a list with each filename + `mtime` (sorted newest first) and ask the user to consolidate. One artifact per ramp is invariant. The refusal must be idempotent — re-running after another ambiguous state must produce the same list, not silently mutate the newest. |
+
+**Atomic write semantics** — for the 0-file and 1-file cases, perform every mutation as a write-temp-then-rename:
+
+1. Render the new doc content to `<workspace>/decisions/.<final-filename>.tmp`.
+2. Validate the rendered content's section-fences before rename.
+3. `rename(.tmp, <final-filename>)` only if validation passes; the rename is atomic on POSIX, so the original file is never observed in a partially-written state.
+4. On any failure between step 1 and step 3 (validation fail, write error, signal interrupt): delete the `.tmp` file, leave the original untouched, surface the failure cause to the user.
+
+This forbids partial writes, prevents data loss on interrupted runs, and means a malformed-fence damage report from `--mode=draft` is always paired with a fully-preserved original file.
 
 ## Confidentiality
 

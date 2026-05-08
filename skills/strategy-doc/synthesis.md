@@ -106,4 +106,49 @@ Per-entry format requires a named owner. If the upstream source doesn't name an 
 
 ## Conflicting evidence
 
-If two sources disagree (SWOT entity says X is strength, `notes/X.md` says X is weakness), emit inline `[CONFLICT: <source-A> says ..., <source-B> says ...; resolve before challenge]` in the affected section. Challenge layer 1 treats unresolved CONFLICT markers as incompleteness — challenge fails until user resolves.
+A conflict is a **deterministic surface-area collision**, not a semantic
+judgment. The synthesis pass MUST emit `[CONFLICT: ...]` markers when both of
+the following hold:
+
+1. **Same surface area** — the same noun phrase (case-insensitive,
+   whitespace-normalized — single spaces, no leading/trailing whitespace)
+   appears in two or more upstream sources. Different surface areas (e.g.,
+   "payments service latency" vs. "payments service throughput") are NOT a
+   conflict, even if they sound related.
+2. **Opposite sentiment tag** — the same surface area is tagged with
+   sentiment-opposite categories across sources. Categories considered
+   opposite:
+   - SWOT `[strength]` ↔ SWOT `[weakness]` or SWOT `[threat]`
+   - SWOT `[opportunity]` ↔ SWOT `[threat]`
+   - Stakeholder `ally` ↔ Stakeholder `blocker`
+   - Notes prose marked as positive ("strong", "excellent", "high") ↔
+     notes prose marked as negative ("weak", "poor", "low") about the same
+     surface area
+   - Arch finding (code-grounded) contradicting an upstream claim about
+     the same module/integration
+
+Emission format (literal — the regex `\\[CONFLICT` is the challenge-layer-1
+gate):
+
+```
+[CONFLICT: <source-A> says "<verbatim or close-paraphrase>"; <source-B> says "<verbatim or close-paraphrase>"; resolve before challenge]
+```
+
+The conflict marker MUST appear in the section that would otherwise carry the
+observation (typically §1, §2, §3, or §7). Do NOT silently pick one source
+and drop the other — the marker is the contract that makes the disagreement
+visible to the user.
+
+**Out-of-scope conflicts (Phase 1):**
+
+- Temporal shifts ("X was strong in Q1, weak in Q3") are NOT conflicts when
+  both sources agree on the trajectory; surface as a single annotated
+  observation.
+- Homonyms (different things named X) — if the surface phrase is identical
+  but the entities differ, emit `[CONFLICT: ...]` anyway. False positives
+  are cheaper than false negatives here; the user resolves manually.
+
+Challenge layer 1 treats unresolved `[CONFLICT` markers as incompleteness —
+challenge fails until the user removes or resolves them. The challenge-pass
+gate is a regex check on the literal `[CONFLICT` substring; this is the
+sole load-bearing surface for the conflict contract.
