@@ -61,6 +61,37 @@ describe("skills/onboard/scripts/onboard-guard.ts refuse-raw", () => {
     const r = run("refuse-raw", nested);
     expect(r.exitCode).toBe(2);
   });
+
+  test("exits 2 when path is directly under notes/raw (strategy-doc segment)", () => {
+    const ws = makeWorkspace();
+    mkdirSync(join(ws, "notes", "raw"), { recursive: true });
+    const raw = join(ws, "notes", "raw", "sensitive.md");
+    writeFileSync(raw, "Verbatim quote: We need to cut 30%.\n");
+    const r = run("refuse-raw", raw);
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("notes/raw");
+    expect(r.stderr).toContain("strategy-doc");
+    expect(r.stderr).toContain("refused");
+  });
+
+  test("exits 2 when path is nested deeper under notes/raw", () => {
+    const ws = makeWorkspace();
+    const nested = join(ws, "notes", "raw", "2026-Q2", "weekly.md");
+    mkdirSync(join(ws, "notes", "raw", "2026-Q2"), { recursive: true });
+    writeFileSync(nested, "Notes\n");
+    const r = run("refuse-raw", nested);
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("notes/raw");
+  });
+
+  test("exits 0 when path is in notes/ but outside notes/raw", () => {
+    const ws = makeWorkspace();
+    mkdirSync(join(ws, "notes"), { recursive: true });
+    const sanitized = join(ws, "notes", "week-1.md");
+    writeFileSync(sanitized, "## Synthesis\n");
+    const r = run("refuse-raw", sanitized);
+    expect(r.exitCode).toBe(0);
+  });
 });
 
 describe("skills/onboard/scripts/onboard-guard.ts refuse-raw — symlink hardening (Phase 4)", () => {

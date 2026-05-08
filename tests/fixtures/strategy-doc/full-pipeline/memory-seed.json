@@ -1,0 +1,24 @@
+{
+  "entities": [
+    {
+      "name": "Acme SWOT",
+      "entityType": "SWOT",
+      "observations": [
+        "[strength] Engineering velocity high — 40 PRs/week",
+        "[weakness] On-call burden uneven — 3 ICs hold 80% of pages",
+        "[weakness] Payments service test coverage drifting",
+        "[threat] Stripe API v2 deprecation forces Q3 migration",
+        "[opportunity] 2 senior eng platform hires landed last sprint"
+      ]
+    },
+    {
+      "name": "Acme Stakeholders",
+      "entityType": "Stakeholders",
+      "observations": [
+        "Director of Product — ally, interviewed W2",
+        "VP Eng — ally, manager handoff complete W1",
+        "Director of Data Platform — coverage gap, no 1on1 yet"
+      ]
+    }
+  ]
+}

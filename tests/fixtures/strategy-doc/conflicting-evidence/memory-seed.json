@@ -1,0 +1,11 @@
+{
+  "entities": [
+    {
+      "name": "Acme SWOT",
+      "entityType": "SWOT",
+      "observations": [
+        "[strength] Test coverage on payments service is excellent — 90%+"
+      ]
+    }
+  ]
+}

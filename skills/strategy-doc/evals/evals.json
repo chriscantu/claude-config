@@ -1,0 +1,182 @@
+{
+  "skill": "strategy-doc",
+  "description": "Phase 1 evals — 90-day-plan mode end-to-end. Covers draft happy paths (workspace prereq, fresh, swot-only, full-pipeline), idempotence, review render, layered challenge (completeness → quality → consistency → /present handoff), refusal-contract delegation to onboard-guard, graceful upstream degradation, conflicting evidence, doc-state errors. All evals tag 'mode:90-day-plan' in summary for Phase 2 RFC regression filtering.",
+  "evals": [
+    {
+      "name": "workspace-missing-refusal",
+      "summary": "tag: mode:90-day-plan. Prereq refusal: ~/repos/onboard-<org>/ absent → skill refuses with /onboard-first message.",
+      "prompt": "/strategy-doc nonexistent-org-fixture --mode=draft",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "strategy-doc", "tier": "diagnostic", "description": "diagnostic structural anchor: skill should route on /strategy-doc slash command. Diagnostic-tier per sdr precedent — Skill tool re-emit on slash-prefix prompts is unreliable across single-turn `claude --print` (issue #157), so this surfaces in transcripts but doesn't gate; the regex below is the load-bearing required signal"},
+        {"type": "tool_input_matches", "tool": "Skill", "input_key": "skill", "input_value": "strategy-doc", "tier": "diagnostic", "description": "diagnostic: Skill tool surface contract — pins skill input value"},
+        {"type": "regex", "pattern": "(workspace not found|run /onboard|onboard <org> first)", "flags": "i", "tier": "required", "description": "refusal message names the missing workspace and points at /onboard"},
+        {"type": "not_regex", "pattern": "<!-- strategy-doc:auto -->", "flags": "i", "tier": "required", "description": "no doc emitted on refusal"}
+      ]
+    },
+    {
+      "name": "draft-fresh-workspace",
+      "summary": "tag: mode:90-day-plan. Empty onboard scaffold; --mode=draft emits 7-section skeleton with [TODO] in all sections.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/fresh-workspace /tmp/sd-eval-draft-fresh-workspace",
+      "teardown": "rm -rf /tmp/sd-eval-draft-fresh-workspace",
+      "prompt": "/strategy-doc fresh-workspace --mode=draft --workspace /tmp/sd-eval-draft-fresh-workspace",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "strategy-doc", "tier": "diagnostic", "description": "diagnostic structural anchor: skill should route on /strategy-doc slash command. Diagnostic-tier per sdr precedent — slash-prefix re-emit unreliability"},
+        {"type": "tool_input_matches", "tool": "Skill", "input_key": "skill", "input_value": "strategy-doc", "tier": "diagnostic", "description": "diagnostic: Skill tool surface contract — pins skill input value"},
+        {"type": "regex", "pattern": "## 1\\. What I learned", "flags": "i", "tier": "required", "description": "Section 1 heading present in printed doc"},
+        {"type": "regex", "pattern": "## 7\\. Risks and dependencies", "flags": "i", "tier": "required", "description": "Section 7 heading present in printed doc"},
+        {"type": "regex", "pattern": "<!-- strategy-doc:auto -->", "flags": "i", "tier": "required", "description": "section-fence sentinel present in printed doc"},
+        {"type": "regex", "pattern": "\\[TODO", "flags": "i", "tier": "required", "description": "[TODO] markers present (empty workspace → all sections [TODO])"}
+      ]
+    },
+    {
+      "name": "draft-with-swot-only",
+      "summary": "tag: mode:90-day-plan. SWOT entity populated; stakeholder/arch/notes empty. §1-3 partial; §5/§6 still [TODO].",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/with-swot-only /tmp/sd-eval-draft-with-swot-only",
+      "teardown": "rm -rf /tmp/sd-eval-draft-with-swot-only",
+      "prompt": "/strategy-doc with-swot-only --mode=draft --workspace /tmp/sd-eval-draft-with-swot-only",
+      "assertions": [
+        {"type": "regex", "pattern": "(velocity|on-call|test coverage|stripe)", "flags": "i", "tier": "required", "description": "SWOT entity content reflected in synthesis"},
+        {"type": "regex", "pattern": "(§5|section 5|specific asks).{0,80}(TODO|user.supplied|cannot synthesize)", "flags": "i", "tier": "required", "description": "§5 reported as TODO/user-supplied (skill cannot synthesize asks)"},
+        {"type": "regex", "pattern": "(§6|section 6|milestone|30.60.90).{0,80}(TODO|user.supplied|cannot synthesize)", "flags": "i", "tier": "required", "description": "§6 reported as TODO/user-supplied"}
+      ]
+    },
+    {
+      "name": "draft-full-pipeline",
+      "summary": "tag: mode:90-day-plan. All four sources populated. §1-3 substantially filled with multi-source citations; §4 has hunch with confirm/refute; §5/§6 [TODO].",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/full-pipeline /tmp/sd-eval-draft-full-pipeline",
+      "teardown": "rm -rf /tmp/sd-eval-draft-full-pipeline",
+      "prompt": "/strategy-doc full-pipeline --mode=draft --workspace /tmp/sd-eval-draft-full-pipeline",
+      "assertions": [
+        {"type": "regex", "pattern": "(Director of Data Platform|data-platform|coverage gap)", "flags": "i", "tier": "required", "description": "stakeholder gap reflected in §1 or §3"},
+        {"type": "regex", "pattern": "Confidence:\\s*(confirmed|likely)", "flags": "i", "tier": "required", "description": "§3 entries carry confidence labels"},
+        {"type": "regex", "pattern": "To confirm:|To refute:", "flags": "i", "tier": "required", "description": "§4 entries carry confirm/refute fields"},
+        {"type": "regex", "pattern": "(stripe|integration|external)", "flags": "i", "tier": "required", "description": "arch integrations.md reflected in §1 or §7"}
+      ]
+    },
+    {
+      "name": "draft-idempotent",
+      "summary": "tag: mode:90-day-plan. Re-run --mode=draft preserves outside-fence user prose; refreshes inside-fence content.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/draft-with-user-edits /tmp/sd-eval-draft-idempotent",
+      "teardown": "rm -rf /tmp/sd-eval-draft-idempotent",
+      "prompt": "/strategy-doc draft-with-user-edits --mode=draft --workspace /tmp/sd-eval-draft-idempotent",
+      "assertions": [
+        {"type": "regex", "pattern": "USER PROSE: This is my own synthesis paragraph", "flags": "", "tier": "required", "description": "user prose below closing fence preserved verbatim"},
+        {"type": "not_regex", "pattern": "Old auto bullet — should be replaced on re-run", "flags": "", "tier": "required", "description": "stale inside-fence content replaced"}
+      ]
+    },
+    {
+      "name": "review-mode-readonly",
+      "summary": "tag: mode:90-day-plan. --mode=review renders sections; no mutation; no checks.",
+      "prompt": "/strategy-doc clean-doc --mode=review --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/clean-doc",
+      "assertions": [
+        {"type": "regex", "pattern": "(## 1\\.|### §1\\.|what I learned)", "flags": "i", "tier": "required", "description": "section 1 heading or content rendered to terminal"},
+        {"type": "not_regex", "pattern": "(Layer 1.{0,20}(clean|fail|running)|running layer 2|layer 2 \\(quality\\)|layer 3 \\(consistency\\))", "flags": "i", "tier": "required", "description": "review mode does not execute challenge checks (may mention --mode=challenge as suggestion)"}
+      ]
+    },
+    {
+      "name": "challenge-layer-1-fail",
+      "summary": "tag: mode:90-day-plan. Doc with [TODO] markers fails layer 1; layer 2/3 not run.",
+      "prompt": "/strategy-doc draft-with-todos --mode=challenge --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/draft-with-todos",
+      "assertions": [
+        {"type": "regex", "pattern": "(layer 1|completeness)", "flags": "i", "tier": "required", "description": "layer 1 failure named"},
+        {"type": "regex", "pattern": "\\[TODO", "flags": "", "tier": "required", "description": "[TODO] count or list emitted"},
+        {"type": "not_regex", "pattern": "running layer 2|running layer 3|layer 2 \\(quality\\): clean|layer 3 \\(consistency\\)", "flags": "i", "tier": "required", "description": "layers 2-3 not run (gating references to layers 2/3 in skip context are ok)"}
+      ]
+    },
+    {
+      "name": "challenge-layer-2-fail-vague-asks",
+      "summary": "tag: mode:90-day-plan. Layer 1 clean, §5 has 'more headcount' (no number/date) AND §6 has 'Build trust with platform team' milestone with no Success criteria line → layer 2 fails on both ask-specificity and milestone-measurability checks.",
+      "prompt": "/strategy-doc draft-vague-asks --mode=challenge --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/draft-vague-asks",
+      "assertions": [
+        {"type": "regex", "pattern": "(layer 2|quality)", "flags": "i", "tier": "required", "description": "layer 2 named"},
+        {"type": "regex", "pattern": "(vague|specific|number|date|more headcount)", "flags": "i", "tier": "required", "description": "ask-specificity failure cited"},
+        {"type": "regex", "pattern": "(measurable|measurability|success criteria|build trust)", "flags": "i", "tier": "required", "description": "§6 milestone-measurability failure cited (Build trust milestone has no Success criteria line)"},
+        {"type": "not_regex", "pattern": "running layer 3|layer 3 \\(consistency\\): clean|layer 3 clean", "flags": "i", "tier": "required", "description": "layer 3 gated behind --continue (mentions of layer 3 as gate are ok)"}
+      ]
+    },
+    {
+      "name": "challenge-layer-2-fail-quality-gaps",
+      "summary": "tag: mode:90-day-plan. Layer 1 clean, but multiple §3-7 quality fields missing: §3 entry without Evidence: line, §4 entry without To confirm:/To refute:, §6 milestone without (addresses §X.N) cross-ref, §7 risk without Owner: line, §7 risk with Owner: [TODO: assign owner] sentinel. Layer 2 must cite each violation; layer 3 gated behind --continue.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/draft-layer2-quality-gaps /tmp/sd-eval-layer2-gaps",
+      "teardown": "rm -rf /tmp/sd-eval-layer2-gaps",
+      "prompt": "/strategy-doc draft-layer2-quality-gaps --mode=challenge --workspace /tmp/sd-eval-layer2-gaps",
+      "assertions": [
+        {"type": "regex", "pattern": "(layer 2|quality)", "flags": "i", "tier": "required", "description": "layer 2 named"},
+        {"type": "regex", "pattern": "(evidence|§3.{0,30}cit)", "flags": "i", "tier": "required", "description": "§3 evidence-citation failure cited (Payments service test coverage drift entry missing Evidence: line)"},
+        {"type": "regex", "pattern": "(confirm|refute|§4)", "flags": "i", "tier": "required", "description": "§4 confirm/refute presence failure cited (Data-platform under-resourced suspect entry missing both To confirm: and To refute: lines)"},
+        {"type": "regex", "pattern": "(cross.{0,5}ref|addresses|validates|§6.{0,30}milestone)", "flags": "i", "tier": "required", "description": "§6 cross-reference annotation failure cited (Test-coverage baseline restoration milestone missing (addresses §3.N) annotation)"},
+        {"type": "regex", "pattern": "(owner|§7.{0,30}risk)", "flags": "i", "tier": "required", "description": "§7 risk-ownership failure cited (Stripe v2 risk missing Owner: line; data-platform risk has Owner: [TODO: assign owner])"},
+        {"type": "not_regex", "pattern": "running layer 3|layer 3 \\(consistency\\): clean|layer 3 clean", "flags": "i", "tier": "required", "description": "layer 3 gated behind --continue (mentions of layer 3 as gate are ok)"}
+      ]
+    },
+    {
+      "name": "challenge-layer-3-pass-handoff",
+      "summary": "tag: mode:90-day-plan. All 3 layers clean → /present handoff offered.",
+      "prompt": "/strategy-doc clean-doc --mode=challenge --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/clean-doc",
+      "assertions": [
+        {"type": "regex", "pattern": "(layer 1|completeness).{0,40}(clean|pass)", "flags": "i", "tier": "required", "description": "layer 1 reports clean"},
+        {"type": "regex", "pattern": "(/present|export|slidev|deck)", "flags": "i", "tier": "required", "description": "/present handoff offered"}
+      ]
+    },
+    {
+      "name": "refusal-raw-notes",
+      "summary": "tag: mode:90-day-plan. notes/raw/ contents must NOT reach the synthesized doc. Skill auto-globs notes/*.md and excludes notes/raw/; refusal-contract via onboard-guard.ts is the deeper safety net (see skills/onboard/refusal-contract.md).",
+      "prompt": "/strategy-doc with-raw-notes --mode=draft --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/with-raw-notes",
+      "assertions": [
+        {"type": "not_regex", "pattern": "We need to cut 30%", "flags": "", "tier": "required", "description": "verbatim raw content NOT echoed in the synthesized doc — load-bearing confidentiality assertion; if this regex matches, the skill leaked notes/raw/ into the final artifact"},
+        {"type": "not_regex", "pattern": "notes/raw/sensitive\\.md", "flags": "", "tier": "required", "description": "raw notes path NOT cited as a source — SWOT/stakeholder/arch and sanitized notes/*.md are the only legitimate citation surfaces"}
+      ]
+    },
+    {
+      "name": "memory-mcp-unavailable",
+      "summary": "tag: mode:90-day-plan. Memory MCP unavailable → graceful filesystem-only fallback; no abort. Fixture has no memory-seed.json, simulating both 'MCP unavailable' and 'entity missing' indistinguishably; eval asserts skill emits doc + warning, does not abort.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/fresh-workspace /tmp/sd-eval-memory-mcp-unavailable",
+      "teardown": "rm -rf /tmp/sd-eval-memory-mcp-unavailable",
+      "prompt": "/strategy-doc fresh-workspace --mode=draft --workspace /tmp/sd-eval-memory-mcp-unavailable",
+      "assertions": [
+        {"type": "regex", "pattern": "## 7\\. Risks and dependencies", "flags": "i", "tier": "required", "description": "all 7 sections still emitted in printed doc"},
+        {"type": "regex", "pattern": "(memory|mcp).{0,40}(unavailable|skip|filesystem)", "flags": "i", "tier": "diagnostic", "description": "informational warning emitted"}
+      ]
+    },
+    {
+      "name": "conflicting-evidence-blocks-challenge",
+      "summary": "tag: mode:90-day-plan. SWOT-strength vs notes-weakness → [CONFLICT: ...] inline marker; challenge layer 1 fails on CONFLICT.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/conflicting-evidence /tmp/sd-eval-conflicting-evidence",
+      "teardown": "rm -rf /tmp/sd-eval-conflicting-evidence",
+      "prompt": "/strategy-doc conflicting-evidence --mode=draft --workspace /tmp/sd-eval-conflicting-evidence",
+      "assertions": [
+        {"type": "regex", "pattern": "\\[CONFLICT", "flags": "", "tier": "required", "description": "CONFLICT marker emitted inline"},
+        {"type": "regex", "pattern": "(test coverage|payments)", "flags": "i", "tier": "required", "description": "conflict cites the disputed surface"}
+      ]
+    },
+    {
+      "name": "doc-fence-malformed-refuses-mutation",
+      "summary": "tag: mode:90-day-plan. Doc with unclosed/nested fences → skill refuses mutation, emits damage report.",
+      "prompt": "/strategy-doc malformed-fences --mode=draft --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/malformed-fences",
+      "assertions": [
+        {"type": "regex", "pattern": "(malformed|unclosed|nested|damage|fence)", "flags": "i", "tier": "required", "description": "damage cited"},
+        {"type": "regex", "pattern": "(line|position|section)", "flags": "i", "tier": "required", "description": "specific location named"}
+      ]
+    },
+    {
+      "name": "multi-day-overlap-mutates-existing",
+      "summary": "tag: mode:90-day-plan. Existing doc dated 2 weeks ago → --mode=draft mutates same file (does NOT create new dated file).",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/existing-old-doc /tmp/sd-eval-multi-day-overlap",
+      "teardown": "rm -rf /tmp/sd-eval-multi-day-overlap",
+      "prompt": "/strategy-doc existing-old-doc --mode=draft --workspace /tmp/sd-eval-multi-day-overlap",
+      "assertions": [
+        {"type": "regex", "pattern": "2026-04-23-90-day-plan\\.md", "flags": "", "tier": "required", "description": "existing dated filename referenced as mutation target"},
+        {"type": "not_regex", "pattern": "2026-05-07-90-day-plan\\.md", "flags": "", "tier": "required", "description": "no new dated file created today"}
+      ]
+    },
+    {
+      "name": "multi-file-glob-refusal",
+      "summary": "tag: mode:90-day-plan. Two *-90-day-plan.md files present → refuse mutation, ask user to consolidate.",
+      "prompt": "/strategy-doc multi-day-plans --mode=draft --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/multi-day-plans",
+      "assertions": [
+        {"type": "regex", "pattern": "(consolidat|multiple|ambiguous|two|both)", "flags": "i", "tier": "required", "description": "multi-file refusal language"},
+        {"type": "regex", "pattern": "2026-04-23.*2026-05-07|2026-05-07.*2026-04-23", "flags": "s", "tier": "required", "description": "both filenames listed"}
+      ]
+    }
+  ]
+}

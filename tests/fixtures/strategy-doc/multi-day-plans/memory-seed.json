@@ -1,0 +1,15 @@
+{
+  "entities": [
+    {
+      "name": "Acme SWOT",
+      "entityType": "SWOT",
+      "observations": [
+        "[strength] Engineering velocity high — 40 PRs/week (multi-team)",
+        "[weakness] On-call burden uneven — 3 ICs hold 80% of pages",
+        "[weakness] Test coverage on payments service drifting (was 75%, now 52%)",
+        "[opportunity] Recently hired 2 senior eng with platform experience",
+        "[threat] Stripe API v2 deprecation forces migration in Q3"
+      ]
+    }
+  ]
+}

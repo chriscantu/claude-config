@@ -28,18 +28,27 @@ with the env-var fallback applied per the rule above.
 
 ## Refusal — `skills/onboard/scripts/onboard-guard.ts refuse-raw <path>`
 
-`/swot` and `/present` MUST run this before reading any user-supplied path. Exit
-codes:
+`/swot`, `/present`, and `/strategy-doc` MUST run this before reading any
+user-supplied path inside an `/onboard` workspace. Exit codes:
 
 | Exit | Meaning | Skill action |
 |---|---|---|
-| 0 | Path is outside any `interviews/raw/` directory | proceed |
-| 2 | Path is inside `interviews/raw/` (refused) | abort with the guard's stderr message; surface to the user; do NOT read the file |
+| 0 | Path is outside any confidential `raw/` segment | proceed |
+| 2 | Path is inside a confidential `raw/` segment (refused) | abort with the guard's stderr message; surface to the user; do NOT read the file |
 | 64 | Misuse (wrong arg count) | bug — file an issue |
 
+Confidential segments (both refused with exit 2):
+
+- `interviews/raw/` — `/swot` verbatim intake notes (Phase 3 contract).
+- `notes/raw/` — `/strategy-doc` raw note staging that must not feed downstream
+  synthesis.
+
 Detection rule: the path is resolved via `realpathSync` before the
-`/interviews/raw/` segment check. Symlinks pointing at raw notes refuse;
-broken symlinks (target missing) refuse as the safer default.
+segment check. Symlinks pointing at raw notes refuse; broken symlinks
+(target missing) refuse as the safer default. Both segments use the
+same path-resolution logic; adding a new confidential segment requires
+extending the `RAW_SEGMENTS` list in `skills/onboard/scripts/onboard-guard.ts`
+and adding the corresponding tests in `tests/onboard-guard.test.ts`.
 
 ## Attribution — `skills/onboard/scripts/onboard-guard.ts attribution-check <deck.md> <map.md>`
 

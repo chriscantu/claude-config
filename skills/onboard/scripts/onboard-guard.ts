@@ -2,18 +2,25 @@
 // onboard-guard — confidentiality boundary enforcement for /onboard workspaces.
 //
 // Subcommands:
-//   refuse-raw <path>                Exit 2 if <path> is inside any interviews/raw/ dir.
+//   refuse-raw <path>                Exit 2 if <path> is inside any interviews/raw/ or
+//                                    notes/raw/ dir. Both segments are confidential
+//                                    sources: interviews/raw/ holds /swot verbatim
+//                                    intake; notes/raw/ holds /strategy-doc raw notes
+//                                    that must not feed downstream synthesis.
 //   attribution-check <deck> <map>   Exit 3 if <deck> markdown contains stakeholder
 //                                    names extracted from <map>.
 
 import { readFileSync, realpathSync } from "node:fs";
 import { basename, sep } from "node:path";
 
-const RAW_SEGMENT = `${sep}interviews${sep}raw${sep}`;
+const RAW_SEGMENTS = [
+  `${sep}interviews${sep}raw${sep}`,
+  `${sep}notes${sep}raw${sep}`,
+] as const;
 
 type RawCheck =
   | { kind: "broken"; input: string }
-  | { kind: "inside"; input: string; resolved: string }
+  | { kind: "inside"; input: string; resolved: string; segment: string }
   | { kind: "outside"; input: string; resolved: string };
 
 export const checkPath = (path: string): RawCheck => {
@@ -23,9 +30,10 @@ export const checkPath = (path: string): RawCheck => {
   } catch {
     return { kind: "broken", input: path };
   }
-  const insideRaw = (resolved + sep).includes(RAW_SEGMENT);
-  return insideRaw
-    ? { kind: "inside", input: path, resolved }
+  const probe = resolved + sep;
+  const matchedSegment = RAW_SEGMENTS.find((seg) => probe.includes(seg));
+  return matchedSegment
+    ? { kind: "inside", input: path, resolved, segment: matchedSegment }
     : { kind: "outside", input: path, resolved };
 };
 
@@ -38,13 +46,18 @@ const refuseRaw = (path: string): number => {
         `See skills/onboard/refusal-contract.md.\n`,
       );
       return 2;
-    case "inside":
+    case "inside": {
+      const trimmed = check.segment.replace(new RegExp(`^${sep}|${sep}$`, "g"), "");
+      const downstreamHint = trimmed === "interviews/raw"
+        ? "Downstream skills (/swot, /present) read interviews/sanitized/ exclusively."
+        : "Downstream skills (/strategy-doc, /present) read sanitized notes/*.md exclusively (excluding notes/raw/).";
       process.stderr.write(
-        `refused: ${check.input} (resolves to ${check.resolved}) is inside interviews/raw/\n` +
-        `Downstream skills (/swot, /present) read interviews/sanitized/ exclusively.\n` +
+        `refused: ${check.input} (resolves to ${check.resolved}) is inside ${trimmed}/\n` +
+        `${downstreamHint}\n` +
         `See skills/onboard/refusal-contract.md.\n`,
       );
       return 2;
+    }
     case "outside":
       return 0;
   }
