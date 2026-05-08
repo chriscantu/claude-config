@@ -6,10 +6,12 @@ How to combine upstream inputs into the 7 sections of the 90-day-plan during `--
 
 | Source | Read via | Always read? |
 |---|---|---|
-| `<Org> SWOT` memory entity | `mcp__memory__search_nodes("<Org> SWOT")` | Yes (warn + skip if memory MCP unavailable) |
-| `<Org> Stakeholders` memory entity | `mcp__memory__search_nodes("<Org> Stakeholders")` | Yes |
-| Architecture bundle | `arch/{inventory,dependencies,data-flow,integrations}.md` via `Read` | Yes (skip if any file absent) |
-| Free-form notes | glob `notes/*.md` (exclude `notes/raw/`) | Yes |
+| `<Org> SWOT` memory entity | `mcp__memory__search_nodes("<Org> SWOT")`. If entity missing or MCP unavailable, fall back to reading `<workspace>/memory-seed.json` (eval fixture proxy — load the `entities` array and treat it as the in-memory state). | Yes (warn + skip if both MCP and memory-seed.json absent) |
+| `<Org> Stakeholders` memory entity | `mcp__memory__search_nodes("<Org> Stakeholders")`. Same fallback: `<workspace>/memory-seed.json`. | Yes |
+| Architecture bundle | `<workspace>/arch/{inventory,dependencies,data-flow,integrations}.md` via `Read` | Yes (skip if any file absent) |
+| Free-form notes | glob `<workspace>/notes/*.md` (exclude `notes/raw/`) | Yes |
+
+Where `<workspace>` is the resolved workspace path (from `--workspace <path>` if provided, else `~/repos/onboard-<org>/`).
 
 ## Confidentiality precondition
 

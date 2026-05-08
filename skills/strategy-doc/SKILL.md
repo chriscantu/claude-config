@@ -22,16 +22,20 @@ Personal note-collator for the 90-day-plan deliverable of a senior eng leader ra
 ## Invocation
 
 ```
-/strategy-doc <org> [--mode=draft|review|challenge]
+/strategy-doc <org> [--mode=draft|review|challenge] [--workspace <path>]
 ```
 
 `<org>` is required. Default mode is `draft`.
 
+**Workspace resolution order:**
+1. `--workspace <path>` if provided — use that path directly (supports eval fixtures and custom locations).
+2. Otherwise, `~/repos/onboard-<org>/`.
+
 ## Prerequisites (refuse if missing)
 
-1. `~/repos/onboard-<org>/` directory exists. If absent, refuse with:
-   > "Workspace not found at `~/repos/onboard-<org>/`. Run `/onboard <org>` first."
-2. `decisions/` subdirectory exists or is creatable. If `~/repos/onboard-<org>/` exists but `decisions/` does not, create it (matches `/onboard` Phase 1 contract).
+1. Resolved workspace directory exists. If absent, refuse with:
+   > "Workspace not found at `<resolved-path>`. Run `/onboard <org>` first." (omit `/onboard` hint when `--workspace` was passed, since those are typically eval or custom paths.)
+2. `decisions/` subdirectory exists or is creatable. If workspace exists but `decisions/` does not, create it (matches `/onboard` Phase 1 contract).
 
 Do not check upstream skill state (SWOT / stakeholder / arch availability) here — those are graceful-degradation cases handled inside `--mode=draft`.
 
@@ -39,8 +43,8 @@ Do not check upstream skill state (SWOT / stakeholder / arch availability) here 
 
 | Mode | Effect |
 |---|---|
-| `draft` (default) | Read existing doc (or scaffold from template), pull upstream evidence per [synthesis.md](synthesis.md), populate inside-fence content. Preserve outside-fence user prose. |
-| `review` | Render section-by-section view to terminal. No mutation. No checks. |
+| `draft` (default) | Read existing doc (or scaffold from template), pull upstream evidence per [synthesis.md](synthesis.md), populate inside-fence content. Preserve outside-fence user prose. **After writing, print the full doc content to the terminal** so the user can review it. |
+| `review` | Read the doc; render section-by-section to terminal (print the full markdown content). No mutation. No checks. |
 | `challenge` | Run layered checks per [challenge-checks.md](challenge-checks.md). Layer 1 fail skips 2-3. Layer 2 fail gates Layer 3 behind `--continue`. All clean → offer `/present` handoff per [export-present.md](export-present.md). |
 
 ## Doc location
