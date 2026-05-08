@@ -7,6 +7,8 @@
       "summary": "tag: mode:90-day-plan. Prereq refusal: ~/repos/onboard-<org>/ absent → skill refuses with /onboard-first message.",
       "prompt": "/strategy-doc nonexistent-org-fixture --mode=draft",
       "assertions": [
+        {"type": "skill_invoked", "skill": "strategy-doc", "tier": "diagnostic", "description": "diagnostic structural anchor: skill should route on /strategy-doc slash command. Diagnostic-tier per sdr precedent — Skill tool re-emit on slash-prefix prompts is unreliable across single-turn `claude --print` (issue #157), so this surfaces in transcripts but doesn't gate; the regex below is the load-bearing required signal"},
+        {"type": "tool_input_matches", "tool": "Skill", "input_key": "skill", "input_value": "strategy-doc", "tier": "diagnostic", "description": "diagnostic: Skill tool surface contract — pins skill input value"},
         {"type": "regex", "pattern": "(workspace not found|run /onboard|onboard <org> first)", "flags": "i", "tier": "required", "description": "refusal message names the missing workspace and points at /onboard"},
         {"type": "not_regex", "pattern": "<!-- strategy-doc:auto -->", "flags": "i", "tier": "required", "description": "no doc emitted on refusal"}
       ]
@@ -18,6 +20,8 @@
       "teardown": "rm -rf /tmp/sd-eval-draft-fresh-workspace",
       "prompt": "/strategy-doc fresh-workspace --mode=draft --workspace /tmp/sd-eval-draft-fresh-workspace",
       "assertions": [
+        {"type": "skill_invoked", "skill": "strategy-doc", "tier": "diagnostic", "description": "diagnostic structural anchor: skill should route on /strategy-doc slash command. Diagnostic-tier per sdr precedent — slash-prefix re-emit unreliability"},
+        {"type": "tool_input_matches", "tool": "Skill", "input_key": "skill", "input_value": "strategy-doc", "tier": "diagnostic", "description": "diagnostic: Skill tool surface contract — pins skill input value"},
         {"type": "regex", "pattern": "## 1\\. What I learned", "flags": "i", "tier": "required", "description": "Section 1 heading present in printed doc"},
         {"type": "regex", "pattern": "## 7\\. Risks and dependencies", "flags": "i", "tier": "required", "description": "Section 7 heading present in printed doc"},
         {"type": "regex", "pattern": "<!-- strategy-doc:auto -->", "flags": "i", "tier": "required", "description": "section-fence sentinel present in printed doc"},
@@ -81,11 +85,27 @@
     },
     {
       "name": "challenge-layer-2-fail-vague-asks",
-      "summary": "tag: mode:90-day-plan. Layer 1 clean, §5 has 'more headcount' (no number/date) → layer 2 fails on ask-specificity.",
+      "summary": "tag: mode:90-day-plan. Layer 1 clean, §5 has 'more headcount' (no number/date) AND §6 has 'Build trust with platform team' milestone with no Success criteria line → layer 2 fails on both ask-specificity and milestone-measurability checks.",
       "prompt": "/strategy-doc draft-vague-asks --mode=challenge --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/draft-vague-asks",
       "assertions": [
         {"type": "regex", "pattern": "(layer 2|quality)", "flags": "i", "tier": "required", "description": "layer 2 named"},
         {"type": "regex", "pattern": "(vague|specific|number|date|more headcount)", "flags": "i", "tier": "required", "description": "ask-specificity failure cited"},
+        {"type": "regex", "pattern": "(measurable|measurability|success criteria|build trust)", "flags": "i", "tier": "required", "description": "§6 milestone-measurability failure cited (Build trust milestone has no Success criteria line)"},
+        {"type": "not_regex", "pattern": "running layer 3|layer 3 \\(consistency\\): clean|layer 3 clean", "flags": "i", "tier": "required", "description": "layer 3 gated behind --continue (mentions of layer 3 as gate are ok)"}
+      ]
+    },
+    {
+      "name": "challenge-layer-2-fail-quality-gaps",
+      "summary": "tag: mode:90-day-plan. Layer 1 clean, but multiple §3-7 quality fields missing: §3 entry without Evidence: line, §4 entry without To confirm:/To refute:, §6 milestone without (addresses §X.N) cross-ref, §7 risk without Owner: line, §7 risk with Owner: [TODO: assign owner] sentinel. Layer 2 must cite each violation; layer 3 gated behind --continue.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/draft-layer2-quality-gaps /tmp/sd-eval-layer2-gaps",
+      "teardown": "rm -rf /tmp/sd-eval-layer2-gaps",
+      "prompt": "/strategy-doc draft-layer2-quality-gaps --mode=challenge --workspace /tmp/sd-eval-layer2-gaps",
+      "assertions": [
+        {"type": "regex", "pattern": "(layer 2|quality)", "flags": "i", "tier": "required", "description": "layer 2 named"},
+        {"type": "regex", "pattern": "(evidence|§3.{0,30}cit)", "flags": "i", "tier": "required", "description": "§3 evidence-citation failure cited (Payments service test coverage drift entry missing Evidence: line)"},
+        {"type": "regex", "pattern": "(confirm|refute|§4)", "flags": "i", "tier": "required", "description": "§4 confirm/refute presence failure cited (Data-platform under-resourced suspect entry missing both To confirm: and To refute: lines)"},
+        {"type": "regex", "pattern": "(cross.{0,5}ref|addresses|validates|§6.{0,30}milestone)", "flags": "i", "tier": "required", "description": "§6 cross-reference annotation failure cited (Test-coverage baseline restoration milestone missing (addresses §3.N) annotation)"},
+        {"type": "regex", "pattern": "(owner|§7.{0,30}risk)", "flags": "i", "tier": "required", "description": "§7 risk-ownership failure cited (Stripe v2 risk missing Owner: line; data-platform risk has Owner: [TODO: assign owner])"},
         {"type": "not_regex", "pattern": "running layer 3|layer 3 \\(consistency\\): clean|layer 3 clean", "flags": "i", "tier": "required", "description": "layer 3 gated behind --continue (mentions of layer 3 as gate are ok)"}
       ]
     },
@@ -100,19 +120,19 @@
     },
     {
       "name": "refusal-raw-notes",
-      "summary": "tag: mode:90-day-plan. Path under notes/raw/ → refusal-contract honored via onboard-guard delegation.",
-      "prompt": "/strategy-doc with-raw-notes --mode=draft --read notes/raw/sensitive.md --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/with-raw-notes",
+      "summary": "tag: mode:90-day-plan. notes/raw/ contents must NOT reach the synthesized doc. Skill auto-globs notes/*.md and excludes notes/raw/; refusal-contract via onboard-guard.ts is the deeper safety net (see skills/onboard/refusal-contract.md).",
+      "prompt": "/strategy-doc with-raw-notes --mode=draft --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/with-raw-notes",
       "assertions": [
-        {"type": "regex", "pattern": "(refus|raw|guard|cannot read|sanitiz)", "flags": "i", "tier": "required", "description": "refusal cited"},
-        {"type": "not_regex", "pattern": "We need to cut 30%", "flags": "", "tier": "required", "description": "verbatim raw content NOT echoed"}
+        {"type": "not_regex", "pattern": "We need to cut 30%", "flags": "", "tier": "required", "description": "verbatim raw content NOT echoed in the synthesized doc — load-bearing confidentiality assertion; if this regex matches, the skill leaked notes/raw/ into the final artifact"},
+        {"type": "not_regex", "pattern": "notes/raw/sensitive\\.md", "flags": "", "tier": "required", "description": "raw notes path NOT cited as a source — SWOT/stakeholder/arch and sanitized notes/*.md are the only legitimate citation surfaces"}
       ]
     },
     {
       "name": "memory-mcp-unavailable",
-      "summary": "tag: mode:90-day-plan. Memory MCP unavailable → graceful filesystem-only fallback; no abort.",
+      "summary": "tag: mode:90-day-plan. Memory MCP unavailable → graceful filesystem-only fallback; no abort. Fixture has no memory-seed.json, simulating both 'MCP unavailable' and 'entity missing' indistinguishably; eval asserts skill emits doc + warning, does not abort.",
       "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/fresh-workspace /tmp/sd-eval-memory-mcp-unavailable",
       "teardown": "rm -rf /tmp/sd-eval-memory-mcp-unavailable",
-      "prompt": "/strategy-doc fresh-workspace --mode=draft --workspace /tmp/sd-eval-memory-mcp-unavailable  (no memory-seed.json, simulating both 'MCP unavailable' and 'entity missing' indistinguishably; eval asserts skill does not abort)",
+      "prompt": "/strategy-doc fresh-workspace --mode=draft --workspace /tmp/sd-eval-memory-mcp-unavailable",
       "assertions": [
         {"type": "regex", "pattern": "## 7\\. Risks and dependencies", "flags": "i", "tier": "required", "description": "all 7 sections still emitted in printed doc"},
         {"type": "regex", "pattern": "(memory|mcp).{0,40}(unavailable|skip|filesystem)", "flags": "i", "tier": "diagnostic", "description": "informational warning emitted"}

@@ -15,9 +15,10 @@ Each fixture is a minimal `~/repos/onboard-<org>/` workspace shape that exercise
 | `draft-idempotent` | `draft-with-user-edits/` | Doc has user prose below closing fence; re-run preserves it |
 | `review-mode-readonly` | `clean-doc/` | Complete doc; review renders without mutation |
 | `challenge-layer-1-fail` | `draft-with-todos/` | Doc with [TODO] markers inside fences |
-| `challenge-layer-2-fail-vague-asks` | `draft-vague-asks/` | Complete §1-4, §7; §5 has "more headcount" / §6 has unmeasurable milestone |
+| `challenge-layer-2-fail-vague-asks` | `draft-vague-asks/` | Complete §1-4, §7; §5 has "more headcount" + §6 has "Build trust" milestone with no Success criteria — exercises Layer 2 ask-specificity AND milestone-measurability checks |
+| `challenge-layer-2-fail-quality-gaps` | `draft-layer2-quality-gaps/` | Layer 1 clean; multiple §3-7 quality fields missing: §3 entry no Evidence:; §4 entry no To confirm:/To refute:; §6 milestone no (addresses §X.N) cross-ref; §7 risks missing Owner: or have Owner: [TODO]. Exercises remaining 4 Layer 2 quality checks. |
 | `challenge-layer-3-pass-handoff` | `clean-doc/` | All layers clean; handoff offered |
-| `refusal-raw-notes` | `with-raw-notes/` | Has `notes/raw/sensitive.md`; --read attempt refused |
+| `refusal-raw-notes` | `with-raw-notes/` | Has `notes/raw/sensitive.md`; skill auto-globs `notes/*.md` excluding `notes/raw/` AND onboard-guard refuses if path passed (defense in depth) |
 | `memory-mcp-unavailable` | `fresh-workspace/` | Reused; eval simulates MCP unavailability |
 | `conflicting-evidence-blocks-challenge` | `conflicting-evidence/` | SWOT entity says X is strength; notes/X.md flags X as weakness |
 | `doc-fence-malformed-refuses-mutation` | `malformed-fences/` | Doc has unclosed `<!-- strategy-doc:auto -->` |
