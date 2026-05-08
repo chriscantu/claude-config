@@ -22,9 +22,11 @@ may cite.
 
 ## Retention Rubric
 
-The implicit retention rule across the project's history (one accidental
-deletion in #118 aside): **specs are durable, plans are conditional, prompts
-are scratch.** Codify that here so future PRs don't re-litigate.
+The implicit retention rule across the project's history: **specs are durable,
+plans are conditional, prompts are scratch.** (One plan was inadvertently
+swept into PR #118 and removed in cleanup commit `2351353`; that's the only
+plan deletion to date and was a housekeeping correction, not a precedent for
+deleting shipped plans.) Codify the rule here so future PRs don't re-litigate.
 
 ### Specs (`specs/`) — keep always
 
@@ -40,22 +42,24 @@ Deletion is destructive of institutional memory. Default keep, indefinitely.
 
 **Move to `specs/archive/` when ALL hold:**
 
-1. Initiative is fully shipped (no open phases).
+1. Initiative is fully shipped — all planned phases merged AND no
+   actively-open follow-up issues that imply more phases.
 2. No open issue or active follow-up references the spec.
-3. The spec is older than 12 months.
+3. The spec is old enough that new phases, if needed, would treat it as
+   historical context rather than active material (rough default: 12 months;
+   adjust if the initiative's domain moves faster or slower).
 
 The archive subdirectory is for visual hygiene of `specs/`, not for deletion —
-the spec content stays in the repo.
+the spec content stays in the repo. The PR author archiving the spec creates
+`specs/archive/` if it doesn't exist and uses `git mv` to preserve history.
 
 ### Plans (`plans/`) — keep when any of:
 
 A plan is execution scaffolding. Its value drops sharply once the work ships,
 but it has durable value when:
 
-- **(a) Multi-phase initiative** — Phase N's plan informs Phase N+1's plan
-  shape (file layout, task granularity, eval pattern). Examples: `/onboard`'s
-  five phase plans, `/strategy-doc` Phase 1 informing the deferred Phase 2
-  RFC mode.
+- **(a) Multi-phase initiative** — an earlier phase's plan informs a later
+  phase's plan shape (file layout, task granularity, eval pattern).
 - **(b) Open follow-up issue references it** — issues filed during or after
   the work cite plan task numbers or fixture references; deleting orphans the
   citation.
@@ -66,8 +70,8 @@ If none of (a)/(b)/(c) hold, the plan is pure scratch and SHOULD be deleted in
 the same PR that ships the work, with a short rationale in the commit
 message.
 
-When in doubt: keep. The cost of an extra plan in `plans/` is ~750 lines of
-static markdown. The cost of a broken citation is ambiguity.
+When in doubt: keep. A plan in `plans/` costs only static markdown bytes; a
+broken citation costs reviewer time and audit confidence.
 
 ### Decisions (`decisions/`) — keep always
 
@@ -82,8 +86,11 @@ for "open a fresh session and execute Phase N of plan X." Once the phase
 ships, the prompt has zero forward value (the next phase needs a different
 prompt anyway).
 
-Delete in the same PR that ships the phase. Pattern reference: `8c81f6f`
-removed `/onboard` Phase 2/3/4 prompts when those phases shipped.
+Delete in the same PR that ships the phase. The deletion goes in the same
+commit as the phase implementation; the commit message names which prompts
+are removed and why ("Phase N prompt no longer needed; phase merged in this
+PR"). If a prompt was never committed (still untracked when work shipped),
+just `rm` it locally before opening the PR.
 
 The one exception: if a prompt is referenced from a still-open follow-up
 issue (rare), keep until the follow-up resolves.
@@ -105,6 +112,6 @@ Before merging a PR that adds or modifies skills/rules:
       commit message.
 - [ ] Prompts in `prompts/` for the shipped phase deleted.
 
-This checklist prevents the implicit-rule drift that motivated this rubric
-(see `2026-05-08-strategy-doc-review` exchange for the discussion that
-produced it).
+This checklist prevents the implicit-rule drift that motivated this rubric.
+For the discussion that produced it, see the review thread on the PR that
+introduced this README.
