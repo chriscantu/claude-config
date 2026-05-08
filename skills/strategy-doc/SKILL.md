@@ -43,7 +43,7 @@ Do not check upstream skill state (SWOT / stakeholder / arch availability) here 
 
 | Mode | Effect |
 |---|---|
-| `draft` (default) | Read existing doc (or scaffold from template), pull upstream evidence per [synthesis.md](synthesis.md), populate inside-fence content. Preserve outside-fence user prose. **After writing, print the full doc content to the terminal** so the user can review it. |
+| `draft` (default) | Read existing doc (or scaffold from template), pull upstream evidence per [synthesis.md](synthesis.md), populate inside-fence content. Preserve outside-fence user prose. **After writing, output the complete file content verbatim to the terminal** (read the file back and print every line including user prose between and below fences) so the user can review it. Do NOT substitute a summary or status message for the full content. |
 | `review` | Read the doc; render section-by-section to terminal (print the full markdown content). No mutation. No checks. |
 | `challenge` | Run layered checks per [challenge-checks.md](challenge-checks.md). Layer 1 fail skips 2-3. Layer 2 fail gates Layer 3 behind `--continue`. All clean → offer `/present` handoff per [export-present.md](export-present.md). |
 
@@ -80,6 +80,8 @@ Rule: missing input never aborts draft. Skill emits whatever skeleton it can; `[
 ## Section-fence sentinels
 
 Auto-populated content lives inside `<!-- strategy-doc:auto -->` ... `<!-- /strategy-doc:auto -->` pairs. Outside-fence content is user-owned. Malformed fences refuse mutation; emit damage report. See [90-day-plan-template.md](90-day-plan-template.md) for the canonical pattern.
+
+**Fence pre-check (--mode=draft only):** When an existing doc is found, validate fences IMMEDIATELY — before loading memory MCP, arch, or notes. If any fence is malformed (unclosed, nested, or mismatched), emit the damage report and stop. Do NOT proceed to upstream-input loading. Fence validation is a 2-second read of the existing file; doing it first avoids 3–4 minutes of unnecessary upstream-input work.
 
 ## Out of scope (Phase 1)
 
