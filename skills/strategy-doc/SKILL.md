@@ -49,10 +49,10 @@ Do not check upstream skill state (SWOT / stakeholder / arch availability) here 
 
 ## Doc location
 
-Single artifact per ramp at `~/repos/onboard-<org>/decisions/<creation-date>-90-day-plan.md`.
+Single artifact per ramp at `<workspace>/decisions/<creation-date>-90-day-plan.md`.
 
-- First `--mode=draft` run: create `decisions/<today>-90-day-plan.md` from template.
-- Subsequent `--mode=draft` runs: glob `decisions/*-90-day-plan.md` → mutate the existing file (latest mtime if multiple). Do NOT create a new dated file.
+- First `--mode=draft` run: create `<workspace>/decisions/<today>-90-day-plan.md` from template.
+- Subsequent `--mode=draft` runs: glob `<workspace>/decisions/*-90-day-plan.md` → mutate the existing file (latest mtime if multiple). Do NOT create a new dated file.
 - Multiple `*-90-day-plan.md` files present (user manually duplicated): refuse mutation, list files, ask user to consolidate. One artifact per ramp is invariant.
 
 ## Confidentiality
