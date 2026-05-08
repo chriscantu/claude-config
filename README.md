@@ -34,7 +34,9 @@ Full pushback dialog:
 
 Claude holds until you supply a reason to flip. Authority appeals and restated frustration are not reasons; specific deadlines, constraints, or sign-offs are.
 
-<!-- TODO: insert anti-sycophancy pushback GIF here. Scenario spec in tracking issue. -->
+_Claude holds a recommendation until new evidence flips it._
+
+![Anti-sycophancy pushback demo](assets/anti-sycophancy-pushback.gif)
 
 > This isn't a replacement for engineering judgment — it's a forcing function. Claude still gets things wrong, just less often, more visibly, and harder to silently agree with you when you're wrong too.
 
