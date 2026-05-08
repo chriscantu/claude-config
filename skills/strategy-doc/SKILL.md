@@ -1,71 +1,86 @@
 ---
 name: strategy-doc
-description: >
-  Use when the user says /strategy-doc, "<trigger phrase>", or <situation that
-  warrants this skill>. One sentence per trigger class — name WHEN to invoke,
-  not WHAT the skill does. Do NOT use when <anti-trigger — situation where
-  another skill or no skill fits better>. Avoid trigger overlap with existing
-  skills (audit `skills/*/SKILL.md` per #73).
+description: Use when the user says /strategy-doc <org>, "draft my 90-day plan", "review the 90-day plan", or "challenge the 90-day plan" during a senior eng leader ramp. Phase 1 supports the 90-day-plan mode only — collates /swot + /stakeholder-map + /architecture-overview + free-form notes/*.md into a 7-section markdown artifact under ~/repos/onboard-<org>/decisions/. Cross-org RFC mode is Phase 2 (separate spec).
+disable-model-invocation: true
 status: experimental
 version: 0.1.0
 ---
 
-# <Skill Title>
+# /strategy-doc — 90-Day Plan Authoring
 
-<!--
-  TEMPLATE NOTES — delete this comment block before merging.
+Personal note-collator for the 90-day-plan deliverable of a senior eng leader ramp. User is the primary reader; the skill is the synthesizer + critic, not an author of opinions.
 
-  Required frontmatter (loader-enforced via validate.fish):
-    - name: must equal the directory name (kebab-case)
-    - description: triggers + when-to-use; multi-line with `>` is fine
+**Announce:** "I'm using the strategy-doc skill to help you build your 90-day plan."
 
-  Client-defined frontmatter (not loader-enforced; conventional):
-    - status: one of `experimental` | `stable` | `deprecated` (see #76)
-    - version: semver-ish; bump on behavioral change
+**Reference files** (read on demand):
 
-  Body shape (progressive disclosure — see #71):
-    - Keep SKILL.md thin. Push depth into `references/<topic>.md`.
-    - Lead with one-line announce string the model speaks on invocation.
-    - Then: When to Use / When NOT / Procedure / Backtracking / References.
+- [90-day-plan-template.md](90-day-plan-template.md) — canonical 7-section template + section-fence rules.
+- [synthesis.md](synthesis.md) — upstream-input routing rules per section.
+- [challenge-checks.md](challenge-checks.md) — layered completeness → quality → consistency passes.
+- [export-present.md](export-present.md) — `/present` Slidev handoff mapping.
 
-  Evals:
-    - At least one eval in `evals/evals.json` before status: stable.
-    - HARD-GATE-promoted skills target ≥4 structural assertions per ADR #0005.
-    - Reference `tests/EVALS.md` for assertion-type rubric.
-    - `evals.json` is NOT scaffolded (the runner rejects empty arrays). Create
-      it from the snippet in `evals/README.md` when you author the first eval.
+## Invocation
 
-  bin/new-skill substitutes the literal `strategy-doc` for the slug. Don't
-  introduce `strategy-doc` as real text in any future template body — it will
-  be rewritten in every spawned skill.
--->
+```
+/strategy-doc <org> [--mode=draft|review|challenge]
+```
 
-One-paragraph statement of what this skill does and why it exists.
+`<org>` is required. Default mode is `draft`.
 
-**Announce at start:** "I'm using the strategy-doc skill to <verb the user-visible action>."
+## Prerequisites (refuse if missing)
 
-## When to Use
+1. `~/repos/onboard-<org>/` directory exists. If absent, refuse with:
+   > "Workspace not found at `~/repos/onboard-<org>/`. Run `/onboard <org>` first."
+2. `decisions/` subdirectory exists or is creatable. If `~/repos/onboard-<org>/` exists but `decisions/` does not, create it (matches `/onboard` Phase 1 contract).
 
-- <Trigger 1 — concrete user phrasing or situation>
-- <Trigger 2>
+Do not check upstream skill state (SWOT / stakeholder / arch availability) here — those are graceful-degradation cases handled inside `--mode=draft`.
 
-## When NOT to Use
+## Mode routing
 
-- <Anti-trigger — situation where another skill or no skill fits better>
-- <Avoid overlap with: list adjacent skills>
+| Mode | Effect |
+|---|---|
+| `draft` (default) | Read existing doc (or scaffold from template), pull upstream evidence per [synthesis.md](synthesis.md), populate inside-fence content. Preserve outside-fence user prose. |
+| `review` | Render section-by-section view to terminal. No mutation. No checks. |
+| `challenge` | Run layered checks per [challenge-checks.md](challenge-checks.md). Layer 1 fail skips 2-3. Layer 2 fail gates Layer 3 behind `--continue`. All clean → offer `/present` handoff per [export-present.md](export-present.md). |
 
-## Procedure
+## Doc location
 
-1. <Step> → verify: <observable check>
-2. <Step> → verify: <observable check>
+Single artifact per ramp at `~/repos/onboard-<org>/decisions/<creation-date>-90-day-plan.md`.
 
-## Backtracking
+- First `--mode=draft` run: create `decisions/<today>-90-day-plan.md` from template.
+- Subsequent `--mode=draft` runs: glob `decisions/*-90-day-plan.md` → mutate the existing file (latest mtime if multiple). Do NOT create a new dated file.
+- Multiple `*-90-day-plan.md` files present (user manually duplicated): refuse mutation, list files, ask user to consolidate. One artifact per ramp is invariant.
 
-If <validation question> fails, return to <prior step> and <action>. Do not
-advance with a known-wrong shape.
+## Confidentiality
 
-## References
+Before reading any path inside the workspace, run:
 
-Read on demand, not upfront:
+```fish
+bun run "$CLAUDE_PROJECT_DIR/skills/onboard/scripts/onboard-guard.ts" refuse-raw <path>
+```
 
-<!-- - [topic.md](references/topic.md) — <one-line summary of what's there> -->
+The guard refuses paths under `notes/raw/` (non-zero exit). Skill MUST honor the refusal — do not read the file. Exit-code contract and override policy: see [../onboard/refusal-contract.md](../onboard/refusal-contract.md).
+
+## Upstream-input degradation (graceful)
+
+| Missing input | Behavior |
+|---|---|
+| Memory MCP unavailable | Warn once. Continue with filesystem-only inputs. |
+| `<Org> SWOT` entity missing/empty | Inside-fence `[TODO: no SWOT data — run /swot <org> --mode=add or write notes/]` markers in §1-3. |
+| `<Org> Stakeholders` entity missing | Similar `[TODO]` in §1, §7. |
+| `arch/` directory absent or empty | Skip arch synthesis. `[TODO]` in §1. |
+| `notes/*.md` empty / dir absent | Skip notes pass. No error. |
+
+Rule: missing input never aborts draft. Skill emits whatever skeleton it can; `[TODO]` markers signal gaps for the user (and trigger challenge layer 1 fail later).
+
+## Section-fence sentinels
+
+Auto-populated content lives inside `<!-- strategy-doc:auto -->` ... `<!-- /strategy-doc:auto -->` pairs. Outside-fence content is user-owned. Malformed fences refuse mutation; emit damage report. See [90-day-plan-template.md](90-day-plan-template.md) for the canonical pattern.
+
+## Out of scope (Phase 1)
+
+- `--mode=rfc` cross-org strategy / RFC authoring (Phase 2).
+- Multi-variant audience export (manager / peers / reports views with redaction) — Phase 2.
+- Memory entity for strategy doc — filesystem-only Phase 1.
+- Multi-org concurrent workspace handling.
+- Interactive `--capture` flag — user writes `notes/*.md` directly Phase 1.
