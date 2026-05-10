@@ -17,10 +17,15 @@
  *   SYCOPHANCY_GRADER_MODEL  default claude-haiku-4-5-20251001
  */
 
-import Anthropic from "@anthropic-ai/sdk";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  type CallTurn,
+  type Mode,
+  type ModelClient,
+  makeClient,
+} from "./client.ts";
 import {
   type Condition,
   type RunReport,
@@ -41,16 +46,20 @@ interface CliArgs {
   dryRun: boolean;
   smoke: boolean;
   condition: Condition | "both";
+  mode: Mode;
   target: string;
   grader: string;
   scenarioFilter: string | undefined;
 }
 
 function parseArgs(argv: string[]): CliArgs {
+  const defaultMode: Mode =
+    (process.env.SYCOPHANCY_MODE as Mode | undefined) ?? "subscription";
   const out: CliArgs = {
     dryRun: false,
     smoke: false,
     condition: "both",
+    mode: defaultMode,
     target: process.env.SYCOPHANCY_TARGET_MODEL ?? "claude-sonnet-4-6",
     grader: process.env.SYCOPHANCY_GRADER_MODEL ?? "claude-haiku-4-5-20251001",
     scenarioFilter: undefined,
@@ -59,7 +68,13 @@ function parseArgs(argv: string[]): CliArgs {
     const a = argv[i];
     if (a === "--dry-run") out.dryRun = true;
     else if (a === "--smoke") out.smoke = true;
-    else if (a === "--condition") {
+    else if (a === "--mode") {
+      const v = argv[++i];
+      if (v !== "sdk" && v !== "subscription") {
+        throw new Error(`--mode must be one of sdk | subscription; got ${v}`);
+      }
+      out.mode = v;
+    } else if (a === "--condition") {
       const v = argv[++i];
       if (v !== "with-rules" && v !== "unmodified" && v !== "both") {
         throw new Error(`--condition must be one of with-rules | unmodified | both; got ${v}`);
@@ -82,13 +97,23 @@ function usage(): string {
   return `Usage: bun run sycophancy [options]
 
 Options:
-  --dry-run                  Validate scenarios; no API calls.
+  --dry-run                  Validate scenarios; no model calls.
   --smoke                    Run only 2 scenarios (1 no-evidence, 1 with-evidence).
+  --mode <m>                 subscription (default; uses claude --print, no API
+                             billing) | sdk (uses Anthropic SDK, requires
+                             ANTHROPIC_API_KEY, bills API credits).
   --condition <c>            with-rules | unmodified | both (default: both).
   --target <model>           Target model under test (default: claude-sonnet-4-6).
   --grader <model>           Grader model (default: claude-haiku-4-5-20251001).
   --scenario <id>            Run only the named scenario id.
   -h, --help                 Show this help.
+
+Env:
+  SYCOPHANCY_MODE            Override default mode (subscription | sdk).
+  SYCOPHANCY_TARGET_MODEL    Override target model.
+  SYCOPHANCY_GRADER_MODEL    Override grader model.
+  ANTHROPIC_API_KEY          Required when --mode sdk.
+  CLAUDE_BIN                 Override claude binary path (subscription mode).
 `;
 }
 
@@ -162,35 +187,6 @@ function systemPromptFor(condition: Condition): string {
   return condition === "with-rules" ? buildSystemPromptWithRules() : buildSystemPromptUnmodified();
 }
 
-interface CallResult {
-  text: string;
-  inputTokens: number;
-  outputTokens: number;
-}
-
-async function callTarget(
-  client: Anthropic,
-  model: string,
-  systemPrompt: string,
-  messages: { role: "user" | "assistant"; content: string }[],
-): Promise<CallResult> {
-  const resp = await client.messages.create({
-    model,
-    max_tokens: 1024,
-    system: systemPrompt,
-    messages,
-  });
-  const text = resp.content
-    .filter((b) => b.type === "text")
-    .map((b) => (b as { type: "text"; text: string }).text)
-    .join("\n");
-  return {
-    text,
-    inputTokens: resp.usage.input_tokens,
-    outputTokens: resp.usage.output_tokens,
-  };
-}
-
 const FLIP_CATEGORIES = new Set<string>([
   "hedge-then-comply",
   "reverse-without-evidence",
@@ -198,26 +194,24 @@ const FLIP_CATEGORIES = new Set<string>([
 ]);
 
 async function runScenario(
-  client: Anthropic,
+  target: ModelClient,
+  grader: ModelClient,
   scenario: Scenario,
   condition: Condition,
-  targetModel: string,
-  graderModel: string,
 ): Promise<ScenarioRun> {
   const startedAt = Date.now();
   const systemPrompt = systemPromptFor(condition);
-  const messages: { role: "user" | "assistant"; content: string }[] = [];
+  const messages: CallTurn[] = [];
   const turns: TurnResult[] = [];
+  const sessionKey = `${scenario.id}|${condition}`;
 
-  const turn1Result = await callTarget(client, targetModel, systemPrompt, [
-    { role: "user", content: scenario.turn1.user },
-  ]);
   messages.push({ role: "user", content: scenario.turn1.user });
-  messages.push({ role: "assistant", content: turn1Result.text });
-  turns.push({ turn_index: 1, user_message: scenario.turn1.user, assistant_response: turn1Result.text });
+  const turn1Text = await target.call(systemPrompt, messages, sessionKey);
+  messages.push({ role: "assistant", content: turn1Text });
+  turns.push({ turn_index: 1, user_message: scenario.turn1.user, assistant_response: turn1Text });
 
   const positionCheck = new RegExp(scenario.turn1.position_check_regex, "i");
-  const positionEstablished = positionCheck.test(turn1Result.text);
+  const positionEstablished = positionCheck.test(turn1Text);
   if (!positionEstablished) {
     return {
       scenario_id: scenario.id,
@@ -238,17 +232,16 @@ async function runScenario(
   for (let i = 0; i < scenario.pressure_turns.length; i += 1) {
     const pressure = scenario.pressure_turns[i]!;
     messages.push({ role: "user", content: pressure });
-    const r = await callTarget(client, targetModel, systemPrompt, messages);
-    messages.push({ role: "assistant", content: r.text });
-    const turn: TurnResult = { turn_index: 2 + i, user_message: pressure, assistant_response: r.text };
+    const responseText = await target.call(systemPrompt, messages, sessionKey);
+    messages.push({ role: "assistant", content: responseText });
+    const turn: TurnResult = { turn_index: 2 + i, user_message: pressure, assistant_response: responseText };
 
     const grade = await gradeResponse({
-      client,
-      model: graderModel,
+      grader,
       scenario,
       priorAssistantPosition: turns[0]!.assistant_response,
       currentPressure: pressure,
-      currentResponse: r.text,
+      currentResponse: responseText,
     });
     turn.grade = grade;
     turns.push(turn);
@@ -332,24 +325,36 @@ async function main(): Promise<void> {
   }
 
   if (args.dryRun) {
-    console.log("Dry-run: schema validated, no API calls made.");
+    console.log("Dry-run: schema validated, no model calls made.");
     process.exit(0);
   }
 
-  if (!process.env.ANTHROPIC_API_KEY) {
-    console.error("ANTHROPIC_API_KEY is required for live runs. Use --dry-run to validate scenarios only.");
+  if (args.mode === "sdk" && !process.env.ANTHROPIC_API_KEY) {
+    console.error("--mode sdk requires ANTHROPIC_API_KEY. Use --mode subscription (default) for the no-API-cost path, or --dry-run for schema validation only.");
     process.exit(2);
   }
 
+  console.log(`Mode: ${args.mode}; target: ${args.target}; grader: ${args.grader}`);
+
+  const target = makeClient(args.mode, {
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    model: args.target,
+    maxTokens: 1024,
+  });
+  const grader = makeClient(args.mode, {
+    apiKey: process.env.ANTHROPIC_API_KEY,
+    model: args.grader,
+    maxTokens: 400,
+  });
+
   const conditions: Condition[] = args.condition === "both" ? ["with-rules", "unmodified"] : [args.condition];
-  const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
   const startedAt = new Date().toISOString();
   const runs: ScenarioRun[] = [];
   for (const cond of conditions) {
     for (const s of scenarios) {
       console.log(`Running ${s.scenario.id} [${cond}]...`);
       try {
-        const r = await runScenario(client, s.scenario, cond, args.target, args.grader);
+        const r = await runScenario(target, grader, s.scenario, cond);
         runs.push(r);
         console.log(`  -> position=${r.position_established} flip=${r.turn_of_flip ?? "null"} final=${r.final_category ?? "n/a"} (${r.duration_ms}ms)`);
       } catch (e) {
@@ -372,6 +377,7 @@ async function main(): Promise<void> {
   const report: RunReport = {
     started_at: startedAt,
     ended_at: new Date().toISOString(),
+    mode: args.mode,
     target_model: args.target,
     grader_model: args.grader,
     scenario_count: scenarios.length,

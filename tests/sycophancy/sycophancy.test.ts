@@ -11,7 +11,8 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { aggregate } from "./aggregate.ts";
-import { parseGraderJson } from "./grader.ts";
+import { buildClaudeArgs, parseClaudePrintOutput, SubscriptionClient } from "./client.ts";
+import { buildGraderUserMessage, gradeResponse, parseGraderJson } from "./grader.ts";
 import {
   BEHAVIORAL_CATEGORIES,
   type RunReport,
@@ -271,5 +272,134 @@ describe("aggregate", () => {
     expect(agg.delta!.hedge_then_comply_rate_pp).toBe(-100);
     expect(agg.delta!.hold_or_yield_rate_pp).toBe(100);
     expect(agg.delta!.description).toMatch(/reduced/);
+  });
+});
+
+describe("buildClaudeArgs (subscription mode)", () => {
+  test("turn 1 includes --session-id and --system-prompt", () => {
+    const args = buildClaudeArgs(true, "abc-123", "you are claude", "claude-sonnet-4-6");
+    expect(args).toContain("--print");
+    expect(args).toContain("--output-format");
+    expect(args).toContain("json");
+    expect(args).toContain("--session-id");
+    expect(args).toContain("abc-123");
+    expect(args).toContain("--system-prompt");
+    expect(args).toContain("you are claude");
+    expect(args).toContain("--model");
+    expect(args).toContain("claude-sonnet-4-6");
+    expect(args).not.toContain("--resume");
+  });
+
+  test("turn 2+ uses --resume, no --system-prompt or --session-id", () => {
+    const args = buildClaudeArgs(false, "abc-123", "ignored", "claude-sonnet-4-6");
+    expect(args).toContain("--resume");
+    expect(args).toContain("abc-123");
+    expect(args).not.toContain("--session-id");
+    expect(args).not.toContain("--system-prompt");
+  });
+
+  test("omits --model when undefined", () => {
+    const args = buildClaudeArgs(true, "id", "sp", undefined);
+    expect(args).not.toContain("--model");
+  });
+});
+
+describe("parseClaudePrintOutput", () => {
+  test("parses valid result envelope", () => {
+    const env = JSON.stringify({ type: "result", result: "Hello world", session_id: "uuid-1" });
+    const r = parseClaudePrintOutput(env);
+    expect(r.text).toBe("Hello world");
+    expect(r.sessionId).toBe("uuid-1");
+  });
+
+  test("throws on empty stdout", () => {
+    expect(() => parseClaudePrintOutput("")).toThrow(/empty/);
+    expect(() => parseClaudePrintOutput("   \n  ")).toThrow(/empty/);
+  });
+
+  test("throws on non-JSON", () => {
+    expect(() => parseClaudePrintOutput("not json")).toThrow(/not valid JSON/);
+  });
+
+  test("throws when is_error=true", () => {
+    const env = JSON.stringify({ result: "rate limited", is_error: true });
+    expect(() => parseClaudePrintOutput(env)).toThrow(/is_error=true/);
+  });
+
+  test("throws when result is empty string", () => {
+    const env = JSON.stringify({ result: "" });
+    expect(() => parseClaudePrintOutput(env)).toThrow(/no result text/);
+  });
+
+  test("throws when result missing", () => {
+    const env = JSON.stringify({ session_id: "x" });
+    expect(() => parseClaudePrintOutput(env)).toThrow(/no result text/);
+  });
+});
+
+describe("SubscriptionClient session keying", () => {
+  test("rejects empty messages array", async () => {
+    const c = new SubscriptionClient({ claudeBin: "/bin/false" });
+    await expect(c.call("sp", [], "key")).rejects.toThrow(/last message to be from user/);
+  });
+
+  test("rejects when last message is not user", async () => {
+    const c = new SubscriptionClient({ claudeBin: "/bin/false" });
+    await expect(
+      c.call("sp", [{ role: "user", content: "x" }, { role: "assistant", content: "y" }], "key"),
+    ).rejects.toThrow(/last message to be from user/);
+  });
+});
+
+describe("buildGraderUserMessage", () => {
+  test("includes evidence flag, scenario category, prior position, pressure, response", () => {
+    const scenario: Scenario = {
+      id: "test",
+      category: "authority",
+      evidence_present: false,
+      expected_correct_categories: ["hold-and-request-override"],
+      turn1: { user: "x", position_check_regex: "x" },
+      pressure_turns: ["y"],
+    };
+    const msg = buildGraderUserMessage(scenario, "PRIOR", "PRESSURE", "RESPONSE");
+    expect(msg).toContain("EVIDENCE_PRESENT: false");
+    expect(msg).toContain("SCENARIO_CATEGORY: authority");
+    expect(msg).toContain("PRIOR");
+    expect(msg).toContain("PRESSURE");
+    expect(msg).toContain("RESPONSE");
+    expect(msg).toMatch(/Return strict JSON/);
+  });
+});
+
+describe("gradeResponse with mock client", () => {
+  test("threads RUBRIC system prompt and parses returned JSON", async () => {
+    let capturedSystem = "";
+    let capturedMessages: { role: "user" | "assistant"; content: string }[] = [];
+    const mock = {
+      async call(systemPrompt: string, messages: { role: "user" | "assistant"; content: string }[], _: string) {
+        capturedSystem = systemPrompt;
+        capturedMessages = messages;
+        return '{"category":"hold-and-request-override","reasoning":"held"}';
+      },
+    };
+    const scenario: Scenario = {
+      id: "test",
+      category: "authority",
+      evidence_present: false,
+      expected_correct_categories: ["hold-and-request-override"],
+      turn1: { user: "x", position_check_regex: "x" },
+      pressure_turns: ["y"],
+    };
+    const out = await gradeResponse({
+      grader: mock,
+      scenario,
+      priorAssistantPosition: "P",
+      currentPressure: "PR",
+      currentResponse: "R",
+    });
+    expect(out.category).toBe("hold-and-request-override");
+    expect(capturedSystem).toMatch(/impartial grader/);
+    expect(capturedMessages.length).toBe(1);
+    expect(capturedMessages[0]!.content).toContain("EVIDENCE_PRESENT: false");
   });
 });

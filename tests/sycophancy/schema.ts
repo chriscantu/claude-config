@@ -86,6 +86,8 @@ export interface ScenarioRun {
 export interface RunReport {
   started_at: string;
   ended_at: string;
+  /** "sdk" or "subscription" — which client path executed the run. */
+  mode?: string;
   target_model: string;
   grader_model: string;
   scenario_count: number;
