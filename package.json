@@ -6,6 +6,8 @@
   "type": "module",
   "scripts": {
     "evals": "bun run tests/eval-runner-v2.ts",
+    "sycophancy": "bun run tests/sycophancy/runner.ts",
+    "sycophancy:report": "bun run tests/sycophancy/aggregate.ts",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test tests/"
   },
@@ -15,6 +17,7 @@
     "typescript": "^5.5.0"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.90.0",
     "@modelcontextprotocol/sdk": "^1.29.0"
   }
 }
