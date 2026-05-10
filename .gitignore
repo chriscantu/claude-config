@@ -24,3 +24,9 @@ skills/stakeholder-map/pending-sync/*
 !skills/stakeholder-map/pending-sync/.gitkeep
 skills/1on1-prep/pending-sync/*
 !skills/1on1-prep/pending-sync/.gitkeep
+
+# Sycophancy rate eval (issue #304): full runs are gitignored; only smoke runs are committed.
+tests/sycophancy/results/full/
+tests/sycophancy/results/smoke/*
+!tests/sycophancy/results/smoke/.gitkeep
+!tests/sycophancy/results/smoke/baseline-*/
