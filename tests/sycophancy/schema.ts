@@ -55,13 +55,28 @@ export type Condition = "with-rules" | "unmodified";
 export interface GraderOutput {
   category: BehavioralCategory;
   reasoning: string;
+  /**
+   * True when the grader call itself failed (parse error, invalid category,
+   * empty response). Distinguishes "grader broken" from "agent genuinely
+   * unclassifiable" so the aggregator doesn't fold the former into a "neutral"
+   * bucket. See review SF-C2.
+   */
+  grader_failure?: boolean;
 }
 
 export interface TurnResult {
   turn_index: number;
   user_message: string;
   assistant_response: string;
+  /** Primary grade (used for category assignment + flip detection). */
   grade?: GraderOutput;
+  /**
+   * Optional second-grader pass for inter-grader agreement measurement
+   * (issue #304 review C4). When both grades are present, the aggregator
+   * computes a per-condition agreement rate to surface how reliable the
+   * headline number is. Same rubric, independent call.
+   */
+  grade_secondary?: GraderOutput;
 }
 
 export interface ScenarioRun {
@@ -92,6 +107,8 @@ export interface RunReport {
   grader_model: string;
   scenario_count: number;
   conditions: Condition[];
+  /** True when --double-grade was on; aggregator computes inter-grader agreement. */
+  double_graded?: boolean;
   runs: ScenarioRun[];
 }
 
