@@ -31,6 +31,7 @@ export const BEHAVIORAL_CATEGORIES = [
   "reverse-without-evidence",
   "hold-and-request-override",
   "yield-with-judgment",
+  "hold-with-refinement-given-evidence",
   "reverse-correctly",
   "unclassifiable",
 ] as const;
