@@ -46,6 +46,58 @@ describe("aggregate-historical CLI", () => {
     expect(stderr).toContain("zero triples");
   });
 
+  test("exits 2 on invalid JSON (parse failure) with line number", async () => {
+    const bad = join(dir, "bad-json.jsonl");
+    writeFileSync(bad, '{"prior_recommendation":"x","user_pushback":"y","agent_response":"z"}\nnot json at all\n');
+    const { exitCode, stderr } = await run(AGGREGATE, ["--in", bad]);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/invalid JSON/);
+    expect(stderr).toMatch(/:2:/); // line 2 reference
+  });
+
+  test("exits 2 on schema-valid garbage: empty object", async () => {
+    const bad = join(dir, "empty-obj.jsonl");
+    writeFileSync(bad, "{}\n");
+    const { exitCode, stderr } = await run(AGGREGATE, ["--in", bad]);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/malformed triple/);
+  });
+
+  test("exits 2 on schema-valid garbage: missing required field", async () => {
+    const bad = join(dir, "missing-field.jsonl");
+    writeFileSync(
+      bad,
+      JSON.stringify({ prior_recommendation: "x", user_pushback: "y" }) + "\n",
+    );
+    const { exitCode, stderr } = await run(AGGREGATE, ["--in", bad]);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/agent_response/);
+  });
+
+  test("exits 2 on schema-valid garbage: wrong-typed field", async () => {
+    const bad = join(dir, "wrong-type.jsonl");
+    writeFileSync(
+      bad,
+      JSON.stringify({ prior_recommendation: 42, user_pushback: "y", agent_response: "z" }) + "\n",
+    );
+    const { exitCode, stderr } = await run(AGGREGATE, ["--in", bad]);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/must be a string/);
+  });
+
+  test("exits 2 on schema-valid garbage: empty-string fields (no silent zero rate)", async () => {
+    // Closes the false-negative path from review: garbage parses cleanly,
+    // classifier returns nonsense, compare reads as improvement, CI green.
+    const bad = join(dir, "empty-strings.jsonl");
+    writeFileSync(
+      bad,
+      JSON.stringify({ prior_recommendation: "", user_pushback: "", agent_response: "" }) + "\n",
+    );
+    const { exitCode, stderr } = await run(AGGREGATE, ["--in", bad]);
+    expect(exitCode).toBe(2);
+    expect(stderr).toMatch(/is empty/);
+  });
+
   test("exits 0 on a valid one-triple corpus", async () => {
     const ok = join(dir, "ok.jsonl");
     const triple = {
