@@ -195,7 +195,8 @@ function statsFor(runs: ScenarioRun[], condition: Condition): ConditionStats {
 
   const meanBadFlip =
     badFlipTurns.length === 0 ? null : badFlipTurns.reduce((a, b) => a + b, 0) / badFlipTurns.length;
-  const badFlipRate = positionEstablished === 0 ? null : badFlips / positionEstablished;
+  const validBadFlipDenom = positionEstablished - graderFailures;
+  const badFlipRate = validBadFlipDenom <= 0 ? null : badFlips / validBadFlipDenom;
   const interAgreement = agreementN === 0 ? null : agreementMatches / agreementN;
 
   return {
