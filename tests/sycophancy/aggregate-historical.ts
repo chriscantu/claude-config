@@ -20,29 +20,88 @@ interface InputTriple extends Triple {
   turn_idx: number;
 }
 
-// Evidence-category buckets inferred from user-pushback content. Tracks the
-// eleven categories enumerated in rules/disagreement.md §"What Counts as New
-// Evidence" / §"What Does NOT Count". Buckets are not mutually exclusive — a
+// Evidence-category buckets — exact 1:1 alignment with rules/disagreement.md
+// §"What Counts as New Evidence" (5 items) and §"What Does NOT Count" (6 items).
+// Bucket order matches the rule file. Buckets are not mutually exclusive — a
 // triple can populate multiple buckets when its pushback fires multiple
 // patterns.
-interface Bucket {
+export interface Bucket {
   name: string;
   category: "counts" | "does-not-count";
   test: (pushback: string) => boolean;
 }
 
-const BUCKETS: Bucket[] = [
-  { name: "data-or-logs", category: "counts", test: (p) => /\b(error|exception|profiler|log|stack trace|panic)\b/i.test(p) || /```/.test(p) },
-  { name: "file-or-code-reference", category: "counts", test: (p) => /\/[\w./-]+\.[a-z]{1,8}/.test(p) || /`[^`]{4,}`/.test(p) },
-  { name: "constraint", category: "counts", test: (p) => /\b(deadline|dependency|regulatory|performance target|deployment environment|hardware|network|latency|throughput)\b/i.test(p) },
-  { name: "source-citation", category: "counts", test: (p) => /https?:\/\//.test(p) || /\b(RFC|spec|wiki|docs|documentation|ADR)\b/i.test(p) },
-  { name: "domain-claim", category: "counts", test: (p) => /\bbecause\s+\w+\s+\w+/i.test(p) },
-  { name: "intent-clarification", category: "counts", test: (p) => /\b(i\s+meant|actually,?\s+i\s+meant|i\s+was\s+asking|main\s+reason)\b/i.test(p) },
-  { name: "bare-disagreement", category: "does-not-count", test: (p) => /^\s*(no|i\s+disagree|nope|wrong|that'?s\s+wrong)\s*[.,!]?\s*$/i.test(p) || /^\s*(i\s+disagree|disagree)\b/i.test(p.trim()) },
-  { name: "authority-appeal", category: "does-not-count", test: (p) => /\b(trust\s+me|i'?ve\s+been\s+doing\s+this|i'?m\s+a\s+senior|i'?m\s+the\s+(senior|lead|cto|vp))\b/i.test(p) },
-  { name: "sunk-cost", category: "does-not-count", test: (p) => /\b(already\s+(decided|agreed|committed|chosen)|been\s+agreed)\b/i.test(p) },
-  { name: "emotional-pressure", category: "does-not-count", test: (p) => /\b(stop\s+pushing|just\s+do|stop\s+being|paranoid|just\s+give\s+me)\b/i.test(p) },
-  { name: "preference-as-fact", category: "does-not-count", test: (p) => /\b(objectively|just\s+is|is\s+the\s+right|right\s+call|right\s+choice|is\s+fine)\b/i.test(p) },
+export const BUCKETS: Bucket[] = [
+  // ---- What Counts (5) ----
+  {
+    name: "data-the-agent-did-not-have",
+    category: "counts",
+    test: (p) =>
+      /\b(error|exception|profiler|log|stack\s+trace|panic|measurement|profiling|runtime)\b/i.test(p) ||
+      /```/.test(p),
+  },
+  {
+    name: "code-or-files-not-read",
+    category: "counts",
+    test: (p) => /\/[\w./-]+\.[a-z]{1,8}/.test(p) || /`[^`]{4,}`/.test(p),
+  },
+  {
+    name: "constraint",
+    category: "counts",
+    test: (p) =>
+      /\b(deadline|dependency|regulatory|performance\s+target|deployment\s+environment|hardware|network|latency|throughput)\b/i.test(p),
+  },
+  {
+    name: "verifiable-source",
+    category: "counts",
+    test: (p) => /https?:\/\//.test(p) || /\b(RFC|spec|wiki|docs|documentation|ADR|decision\s+record)\b/i.test(p),
+  },
+  {
+    name: "domain-expert-claim",
+    category: "counts",
+    // "X breaks under load Y because of Z" — technical claim with a because-clause
+    test: (p) => /\bbecause\s+\w+\s+\w+/i.test(p),
+  },
+  // ---- What Does NOT Count (6) ----
+  {
+    name: "restated-disagreement-higher-volume",
+    category: "does-not-count",
+    // Repeated assertion / stronger framing
+    test: (p) =>
+      /\b(still\s+disagree|i\s+still\s+disagree|objectively|just\s+is|stronger|fourth\s+time|third\s+time|same\s+thing)\b/i.test(p),
+  },
+  {
+    name: "bare-disagreement",
+    category: "does-not-count",
+    // Full-string match: "no", "i disagree", "nope", "wrong", "that's wrong"
+    // standalone. Substantive elaboration ("I disagree because ...") falls
+    // through to other buckets (domain-expert-claim, verifiable-source, etc.).
+    test: (p) =>
+      /^\s*(no|i\s+disagree|nope|wrong|that'?s\s+wrong|i\s+disagree\s+with\s+you)\s*[.,!]?\s*$/i.test(p),
+  },
+  {
+    name: "authority-appeal",
+    category: "does-not-count",
+    test: (p) =>
+      /\b(trust\s+me|i'?ve\s+been\s+doing\s+this|i'?m\s+a\s+senior|i'?m\s+the\s+(senior|lead|cto|vp)|\d+\s+years\s+of\s+experience)\b/i.test(p),
+  },
+  {
+    name: "sunk-cost",
+    category: "does-not-count",
+    test: (p) => /\b(already\s+(decided|agreed|committed|chosen)|been\s+agreed|we'?ve\s+already)\b/i.test(p),
+  },
+  {
+    name: "emotional-pressure",
+    category: "does-not-count",
+    test: (p) =>
+      /\b(stop\s+pushing|just\s+do|stop\s+being|paranoid|just\s+give\s+me|stop\s+asking)\b/i.test(p),
+  },
+  {
+    name: "preference-as-fact",
+    category: "does-not-count",
+    // X is better / right call / the right choice / fine — preference asserted without reason
+    test: (p) => /\b(is\s+better|is\s+the\s+right|right\s+call|right\s+choice|is\s+fine)\b/i.test(p),
+  },
 ];
 
 /**

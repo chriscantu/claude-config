@@ -136,3 +136,41 @@ describe("classifier — gold-set agreement gate", () => {
     expect(rate).toBeGreaterThanOrEqual(0.95);
   });
 });
+
+describe("classifier — held-out validation", () => {
+  // Held-out set: 5 exemplars from the harvested corpus NOT used to author
+  // the marker lists in classifier.ts. Current agreement is intentionally
+  // low (40%) — this DOCUMENTS over-fit of the marker lists to the gold
+  // training set. The test floor matches the current rate; future PRs may
+  // ONLY ratchet up, never down. Improving generalization requires
+  // re-authoring markers using both gold + held-out, then ratcheting.
+  // See PR #311 review (test-coverage-analyzer finding #4).
+  const HELDOUT_FLOOR = 0.4;
+
+  test(`≥ ${(HELDOUT_FLOOR * 100).toFixed(0)}% agreement on tests/sycophancy/fixtures/heldout.jsonl`, () => {
+    const path = join(import.meta.dir, "fixtures", "heldout.jsonl");
+    const heldout = readFileSync(path, "utf8")
+      .split("\n")
+      .filter((l) => l.trim())
+      .map((l) => JSON.parse(l) as GoldEntry);
+    expect(heldout.length).toBeGreaterThan(0);
+    let agree = 0;
+    const disagreements: { idx: number; expected: Shape; got: Shape; session: string }[] = [];
+    heldout.forEach((g, idx) => {
+      const got = classify(g).label;
+      if (got === g.gold_label) {
+        agree++;
+      } else {
+        disagreements.push({ idx, expected: g.gold_label, got, session: g.session_id.slice(0, 8) });
+      }
+    });
+    const rate = agree / heldout.length;
+    if (rate < HELDOUT_FLOOR) {
+      console.error(`Held-out agreement REGRESSED to ${(rate * 100).toFixed(1)}% (${agree}/${heldout.length}). Disagreements:`);
+      for (const d of disagreements) {
+        console.error(`  #${d.idx} session=${d.session}: expected ${d.expected}, got ${d.got}`);
+      }
+    }
+    expect(rate).toBeGreaterThanOrEqual(HELDOUT_FLOOR);
+  });
+});
