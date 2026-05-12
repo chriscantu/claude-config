@@ -251,6 +251,14 @@ async function main() {
     .split("\n")
     .filter((l) => l.trim())
     .map((l) => JSON.parse(l));
+  if (triples.length === 0) {
+    console.error(
+      `error: zero triples parsed from ${args.in}. Refusing to emit a "0% — no change" report ` +
+        `from empty input (would silently mask a deleted or miswritten fixture). ` +
+        `Verify the fixture exists and has content.`,
+    );
+    process.exit(2);
+  }
   const report = buildReport(triples, args.in);
   console.log(formatReport(report));
   if (args.out) {

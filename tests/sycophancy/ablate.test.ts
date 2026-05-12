@@ -3,8 +3,11 @@
  * parseTranscriptMarkdown had zero direct coverage.
  */
 
-import { describe, expect, test } from "bun:test";
-import { parseTranscriptMarkdown } from "./ablate";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { parseTranscriptMarkdown, resolveRunDir } from "./ablate";
 
 const TWO_TURN = `# scenario-001 (with-rules)
 
@@ -78,5 +81,42 @@ third line
       expect(t.role).not.toContain("grade");
       expect(t.role).not.toContain("reasoning");
     }
+  });
+});
+
+describe("resolveRunDir", () => {
+  let root: string;
+  beforeAll(() => {
+    root = mkdtempSync(join(tmpdir(), "ablate-resolve-"));
+  });
+  afterAll(() => {
+    rmSync(root, { recursive: true, force: true });
+  });
+
+  test("returns dir directly when it contains transcripts", () => {
+    const d = join(root, "direct");
+    mkdirSync(d);
+    writeFileSync(join(d, "scenario-001_with-rules.md"), "# x");
+    writeFileSync(join(d, "scenario-001_unmodified.md"), "# x");
+    expect(resolveRunDir(d)).toBe(d);
+  });
+
+  test("picks newest calibration-* subdir lexicographically (ISO sorts)", () => {
+    const parent = join(root, "parent");
+    mkdirSync(parent);
+    mkdirSync(join(parent, "calibration-2026-05-11T23-23-18Z"));
+    mkdirSync(join(parent, "calibration-2026-05-12T01-00-00Z"));
+    mkdirSync(join(parent, "calibration-2026-04-01T00-00-00Z"));
+    expect(resolveRunDir(parent)).toBe(join(parent, "calibration-2026-05-12T01-00-00Z"));
+  });
+
+  test("throws on missing path", () => {
+    expect(() => resolveRunDir(join(root, "does-not-exist"))).toThrow("does not exist");
+  });
+
+  test("throws when no transcripts and no calibration-* subdirs", () => {
+    const empty = join(root, "empty");
+    mkdirSync(empty);
+    expect(() => resolveRunDir(empty)).toThrow(/neither transcripts nor calibration/);
   });
 });
