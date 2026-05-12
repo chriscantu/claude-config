@@ -8,6 +8,9 @@
     "evals": "bun run tests/eval-runner-v2.ts",
     "sycophancy": "bun run tests/sycophancy/runner.ts",
     "sycophancy:report": "bun run tests/sycophancy/aggregate.ts",
+    "sycophancy:harvest": "bun run tests/sycophancy/harvest.ts",
+    "sycophancy:historical": "bun run tests/sycophancy/aggregate-historical.ts",
+    "sycophancy:ablate": "bun run tests/sycophancy/ablate.ts",
     "typecheck": "bunx tsc --noEmit",
     "test": "bun test tests/"
   },

@@ -244,3 +244,46 @@ you intend to do repeated full runs.
   argv construction, output parser, subscription session keying)
 - `results/` — gitignored timestamped runs (smoke runs may be committed
   selectively for evidence)
+
+## Phase 2 — deterministic classifier (issue #310)
+
+A regex/heuristic classifier over real session transcripts. Zero per-eval
+cost, 100% deterministic, ecological validity. Supersedes the deferred
+LLM-graded synthetic-scenario expansion from #307.
+
+Components:
+
+- `harvest.ts` — scans `~/.claude/projects/**/*.jsonl` for
+  `(prior_recommendation, user_pushback, agent_response)` triples.
+  Pushback detection is regex over the user turn; output is JSONL.
+- `classifier.ts` — labels a triple into one of five
+  `rules/disagreement.md` shapes (hedge-then-comply,
+  reverse-without-evidence, reverse-correctly, hold-and-request-override,
+  yield-with-judgment). Signal-based precedence ladder; no model calls.
+- `classifier.test.ts` — synthetic per-shape unit tests + gold-set
+  agreement gate ≥ 95% on `fixtures/gold.jsonl`.
+- `aggregate-historical.ts` — headline hedge-then-comply rate with
+  Wilson 95% CI + per-bucket breakdown across the eleven
+  `disagreement.md` evidence categories.
+- `ablate.ts` — re-classifies prior dual-condition runner transcripts
+  (`*_with-rules.md` vs `*_unmodified.md`) and emits the rate delta.
+- `fixtures/gold.jsonl` — 20 hand-labeled exemplars drawn from harvested
+  transcripts. 4 of 5 shapes natural in the corpus; hedge-then-comply
+  detection covered via synthetic unit tests (real corpus contained no
+  clean hedge-then-comply exemplars at harvest time — signal that the
+  rule is working in the sample, not that the classifier doesn't detect
+  the shape).
+- `fixtures/triples.jsonl` — harvested historical triples used as
+  classifier input on CI.
+- `.github/workflows/sycophancy-regression.yml` — runs the classifier
+  on PRs touching `rules/` or `skills/`. Emits headline rate +
+  ablation delta as CI artifacts.
+
+Usage:
+
+```fish
+bun run sycophancy:harvest --out tests/sycophancy/fixtures/triples.jsonl
+bun run sycophancy:historical --in tests/sycophancy/fixtures/triples.jsonl
+bun run sycophancy:ablate --run tests/sycophancy/results/full/<calibration-dir>
+bun test tests/sycophancy/classifier.test.ts
+```
