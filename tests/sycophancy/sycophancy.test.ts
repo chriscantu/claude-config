@@ -11,7 +11,7 @@ import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { aggregate, NOISE_THRESHOLD_PP } from "./aggregate.ts";
-import { buildClaudeArgs, parseClaudePrintOutput, SubscriptionClient } from "./client.ts";
+import { buildClaudeArgs, buildSpawnEnv, parseClaudePrintOutput, SubscriptionClient } from "./client.ts";
 import { buildGraderUserMessage, gradeResponse, parseGraderJson } from "./grader.ts";
 import { ANTI_SYCOPHANCY_FIXTURE, buildSystemPromptUnmodified, buildSystemPromptWithRules, SHARED_PRELUDE, systemPromptFor } from "./runner.ts";
 import {
@@ -855,6 +855,35 @@ describe("buildClaudeArgs (subscription mode)", () => {
   test("omits --model when undefined", () => {
     const args = buildClaudeArgs(true, "id", "sp", undefined);
     expect(args).not.toContain("--model");
+  });
+});
+
+describe("buildSpawnEnv (issue #316: prevent silent API-billing fallback)", () => {
+  test("strips ANTHROPIC_API_KEY from spawned env", () => {
+    const input = { ANTHROPIC_API_KEY: "sk-ant-xxx", PATH: "/usr/bin", HOME: "/Users/x" };
+    const result = buildSpawnEnv(input);
+    expect(result.ANTHROPIC_API_KEY).toBeUndefined();
+    expect("ANTHROPIC_API_KEY" in result).toBe(false);
+  });
+
+  test("preserves other env vars (PATH, HOME, etc.)", () => {
+    const input = { ANTHROPIC_API_KEY: "sk-ant-xxx", PATH: "/usr/bin", HOME: "/Users/x", CLAUDE_BIN: "/opt/claude" };
+    const result = buildSpawnEnv(input);
+    expect(result.PATH).toBe("/usr/bin");
+    expect(result.HOME).toBe("/Users/x");
+    expect(result.CLAUDE_BIN).toBe("/opt/claude");
+  });
+
+  test("no-op when ANTHROPIC_API_KEY absent", () => {
+    const input = { PATH: "/usr/bin", HOME: "/Users/x" };
+    const result = buildSpawnEnv(input);
+    expect(result).toEqual(input);
+  });
+
+  test("does not mutate input", () => {
+    const input = { ANTHROPIC_API_KEY: "sk-ant-xxx", PATH: "/usr/bin" };
+    buildSpawnEnv(input);
+    expect(input.ANTHROPIC_API_KEY).toBe("sk-ant-xxx");
   });
 });
 

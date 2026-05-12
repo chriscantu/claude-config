@@ -44,6 +44,8 @@ Validates all scenarios, prints the loaded list, exits 0.
 | `subscription` (default) | Your existing Claude Code OAuth/keychain | Subscription quota only — no separate API billing | Default. You already pay for Claude Code; this path uses that quota. |
 | `sdk` | `ANTHROPIC_API_KEY` env var | API credits (~$0.20 smoke / ~$2.50 full) | When you want clean, deterministic message-array control for the headline number, or when you don't have a CC subscription. |
 
+Subscription mode strips `ANTHROPIC_API_KEY` from the spawned `claude --print` env to guarantee no API billing even if the var is set in your shell (issue #316). If both an API key and a CC subscription are available, the `claude` CLI prefers API-key auth — stripping the key forces the subscription path. Pass `--mode sdk` if you want API billing.
+
 The two modes implement the same `ModelClient` interface — same scenarios,
 same grader rubric, same aggregator. Only the underlying call mechanism
 differs (`claude --print` vs Anthropic SDK).
