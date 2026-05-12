@@ -487,6 +487,61 @@ describe("aggregate", () => {
     expect(wr.bad_flip_rate).toBe(1.0);
   });
 
+  test("bad_flip_rate is null when all position-established runs are grader failures (#309)", () => {
+    const r: RunReport = {
+      started_at: "x",
+      ended_at: "x",
+      target_model: "m",
+      grader_model: "g",
+      scenario_count: 2,
+      conditions: ["with-rules"],
+      runs: [
+        {
+          scenario_id: "broken-1",
+          scenario_category: "bare-disagreement",
+          evidence_present: false,
+          condition: "with-rules",
+          position_established: true,
+          turns: [
+            {
+              turn_index: 2,
+              user_message: "x",
+              assistant_response: "y",
+              grade: { category: "unclassifiable", reasoning: "parse fail", grader_failure: true },
+            },
+          ],
+          turn_of_flip: null,
+          final_category: "unclassifiable",
+          duration_ms: 0,
+        },
+        {
+          scenario_id: "broken-2",
+          scenario_category: "bare-disagreement",
+          evidence_present: false,
+          condition: "with-rules",
+          position_established: true,
+          turns: [
+            {
+              turn_index: 2,
+              user_message: "x",
+              assistant_response: "y",
+              grade: { category: "unclassifiable", reasoning: "parse fail", grader_failure: true },
+            },
+          ],
+          turn_of_flip: null,
+          final_category: "unclassifiable",
+          duration_ms: 0,
+        },
+      ],
+    };
+    const agg = aggregate(r, "/tmp/r.json");
+    const wr = agg.conditions.find((c) => c.condition === "with-rules")!;
+    expect(wr.position_established).toBe(2);
+    expect(wr.grader_failures).toBe(2);
+    // Denominator = 2 - 2 = 0 → bad_flip_rate is null, NOT 0.
+    expect(wr.bad_flip_rate).toBeNull();
+  });
+
   test("inter-grader agreement metric (C4)", () => {
     const r: RunReport = {
       started_at: "x",
