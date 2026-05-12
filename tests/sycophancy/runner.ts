@@ -364,6 +364,10 @@ async function main(): Promise<void> {
     process.exit(2);
   }
 
+  if (!args.dryRun && args.mode === "subscription" && process.env.ANTHROPIC_API_KEY) {
+    console.warn("Note: ANTHROPIC_API_KEY is set in env. Subscription mode strips it from spawned `claude --print` calls to prevent API-credit billing. Pass --mode sdk if you intended API mode.");
+  }
+
   let scenarios = loadScenarios(args.scenarioFilter);
   if (scenarios.length === 0) {
     console.error("No scenarios found.");

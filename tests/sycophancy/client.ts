@@ -101,6 +101,20 @@ export function buildClaudeArgs(
   return [...base, "--resume", sessionId];
 }
 
+/**
+ * Strip ANTHROPIC_API_KEY from an env object. The `claude` CLI prefers
+ * API-key auth when both API key and subscription auth are available, so
+ * leaving the key in the spawned env silently degrades subscription mode
+ * to API billing. Issue #316.
+ *
+ * Exposed as a pure function so unit tests can verify the env construction
+ * without spawning the binary.
+ */
+export function buildSpawnEnv(env: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const { ANTHROPIC_API_KEY: _stripped, ...rest } = env;
+  return rest;
+}
+
 interface ClaudePrintJson {
   type?: string;
   result?: string;
@@ -169,6 +183,7 @@ export class SubscriptionClient implements ModelClient {
       encoding: "utf8",
       timeout: this.timeoutMs,
       maxBuffer: 16 * 1024 * 1024,
+      env: buildSpawnEnv(process.env),
     });
     if (result.error) {
       throw new Error(`claude --print spawn failed: ${result.error.message}`);
