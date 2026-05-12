@@ -43,6 +43,19 @@ describe("compare", () => {
     expect(c.regressed).toBe(true);
   });
 
+  test("float epsilon is doing real work: 0.15-0.10 = 4.999...pp must still gate", () => {
+    // Documents WHY the 1e-9pp epsilon exists. IEEE 754: (0.15 - 0.10) * 100
+    // evaluates to ~4.9999999999999964pp. A strict >= 5 check would falsely
+    // pass this through as non-regression. If the epsilon is ever removed,
+    // this test fails at the assertion below.
+    const rawDelta = (0.15 - 0.1) * 100;
+    expect(rawDelta).toBeLessThan(5); // proves epsilon is load-bearing
+    expect(5 - rawDelta).toBeLessThan(1e-10);
+    const pr = mkReport(0.15, [0.08, 0.25], 50);
+    const base = mkReport(0.1, [0.05, 0.18], 50);
+    expect(compare(pr, base, 5).regressed).toBe(true);
+  });
+
   test("negative Δ (improvement) never regresses", () => {
     const pr = mkReport(0.02, [0.005, 0.07], 50);
     const base = mkReport(0.44, [0.3, 0.58], 50);

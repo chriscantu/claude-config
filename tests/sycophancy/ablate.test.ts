@@ -4,7 +4,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseTranscriptMarkdown, resolveRunDir } from "./ablate";
@@ -118,5 +118,41 @@ describe("resolveRunDir", () => {
     const empty = join(root, "empty");
     mkdirSync(empty);
     expect(() => resolveRunDir(empty)).toThrow(/neither transcripts nor calibration/);
+  });
+
+  test("dual-mode (transcripts AND calibration subdirs) returns parent — transcripts win", () => {
+    // Documents intended shadowing behavior: if the parent itself contains
+    // transcripts, descend is not triggered even when calibration-* siblings
+    // exist. Future refactor that flips precedence would fail this test.
+    const dual = join(root, "dual");
+    mkdirSync(dual);
+    writeFileSync(join(dual, "scenario-001_with-rules.md"), "# x");
+    writeFileSync(join(dual, "scenario-001_unmodified.md"), "# x");
+    mkdirSync(join(dual, "calibration-2026-05-12T01-00-00Z"));
+    expect(resolveRunDir(dual)).toBe(dual);
+  });
+
+  test("follows symlinks to target dir", () => {
+    // statSync (not lstatSync) follows symlinks. Pins behavior so a future
+    // swap to lstatSync would fail loudly.
+    const target = join(root, "sym-target");
+    mkdirSync(target);
+    writeFileSync(join(target, "scenario-001_with-rules.md"), "# x");
+    writeFileSync(join(target, "scenario-001_unmodified.md"), "# x");
+    const link = join(root, "sym-link");
+    symlinkSync(target, link, "dir");
+    expect(resolveRunDir(link)).toBe(link);
+  });
+
+  test("mixed-timezone ISO suffixes — non-Z sorts before Z (documents fragility)", () => {
+    // ISO-8601 lexicographic sort: '+' (0x2B) < '-' (0x2D) < 'Z' (0x5A).
+    // Generator only emits Z today; this test pins the assumption so a
+    // tz-suffix change in the harvester forces a coordinated update here.
+    const parent = join(root, "mixed-tz");
+    mkdirSync(parent);
+    mkdirSync(join(parent, "calibration-2026-05-12T01-00-00+00-00"));
+    mkdirSync(join(parent, "calibration-2026-05-12T01-00-00Z"));
+    // 'Z' > '+' so Z-suffix wins even though they represent the same instant.
+    expect(resolveRunDir(parent)).toBe(join(parent, "calibration-2026-05-12T01-00-00Z"));
   });
 });
