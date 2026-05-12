@@ -244,13 +244,62 @@ function formatReport(r: Report): string {
   return lines.join("\n");
 }
 
+/**
+ * Validate that a parsed JSON value has the structure of an InputTriple.
+ * Returns null on success, or a human-readable reason string on failure.
+ *
+ * Closes the malformed-content gap from PR #314 review: empty-file safety
+ * exited 2, but a jsonl with `{}`, missing fields, or wrong-typed fields
+ * would parse cleanly and either crash inside classify() or — worse —
+ * produce a silent `rate: 0` report that compare() reads as improvement.
+ */
+export function validateTriple(v: unknown): string | null {
+  if (v === null || typeof v !== "object") return `not an object (got ${v === null ? "null" : typeof v})`;
+  const o = v as Record<string, unknown>;
+  for (const field of ["prior_recommendation", "user_pushback", "agent_response"] as const) {
+    const val = o[field];
+    if (typeof val !== "string") return `field "${field}" must be a string (got ${typeof val})`;
+    if (val.trim() === "") return `field "${field}" is empty`;
+  }
+  return null;
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const data = readFileSync(args.in, "utf8");
-  const triples: InputTriple[] = data
-    .split("\n")
-    .filter((l) => l.trim())
-    .map((l) => JSON.parse(l));
+  const lines = data.split("\n");
+  const triples: InputTriple[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (!line.trim()) continue;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(line);
+    } catch (e) {
+      console.error(
+        `error: ${args.in}:${i + 1}: invalid JSON — ${(e as Error).message}. ` +
+          `Refusing to silently drop a malformed line (could mask a corrupted fixture).`,
+      );
+      process.exit(2);
+    }
+    const reason = validateTriple(parsed);
+    if (reason) {
+      console.error(
+        `error: ${args.in}:${i + 1}: malformed triple — ${reason}. ` +
+          `Refusing to classify a triple missing required fields (would emit nonsense rates).`,
+      );
+      process.exit(2);
+    }
+    triples.push(parsed as InputTriple);
+  }
+  if (triples.length === 0) {
+    console.error(
+      `error: zero triples parsed from ${args.in}. Refusing to emit a "0% — no change" report ` +
+        `from empty input (would silently mask a deleted or miswritten fixture). ` +
+        `Verify the fixture exists and has content.`,
+    );
+    process.exit(2);
+  }
   const report = buildReport(triples, args.in);
   console.log(formatReport(report));
   if (args.out) {

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { BUCKETS, buildReport, wilsonInterval } from "./aggregate-historical";
+import { BUCKETS, buildReport, validateTriple, wilsonInterval } from "./aggregate-historical";
 
 describe("wilsonInterval", () => {
   test("returns [0,0] when n = 0", () => {
@@ -99,6 +99,52 @@ describe("BUCKETS alignment with rules/disagreement.md", () => {
   test("bare-disagreement does not fire on substantive pushback", () => {
     const bareDisagree = BUCKETS.find((b) => b.name === "bare-disagreement")!;
     expect(bareDisagree.test("I disagree because the Postgres docs at example.com say otherwise")).toBe(false);
+  });
+});
+
+describe("validateTriple", () => {
+  test("accepts a well-formed triple", () => {
+    expect(
+      validateTriple({
+        prior_recommendation: "x",
+        user_pushback: "y",
+        agent_response: "z",
+      }),
+    ).toBeNull();
+  });
+
+  test("rejects non-object values", () => {
+    expect(validateTriple(null)).toMatch(/not an object/);
+    expect(validateTriple("string")).toMatch(/not an object/);
+    expect(validateTriple(42)).toMatch(/not an object/);
+    expect(validateTriple([])).not.toBeNull();
+  });
+
+  test("rejects missing required fields", () => {
+    expect(validateTriple({})).toMatch(/prior_recommendation/);
+    expect(
+      validateTriple({ prior_recommendation: "x", user_pushback: "y" }),
+    ).toMatch(/agent_response/);
+  });
+
+  test("rejects wrong-typed fields", () => {
+    expect(
+      validateTriple({
+        prior_recommendation: 123,
+        user_pushback: "y",
+        agent_response: "z",
+      }),
+    ).toMatch(/must be a string/);
+  });
+
+  test("rejects empty-string fields (silent-zero-rate guard)", () => {
+    expect(
+      validateTriple({
+        prior_recommendation: "   ",
+        user_pushback: "y",
+        agent_response: "z",
+      }),
+    ).toMatch(/is empty/);
   });
 });
 

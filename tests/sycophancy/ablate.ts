@@ -14,7 +14,7 @@
  * Issue: chriscantu/claude-config#310 (acceptance criterion 5).
  */
 
-import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from "node:fs";
 import { join, basename } from "node:path";
 import { classify, type Shape, type Triple } from "./classifier";
 import { wilsonInterval } from "./aggregate-historical";
@@ -97,6 +97,41 @@ function emptyCounts(): Record<Shape, number> {
     "hold-and-request-override": 0,
     "yield-with-judgment": 0,
   };
+}
+
+/**
+ * Resolve a --run argument to a concrete transcripts directory.
+ *
+ * Accepts either:
+ *   1. A direct path to a transcripts dir (contains `*_with-rules.md` / `*_unmodified.md`)
+ *   2. A parent dir containing `calibration-<ISO-timestamp>` subdirs — picks the newest
+ *      by name (ISO-8601 sorts lexicographically).
+ *
+ * Replaces the prior hardcoded `calibration-2026-05-11T23-23-18Z` workflow reference
+ * so CI doesn't silently break when the calibration corpus is refreshed. Issue #312.
+ */
+export function resolveRunDir(arg: string): string {
+  if (!existsSync(arg)) {
+    throw new Error(`--run path does not exist: ${arg}`);
+  }
+  if (!statSync(arg).isDirectory()) {
+    throw new Error(`--run path is not a directory: ${arg}`);
+  }
+  const entries = readdirSync(arg);
+  const hasTranscripts = entries.some((e) => /^.+_(with-rules|unmodified)\.md$/.test(e));
+  if (hasTranscripts) return arg;
+  const calibrationSubdirs = entries
+    .filter((e) => /^calibration-/.test(e))
+    .filter((e) => statSync(join(arg, e)).isDirectory())
+    .sort();
+  if (calibrationSubdirs.length === 0) {
+    throw new Error(
+      `--run dir ${arg} contains neither transcripts nor calibration-* subdirs. ` +
+        `Expected a transcripts dir or a parent dir with calibration-<ISO> subdirs.`,
+    );
+  }
+  const newest = calibrationSubdirs[calibrationSubdirs.length - 1];
+  return join(arg, newest);
 }
 
 export function buildAblationReport(runDir: string): AblationReport {
@@ -193,7 +228,17 @@ function parseArgs(argv: string[]): Args {
 
 async function main() {
   const args = parseArgs(process.argv.slice(2));
-  const report = buildAblationReport(args.run);
+  const resolvedRun = resolveRunDir(args.run);
+  const report = buildAblationReport(resolvedRun);
+  if (report.per_condition.some((c) => c.n_triples === 0)) {
+    const empty = report.per_condition.filter((c) => c.n_triples === 0).map((c) => c.condition).join(", ");
+    console.error(
+      `error: zero triples in condition(s) [${empty}] from ${resolvedRun}. Refusing to emit a ` +
+        `"0pp — no change" delta from empty input (would silently mask a deleted run or parser drift). ` +
+        `Verify both with-rules and unmodified transcripts exist under the run dir.`,
+    );
+    process.exit(2);
+  }
   console.log(formatAblation(report));
   if (args.out) {
     const dir = args.out.split("/").slice(0, -1).join("/");
