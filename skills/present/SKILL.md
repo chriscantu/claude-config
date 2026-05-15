@@ -93,76 +93,7 @@ Once the outline is approved, write the presentation to:
 
 Where `<slug>` is a kebab-case version of the presentation title (e.g., "Q3 Engineering Roadmap" → `q3-engineering-roadmap`).
 
-### Default Frontmatter
-
-Every presentation starts with:
-
-```yaml
----
-theme: default
-colorSchema: dark
-highlighter: shiki
-lineNumbers: false
-fonts:
-  sans: 'Inter'
-  mono: 'JetBrains Mono'
-transition: slide-left
----
-```
-
-Note: use `colorSchema: light` when the context requires it (printed handouts, bright projection rooms).
-
-### Layouts
-
-| Layout | When to use |
-|---|---|
-| `cover` | Title slide — large headline, subtitle, date |
-| `default` | General content — text, bullets |
-| `two-cols` | Side-by-side comparisons |
-| `center` | Key statements, quotes, call-to-action |
-| `fact` | Single large stat or highlight |
-
-### Slide Separator
-
-Separate slides with `---` on its own line. To set a layout for a specific slide:
-
-```markdown
----
-layout: fact
----
-
-# 47%
-Reduction in time-to-deploy after migrating to the new pipeline
-```
-
-### Diagram Blocks
-
-Use the right block for each diagram type:
-
-**Mermaid (flow, sequence, architecture):**
-
-```mermaid
-flowchart LR
-  A[Client] --> B[API Gateway] --> C[Service]
-```
-
-**Chart.js (data visualizations):**
-
-```chart
-type: bar
-data:
-  labels: [Q1, Q2, Q3, Q4]
-  datasets:
-    - label: Revenue ($M)
-      data: [1.2, 1.8, 2.1, 2.4]
-```
-
-**Code blocks (technical slides) — syntax highlighted via Shiki:**
-
-```typescript
-const result = await fetch('/api/data')
-const data = await result.json()
-```
+Slidev syntax (frontmatter, layouts, separator, diagram blocks): see References.
 
 ## Step 4: Live Preview
 
@@ -203,27 +134,7 @@ cd ~/presentations/<slug> && bunx @slidev/cli export slides.md --format pptx
 
 Both files land in `~/presentations/<slug>/`.
 
-### Export Troubleshooting
-
-If export fails because the theme is missing (cannot prompt for installation):
-
-Start the dev server once first — it installs missing themes automatically:
-```fish
-cd ~/presentations/<slug> && bunx @slidev/cli slides.md
-```
-Then stop it (`Ctrl+C`) and re-run the export command.
-
-If export fails because Chromium is unavailable:
-
-1. Install Playwright's Chromium browser (one-time, ~92MB):
-   ```fish
-   bunx playwright install chromium
-   ```
-2. Re-run the export command.
-3. If still failing: open `http://localhost:3030` and use browser print-to-PDF as fallback.
-4. For PPTX: export requires Chromium. If unavailable, export PDF first and note the PPTX limitation.
-
-Note: Slidev's PPTX export embeds slide images — the output is not text-editable in PowerPoint. This is acceptable for presentation use; if the recipient needs to edit the deck, deliver PDF instead.
+Export failure recovery (missing theme, missing Chromium, PPTX limitations): see References.
 
 ## When NOT to Use
 
@@ -253,3 +164,8 @@ git commit -m "Initial deck: <title>"
 ```
 
 `slides.pdf` and `slides.pptx` should be gitignored (generated artifacts). The `slides.md` file is the source of truth.
+
+## References
+
+- [references/slidev-syntax.md](references/slidev-syntax.md) — Step 3: frontmatter, layouts, slide separator, diagram blocks (Mermaid / Chart.js / code).
+- [references/export-troubleshooting.md](references/export-troubleshooting.md) — Step 6: missing theme, missing Chromium, PPTX limitations.
