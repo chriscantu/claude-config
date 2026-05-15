@@ -137,27 +137,12 @@ an unverified rushed merge is the most expensive thing to land.
 
 ### Pressure-framing floor
 
-Floor enforcement ([pressure-framing routing](planning.md#pressure-framing-floor),
-[named-cost emission contract](planning.md#emission-contract),
-[sentinel bypass](planning.md#emergency-bypass-sentinel)) is anchored in
-`rules/planning.md` DTP per-gate block. Per
-[ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
-and memory note `per_gate_floor_blocks_substitutable.md`, per-gate floor blocks
-add no eval-measurable load given the DTP anchor.
-
-Concrete signals here:
-
-- **Authority** ("CTO/lead approved the merge", "reviewer signed off so I'll
-  skip the test plan")
-- **Sunk cost** ("we already decided to ship this", "PR has been open for a
-  week, just merge")
-- **Exhaustion** ("just merge it", "stop with the ceremony")
-- **Deadline** ("ship by Friday", "demo in 10 minutes", "needs to land today")
-- **Stated-next-step** ("just merge it, fix forward", "tests passed locally
-  so I skipped the test plan", "ship it, I'll fix forward")
-
-Honor full skip ONLY via the Emission contract below — anything else runs the
-test plan.
+See [pressure-framing routing](planning.md#pressure-framing-floor),
+[emission contract](planning.md#emission-contract), and
+[sentinel bypass](planning.md#emergency-bypass-sentinel) — canonical mechanics
+live in `rules/planning.md`. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+and memory note `per_gate_floor_blocks_substitutable.md`, no per-gate
+restatement is required.
 
 ### Emission contract — MANDATORY
 

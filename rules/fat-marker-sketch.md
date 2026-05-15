@@ -42,12 +42,11 @@ combined red flags.
 
 ### Skip contract
 
-[Pressure-framing floor](planning.md#pressure-framing-floor),
+See [pressure-framing routing](planning.md#pressure-framing-floor),
 [emission contract](planning.md#emission-contract), and
-[sentinel bypass](planning.md#emergency-bypass-sentinel) are anchored in
-`rules/planning.md` (DTP block). FMS honors the same mechanics via that anchor —
-a per-gate copy here adds zero eval-measurable enforcement. See ADR #0007 and
-the four-cell inverse-RED audit (2026-04-24) for evidence.
+[sentinel bypass](planning.md#emergency-bypass-sentinel) — canonical mechanics
+live in `rules/planning.md`. Per ADR #0007 and the 2026-04-24 inverse-RED audit,
+no per-gate restatement is required.
 
 ## Producing the Sketch
 

@@ -85,22 +85,13 @@ been honored.
 
 ## Pressure-framing floor
 
-Floor enforcement ([pressure-framing routing](planning.md#pressure-framing-floor),
-[named-cost emission contract](planning.md#emission-contract),
-[sentinel bypass](planning.md#emergency-bypass-sentinel)) is anchored in
-`rules/planning.md` DTP per-gate block. Per
-[ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
-and memory note `per_gate_floor_blocks_substitutable.md`, the model
-generalizes that anchor to the active gate, so a per-gate floor block here
-adds no eval-measurable load given the DTP anchor.
-
-Concrete signals here: "this needs the full subagent treatment" or "go
-fast, single implementer" without the criteria above being demonstrable
-from the plan are pressure framings. Apply the sizing guard against the
-actual plan, not the framing. A 12-task / 3-file / 600-LOC plan is
-subagent-driven regardless of stated preference for speed; a 2-task /
-1-file / 80-LOC plan is single-implementer regardless of stated preference
-for thoroughness.
+See [pressure-framing routing](planning.md#pressure-framing-floor),
+[emission contract](planning.md#emission-contract),
+[sentinel bypass](planning.md#emergency-bypass-sentinel), and
+[Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria) —
+canonical mechanics live in `rules/planning.md`. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+and memory note `per_gate_floor_blocks_substitutable.md`, no per-gate
+restatement is required.
 
 ## Relationship to Other Rules
 
