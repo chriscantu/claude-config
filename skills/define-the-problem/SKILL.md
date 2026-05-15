@@ -203,17 +203,20 @@ Step 5.
 
 1. Display the final problem statement (if not just displayed)
 2. **Glossary check (pre-handoff).** Scan `./CONTEXT.md` (if it exists)
-   for terms used in the **User** and **Problem** fields. For any term
-   that appears canonicalization-worthy but is NOT yet in
-   `./CONTEXT.md`, offer `/glossary` before handoff. Skip silently if
-   `./CONTEXT.md` is absent AND no term resolution occurred during the
-   five questions.
+   for project-specific nouns used in the **User** and **Problem**
+   fields. For any candidate term NOT yet in `./CONTEXT.md`, offer
+   `/glossary` before handoff. Skip silently if `./CONTEXT.md` is absent
+   AND no observable trigger fired (see criteria below).
 
-   Trigger criteria (ANY must hold):
-   - Five-questions path resolved an ambiguous term (`account → Customer`)
+   Trigger criteria (ANY must hold — each must be observable from the
+   conversation transcript, not from agent introspection):
+   - User explicitly substituted or corrected a term during the
+     five-question sequence (e.g., user said "actually we call that
+     Customer, not account")
    - Problem Statement uses a project-specific noun ≥3 times that lacks
-     a canonical definition
-   - User explicitly disambiguated a term during the session
+     a canonical definition in `./CONTEXT.md`
+   - User asked a disambiguation question that the agent answered during
+     the session
 
    Format the offer as:
    > "These terms appeared in the problem statement: [list]. Want to
@@ -222,8 +225,10 @@ Step 5.
 
    Invoke via the caller-hook contract:
    `/glossary --offer-from-caller=define-the-problem --candidate-terms=<term1,term2,...>`.
-   Glossary returns the list of approved + written terms; continue
-   handoff regardless. **Offer, never auto-write.**
+   Glossary surfaces a one-line summary in its response (e.g.,
+   "Canonicalized: Customer. Skipped: Account."); read that summary and
+   include it in the handoff narration if useful. Continue handoff
+   regardless. **Offer, never auto-write.**
 3. Ask: "Problem defined. Ready to map dependencies and impact?"
 4. On confirmation, invoke `/systems-analysis` with the problem statement
 

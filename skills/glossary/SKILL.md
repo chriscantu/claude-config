@@ -1,15 +1,20 @@
 ---
 name: glossary
 description: >
-  Use when the user says /glossary, asks to canonicalize a term in
-  ./CONTEXT.md, asks "what do we call X again", flags a term alias
-  ("don't call it foo, call it bar"), or wants to record agreed-upon
-  project terminology so future sessions and downstream artifacts
-  (ADRs, SDRs, systems-analysis output) stay consistent. Also invoked
-  by define-the-problem and systems-analysis at end-of-skill to offer
-  canonicalization for terms resolved during planning. Write-only
-  format-owner for per-project ./CONTEXT.md. Lazy-create on first
-  term resolution; never auto-write — user approval gates every entry.
+  Use when the user explicitly invokes /glossary, asks to canonicalize a
+  domain term in ./CONTEXT.md, or wants to record agreed-upon
+  project-specific terminology so future sessions and downstream artifacts
+  (ADRs, SDRs, systems-analysis output) stay consistent. Also invoked by
+  define-the-problem and systems-analysis at end-of-skill via the
+  caller-hook contract to offer canonicalization for terms resolved during
+  planning. Write-only format-owner for per-project ./CONTEXT.md.
+  Lazy-create on first term resolution; never auto-write — user approval
+  gates every entry. Do NOT use for: casual term mentions in conversation,
+  code-level naming questions, architectural primitives (Module, Interface,
+  Adapter, Seam — those belong in LANGUAGE.md owned by
+  architecture-overview), general programming concepts, or decisions about
+  why a term was chosen (those belong in docs/superpowers/decisions/ or an
+  ADR).
 ---
 
 # Glossary
@@ -17,10 +22,13 @@ description: >
 Living per-project terminology canon at `./CONTEXT.md`. Solves long-term
 memory gap for agreed-upon terms across sessions and downstream artifacts.
 
-**Announce at start (skip when invoked from a caller-skill hook that already
-announced):**
+**Announce at start (skip when the user invoked the slash command directly —
+they already know what they typed):**
 
-> "Using the glossary skill to canonicalize <N> term(s)."
+> "Using the glossary skill to review <N> candidate term(s)."
+
+`<N>` = candidate count from the caller-hook invocation (offers about to
+fire), not write count (writes are gated on user approval per offer).
 
 ## When This Skill Routes Elsewhere
 
@@ -34,6 +42,8 @@ announced):**
 
 ## Slash Command Surface
 
+User-facing:
+
 ```
 /glossary <term>                          interactive: define term in ./CONTEXT.md
 /glossary <term> --alias-of <canonical>   add as _Avoid_ alias under canonical
@@ -42,6 +52,13 @@ announced):**
 ```
 
 No-arg `/glossary` → ask the user what they want to do.
+
+Hook-only (invoked by caller skills; see Caller-Hook Contract below — not
+intended for direct user use):
+
+```
+/glossary --offer-from-caller=<caller-name> --candidate-terms=<term1,term2,...>
+```
 
 ## Caller-Hook Contract
 
@@ -60,8 +77,11 @@ Behavior:
 3. For each `y`, run the interactive define flow.
 4. For `n`, do nothing for that term.
 5. For `skip-all`, suppress remaining offers for this invocation.
-6. Return: list of approved terms + list of written entries. Caller continues
-   handoff.
+6. After all candidates processed, surface a one-line summary in the
+   response (e.g., "Canonicalized: Customer. Skipped: Account.") so the
+   caller can include it in its handoff narration. **No structured return
+   value** — skills are not function calls; the summary is informational
+   prose for the caller to read off the conversation.
 
 Hook contract: **offer, never auto-write**. User approval gates every write.
 
@@ -101,13 +121,24 @@ extends a file matching that structure. Do NOT deviate from the format in v1.
 
 ## Conflict Rules
 
-- **vs. `LANGUAGE.md`** — different namespaces (architectural primitives vs.
-  domain terms). No precedence rule until a real collision is observed; defer
-  to v2.
+- **vs. `LANGUAGE.md`** — `LANGUAGE.md` (architectural primitives, owned by
+  `architecture-overview`) and `./CONTEXT.md` (domain terms) live in
+  different namespaces. v1 does NOT actively read `LANGUAGE.md` before
+  writing — collision detection is **deferred to v2** (filed as part of the
+  read-discipline follow-ups). If the user notices a collision in the
+  meantime, prefer `LANGUAGE.md` for architectural primitives, `./CONTEXT.md`
+  for domain terms; surface a one-line note in the response and let the
+  user decide.
 - **vs. `MEMORY.md` auto-memory** — terminology facts belong in
-  `./CONTEXT.md`, not auto-memory. If auto-memory holds a terminology entry
-  that contradicts `./CONTEXT.md`, `./CONTEXT.md` wins; flag for cleanup
-  in the response.
+  `./CONTEXT.md`, not auto-memory. v1 does NOT actively scan auto-memory
+  before writing — contradiction detection is **deferred to v2**. If the
+  agent happens to notice a contradiction during normal operation, surface
+  a one-line warning of the form:
+
+  > "Auto-memory entry for `<term>` contradicts ./CONTEXT.md (canonical:
+  > <X>; auto-memory says: <Y>) — recommend deleting the auto-memory entry."
+
+  Do NOT modify auto-memory automatically.
 
 ## When to Skip
 
@@ -118,9 +149,11 @@ extends a file matching that structure. Do NOT deviate from the format in v1.
 
 ## Out of Scope (v1)
 
-- SDR / ADR / decision-challenger invocation hooks (v2 follow-up issues).
-- Read-discipline enforcement in consumer skills (v2; separate per-skill
-  follow-ups).
+- SDR / ADR / decision-challenger invocation hooks (v2 follow-up issues
+  #321 / #322 / #323).
+- Read-discipline enforcement in consumer skills, including active
+  collision detection vs. `LANGUAGE.md` and contradiction detection vs.
+  `MEMORY.md` auto-memory (v2; follow-ups #324 / #325).
 - Consolidate / stale-flag mechanism (v2; defer unless evals demand).
 - Multi-context `CONTEXT-MAP.md` (v2; promote only when a project warrants
   split).

@@ -172,8 +172,10 @@ user specifically named (not inferred from code).
 
 Invoke via the caller-hook contract:
 `/glossary --offer-from-caller=systems-analysis --candidate-terms=<term1,term2,...>`.
-Glossary returns the list of approved + written terms; continue to Step
-B regardless. **Offer, never auto-write.**
+Glossary surfaces a one-line summary in its response (e.g.,
+"Canonicalized: Sentinel. Skipped: BillingSvc."); read that summary and
+include it in the Step B framing if useful. Continue to Step B
+regardless. **Offer, never auto-write.**
 
 ---
 

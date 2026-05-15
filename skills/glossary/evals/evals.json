@@ -1,37 +1,57 @@
 {
   "skill": "glossary",
-  "description": "Executable evals for the glossary skill (per docs/superpowers/decisions/2026-05-15-glossary-skill.md §4). Each eval shells `claude --print`, captures the response, and runs rubric assertions against it. Scenarios cover: lazy ./CONTEXT.md creation on first term, _Avoid_ alias recording, format compliance with grill-with-docs CONTEXT-FORMAT.md, DTP/SA caller-hook offer-on-resolution and skip-on-no-resolution, decline-does-not-write, and Flagged-ambiguity surfacing on conflicting alias. Per memory note `feedback_sunk_cost_eval.md`: substrate-fixable failures stay at the eval-runner layer; do NOT chase them with skill or rules edits.",
-  "_contract_note": "Required-tier `tool_input_matches` assertions pin the Claude Code Skill tool surface (tool name 'Skill', input_key 'skill', input_value 'glossary'). This is an unversioned upstream contract owned by Claude Code. If an upstream rename lands, every required-tier assertion in this file silently flips red without signaling platform change vs. regression. Confirm Skill tool schema before treating a required-tier failure as a behavioral regression.",
+  "description": "Executable evals for the glossary skill (per docs/superpowers/decisions/2026-05-15-glossary-skill.md §4 + post-review fixes for PR #320). Each eval shells `claude --print`, captures the response, and runs rubric assertions against it. Coverage: lazy ./CONTEXT.md creation on first term (with structural Write anchor), _Avoid_ alias recording, format compliance with grill-with-docs CONTEXT-FORMAT.md, DTP/SA caller-hook offer-on-resolution and skip-on-no-resolution, decline-does-not-write (Bash escape closed), Flagged-ambiguity surfacing on conflicting alias, plus skip-all reply branch, alphabetical-order append, --alias-of <missing-canonical> subflow, no-conflict-no-flag idempotency twin, --list and --conflict read-only surfaces. Per memory note `feedback_sunk_cost_eval.md`: substrate-fixable failures stay at the eval-runner layer; do NOT chase them with skill or rules edits. Tier annotations: structural assertions (skill_invoked, tool_called, tool_input_matches, not_tool_called) are tier:required and gate CI; loose prose-channel regexes are tier:diagnostic and report only.",
+  "_contract_note": "Required-tier `tool_input_matches` and `skill_invoked` assertions pin the Claude Code Skill tool surface (tool name 'Skill', input_key 'skill', input_value 'glossary') AND the Write/Bash tool surfaces. These are unversioned upstream contracts owned by Claude Code. If an upstream rename lands, every required-tier assertion silently flips red without signaling platform change vs. regression. Confirm tool schemas before treating a required-tier failure as a behavioral regression.",
+  "_substrate_note": "Several evals (lazy-create-on-first-term, format-matches-grill-context-format, append-to-existing-alphabetical-order, alias-of-missing-canonical) require `claude --print` to actually write files in its scratch cwd. If those evals fail with no Write tool use observed, suspect substrate (sandbox forbids writes, scratch dir read-only, etc.) before suspecting the skill body — this is the failure class memory note feedback_sunk_cost_eval.md warns about. Triage path: re-run with EVAL_TEXT_NONBLOCKING=1 to demote text-channel failures, then check whether tool_called Write fires across the suite at all.",
   "evals": [
     {
       "name": "lazy-create-on-first-term",
-      "summary": "First /glossary invocation in a project with no existing ./CONTEXT.md must lazy-create the file with the grill-with-docs format (heading + Language section).",
+      "summary": "First /glossary invocation in a project with no existing ./CONTEXT.md must lazy-create the file with the grill-with-docs format (heading + Language section). Structural Write anchor closes the prose-fake-pass failure mode.",
       "prompt": "/glossary Customer\n\nThis project has no ./CONTEXT.md yet. Project context name: \"Reflex Ordering\". Description: \"Order intake and fulfillment for the Reflex retail platform.\" Definition of Customer: \"A person or organization that places orders.\" Aliases to avoid: client, buyer, account. No relationships to record.",
       "assertions": [
         {
           "type": "skill_invoked",
           "skill": "glossary",
-          "description": "/glossary slash command invokes the glossary skill"
+          "tier": "required",
+          "description": "/glossary slash command invokes the glossary skill (structural)"
+        },
+        {
+          "type": "tool_called",
+          "tools": ["Write"],
+          "tier": "required",
+          "description": "Write tool fires — file actually created on disk, not just described in prose"
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Write",
+          "input_key": "file_path",
+          "input_value": "CONTEXT.md",
+          "tier": "required",
+          "description": "Write target ends in CONTEXT.md (lazy-create at repo root)"
         },
         {
           "type": "regex",
           "pattern": "#\\s+Reflex Ordering",
-          "description": "File body contains the project-context heading"
+          "tier": "diagnostic",
+          "description": "File body contains the project-context heading (prose-channel — Write content is not surfaced in finalText, so this is best-effort against summary)"
         },
         {
           "type": "regex",
           "pattern": "##\\s+Language",
-          "description": "File body contains the ## Language section header"
+          "tier": "diagnostic",
+          "description": "File body or summary references ## Language section header"
         },
         {
           "type": "regex",
           "pattern": "\\*\\*Customer\\*\\*",
-          "description": "Customer is recorded as a bolded canonical term"
+          "tier": "diagnostic",
+          "description": "Customer mentioned as a bolded canonical term"
         },
         {
           "type": "regex",
           "pattern": "_Avoid_:.*(client|buyer|account)",
           "flags": "i",
+          "tier": "diagnostic",
           "description": "Aliases recorded under _Avoid_:"
         }
       ]
@@ -44,41 +64,59 @@
         {
           "type": "skill_invoked",
           "skill": "glossary",
-          "description": "/glossary invokes glossary skill"
+          "tier": "required",
+          "description": "/glossary invokes glossary skill (structural)"
         },
         {
           "type": "regex",
           "pattern": "_Avoid_:[^\\n]*account",
           "flags": "i",
+          "tier": "diagnostic",
           "description": "account appears on the _Avoid_: line"
         },
         {
           "type": "not_regex",
-          "pattern": "\\*\\*account\\*\\*\\s*:\\s*\\n[^_]*\\n_Avoid_",
+          "pattern": "\\*\\*account\\*\\*\\s*:",
           "flags": "i",
-          "description": "account is NOT recorded as a separate canonical term"
+          "tier": "required",
+          "description": "account is NOT introduced as a separate canonical entry (any line with **account**: as a heading)"
         }
       ]
     },
     {
       "name": "format-matches-grill-context-format",
-      "summary": "Output structure matches grill-with-docs CONTEXT-FORMAT.md: heading, description, ## Language section with bold-term + definition + _Avoid_ pattern.",
+      "summary": "Output structure matches grill-with-docs CONTEXT-FORMAT.md: heading, description, ## Language section with bold-term + definition + _Avoid_ pattern. Structural Write anchor closes the prose-fake-pass failure mode.",
       "prompt": "/glossary Order\n\nProject context: \"Reflex Ordering\". Description: \"Order intake and fulfillment.\" Definition of Order: \"A request from a Customer to purchase one or more items.\" No aliases. No relationships.",
       "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "tier": "required",
+          "description": "Skill fires"
+        },
+        {
+          "type": "tool_called",
+          "tools": ["Write"],
+          "tier": "required",
+          "description": "Write tool fires — format compliance is meaningless without an actual file"
+        },
         {
           "type": "regex",
           "pattern": "^#\\s+\\S",
           "flags": "m",
+          "tier": "diagnostic",
           "description": "Has a top-level heading line"
         },
         {
           "type": "regex",
           "pattern": "##\\s+Language",
+          "tier": "diagnostic",
           "description": "Has ## Language section"
         },
         {
           "type": "regex",
           "pattern": "\\*\\*Order\\*\\*\\s*:\\s*\\n[^\\n]+",
+          "tier": "diagnostic",
           "description": "Bold-term name on its own line followed by definition (grill format)"
         }
       ]
@@ -91,31 +129,48 @@
         {
           "type": "skill_invoked",
           "skill": "glossary",
-          "description": "Caller-hook invokes glossary skill"
+          "tier": "required",
+          "description": "Caller-hook invokes glossary skill (structural)"
         },
         {
           "type": "regex",
-          "pattern": "(canonicaliz|add to (the )?glossary|record .{0,40}CONTEXT\\.md|/glossary)",
+          "pattern": "(canonicaliz|add to (the )?glossary|record .{0,40}CONTEXT\\.md)",
           "flags": "i",
-          "description": "Surfaces an offer to canonicalize Customer in ./CONTEXT.md"
+          "tier": "diagnostic",
+          "description": "Surfaces an offer to canonicalize Customer in ./CONTEXT.md (offer-intent vocabulary; /glossary token leak removed so model can't pass by echoing the prompt)"
         },
         {
           "type": "regex",
           "pattern": "Customer",
+          "tier": "diagnostic",
           "description": "Names the candidate term in the offer"
         }
       ]
     },
     {
       "name": "dtp-hook-skips-when-no-resolution",
-      "summary": "Caller-hook invocation with no candidate terms (no resolution occurred) must NOT offer canonicalization.",
+      "summary": "Caller-hook invocation with no candidate terms (no resolution occurred) must NOT offer canonicalization. Positive prose signal closes silent-fire trap (eval no longer passes when model emits nothing at all).",
       "prompt": "I just finished a define-the-problem session. The five questions did not surface any new domain terms; the Problem Statement uses only generic vocabulary. ./CONTEXT.md does not exist.\n\nInvoke the glossary caller-hook contract with no candidates: /glossary --offer-from-caller=define-the-problem --candidate-terms=",
       "assertions": [
         {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "tier": "required",
+          "description": "Caller-hook still invokes the skill — empty candidates is still a valid invocation"
+        },
+        {
           "type": "not_regex",
-          "pattern": "(want to canonicaliz|/glossary <|add .{0,30}CONTEXT\\.md\\?|offer .{0,40}canonicaliz)",
+          "pattern": "(want to canonicaliz|add .{0,30}CONTEXT\\.md\\?|offer .{0,40}canonicaliz)",
           "flags": "i",
+          "tier": "required",
           "description": "Does NOT offer canonicalization when no candidates passed"
+        },
+        {
+          "type": "regex",
+          "pattern": "(no candidate|nothing to canonicaliz|no terms|no new term|skip|continue (handoff|to systems-analysis))",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Positive forward-progress signal — model acknowledges the empty candidate list (closes silent-fire trap where model emits nothing and the negative passes vacuously)"
         }
       ]
     },
@@ -127,62 +182,182 @@
         {
           "type": "skill_invoked",
           "skill": "glossary",
-          "description": "Caller-hook invokes glossary skill"
+          "tier": "required",
+          "description": "Caller-hook invokes glossary skill (structural)"
         },
         {
           "type": "regex",
-          "pattern": "(canonicaliz|add to (the )?glossary|record .{0,40}CONTEXT\\.md|/glossary)",
+          "pattern": "(canonicaliz|add to (the )?glossary|record .{0,40}CONTEXT\\.md)",
           "flags": "i",
-          "description": "Surfaces a canonicalization offer for Sentinel"
+          "tier": "diagnostic",
+          "description": "Surfaces a canonicalization offer for Sentinel (/glossary token leak removed)"
         },
         {
           "type": "regex",
           "pattern": "Sentinel",
+          "tier": "diagnostic",
           "description": "Names the candidate service in the offer"
         }
       ]
     },
     {
       "name": "sa-hook-skips-on-no-new-system",
-      "summary": "Caller-hook invocation where every candidate is already in ./CONTEXT.md must NOT re-offer.",
+      "summary": "Caller-hook invocation where every candidate is already in ./CONTEXT.md must NOT re-offer. Positive prose signal closes silent-fire trap.",
       "prompt": "I just finished a systems-analysis dependency mapping. The summary mentions \"Sentinel\" — but ./CONTEXT.md ALREADY contains:\n\n```\n# Reflex Ordering\n\nOrder intake and fulfillment.\n\n## Language\n\n**Sentinel**:\nFraud-detection service that gates order placement.\n_Avoid_:\n```\n\nInvoke the glossary caller-hook contract: /glossary --offer-from-caller=systems-analysis --candidate-terms=Sentinel",
       "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "tier": "required",
+          "description": "Caller-hook still invokes the skill — already-canonicalized is the skill's call to make"
+        },
         {
           "type": "not_regex",
           "pattern": "(want to canonicaliz Sentinel|add Sentinel to .{0,30}CONTEXT\\.md|offer .{0,40}canonicaliz .{0,20}Sentinel)",
           "flags": "i",
+          "tier": "required",
           "description": "Does NOT re-offer Sentinel; it is already canonicalized"
+        },
+        {
+          "type": "regex",
+          "pattern": "(already (canonicaliz|defined|in CONTEXT)|nothing (new |)to (canonicaliz|add)|all .{0,20}canonicaliz)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Positive signal — model acknowledges Sentinel is already canonicalized (closes silent-fire trap)"
         }
       ]
     },
     {
       "name": "decline-does-not-write",
-      "summary": "When the user declines a hook offer, no file write occurs and ./CONTEXT.md content is unchanged.",
-      "prompt": "Caller-hook invocation: /glossary --offer-from-caller=define-the-problem --candidate-terms=Customer\n\nWhen you offer to canonicalize Customer, I will reply: \"no\". After my decline, do NOT write to ./CONTEXT.md. ./CONTEXT.md does not currently exist.",
+      "summary": "When the user declines a hook offer, no file write occurs (closed Write/Edit/Bash escape) and the model surfaces an acknowledgement (positive forward-progress signal closes silent-fire trap).",
+      "prompt": "Caller-hook invocation: /glossary --offer-from-caller=define-the-problem --candidate-terms=Customer\n\nWhen you offer to canonicalize Customer, I will reply: \"no\". After my decline, do NOT write to ./CONTEXT.md by any mechanism (Write, Edit, or Bash redirection). ./CONTEXT.md does not currently exist.",
       "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "tier": "required",
+          "description": "Caller-hook invokes glossary skill — without invocation, the negative passes trivially"
+        },
         {
           "type": "not_tool_called",
           "tools": ["Write", "Edit"],
+          "tier": "required",
           "description": "No Write or Edit tool call after the user declines the offer"
+        },
+        {
+          "type": "not_tool_input_matches",
+          "tool": "Bash",
+          "input_key": "command",
+          "input_value": "CONTEXT.md",
+          "tier": "required",
+          "description": "No Bash command targets CONTEXT.md (closes echo > / tee / cat << escape hatches that the not_tool_called Write+Edit pair misses)"
+        },
+        {
+          "type": "regex",
+          "pattern": "(declin|skip|not writ|not canonicaliz|will not (add|write)|okay|got it)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Positive prose signal — model acknowledges the decline (closes silent-fire trap where the not_tool_called assertions pass vacuously when the model emits nothing at all)"
         }
       ]
     },
     {
       "name": "flagged-ambiguity-on-conflict",
-      "summary": "When --alias-of targets a term already used as canonical for a different concept, the conflict is recorded under Flagged ambiguities.",
+      "summary": "When --alias-of targets a term already used as canonical for a different concept, the conflict is recorded under Flagged ambiguities. Looser confirmation regex tolerates more wording variance.",
       "prompt": "Project ./CONTEXT.md content:\n\n```\n# Reflex Ordering\n\nOrder intake and fulfillment.\n\n## Language\n\n**User**:\nAn authenticated person who can place orders or browse the catalog.\n_Avoid_:\n\n**Customer**:\nA person or organization that places orders.\n_Avoid_:\n```\n\nNow run: /glossary User --alias-of Customer\n\n(User is currently a distinct canonical entry; aliasing it to Customer is a conflict.)",
       "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "tier": "required",
+          "description": "Skill fires"
+        },
         {
           "type": "regex",
           "pattern": "(Flagged ambiguities|conflict|ambiguous|already (defined|canonical))",
           "flags": "i",
+          "tier": "diagnostic",
           "description": "Surfaces the conflict (Flagged ambiguities section, or warning before writing)"
         },
         {
           "type": "regex",
-          "pattern": "(confirm|are you sure|proceed\\?|y/n|approve)",
+          "pattern": "(confirm|are you sure|proceed|approve|wait|before .{0,20}(rewrit|chang|overwrit)|y/n|hold|go-ahead|sign[- ]off)",
           "flags": "i",
-          "description": "Asks for explicit user confirmation before destructive rewrite"
+          "tier": "diagnostic",
+          "description": "Asks for explicit user confirmation before destructive rewrite (loose vocabulary — assert behavior, not specific words)"
+        }
+      ]
+    },
+    {
+      "name": "skip-all-suppresses-remaining-offers",
+      "summary": "Multi-candidate caller-hook invocation: when the user replies skip-all on the first offer, subsequent candidates are NOT offered. Closes coverage gap on the third reply branch (y/n/skip-all).",
+      "prompt": "Caller-hook invocation with three candidates: /glossary --offer-from-caller=systems-analysis --candidate-terms=Sentinel,Vault,Conduit\n\n./CONTEXT.md does not exist. When you offer Sentinel, I will reply \"skip-all\". After my skip-all, do NOT offer Vault or Conduit, do NOT write any file.",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "tier": "required",
+          "description": "Skill fires"
+        },
+        {
+          "type": "not_tool_called",
+          "tools": ["Write", "Edit"],
+          "tier": "required",
+          "description": "No file written after skip-all"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(canonicaliz.{0,30}Vault|Vault.{0,30}canonicaliz|canonicaliz.{0,30}Conduit|Conduit.{0,30}canonicaliz)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Does NOT proceed to offer Vault or Conduit after skip-all"
+        },
+        {
+          "type": "regex",
+          "pattern": "(skip|stop|no more|suppress|honor|remaining|rest)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Positive signal — model acknowledges the skip-all reply"
+        }
+      ]
+    },
+    {
+      "name": "alias-of-missing-canonical-prompts-define-first",
+      "summary": "/glossary <term> --alias-of <canonical> when <canonical> is NOT yet defined: skill must prompt user to define <canonical> first (per SKILL.md Interactive Define Flow --alias-of step 1), not silently create alias-only entry.",
+      "prompt": "Project ./CONTEXT.md content:\n\n```\n# Reflex Ordering\n\nOrder intake and fulfillment.\n\n## Language\n\n**Order**:\nA request to purchase items.\n_Avoid_:\n```\n\nNow run: /glossary account --alias-of Customer\n\n(Customer is NOT yet defined in ./CONTEXT.md; only Order is.)",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "tier": "required",
+          "description": "Skill fires"
+        },
+        {
+          "type": "regex",
+          "pattern": "(Customer.{0,40}(not (yet )?defined|missing|doesn'?t exist|first|need .{0,20}defin)|defin(e|ing) Customer (first|before)|no canonical .{0,20}Customer)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Surfaces that Customer must be defined first before account can alias it"
+        }
+      ]
+    },
+    {
+      "name": "no-conflict-no-flagged-ambiguities-section",
+      "summary": "Negative twin to flagged-ambiguity-on-conflict: when --alias-of targets a never-defined alias (no conflict), Flagged ambiguities entry must NOT appear. Closes silent-fire risk that the writer always emits the section.",
+      "prompt": "Project ./CONTEXT.md content:\n\n```\n# Reflex Ordering\n\nOrder intake and fulfillment.\n\n## Language\n\n**Customer**:\nA person or organization that places orders.\n_Avoid_:\n```\n\nNow run: /glossary buyer --alias-of Customer\n\n(buyer is a brand-new alias; no prior canonical entry for buyer exists. No conflict.)",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "tier": "required",
+          "description": "Skill fires"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(##\\s+Flagged ambiguities|was used for both|conflict.{0,20}buyer|buyer.{0,20}conflict|ambiguous.{0,20}buyer)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Does NOT add a Flagged ambiguities section or surface conflict language for buyer (no conflict exists)"
         }
       ]
     }
