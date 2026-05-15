@@ -202,8 +202,30 @@ Step 5.
 ## Step 5: Handoff to Systems Analysis
 
 1. Display the final problem statement (if not just displayed)
-2. Ask: "Problem defined. Ready to map dependencies and impact?"
-3. On confirmation, invoke `/systems-analysis` with the problem statement
+2. **Glossary check (pre-handoff).** Scan `./CONTEXT.md` (if it exists)
+   for terms used in the **User** and **Problem** fields. For any term
+   that appears canonicalization-worthy but is NOT yet in
+   `./CONTEXT.md`, offer `/glossary` before handoff. Skip silently if
+   `./CONTEXT.md` is absent AND no term resolution occurred during the
+   five questions.
+
+   Trigger criteria (ANY must hold):
+   - Five-questions path resolved an ambiguous term (`account → Customer`)
+   - Problem Statement uses a project-specific noun ≥3 times that lacks
+     a canonical definition
+   - User explicitly disambiguated a term during the session
+
+   Format the offer as:
+   > "These terms appeared in the problem statement: [list]. Want to
+   > canonicalize any in `./CONTEXT.md` before handoff to
+   > systems-analysis?"
+
+   Invoke via the caller-hook contract:
+   `/glossary --offer-from-caller=define-the-problem --candidate-terms=<term1,term2,...>`.
+   Glossary returns the list of approved + written terms; continue
+   handoff regardless. **Offer, never auto-write.**
+3. Ask: "Problem defined. Ready to map dependencies and impact?"
+4. On confirmation, invoke `/systems-analysis` with the problem statement
 
 ### What this skill does NOT do
 

@@ -1,0 +1,190 @@
+{
+  "skill": "glossary",
+  "description": "Executable evals for the glossary skill (per docs/superpowers/decisions/2026-05-15-glossary-skill.md §4). Each eval shells `claude --print`, captures the response, and runs rubric assertions against it. Scenarios cover: lazy ./CONTEXT.md creation on first term, _Avoid_ alias recording, format compliance with grill-with-docs CONTEXT-FORMAT.md, DTP/SA caller-hook offer-on-resolution and skip-on-no-resolution, decline-does-not-write, and Flagged-ambiguity surfacing on conflicting alias. Per memory note `feedback_sunk_cost_eval.md`: substrate-fixable failures stay at the eval-runner layer; do NOT chase them with skill or rules edits.",
+  "_contract_note": "Required-tier `tool_input_matches` assertions pin the Claude Code Skill tool surface (tool name 'Skill', input_key 'skill', input_value 'glossary'). This is an unversioned upstream contract owned by Claude Code. If an upstream rename lands, every required-tier assertion in this file silently flips red without signaling platform change vs. regression. Confirm Skill tool schema before treating a required-tier failure as a behavioral regression.",
+  "evals": [
+    {
+      "name": "lazy-create-on-first-term",
+      "summary": "First /glossary invocation in a project with no existing ./CONTEXT.md must lazy-create the file with the grill-with-docs format (heading + Language section).",
+      "prompt": "/glossary Customer\n\nThis project has no ./CONTEXT.md yet. Project context name: \"Reflex Ordering\". Description: \"Order intake and fulfillment for the Reflex retail platform.\" Definition of Customer: \"A person or organization that places orders.\" Aliases to avoid: client, buyer, account. No relationships to record.",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "description": "/glossary slash command invokes the glossary skill"
+        },
+        {
+          "type": "regex",
+          "pattern": "#\\s+Reflex Ordering",
+          "description": "File body contains the project-context heading"
+        },
+        {
+          "type": "regex",
+          "pattern": "##\\s+Language",
+          "description": "File body contains the ## Language section header"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\*\\*Customer\\*\\*",
+          "description": "Customer is recorded as a bolded canonical term"
+        },
+        {
+          "type": "regex",
+          "pattern": "_Avoid_:.*(client|buyer|account)",
+          "flags": "i",
+          "description": "Aliases recorded under _Avoid_:"
+        }
+      ]
+    },
+    {
+      "name": "alias-of-recorded-under-canonical",
+      "summary": "/glossary <alias> --alias-of <canonical> records the alias on the _Avoid_: line under the canonical term, not as a separate entry.",
+      "prompt": "Project ./CONTEXT.md already exists with this content:\n\n```\n# Reflex Ordering\n\nOrder intake and fulfillment for the Reflex retail platform.\n\n## Language\n\n**Customer**:\nA person or organization that places orders.\n_Avoid_:\n```\n\nNow run: /glossary account --alias-of Customer",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "description": "/glossary invokes glossary skill"
+        },
+        {
+          "type": "regex",
+          "pattern": "_Avoid_:[^\\n]*account",
+          "flags": "i",
+          "description": "account appears on the _Avoid_: line"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "\\*\\*account\\*\\*\\s*:\\s*\\n[^_]*\\n_Avoid_",
+          "flags": "i",
+          "description": "account is NOT recorded as a separate canonical term"
+        }
+      ]
+    },
+    {
+      "name": "format-matches-grill-context-format",
+      "summary": "Output structure matches grill-with-docs CONTEXT-FORMAT.md: heading, description, ## Language section with bold-term + definition + _Avoid_ pattern.",
+      "prompt": "/glossary Order\n\nProject context: \"Reflex Ordering\". Description: \"Order intake and fulfillment.\" Definition of Order: \"A request from a Customer to purchase one or more items.\" No aliases. No relationships.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "^#\\s+\\S",
+          "flags": "m",
+          "description": "Has a top-level heading line"
+        },
+        {
+          "type": "regex",
+          "pattern": "##\\s+Language",
+          "description": "Has ## Language section"
+        },
+        {
+          "type": "regex",
+          "pattern": "\\*\\*Order\\*\\*\\s*:\\s*\\n[^\\n]+",
+          "description": "Bold-term name on its own line followed by definition (grill format)"
+        }
+      ]
+    },
+    {
+      "name": "dtp-hook-offers-on-resolution",
+      "summary": "Caller-hook invocation from define-the-problem with a resolved candidate term must produce a /glossary offer to the user.",
+      "prompt": "I just finished a define-the-problem session. During the five questions the user disambiguated the word \"account\" — it should canonically be \"Customer\". The Problem Statement now uses \"Customer\". ./CONTEXT.md does not yet have a Customer entry.\n\nInvoke the glossary caller-hook contract: /glossary --offer-from-caller=define-the-problem --candidate-terms=Customer",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "description": "Caller-hook invokes glossary skill"
+        },
+        {
+          "type": "regex",
+          "pattern": "(canonicaliz|add to (the )?glossary|record .{0,40}CONTEXT\\.md|/glossary)",
+          "flags": "i",
+          "description": "Surfaces an offer to canonicalize Customer in ./CONTEXT.md"
+        },
+        {
+          "type": "regex",
+          "pattern": "Customer",
+          "description": "Names the candidate term in the offer"
+        }
+      ]
+    },
+    {
+      "name": "dtp-hook-skips-when-no-resolution",
+      "summary": "Caller-hook invocation with no candidate terms (no resolution occurred) must NOT offer canonicalization.",
+      "prompt": "I just finished a define-the-problem session. The five questions did not surface any new domain terms; the Problem Statement uses only generic vocabulary. ./CONTEXT.md does not exist.\n\nInvoke the glossary caller-hook contract with no candidates: /glossary --offer-from-caller=define-the-problem --candidate-terms=",
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "(want to canonicaliz|/glossary <|add .{0,30}CONTEXT\\.md\\?|offer .{0,40}canonicaliz)",
+          "flags": "i",
+          "description": "Does NOT offer canonicalization when no candidates passed"
+        }
+      ]
+    },
+    {
+      "name": "sa-hook-offers-on-named-system",
+      "summary": "Caller-hook invocation from systems-analysis with a recurring named service candidate must produce a /glossary offer.",
+      "prompt": "I just finished a systems-analysis dependency mapping. The user named a service \"Sentinel\" as a shared component that recurred 3× in the dependency summary. ./CONTEXT.md does not yet have a Sentinel entry.\n\nInvoke the glossary caller-hook contract: /glossary --offer-from-caller=systems-analysis --candidate-terms=Sentinel",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "glossary",
+          "description": "Caller-hook invokes glossary skill"
+        },
+        {
+          "type": "regex",
+          "pattern": "(canonicaliz|add to (the )?glossary|record .{0,40}CONTEXT\\.md|/glossary)",
+          "flags": "i",
+          "description": "Surfaces a canonicalization offer for Sentinel"
+        },
+        {
+          "type": "regex",
+          "pattern": "Sentinel",
+          "description": "Names the candidate service in the offer"
+        }
+      ]
+    },
+    {
+      "name": "sa-hook-skips-on-no-new-system",
+      "summary": "Caller-hook invocation where every candidate is already in ./CONTEXT.md must NOT re-offer.",
+      "prompt": "I just finished a systems-analysis dependency mapping. The summary mentions \"Sentinel\" — but ./CONTEXT.md ALREADY contains:\n\n```\n# Reflex Ordering\n\nOrder intake and fulfillment.\n\n## Language\n\n**Sentinel**:\nFraud-detection service that gates order placement.\n_Avoid_:\n```\n\nInvoke the glossary caller-hook contract: /glossary --offer-from-caller=systems-analysis --candidate-terms=Sentinel",
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "(want to canonicaliz Sentinel|add Sentinel to .{0,30}CONTEXT\\.md|offer .{0,40}canonicaliz .{0,20}Sentinel)",
+          "flags": "i",
+          "description": "Does NOT re-offer Sentinel; it is already canonicalized"
+        }
+      ]
+    },
+    {
+      "name": "decline-does-not-write",
+      "summary": "When the user declines a hook offer, no file write occurs and ./CONTEXT.md content is unchanged.",
+      "prompt": "Caller-hook invocation: /glossary --offer-from-caller=define-the-problem --candidate-terms=Customer\n\nWhen you offer to canonicalize Customer, I will reply: \"no\". After my decline, do NOT write to ./CONTEXT.md. ./CONTEXT.md does not currently exist.",
+      "assertions": [
+        {
+          "type": "not_tool_called",
+          "tools": ["Write", "Edit"],
+          "description": "No Write or Edit tool call after the user declines the offer"
+        }
+      ]
+    },
+    {
+      "name": "flagged-ambiguity-on-conflict",
+      "summary": "When --alias-of targets a term already used as canonical for a different concept, the conflict is recorded under Flagged ambiguities.",
+      "prompt": "Project ./CONTEXT.md content:\n\n```\n# Reflex Ordering\n\nOrder intake and fulfillment.\n\n## Language\n\n**User**:\nAn authenticated person who can place orders or browse the catalog.\n_Avoid_:\n\n**Customer**:\nA person or organization that places orders.\n_Avoid_:\n```\n\nNow run: /glossary User --alias-of Customer\n\n(User is currently a distinct canonical entry; aliasing it to Customer is a conflict.)",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(Flagged ambiguities|conflict|ambiguous|already (defined|canonical))",
+          "flags": "i",
+          "description": "Surfaces the conflict (Flagged ambiguities section, or warning before writing)"
+        },
+        {
+          "type": "regex",
+          "pattern": "(confirm|are you sure|proceed\\?|y/n|approve)",
+          "flags": "i",
+          "description": "Asks for explicit user confirmation before destructive rewrite"
+        }
+      ]
+    }
+  ]
+}
