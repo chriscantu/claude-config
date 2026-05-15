@@ -202,8 +202,14 @@ Step 5.
 ## Step 5: Handoff to Systems Analysis
 
 1. Display the final problem statement (if not just displayed)
-2. Ask: "Problem defined. Ready to map dependencies and impact?"
-3. On confirmation, invoke `/systems-analysis` with the problem statement
+2. **Glossary check (pre-handoff).** Apply the trigger criteria in
+   `skills/glossary/references/CALLER-HOOKS.md` § define-the-problem.
+   If any trigger fires, invoke
+   `/glossary --offer-from-caller=define-the-problem --candidate-terms=<list>`.
+   Read its one-line summary; continue handoff regardless. **Offer,
+   never auto-write.**
+3. Ask: "Problem defined. Ready to map dependencies and impact?"
+4. On confirmation, invoke `/systems-analysis` with the problem statement
 
 ### What this skill does NOT do
 

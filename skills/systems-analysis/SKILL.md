@@ -160,6 +160,15 @@ org topology better than the code does.
 Produce a brief dependency summary. Format as a simple list or table — not a
 detailed architecture diagram. The goal is visibility, not documentation.
 
+#### Glossary check (post-dependency-mapping)
+
+Apply the trigger criteria in
+`skills/glossary/references/CALLER-HOOKS.md` § systems-analysis. If any
+trigger fires, invoke
+`/glossary --offer-from-caller=systems-analysis --candidate-terms=<list>`.
+Read its one-line summary; continue to Step B regardless. **Offer,
+never auto-write.**
+
 ---
 
 ### Step B: Second-Order Effects
