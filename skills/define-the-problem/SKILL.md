@@ -202,33 +202,12 @@ Step 5.
 ## Step 5: Handoff to Systems Analysis
 
 1. Display the final problem statement (if not just displayed)
-2. **Glossary check (pre-handoff).** Scan `./CONTEXT.md` (if it exists)
-   for project-specific nouns used in the **User** and **Problem**
-   fields. For any candidate term NOT yet in `./CONTEXT.md`, offer
-   `/glossary` before handoff. Skip silently if `./CONTEXT.md` is absent
-   AND no observable trigger fired (see criteria below).
-
-   Trigger criteria (ANY must hold — each must be observable from the
-   conversation transcript, not from agent introspection):
-   - User explicitly substituted or corrected a term during the
-     five-question sequence (e.g., user said "actually we call that
-     Customer, not account")
-   - Problem Statement uses a project-specific noun ≥3 times that lacks
-     a canonical definition in `./CONTEXT.md`
-   - User asked a disambiguation question that the agent answered during
-     the session
-
-   Format the offer as:
-   > "These terms appeared in the problem statement: [list]. Want to
-   > canonicalize any in `./CONTEXT.md` before handoff to
-   > systems-analysis?"
-
-   Invoke via the caller-hook contract:
-   `/glossary --offer-from-caller=define-the-problem --candidate-terms=<term1,term2,...>`.
-   Glossary surfaces a one-line summary in its response (e.g.,
-   "Canonicalized: Customer. Skipped: Account."); read that summary and
-   include it in the handoff narration if useful. Continue handoff
-   regardless. **Offer, never auto-write.**
+2. **Glossary check (pre-handoff).** Apply the trigger criteria in
+   `skills/glossary/references/CALLER-HOOKS.md` § define-the-problem.
+   If any trigger fires, invoke
+   `/glossary --offer-from-caller=define-the-problem --candidate-terms=<list>`.
+   Read its one-line summary; continue handoff regardless. **Offer,
+   never auto-write.**
 3. Ask: "Problem defined. Ready to map dependencies and impact?"
 4. On confirmation, invoke `/systems-analysis` with the problem statement
 

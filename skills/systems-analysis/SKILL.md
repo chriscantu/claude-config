@@ -162,20 +162,12 @@ detailed architecture diagram. The goal is visibility, not documentation.
 
 #### Glossary check (post-dependency-mapping)
 
-After producing the dependency summary, scan for component / system /
-data-source names that recurred ≥2× and lack `./CONTEXT.md` entries.
-Offer `/glossary` before continuing to Step B.
-
-Trigger criteria: any named system, service, or shared component in the
-dependency summary that does NOT exist in `./CONTEXT.md` AND that the
-user specifically named (not inferred from code).
-
-Invoke via the caller-hook contract:
-`/glossary --offer-from-caller=systems-analysis --candidate-terms=<term1,term2,...>`.
-Glossary surfaces a one-line summary in its response (e.g.,
-"Canonicalized: Sentinel. Skipped: BillingSvc."); read that summary and
-include it in the Step B framing if useful. Continue to Step B
-regardless. **Offer, never auto-write.**
+Apply the trigger criteria in
+`skills/glossary/references/CALLER-HOOKS.md` § systems-analysis. If any
+trigger fires, invoke
+`/glossary --offer-from-caller=systems-analysis --candidate-terms=<list>`.
+Read its one-line summary; continue to Step B regardless. **Offer,
+never auto-write.**
 
 ---
 
