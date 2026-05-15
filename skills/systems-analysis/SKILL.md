@@ -142,100 +142,21 @@ Then hand off to brainstorming. Don't run Steps A-D — that's the Full Pass.
 
 ## Full Pass
 
-### Step A: Dependency Mapping
+When Step 2 selects Full Pass, load [references/full-pass.md](references/full-pass.md) and run
+Steps A (Dependency Mapping) → B (Second-Order Effects) → C (Failure Modes) → D
+(Organizational Impact), then assemble the summary per the format in that file.
 
-Map what this change touches. Ask the user to confirm or correct — they know the
-org topology better than the code does.
+The Full Pass output is the analysis. Display to the user. Keep it concise —
+this is input to solution design, not a document for its own sake.
 
-#### Systems and services
-- What systems, services, or data stores does this interact with?
-- Are there upstream producers or downstream consumers that would be affected?
-- Are there shared libraries, platform APIs, or infrastructure this depends on?
-
-#### Teams and processes
-- Who owns the systems this touches? Are they the same team or different teams?
-- Are there approval processes, review gates, or coordination points?
-- Does this cross a team boundary that requires communication or alignment?
-
-Produce a brief dependency summary. Format as a simple list or table — not a
-detailed architecture diagram. The goal is visibility, not documentation.
-
-#### Glossary check (post-dependency-mapping)
-
-Apply the trigger criteria in
-`skills/glossary/references/CALLER-HOOKS.md` § systems-analysis. If any
-trigger fires, invoke
-`/glossary --offer-from-caller=systems-analysis --candidate-terms=<list>`.
-Read its one-line summary; continue to Step B regardless. **Offer,
-never auto-write.**
+For **Condensed Pass**, the one-paragraph summary from the Condensed Pass section
+above is the analysis — no need to reformat.
 
 ---
 
-### Step B: Second-Order Effects
+## References
 
-Think one step beyond the immediate change.
-
-- **Feedback loops**: Will this create positive reinforcement (adoption begets more
-  adoption) or negative reinforcement (complexity begets avoidance)?
-- **Behavioral shifts**: Will users, teams, or systems change how they operate because
-  of this? Is that change desirable?
-- **Load and scale**: Does this change the volume, frequency, or pattern of work
-  flowing through affected systems?
-- **Incentive changes**: Does this accidentally reward the wrong behavior or penalize
-  the right behavior?
-
-Surface anything non-obvious. If second-order effects are genuinely minimal, say so
-in one sentence and move on — don't manufacture complexity.
-
----
-
-### Step C: Failure Modes
-
-Consider how this degrades, not just how it succeeds.
-
-- **What breaks if this fails?** Identify the blast radius — is it one user, one
-  team, or the whole org?
-- **What's the recovery path?** Can we roll back, or is this a one-way door?
-- **What fails silently?** Where could this break without anyone noticing until
-  damage accumulates?
-- **What's the worst realistic scenario?** Not the theoretical worst case — the
-  plausible bad outcome given how people actually use the system.
-
----
-
-### Step D: Organizational Impact
-
-Assess the human and operational cost of this change.
-
-- **Ownership**: Who carries the ongoing burden? Is that the right team?
-- **Migration/adoption**: What's the path for teams consuming this? Is it opt-in,
-  forced, or transparent?
-- **Operational burden**: Does this add monitoring, on-call scope, runbooks, or
-  manual processes? Who handles that?
-- **Scalability**: Will this approach hold as the team/org grows, or does it become
-  a bottleneck at 2x or 10x scale?
-
----
-
-## Produce the Analysis
-
-For **Full Pass**, assemble findings into a brief summary:
-
-```markdown
-## Systems Analysis
-
-**Dependencies**: [systems, teams, and processes this touches]
-**Second-order effects**: [non-obvious downstream consequences]
-**Failure modes**: [how this degrades, blast radius, recovery path]
-**Org impact**: [ownership, migration, operational burden, scale]
-**Key risks**: [1-3 risks that should inform solution design]
-```
-
-For **Condensed Pass**, the one-paragraph summary from above is the analysis —
-no need to reformat.
-
-Display to the user. Keep it concise — this is input to solution design, not a
-document for its own sake.
+- [references/full-pass.md](references/full-pass.md) — Steps A–D and the Full Pass output format. Loaded when Step 2 selects Full Pass.
 
 ---
 
