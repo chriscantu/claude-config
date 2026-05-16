@@ -9,12 +9,6 @@ Per-gate pressure-framing floor blocks were duplicated across 5 dependent rules
 despite ADR #0006 / #0007 and the 2026-04-24 inverse-RED audit demonstrating
 they add no eval-measurable load given the single DTP anchor in planning.md.
 
-The duplication was pruned as the first refactor commit on branch
-`claude/spec-bloat-prune-design` (subject:
-"refactor(rules): prune per-gate floor blocks (substitutable to planning.md anchor)").
-Each dependent rule now carries a single-line delegate prose linking to
-planning.md anchors; Phase 1l registry is unchanged.
-
-The substitutability claim is now historical evidence backing the pruned design,
+The substitutability claim is historical evidence backing the pruned design,
 not a recommendation for future per-gate blocks. New gates should follow the
 delegate-link pattern from the outset.

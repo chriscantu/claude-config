@@ -197,12 +197,5 @@ before claiming ready.
 - `rules/planning.md` — DTP, Systems Analysis, Solution Design happen
   BEFORE coding. This rule fires AFTER coding and verification.md, at
   the PR boundary.
-- Floor enforcement is anchored in `rules/planning.md`:
-  [pressure-framing floor](planning.md#pressure-framing-floor),
-  [emission contract](planning.md#emission-contract), and
-  [sentinel bypass](planning.md#emergency-bypass-sentinel). Per-gate
-  duplication adds zero eval-measurable load given the DTP anchor (see
-  ADR #0006 rejection + `per_gate_floor_blocks_substitutable.md`
-  memory note).
 - `~/.claude/CLAUDE.md` — Verification section's `PR Validation Gate`
   is a thin pointer to this rule.
