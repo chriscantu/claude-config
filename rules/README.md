@@ -47,6 +47,53 @@ and `commands/` (loaded from `~/.claude/commands/`).
 
    Your new file should appear in the list.
 
+## Retiring a rule or validator phase
+
+`validate.fish` Phase 1o surfaces retirement candidates and aging soft-retires
+mechanically — read its WARN output on every validate run. The section below
+is the discipline that accompanies those mechanical signals.
+
+### Soft-retire procedure (atomic commit)
+
+1. Comment-out the phase code block with a tombstone header:
+
+   ```fish
+   # RETIRED YYYY-MM-DD — <one-line reason>
+   # Restore: uncomment block below + drop `.skip` on tests/validate-phase-1X.test.ts.
+   ```
+
+2. If a `tests/validate-phase-1X.test.ts` exists, replace its body with a
+   `describe.skip(...)` + matching tombstone comment.
+3. Update `validate.fish` Phase 1l registry if the retired phase guarded a
+   delegate-link pair.
+4. Run full eval suite + `fish validate.fish` — no HARD-GATE regression.
+5. Update any memory note referencing the phase with past-tense + branch ref.
+
+### Hard-delete procedure
+
+Triggered when Phase 1o emits `WARN: hard-delete eligible`. Same as the
+soft-retire checklist minus the tombstone step (delete the commented block
+and remove the test file).
+
+### Audit trigger
+
+Phase 1o-driven, NOT calendar-driven. Pull a retirement audit when EITHER:
+
+- `.claude/state/validate-phase-log.jsonl` shows a phase with zero firings
+  across ≥100 runs spanning ≥20 PRs (Phase 1o WARN surfaces this), OR
+- Subjective review notes "this phase never seems to do anything".
+
+### Floor-block delegations
+
+Per-gate pressure-framing floor blocks are substitutable to the `planning.md`
+anchor per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+and memory note `per_gate_floor_blocks_substitutable.md`. When delegating:
+
+- Keep single-line delegate prose linking to `planning.md#<anchor>` — this
+  satisfies Phase 1l registry without needing a registry edit.
+- If full delegate text is removed, update the Phase 1l registry pair list in
+  the same commit.
+
 ## Verifying the install (CI-friendly)
 
 ```

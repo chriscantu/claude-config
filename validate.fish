@@ -151,6 +151,91 @@ function phase_end
     set -g _current_phase_id ""
 end
 
+# Phase 1o body: retirement signals (tombstone format + log-based candidates).
+# Defined as a function so --phase-1o-only can invoke it before Phase 1 runs;
+# normal flow also calls it after Phase 1 + before Phase 2.
+#
+# Three checks:
+#   (1) HARD-FAIL: commented `# # 1X.` phase blocks must carry a
+#       `# RETIRED YYYY-MM-DD — <reason>` tombstone within 4 lines above.
+#   (2) WARN: active phases with 0 firings in last 100 entries of the
+#       phase-log JSONL (silent if log <10 entries).
+#   (3) WARN: tombstoned phases aged ≥12 months with zero log activity
+#       since the soft-retire date.
+#
+# See rules/README.md "Retiring a rule or validator phase".
+function run_phase_1o
+    phase_start 1o "Retirement signals"
+
+    set -l target_validate "$repo_dir/validate.fish"
+    if test -n "$phase_1o_validate_fish_path"
+        set target_validate $phase_1o_validate_fish_path
+    end
+
+    # (1) Tombstone format compliance — HARD-FAIL.
+    if test -f $target_validate
+        set -l block_lines (grep -nE '^# # 1[a-z]\.' $target_validate)
+        set -l blocks_seen 0
+        for entry in $block_lines
+            set blocks_seen 1
+            set -l line_num (string split ":" $entry)[1]
+            set -l prev_start (math $line_num - 4)
+            if test $prev_start -lt 1
+                set prev_start 1
+            end
+            set -l preceding (sed -n "$prev_start,$line_num"p $target_validate)
+            if echo "$preceding" | grep -qE '^# RETIRED [0-9]{4}-[0-9]{2}-[0-9]{2} —'
+                pass "tombstone OK at $target_validate:$line_num"
+            else
+                fail "commented phase block at $target_validate:$line_num missing tombstone header (# RETIRED YYYY-MM-DD —)"
+            end
+        end
+        if test $blocks_seen -eq 0
+            pass "$target_validate has no commented phase blocks — tombstone check vacuous"
+        end
+    else
+        warn "Phase 1o (1) skipped — $target_validate not found"
+    end
+
+    # (2) + (3) Log-based checks.
+    set -l target_log "$repo_dir/.claude/state/validate-phase-log.jsonl"
+    if test -n "$log_path"
+        set target_log $log_path
+    end
+
+    if not test -f $target_log
+        pass "phase-log absent at $target_log — Phase 1o (2)+(3) skipped"
+    else
+        set -l line_count (wc -l < $target_log | string trim)
+        if test $line_count -lt 10
+            pass "phase-log has $line_count entries (<10 threshold) — Phase 1o (2)+(3) silent"
+        else
+            # (2) Retirement candidate WARN: any active phase missing from last 100 entries.
+            set -l recent_phases (tail -100 $target_log | jq -r '.phase' | sort -u)
+            set -l active_phases (grep -oE '^# 1[a-z]\.' $target_validate | string replace '# ' '' | string replace -r '\..*' '')
+            for ap in $active_phases
+                if not contains -- $ap $recent_phases
+                    warn "Phase $ap — 0 firings in last 100 runs. Retirement candidate. See rules/README.md 'Retiring a rule or validator phase'."
+                end
+            end
+            # (3) Hard-delete eligible WARN: tombstoned ≥12mo + zero log activity.
+            set -l now_epoch (date +%s)
+            set -l twelve_mo (math $now_epoch - 31536000)
+            set -l tombstones (grep -E '^# RETIRED [0-9]{4}-[0-9]{2}-[0-9]{2}' $target_validate)
+            for ts in $tombstones
+                set -l ts_date (string match -r '[0-9]{4}-[0-9]{2}-[0-9]{2}' -- $ts)
+                set -l ts_epoch (date -j -f "%Y-%m-%d" $ts_date "+%s" 2>/dev/null; or echo 0)
+                if test $ts_epoch -gt 0; and test $ts_epoch -lt $twelve_mo
+                    warn "Soft-retired phase tombstoned $ts_date (>12mo). Hard-delete eligible if no log activity. See rules/README.md."
+                end
+            end
+        end
+    end
+
+    echo ""
+    phase_end
+end
+
 # Helper: check if frontmatter contains a field (searches only between --- delimiters)
 function frontmatter_has
     # Usage: frontmatter_has <file> <field_pattern>
@@ -317,6 +402,20 @@ end
 
 echo "Phase 1: Static Validation"
 echo ""
+
+# --phase-1o-only: skip Phase 1 (a-n) + Phase 2; run only the Phase 1o body
+# below, then exit. Test-mode flag used by tests/validate-phase-1o.test.ts.
+if test "$phase_1o_only" = 1
+    run_phase_1o
+    echo ""
+    echo "─────────────────────────────────────────────────"
+    echo "Results: $pass_count passed, $fail_count failed, $warn_count warnings"
+    if test $fail_count -gt 0
+        echo "VALIDATION FAILED"
+        exit 1
+    end
+    exit 0
+end
 
 # Single-skill mode: validate one skill's structural shape only, then exit.
 if test -n "$single_skill"
@@ -927,6 +1026,15 @@ for skill_root in $fixture_skill_roots
         continue
     end
 
+    # System fixtures (validator/CI/etc.) live under tests/fixtures/<name>/ but
+    # have no corresponding skills/<name>/ directory. They are bound to .ts
+    # tests under tests/, not to skill evals — Phase 1n's eval-consumer contract
+    # does not apply. Require the README only.
+    if not test -d "$repo_dir/skills/$skill_slug"
+        pass "tests/fixtures/$skill_slug/ — system fixtures (no skills/$skill_slug/), README present"
+        continue
+    end
+
     if not test -f $evals_json
         fail "skills/$skill_slug/evals/evals.json missing — fixtures under tests/fixtures/$skill_slug/ have no eval consumer file"
         continue
@@ -987,8 +1095,12 @@ end
 
 echo ""
 
-# Flush the last open Phase 1 phase entry to the log before Phase 2 starts.
+# Flush the last open Phase 1 phase entry to the log before Phase 1o / Phase 2.
 phase_end
+
+# Phase 1o body — defined as run_phase_1o() function near the other helpers
+# (above) so --phase-1o-only can also invoke it before Phase 1 runs.
+run_phase_1o
 
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
