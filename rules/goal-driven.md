@@ -64,25 +64,12 @@ is the most expensive thing to land.
 
 ### Pressure-framing floor
 
-Floor enforcement ([pressure-framing routing](planning.md#pressure-framing-floor),
-[named-cost emission contract](planning.md#emission-contract),
-[sentinel bypass](planning.md#emergency-bypass-sentinel)) is anchored in
-`rules/planning.md` DTP per-gate block. Per
-[ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
-and memory note `per_gate_floor_blocks_substitutable.md`, per-gate floor blocks
-add no eval-measurable load given the DTP anchor.
-
-Concrete signals here:
-
-- **Authority** ("the team agreed to skip tests", "lead said skip the verify check")
-- **Sunk cost** ("already started coding", "we've already chosen this path")
-- **Exhaustion** ("just write the code", "stop with the ceremony")
-- **Deadline** ("ship by Friday", "demo in 10 minutes", "needs to land today")
-- **Stated-next-step** ("just write the code", "skip planning and implement",
-  "no plan, straight to PR")
-
-Honor full skip ONLY via the Emission contract below — anything else produces
-the plan.
+See [pressure-framing routing](planning.md#pressure-framing-floor),
+[emission contract](planning.md#emission-contract), and
+[sentinel bypass](planning.md#emergency-bypass-sentinel) — canonical mechanics
+live in `rules/planning.md`. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+and memory note `per_gate_floor_blocks_substitutable.md`, no per-gate
+restatement is required.
 
 ### Emission contract — MANDATORY
 

@@ -118,9 +118,9 @@ When a named-cost skip is valid (Expert Fast-Track condensed form OR explicit
 override), invoke `mcp__named-cost-skip-ack__acknowledge_named_cost_skip` per
 [planning.md#emission-contract](planning.md#emission-contract). Use
 `gate="think-before-coding"` and the verbatim cost-naming clause as
-`user_statement` (for Fast-Track, the verbatim substring that established
-problem + stakes + chosen approach in-thread). The tool invocation IS the
-honor — if you skip the call, produce the full preamble instead.
+`user_statement`. The tool invocation IS the honor — if you skip the call,
+produce the full preamble instead. See [Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria)
+for the auto-skip carve-out.
 
 ## Relationship to Other Rules
 
