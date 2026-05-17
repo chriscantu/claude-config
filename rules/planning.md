@@ -36,6 +36,56 @@ or tooling before completing the pipeline.
    `query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"`;
    otherwise call it directly.
 
+   <a id="scope-tier-memory-check"></a>
+   **Scope-tier memory check (fires BEFORE pressure-framing floor).** A
+   `UserPromptSubmit` hook (`hooks/scope-tier-memory-check.sh`) inspects
+   every prompt against loaded scope-tier `feedback` memories. When the
+   hook detects a match, it injects a `<system-reminder>` beginning with
+   the literal prefix `SCOPE-TIER MATCH:`.
+
+   When you receive a `SCOPE-TIER MATCH:` system-reminder:
+
+   1. Acknowledge the match in one visible line:
+      `[Scope-tier match: <memory-name>] Routing to direct implementation per stored feedback.`
+   2. Route to direct implementation. Skip DTP, Systems Analysis,
+      brainstorming, Fat Marker Sketch, and subagent-driven-development.
+   3. `execution-mode.md` single-implementer mode, `goal-driven.md`
+      per-step verify checks, and `verification.md` end-of-work gate
+      STILL apply.
+
+   If you believe the hook fired incorrectly (e.g., the prompt actually
+   does require the pipeline), name the specific signal that's wrong and
+   ask the user before proceeding: *"Hook fired SCOPE-TIER MATCH on X,
+   but Y suggests this needs pipeline. Confirm direct implementation or
+   invoke pipeline?"*
+
+   When NO `SCOPE-TIER MATCH:` reminder is present, proceed to the
+   pressure-framing floor below (current behavior unchanged).
+
+   **Hook absence is graceful degradation.** If the hook is not
+   installed (no `UserPromptSubmit` entry in `~/.claude/settings.json`),
+   no reminder fires; the rest of this section's gates evaluate
+   normally. The Layer 2 rule text alone is a soft check — the
+   structural guarantee comes from Layer 1. Install via
+   `fish bin/install-scope-tier-hook.fish`.
+
+   **Sentinel bypass inheritance.** The hook checks the
+   `DISABLE_PRESSURE_FLOOR` sentinel before evaluating criteria. When
+   the sentinel is present (project-local OR global), the hook exits 0
+   (no reminder). Same off-switch as pressure-framing floor and
+   Trivial-tier four-criteria check — single flag for emergency
+   rollback.
+
+   **Precedence vs Trivial/Mechanical tier.** Scope-tier hook match is
+   a fast-path into the same destination as Trivial tier (skip
+   DTP/SA/brainstorm/FMS, single-implementer mode). On match, jump
+   straight to direct implementation; Trivial-tier four-criteria
+   check remains the fallback for prompts WITHOUT a hook match but
+   WITH all four criteria satisfiable. Both routes converge.
+
+   **Precedence vs Expert Fast-Track.** Hook match wins; Fast-Track
+   still runs DTP (condensed), which scope-tier match skips entirely.
+
    <a id="pressure-framing-floor"></a>
    **Pressure-framing floor.** Framings below are pressure signals, not
    cost-naming skips. They DO NOT bypass DTP — they *strengthen* the
