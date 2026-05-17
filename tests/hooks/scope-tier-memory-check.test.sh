@@ -188,6 +188,76 @@ run_case "no-concrete-target-no-match" \
   "setup_memory_fixture_positive '$TMPDIR_T14' && export CLAUDE_PROJECT_DIR='$TMPDIR_T14'" \
   "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_T14'"
 
+# ── Task 6 tests (git working-tree pre-check) ─────────────────────────────────
+
+setup_git_with_n_files() {
+  local dir="$1"
+  local n="$2"
+  setup_memory_fixture_positive "$dir"
+  cd "$dir"
+  git init -q
+  git config user.email "test@example.com"
+  git config user.name "Test"
+  for i in $(seq 1 "$n"); do
+    echo "content$i" > "file${i}.txt"
+  done
+  git add -N file*.txt
+  cd - >/dev/null
+}
+
+setup_git_migrations() {
+  local dir="$1"
+  setup_memory_fixture_positive "$dir"
+  cd "$dir"
+  git init -q
+  git config user.email "test@example.com"
+  git config user.name "Test"
+  mkdir -p migrations
+  echo "sql" > migrations/0001.sql
+  git add -N migrations/0001.sql
+  cd - >/dev/null
+}
+
+# Test 15: many files in flight (8) → no emission (git check rejects)
+TMPDIR_G1=$(mktemp -d)
+run_case \
+  "git-many-files-in-flight-no-match" \
+  '{"prompt":"prune the dead block in rules/planning.md"}' \
+  "" \
+  0 \
+  "setup_git_with_n_files '$TMPDIR_G1' 8 && cd '$TMPDIR_G1' && export CLAUDE_PROJECT_DIR='$TMPDIR_G1'" \
+  "cd - >/dev/null && unset CLAUDE_PROJECT_DIR && rm -rf '$TMPDIR_G1'"
+
+# Test 16: few files in flight (3) → emission (git check does not reject)
+TMPDIR_G2=$(mktemp -d)
+run_case \
+  "git-few-files-in-flight-still-matches" \
+  '{"prompt":"prune the dead block in rules/planning.md"}' \
+  "SCOPE-TIER MATCH:" \
+  0 \
+  "setup_git_with_n_files '$TMPDIR_G2' 3 && cd '$TMPDIR_G2' && export CLAUDE_PROJECT_DIR='$TMPDIR_G2'" \
+  "cd - >/dev/null && unset CLAUDE_PROJECT_DIR && rm -rf '$TMPDIR_G2'"
+
+# Test 17: not in a git repo → still emits (graceful degradation)
+TMPDIR_G3=$(mktemp -d)
+run_case \
+  "not-in-git-repo-still-matches" \
+  '{"prompt":"prune the dead block in rules/planning.md"}' \
+  "SCOPE-TIER MATCH:" \
+  0 \
+  "setup_memory_fixture_positive '$TMPDIR_G3' && cd '$TMPDIR_G3' && export CLAUDE_PROJECT_DIR='$TMPDIR_G3'" \
+  "cd - >/dev/null && unset CLAUDE_PROJECT_DIR && rm -rf '$TMPDIR_G3'"
+
+# Test 18: migrations path in flight → no emission (git check rejects)
+TMPDIR_G4=$(mktemp -d)
+run_case \
+  "git-migrations-path-in-flight-no-match" \
+  '{"prompt":"prune the dead block in rules/planning.md"}' \
+  "" \
+  0 \
+  "setup_git_migrations '$TMPDIR_G4' && cd '$TMPDIR_G4' && export CLAUDE_PROJECT_DIR='$TMPDIR_G4'" \
+  "cd - >/dev/null && unset CLAUDE_PROJECT_DIR && rm -rf '$TMPDIR_G4'"
+
 echo ""
 echo "Pass: $PASS, Fail: $FAIL"
 if [[ $FAIL -gt 0 ]]; then

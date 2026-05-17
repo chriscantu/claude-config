@@ -92,7 +92,33 @@ if [[ "$HAS_VERB" != "true" ]] || [[ "$HAS_TARGET" != "true" ]] \
   exit 0
 fi
 
-# Task 6 inserts git pre-check here.
+# Criterion 6: git working-tree pre-check.
+# macOS may not have `timeout` or `gtimeout` — graceful degradation: no timeout.
+TIMEOUT_CMD=""
+if command -v timeout >/dev/null 2>&1; then
+  TIMEOUT_CMD="timeout 2s"
+elif command -v gtimeout >/dev/null 2>&1; then
+  TIMEOUT_CMD="gtimeout 2s"
+fi
+# If neither is available, TIMEOUT_CMD stays empty and git commands run without timeout.
+
+git_check_rejects() {
+  command -v git >/dev/null 2>&1 || return 1
+  $TIMEOUT_CMD git rev-parse --is-inside-work-tree >/dev/null 2>&1 || return 1
+  local cached unstaged combined
+  cached=$($TIMEOUT_CMD git diff --cached --stat 2>/dev/null || true)
+  unstaged=$($TIMEOUT_CMD git diff --stat 2>/dev/null || true)
+  combined=$(printf '%s\n%s' "$cached" "$unstaged")
+  echo "$combined" | grep -qE '(^| |\t|/)(migrations|schema|db|api)/' && return 0
+  local file_count loc_total
+  file_count=$(echo "$combined" | grep -cE '\| +[0-9]+ ' || true)
+  [[ "$file_count" -gt 5 ]] && return 0
+  loc_total=$(echo "$combined" | grep -E '[0-9]+ insertion|[0-9]+ deletion' \
+    | awk '{for(i=1;i<=NF;i++)if($i~/insertion|deletion/)sum+=$(i-1)} END{print sum+0}')
+  [[ "$loc_total" -gt 200 ]] && return 0
+  return 1
+}
+git_check_rejects && exit 0
 
 memory_list=$(IFS=, ; echo "${MATCHED_MEMORIES[*]}")
 jq -n --arg mems "$memory_list" '{
