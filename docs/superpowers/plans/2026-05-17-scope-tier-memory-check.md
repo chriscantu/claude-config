@@ -57,7 +57,7 @@ Per architect recommendation — file now so it isn't forgotten post-merge.
 - [ ] **Step 1:** Verify `gh auth status` shows logged into github.com.
 - [ ] **Step 2:** Write issue body to `/tmp/phase2-issue.md` with sections: Problem, Acceptance (precision ≥0.90, recall ≥0.70, 50 stratified prompts from `~/.claude/logs/scope-tier-hook.log`), Context (spec path + source PR + log location), Out of Scope (Phase 3 tool-use forcing — only if Phase 2 fails).
 - [ ] **Step 3:** `gh issue create --repo chriscantu/claude-config --title "scope-tier hook corpus eval — 30-day FP/FN measurement (Phase 2 of #332)" --label "priority: 2-medium" --label "tracking" --body-file /tmp/phase2-issue.md`
-- [ ] **Step 4:** Record returned issue number — replace `#NNN` placeholders in this plan and PR body via `sed -i '' 's/#NNN/#<actual>/g' docs/superpowers/plans/2026-05-17-scope-tier-memory-check.md`. Commit: `docs(plan): record Phase 2 issue #<actual>`.
+- [ ] **Step 4:** Record returned issue number — replace `#334` placeholders in this plan and PR body via `sed -i '' 's/#334/#<actual>/g' docs/superpowers/plans/2026-05-17-scope-tier-memory-check.md`. Commit: `docs(plan): record Phase 2 issue #<actual>`.
 
 ---
 
