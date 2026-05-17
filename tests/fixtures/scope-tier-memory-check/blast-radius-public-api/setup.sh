@@ -1,6 +1,6 @@
 #!/bin/bash
 set -e
-HOOK_ABS_PATH="/Users/cantu/repos/claude-config/.claude/worktrees/scope-tier-memory-check/hooks/scope-tier-memory-check.sh"
+HOOK_ABS_PATH="/Users/cantu/.claude/hooks/scope-tier-memory-check.sh"
 mkdir -p .claude/projects/-Users-cantu-repos-claude-config/memory
 cat > .claude/settings.local.json <<'JSON'
 {"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"HOOK_PATH_PLACEHOLDER"}]}]}}

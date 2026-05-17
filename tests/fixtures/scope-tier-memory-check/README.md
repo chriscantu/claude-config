@@ -18,7 +18,7 @@ executes. Using `scratch_decoy` ensures the hook sees the fixture MEMORY.md
 and settings when the claude process starts in its scratch dir.
 
 **Hook path**: hardcoded to the worktree absolute path
-(`/Users/cantu/repos/claude-config/.claude/worktrees/scope-tier-memory-check/hooks/scope-tier-memory-check.sh`).
+(`/Users/cantu/.claude/hooks/scope-tier-memory-check.sh` — symlink installed by `bin/link-config.fish`; survives worktree teardown).
 Strategy B from the task spec — the runner doesn't export `HOOK_ABS_PATH`.
 If the worktree path changes, update the `scratch_decoy` entries in evals.json.
 

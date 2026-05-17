@@ -8,7 +8,7 @@
       "summary": "Canonical positive: PR #330-shape prompt with scope-tier memory loaded and hook installed via scratch_decoy. Hook injects SCOPE-TIER MATCH reminder. Model should ack and route to direct implementation without invoking DTP. Fixture: tests/fixtures/scope-tier-memory-check/pr-330-canonical.",
       "prompt": "prune the redundant per-gate floor blocks from the five delegate rules in `rules/planning.md` — they restate the DTP anchor and add no eval-measurable load",
       "scratch_decoy": {
-        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/repos/claude-config/.claude/worktrees/scope-tier-memory-check/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
         ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n"
       },
       "assertions": [
@@ -32,7 +32,7 @@
       "summary": "Negative: minimizer present ('just', 'small change') causes hook criterion 3 to reject. No SCOPE-TIER MATCH reminder. Prompt is also a pressure framing — DTP should route normally. Fixture: tests/fixtures/scope-tier-memory-check/pressure-framing-minimizer.",
       "prompt": "just a quick fix to `planning.md` — small change to the pressure-framing section",
       "scratch_decoy": {
-        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/repos/claude-config/.claude/worktrees/scope-tier-memory-check/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
         ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n"
       },
       "assertions": [
@@ -56,7 +56,7 @@
       "summary": "Negative: scope-expander keywords ('rearchitect', 'refactor across') trigger hook criterion 4 rejection. No SCOPE-TIER MATCH reminder. Large design prompt should invoke DTP. Fixture: tests/fixtures/scope-tier-memory-check/large-scope-keyword.",
       "prompt": "rearchitect the rules system — refactor across the front-door layer to reduce ceremony overhead",
       "scratch_decoy": {
-        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/repos/claude-config/.claude/worktrees/scope-tier-memory-check/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
         ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n"
       },
       "assertions": [
@@ -80,7 +80,7 @@
       "summary": "Negative: no scope-tier feedback memory loaded — hook exits early (no MEMORY.md match). Clean mechanical prompt. No scope-tier ack expected. Fixture: tests/fixtures/scope-tier-memory-check/no-matching-memory.",
       "prompt": "prune the dead import in `src/utils/helpers.ts` — unused after the last refactor",
       "scratch_decoy": {
-        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/repos/claude-config/.claude/worktrees/scope-tier-memory-check/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
         ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [User current situation](user_situation.md) — Laid off ~April 2026; no Atlassian/Slack; uses Google Calendar + Gmail but not Drive\n- [JS runtime is Bun, not Node](user_js_runtime.md) — Use bunx/bun in place of npx/npm/node everywhere; Node is not installed\n"
       },
       "assertions": [
@@ -98,7 +98,7 @@
       "summary": "Negative: DISABLE_PRESSURE_FLOOR sentinel seeded in scratch cwd via scratch_decoy. Hook exits 0 without checking criteria or emitting a reminder. No scope-tier ack expected. Fixture: tests/fixtures/scope-tier-memory-check/sentinel-bypass-active.",
       "prompt": "prune the stale comment in `rules/planning.md` — one-line removal",
       "scratch_decoy": {
-        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/repos/claude-config/.claude/worktrees/scope-tier-memory-check/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
         ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n",
         ".claude/DISABLE_PRESSURE_FLOOR": ""
       },
@@ -117,7 +117,7 @@
       "summary": "Negative: blast-radius criterion fires ('exported' word + 'api/' path). Hook criterion 5 rejects. No SCOPE-TIER MATCH reminder despite mechanical verb + concrete target. Fixture: tests/fixtures/scope-tier-memory-check/blast-radius-public-api.",
       "prompt": "rename the exported `serializePayload` symbol in `api/v1/checkout.ts` — update all call sites",
       "scratch_decoy": {
-        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/repos/claude-config/.claude/worktrees/scope-tier-memory-check/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
         ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n"
       },
       "assertions": [
@@ -135,7 +135,7 @@
       "summary": "Criterion 6 coverage note: hook git working-tree pre-check (>5 files or >200 LOC in-flight) cannot be tested end-to-end via scratch_decoy (git repo state cannot be seeded). Criterion 6 is covered by tests/hooks/scope-tier-memory-check.test.sh. This eval tests the scratch-cwd degradation path — no git repo present, hook proceeds to emit match normally. Fixture: tests/fixtures/scope-tier-memory-check/git-working-tree-large.",
       "prompt": "rename `helperA` to `helperB` in `src/utils/foo.ts`",
       "scratch_decoy": {
-        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/repos/claude-config/.claude/worktrees/scope-tier-memory-check/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
         ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n"
       },
       "assertions": [
