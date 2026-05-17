@@ -18,6 +18,7 @@ import {
   type ChainSignals,
   type SkillInvocation,
   type ValidatedAssertion,
+  type ValidatedEval,
   type ValidatedScratchDecoy,
   type SuiteExitOptions,
   ScratchDecoySeedError,
@@ -2589,10 +2590,29 @@ describe("loadEvalFile() — additional_context field", () => {
 describe("buildPrompt()", () => {
   test("buildPrompt prepends additional_context as system-reminder", async () => {
     const { buildPrompt } = await import("./eval-runner-v2.ts");
-    const result = buildPrompt({ kind: "single", name: "t", prompt: "do thing",
-      additional_context: "SCOPE-TIER MATCH: foo", assertions: [] } as any);
+    const fixture: Extract<ValidatedEval, { kind: "single" }> = {
+      kind: "single",
+      name: "t",
+      prompt: "do thing",
+      additional_context: "SCOPE-TIER MATCH: foo",
+      assertions: [],
+    };
+    const result = buildPrompt(fixture);
     expect(result).toContain("<system-reminder>");
     expect(result).toContain("SCOPE-TIER MATCH: foo");
     expect(result.indexOf("SCOPE-TIER MATCH:")).toBeLessThan(result.indexOf("do thing"));
+  });
+
+  test("buildPrompt returns raw prompt when additional_context is absent", async () => {
+    const { buildPrompt } = await import("./eval-runner-v2.ts");
+    const fixture: Extract<ValidatedEval, { kind: "single" }> = {
+      kind: "single",
+      name: "t",
+      prompt: "do thing",
+      assertions: [],
+    };
+    const result = buildPrompt(fixture);
+    expect(result).toBe("do thing");
+    expect(result).not.toContain("<system-reminder>");
   });
 });

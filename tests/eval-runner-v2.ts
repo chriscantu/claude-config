@@ -296,11 +296,11 @@ export function formatRunFailure(
  * For single-turn evals with `additional_context`, the context is wrapped in
  * a `<system-reminder>` block and prepended before the prompt text.
  */
-export function buildPrompt(eval_: ValidatedEval): string {
-  if (eval_.kind === "single" && eval_.additional_context) {
+export function buildPrompt(eval_: Extract<ValidatedEval, { kind: "single" }>): string {
+  if (eval_.additional_context) {
     return `<system-reminder>\n${eval_.additional_context}\n</system-reminder>\n\n${eval_.prompt}`;
   }
-  return eval_.kind === "single" ? eval_.prompt : "";
+  return eval_.prompt;
 }
 
 function colour(s: string, code: string): string {
