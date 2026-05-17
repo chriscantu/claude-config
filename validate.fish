@@ -917,6 +917,44 @@ end
 
 echo ""
 
+# 1o. Scope-tier hook artifacts
+# Asserts the three scope-tier-memory-check deliverables are present and
+# structurally sound: the hook script (present + executable + shellcheck-clean),
+# the installer, and the additional_context field in tests/evals-lib.ts which
+# is the eval-substrate contract introduced by issue #332.
+echo "── Phase 1o: scope-tier hook artifacts"
+
+set -l hook_path "$repo_dir/hooks/scope-tier-memory-check.sh"
+set -l installer_path "$repo_dir/bin/install-scope-tier-hook.fish"
+set -l evals_lib_path "$repo_dir/tests/evals-lib.ts"
+
+if not test -f $hook_path
+    fail "hooks/scope-tier-memory-check.sh missing"
+else
+    pass "hooks/scope-tier-memory-check.sh present"
+    test -x $hook_path; and pass "executable"; or fail "not executable"
+    if command -q shellcheck
+        shellcheck $hook_path >/dev/null 2>&1
+            and pass "shellcheck clean"
+            or fail "shellcheck warnings"
+    end
+end
+
+test -f $installer_path
+    and pass "bin/install-scope-tier-hook.fish present"
+    or fail "bin/install-scope-tier-hook.fish missing"
+test -x $installer_path; or fail "installer not executable"
+
+if test -f $evals_lib_path
+    grep -qE 'additional_context\?:\s*string' $evals_lib_path
+        and pass "Eval.additional_context present"
+        or fail "Eval interface missing additional_context (substrate contract)"
+else
+    fail "tests/evals-lib.ts missing"
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
