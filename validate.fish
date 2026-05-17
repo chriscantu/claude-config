@@ -850,7 +850,11 @@ for skill_root in $fixture_skill_roots
     set fixture_roots_found 1
     set skill_slug (basename $skill_root)
     set fixtures_readme "$skill_root/README.md"
+    # Consumer may live under skills/ (skill-layer) or rules-evals/ (rules-layer).
     set evals_json "$repo_dir/skills/$skill_slug/evals/evals.json"
+    if not test -f $evals_json
+        set evals_json "$repo_dir/rules-evals/$skill_slug/evals/evals.json"
+    end
 
     if not test -f $fixtures_readme
         fail "tests/fixtures/$skill_slug/README.md missing — fixture-to-eval contract documentation required (Q3-C)"
@@ -858,7 +862,7 @@ for skill_root in $fixture_skill_roots
     end
 
     if not test -f $evals_json
-        fail "skills/$skill_slug/evals/evals.json missing — fixtures under tests/fixtures/$skill_slug/ have no eval consumer file"
+        fail "skills/$skill_slug/evals/evals.json (or rules-evals/$skill_slug/evals/evals.json) missing — fixtures under tests/fixtures/$skill_slug/ have no eval consumer file"
         continue
     end
 
@@ -881,7 +885,7 @@ for skill_root in $fixture_skill_roots
     set ref_names_raw (grep -oE "tests/fixtures/$skill_slug/[a-zA-Z0-9_-]+" $evals_json)
     set grep_status $status
     if test $grep_status -ge 2
-        fail "skills/$skill_slug/evals/evals.json: grep returned error status $grep_status (I/O error, permission denied, or signal) while extracting fixture references"
+        fail "$evals_json: grep returned error status $grep_status (I/O error, permission denied, or signal) while extracting fixture references"
         continue
     end
     set ref_names (printf '%s\n' $ref_names_raw | string replace "tests/fixtures/$skill_slug/" "" | string match -rv '^$' | sort -u)
@@ -906,7 +910,7 @@ for skill_root in $fixture_skill_roots
         if test -d "$skill_root$ref_name"
             pass "evals.json reference tests/fixtures/$skill_slug/$ref_name exists"
         else
-            fail "skills/$skill_slug/evals/evals.json references tests/fixtures/$skill_slug/$ref_name which does not exist on disk (dangling fixture reference)"
+            fail "$evals_json references tests/fixtures/$skill_slug/$ref_name which does not exist on disk (dangling fixture reference)"
         end
     end
 end
