@@ -413,7 +413,8 @@ set required_labels \
     "**Pressure-framing floor.**" \
     "**Emission contract — MANDATORY.**" \
     "**Architectural invariant.**" \
-    "**Emergency bypass — sentinel file check.**"
+    "**Emergency bypass — sentinel file check.**" \
+    "**Scope-tier memory check (fires BEFORE pressure-framing floor).**"
 set dependent_rules \
     fat-marker-sketch.md \
     goal-driven.md \
@@ -467,7 +468,16 @@ set drift_registry \
     "**Deadline** — time-pressure framing|planning.md|Pressure-framing floor Deadline category" \
     "**Stated-next-step** — skip|planning.md|Pressure-framing floor Stated-next-step category" \
     "select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip|planning.md|Emission contract ToolSearch mechanics" \
-    "The falsehood is the asserted agreement|disagreement.md|Hedge-then-Comply falsehood definition"
+    "The falsehood is the asserted agreement|disagreement.md|Hedge-then-Comply falsehood definition" \
+    "add row to|scope-tier-memory-check.sh|Scope-tier verb-signal add-row-to" \
+    "update entry in|scope-tier-memory-check.sh|Scope-tier verb-signal update-entry-in" \
+    "small change|scope-tier-memory-check.sh|Scope-tier minimizer small-change" \
+    "cross-cutting change|scope-tier-memory-check.sh|Scope-tier scope-expander cross-cutting-change" \
+    "refactor across|scope-tier-memory-check.sh|Scope-tier scope-expander refactor-across" \
+    "introduce new|scope-tier-memory-check.sh|Scope-tier scope-expander introduce-new" \
+    "public API|scope-tier-memory-check.sh|Scope-tier blast-radius-word public-API" \
+    "breaking change|scope-tier-memory-check.sh|Scope-tier blast-radius-word breaking-change" \
+    "version bump|scope-tier-memory-check.sh|Scope-tier blast-radius-word version-bump"
 
 # Guard: empty rules/ dir means the drift loop scans nothing and silently passes.
 # Pre-check before the loop so missing-rules-dir is loud, not silent.
@@ -532,7 +542,8 @@ set anchor_registry \
     "emergency-bypass-sentinel|planning.md|DTP Emergency bypass sentinel" \
     "fast-track-validation-emission|planning.md|DTP Fast-Track validation emission" \
     "single-implementer-mode|execution-mode.md|Single-implementer execution mode" \
-    "verify-checks|goal-driven.md|Goal-driven verify checks"
+    "verify-checks|goal-driven.md|Goal-driven verify checks" \
+    "scope-tier-memory-check|planning.md|Scope-tier memory check"
 
 for entry in $anchor_registry
     set parts (string split -m 2 "|" $entry)
