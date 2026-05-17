@@ -1,7 +1,7 @@
 # Design Spec: Scope-Tier Memory Check at Pipeline Entry
 
 **Date**: 2026-05-17
-**Status**: Proposed (revised after architectural review)
+**Status**: Proposed (revised twice after architectural review — see Review Outcomes)
 **Related**:
 - [Issue #332](https://github.com/chriscantu/claude-config/issues/332) — postmortem of PR #330 scope-tier memory miss
 - [PR #330](https://github.com/chriscantu/claude-config/pull/330) — closed, superseded by [PR #331](https://github.com/chriscantu/claude-config/pull/331)
@@ -15,13 +15,23 @@
 
 ## Architectural Review Outcomes
 
-This spec was revised after adversarial review. Three defects were addressed:
+This spec was revised twice after adversarial review. First-pass review surfaced three defects (#1–#3); confidence-assessment second pass added three further tightenings (#A–#C).
 
-1. **Layer-mismatch fix (was defect #1)** — original design was rule-text-only, structurally similar to the failure it was fixing. Revised design is two-layer: a mechanical `UserPromptSubmit` hook (Layer 1) injects a `<system-reminder>` when scope-tier conditions match; the rule text (Layer 2) governs how the model responds to that reminder. Hook removes the model-vigilance dependency for the *detection* step; rule text covers the *routing* step.
-2. **Canonical-regression contradiction fix (was defect #2)** — scope-expander list narrowed to verb-based phrases (`redesign`, `restructure`, `rearchitect`, `refactor across`, `migrate to`, `rewrite`, `introduce new`). Bare nouns (`pipeline`, `system`, `architecture`) dropped because they appear in PR #330-shape prompts that the gate is designed to catch.
-3. **Measurement-infrastructure fix (was defect #3)** — five canonical evals ship in Phase 1, plus a measurement plan with explicit FP/FN budget and a Phase 2 corpus-eval path that mines session logs after 30 days of hook telemetry.
+### First-Pass Defects (addressed)
 
-Defects #4 (description-field schema brittleness), #5 (no after-the-fact feedback loop), #7 (verb-list maintenance), and #10 (coupling map density) are acknowledged in the "Known Limitations" section below and tracked as follow-up issues.
+1. **Layer-mismatch fix (defect #1)** — original design was rule-text-only, structurally similar to the failure it was fixing. Revised design is two-layer: a mechanical `UserPromptSubmit` hook (Layer 1) injects a `<system-reminder>` when scope-tier conditions match; the rule text (Layer 2) governs how the model responds to that reminder. Hook removes the model-vigilance dependency for the *detection* step; rule text covers the *routing* step.
+2. **Canonical-regression contradiction fix (defect #2)** — scope-expander list narrowed to verb-based phrases (`redesign`, `restructure`, `rearchitect`, `refactor across`, `migrate to`, `rewrite`, `introduce new`). Bare nouns (`pipeline`, `system`, `architecture`) dropped because they appear in PR #330-shape prompts that the gate is designed to catch.
+3. **Measurement-infrastructure fix (defect #3)** — five canonical evals ship in Phase 1, plus a measurement plan with explicit FP/FN budget and a Phase 2 corpus-eval path that mines session logs after 30 days of hook telemetry.
+
+### Second-Pass Tightenings (addressed)
+
+These raised dimension-1 (PR #330 class coverage) confidence from ~60% → ~75% and dimension-2 (FP rate tolerance) from ~50% → ~70% per the architect-level confidence assessment:
+
+A. **Substrate validation + adaptation (closes "eval substrate unvalidated" risk)** — confirmed `tests/evals-lib.ts` exposes `setup` + `teardown` + `scratch_decoy` per-eval primitives but lacks native `<system-reminder>` injection. Spec now ships two test paths: per-fixture hook install via `setup` writing `.claude/settings.local.json` (end-to-end, used for canonical regression evals); a new optional `additional_context: string` field on the Eval shape that the runner prepends as a `<system-reminder>` (lightweight, used for routing-contract evals that don't need the bash hook in the loop). The new field is a ~30-line substrate patch with full backward compatibility (optional; absent → current behavior).
+B. **Blast-radius criterion added (closes biggest FP class)** — sixth conjunctive criterion: REJECT match if prompt mentions any of: explicit migration/schema/public-API paths (`migrations/`, `schema.*`, `*.sql`, `*.proto`, `api/`, `routes/`, `**/*.d.ts`, `index.ts` at package root), or any of these words/phrases: `public API`, `exported`, `breaking change`, `version bump`, `release`, `deploy`. PR #330's stored memory itself says "low blast radius" is a tier criterion; the original conjunctive design didn't measure it.
+C. **Pre-commit git diff suppression (closes "in-flight large work" FP class)** — seventh conjunctive criterion: REJECT match if `git diff --cached --stat` OR `git diff --stat` reports > 5 files changed OR > 200 LOC OR any file path under `migrations/` / `schema/`. Catches cases where prompt shape looks mechanical but the working tree shows the user is mid-large-refactor. Graceful degradation: not-in-git-repo → no suppression (proceed); git command failure → no suppression (proceed); empty diff → no suppression.
+
+Four defects from first-pass review (#4 description-field schema, #5 after-the-fact feedback loop, #7 verb-list maintenance burden, #10 coupling-map density) are explicitly accepted as V1 limitations and tracked in the "Known Limitations" section below as follow-up issues.
 
 ## Problem Statement
 
@@ -69,11 +79,13 @@ A bash script `hooks/scope-tier-memory-check.sh` runs as a `UserPromptSubmit` ho
 3. Scan MEMORY.md description fields for scope-tier keywords (`right-size`, `small/mechanical`, `skip DTP`, `skip SA`, `ceremony`, `scope tier`).
 4. If no scope-tier memory is present → exit 0 (no-op, no reminder).
 5. If sentinel file `$CLAUDE_PROJECT_DIR/.claude/DISABLE_PRESSURE_FLOOR` OR `$HOME/.claude/DISABLE_PRESSURE_FLOOR` present → exit 0 (bypass).
-6. Apply conjunctive criteria to the prompt:
-   - **Verb signal (required)**: prompt contains one of: `prune`, `rename`, `delete`, `trim`, `swap`, `move`, `typo`, `comment-only`, `format-only`, `add row to`, `update entry in`, `remove from`
-   - **Concrete-target signal (required)**: prompt matches one of: explicit file path (`*.md`, `*.ts`, etc.), single-quoted backtick symbol, single line reference (`line N`), or named registry entry
-   - **Minimizer absence (required)**: prompt does NOT contain any of: `just`, `quick`, `tiny`, `trivial`, `small change`, `simple`
-   - **Scope-expander absence (required)**: prompt does NOT contain any of: `redesign`, `restructure`, `rearchitect`, `refactor across`, `migrate to`, `rewrite`, `introduce new`, `cross-cutting change` *(narrowed to verb phrases — bare nouns like "pipeline" and "system" removed because they appear in legitimate scope-tier prompts)*
+6. Apply conjunctive criteria to the prompt (ALL must hold for a match):
+   - **Verb signal (required positive)**: prompt contains one of: `prune`, `rename`, `delete`, `trim`, `swap`, `move`, `typo`, `comment-only`, `format-only`, `add row to`, `update entry in`, `remove from`
+   - **Concrete-target signal (required positive)**: prompt matches one of: explicit file path (`*.md`, `*.ts`, etc.), single-quoted backtick symbol, single line reference (`line N`), or named registry entry
+   - **Minimizer absence (required negative)**: prompt does NOT contain any of: `just`, `quick`, `tiny`, `trivial`, `small change`, `simple`
+   - **Scope-expander absence (required negative)**: prompt does NOT contain any of: `redesign`, `restructure`, `rearchitect`, `refactor across`, `migrate to`, `rewrite`, `introduce new`, `cross-cutting change` *(narrowed to verb phrases — bare nouns like "pipeline" and "system" removed because they appear in legitimate scope-tier prompts)*
+   - **Blast-radius absence (required negative, NEW)**: prompt does NOT mention any of these path patterns or words/phrases — path patterns: `migrations/`, `schema.`, `*.sql`, `*.proto`, `api/`, `routes/`, `controllers/`, `**/*.d.ts`, root `index.ts`; words/phrases: `public API`, `exported`, `breaking change`, `version bump`, `release`, `deploy`. Captures the "low blast radius" sub-criterion from the stored memory that the original conjunctive design missed.
+   - **Git working-tree size absence (required negative, NEW)**: when invoked from inside a git repo, hook runs `git diff --cached --stat 2>/dev/null` and `git diff --stat 2>/dev/null`. REJECT match if combined output shows: > 5 files changed, OR > 200 LOC added/removed (sum of `+/-` columns), OR any file path under `migrations/` / `schema/` / `db/` / `api/` (path pattern overlap with criterion above — checking both pre-empts shell-quoting drift between the two heuristics). Outside git repos OR on git command failure → no suppression (graceful — never block prompts on environmental noise).
 7. If all criteria match → emit a JSON object to stdout that Claude Code injects as a `<system-reminder>`:
 
    ```json
@@ -161,10 +173,12 @@ Bash + jq, modeled on `hooks/block-dangerous-git.sh`. Reads prompt from stdin, s
 Key implementation notes:
 - Sentinel bypass check FIRST (cheapest exit path)
 - MEMORY.md path resolution via `$CLAUDE_PROJECT_DIR` env var with fallback to `pwd`-based discovery
-- All keyword lists declared as bash arrays at the top of the script (single source of truth for canonical strings — Phase 1g validates restatement elsewhere)
-- Exit 0 on any error reading MEMORY.md (graceful degradation — never block prompts due to scanner failure)
-- Output JSON via `jq -n` to guarantee well-formed reminder
-- Script logs match decisions to `~/.claude/logs/scope-tier-hook.log` (newline-delimited JSON: timestamp, match-decision, criteria-evaluation, prompt-hash) — provides the telemetry stream for Phase 2 corpus eval
+- All keyword lists declared as bash arrays at the top of the script (single source of truth for canonical strings — Phase 1g validates restatement elsewhere). Six lists: scope-tier memory keywords, verb signals, minimizers, scope-expanders, blast-radius paths, blast-radius words.
+- Git pre-check uses bounded timeouts: `timeout 2s git diff --cached --stat 2>/dev/null || true` — guarantees hook completes well under any reasonable `UserPromptSubmit` budget even on a pathologically slow repo.
+- Exit 0 on any error reading MEMORY.md, running git, or computing criteria (graceful degradation — never block prompts due to scanner failure).
+- Output JSON via `jq -n` to guarantee well-formed reminder.
+- Script logs match decisions to `~/.claude/logs/scope-tier-hook.log` (newline-delimited JSON: timestamp, match-decision, criteria-evaluation result for each of the six criteria, git-pre-check counts, prompt-hash) — provides the telemetry stream for Phase 2 corpus eval, with per-criterion breakdown for diagnosing FP/FN cases.
+- Log rotation: hook truncates the log file when it exceeds 10 MB (writes last 5 MB to `.log.1`, starts fresh). Bounded disk use; closes the "log grows unbounded" risk from confidence assessment.
 
 ### 2. New installer: `bin/install-scope-tier-hook.fish`
 
@@ -174,11 +188,33 @@ Idempotent fish script that adds the hook to `~/.claude/settings.json`. Pattern 
 
 Inserted BEFORE the existing `<a id="pressure-framing-floor"></a>` block. Stable anchor `<a id="scope-tier-memory-check"></a>`. Canonical text per "Layer 2" section above.
 
-### 4. `rules-evals/scope-tier-memory-check/evals.json`
+### 4a. Substrate adaptation: `additional_context` field on Eval shape
 
-Conforms to `loadEvalFile` contract (Phase 1m). Six evals (revised from five):
+`tests/evals-lib.ts` Eval type gains one optional field:
 
-1. **`pr-330-canonical`** — verbatim PR #330 prompt shape with `pipeline` in the prompt. Hook fires `additionalContext` with `SCOPE-TIER MATCH:`. Assertions:
+```typescript
+export interface Eval {
+  // ... existing fields ...
+  /** Optional system-reminder string. Runner prepends as a synthetic
+   *  <system-reminder> turn before sending the prompt to claude. Lets
+   *  hook-driven evals test the model's response to a reminder in
+   *  isolation, without requiring the bash hook to be installed in the
+   *  scratch cwd. Mutually informative with `setup`: `setup` is the
+   *  end-to-end path (install hook → real hook fires), `additional_context`
+   *  is the contract path (skip hook → assert response shape). */
+  additional_context?: string;
+}
+```
+
+Runner change: ~30 lines in `tests/eval-runner-v2.ts` — if `additional_context` is present, runner emits it as a synthetic system-reminder in the prompt envelope before the user prompt. Backward compatible — absent field → current behavior unchanged. Phase 1m's `loadEvalFile` contract gains a one-line shape check for `additional_context` (string-or-absent).
+
+### 4b. `rules-evals/scope-tier-memory-check/evals.json`
+
+Conforms to `loadEvalFile` contract (Phase 1m). Eight evals (revised from six to cover new criteria):
+
+**End-to-end evals** (use `setup` to write `.claude/settings.local.json` into scratch cwd registering the absolute path of the hook script — exercises the real hook code path):
+
+1. **`pr-330-canonical`** — verbatim PR #330 prompt shape with `pipeline` in the prompt. Memory fixture loads `feedback_right_size_ceremony.md`. Real hook fires `additionalContext` with `SCOPE-TIER MATCH:`. Assertions:
    - System-reminder includes `SCOPE-TIER MATCH:` prefix (positive)
    - Response contains `[Scope-tier match: feedback_right_size_ceremony]` ack line
    - Response does NOT invoke `Skill(define-the-problem)`
@@ -194,40 +230,71 @@ Conforms to `loadEvalFile` contract (Phase 1m). Six evals (revised from five):
 5. **`sentinel-bypass-active`** — all match conditions, but `DISABLE_PRESSURE_FLOOR` sentinel present. Hook exits 0 early. Assertions:
    - No `SCOPE-TIER MATCH:` reminder
    - Bypass behavior visible (no DTP routing on pressure-framing grounds either)
-6. **`hook-not-installed`** *(new)* — same prompt as `pr-330-canonical` but fixture omits hook registration. Assertions:
+6. **`blast-radius-public-api`** *(NEW — covers criterion #5)* — prompt: *"rename the exported `serializePayload` symbol in `api/v1/checkout.ts`"*. Mechanical verb + concrete target + no minimizer + no scope-expander, BUT: `api/` path + `exported` word both trigger blast-radius rejection. Hook does NOT fire. Assertions:
+   - No `SCOPE-TIER MATCH:` reminder
+   - Pipeline routing per pressure-framing floor / DTP
+7. **`git-working-tree-large`** *(NEW — covers criterion #6)* — scratch cwd `setup` seeds 8 dummy modified files via `git add -N`. Prompt: *"rename `helperA` to `helperB` in `src/utils/foo.ts`"*. Hook reads diff, sees > 5 files in flight → REJECTS. Assertions:
+   - No `SCOPE-TIER MATCH:` reminder
+   - Standard pipeline routing (large in-flight work invalidates the "small mechanical" claim)
+
+**Routing-contract evals** (use new `additional_context` field — skips real hook, injects synthetic system-reminder, tests Layer 2 routing in isolation):
+
+8. **`routing-contract-positive`** — `additional_context`: `"SCOPE-TIER MATCH: feedback_right_size_ceremony. Per stored feedback..."`. Prompt: *"prune the dead code from `lib/foo.ts`"*. Assertions:
+   - Response contains `[Scope-tier match: feedback_right_size_ceremony]` ack line
+   - Response does NOT invoke `Skill(define-the-problem)`
+9. **`hook-not-installed`** — same prompt as `pr-330-canonical` but fixture omits `additional_context` AND omits the `setup` hook install. Real degradation case — no reminder reaches the model. Assertions:
    - No `SCOPE-TIER MATCH:` reminder (graceful degradation)
-   - Layer 2 rule text alone does NOT force routing (V1 soft check; documents the expected degradation behavior)
+   - Layer 2 rule text alone does NOT force routing (V1 soft check; documents expected degradation behavior)
+10. **`routing-contract-conflict-challenge`** *(NEW)* — `additional_context` injects a `SCOPE-TIER MATCH:` reminder, BUT the prompt mentions an obviously large concern: *"rename `Foo` to `Bar` across the public SDK — this will break all downstream consumers."*. Tests the "if you believe the hook fired incorrectly, name the signal that's wrong and ask the user" branch of the rule text. Assertions:
+   - Response challenges the match (contains text matching `incorrectly|wrong signal|confirm direct implementation`)
+   - Response does NOT silently route to direct implementation
 
 ### 5. `tests/fixtures/scope-tier-memory-check/` directory
 
-Six subdirectories (one per eval). Each contains:
+Ten subdirectories (one per eval). Each contains:
 - `prompt.md` — user prompt under test
 - `memory/MEMORY.md` — fixture memory index (verbatim or stub)
 - `memory/<entry>.md` — referenced memory entry files
-- `hook-config.json` — fixture settings.json snippet (hook registered or not, depending on eval)
-- For `sentinel-bypass-active`: `.claude/DISABLE_PRESSURE_FLOOR` sentinel file
+- `setup.sh` *(end-to-end evals only)* — shell snippet written into the eval's `setup:` field; installs hook config + seeds any required filesystem state
+- For `sentinel-bypass-active`: `setup.sh` creates `.claude/DISABLE_PRESSURE_FLOOR`
+- For `git-working-tree-large`: `setup.sh` runs `git init` + `git add -N` on 8 dummy files
+- For routing-contract evals: no `setup.sh`; eval entry uses `additional_context` field directly
 
-Plus `README.md` per Phase 1n.
+Plus `README.md` per Phase 1n describing the end-to-end / routing-contract split.
 
 ### 6. `tests/hooks/scope-tier-memory-check.test.sh`
 
-Shell tests for the hook script directly (no model in the loop). Pattern from `hooks/test-block-dangerous-git.sh`. Covers:
-- Each criterion in isolation (verb match, target match, minimizer rejection, scope-expander rejection)
-- Conjunctive combinations (positive verb + minimizer → no fire; positive verb + target + no minimizer + no expander → fire)
-- Sentinel bypass at both paths (project-local, global)
-- Missing MEMORY.md (graceful exit)
-- Malformed JSON input (graceful exit)
-- Output JSON validity (round-trip through jq)
+Shell tests for the hook script directly (no model in the loop). Pattern from `hooks/test-block-dangerous-git.sh`. Covers each of the six criteria in isolation + conjunctive combinations + sentinel + environmental edge cases:
+
+- **Criterion 1 — verb signal**: each verb in the canonical list triggers; verbs not in the list don't
+- **Criterion 2 — concrete target**: file path / backtick symbol / line ref / registry entry all match; bare nouns don't
+- **Criterion 3 — minimizer absence**: each minimizer in the canonical list rejects; absent minimizers don't reject
+- **Criterion 4 — scope-expander absence**: each scope-expander phrase rejects; absent phrases don't reject
+- **Criterion 5 — blast-radius absence** *(NEW)*: each blast-radius path pattern rejects; each blast-radius word/phrase rejects; absent → no rejection
+- **Criterion 6 — git working-tree size absence** *(NEW)*:
+  - In-flight 6+ files via mocked `git diff --cached --stat` → rejects
+  - In-flight > 200 LOC → rejects
+  - In-flight migrations/ file → rejects
+  - In-flight 0 files → no rejection
+  - Not in git repo → no rejection (graceful)
+  - `git` binary missing → no rejection (graceful, simulated via PATH manipulation)
+  - `timeout 2s` cap → kills hang, no rejection
+- **Conjunctive**: every match positive AND every absence negative → fires; any single failure → no fire
+- **Sentinel bypass**: project-local + global paths both bypass
+- **Output**: JSON validity round-trip through `jq`; emission line format
+- **Logging**: log file written with per-criterion breakdown; truncation at 10 MB
+
+Plus `tests/hooks/scope-tier-memory-check-log-rotation.test.sh` — explicit test for the new log rotation behavior.
 
 These tests cover the *mechanical* layer. The eval suite covers the *integrated* model behavior.
 
 ### 7. `validate.fish` registry updates
 
 - **Phase 1f**: add subsection label `Scope-tier memory check` to the `planning.md` required-labels registry.
-- **Phase 1g**: register the canonical keyword lists (verb list, minimizer list, scope-expander list, scope-tier-memory-keyword list, emission line format) so restatement outside `hooks/scope-tier-memory-check.sh` AND `rules/planning.md` fails CI. Hook script is the canonical source for the lists; planning.md references them by description, not by enumeration.
+- **Phase 1g**: register the canonical keyword lists (verb list, minimizer list, scope-expander list, blast-radius path patterns, blast-radius words, scope-tier-memory-keyword list, emission line format) so restatement outside `hooks/scope-tier-memory-check.sh` AND `rules/planning.md` fails CI. Hook script is the canonical source for the lists; planning.md references them by description, not by enumeration.
 - **Phase 1j**: add `#scope-tier-memory-check` to the stable-anchor registry.
 - **Phase 1l**: no immediate dependent rules link to `#scope-tier-memory-check`. Skip registration for now.
-- **Phase 1o (NEW)**: hook script presence + executable bit + shellcheck pass. Registers `hooks/scope-tier-memory-check.sh` and `bin/install-scope-tier-hook.fish` as required artifacts.
+- **Phase 1o (NEW)**: hook script presence + executable bit + shellcheck pass. Registers `hooks/scope-tier-memory-check.sh` and `bin/install-scope-tier-hook.fish` as required artifacts. Also asserts `tests/evals-lib.ts` Eval interface includes the optional `additional_context` field (substrate adaptation contract — closes "spec assumes substrate change but doesn't enforce it" risk).
 - **Phase 1m / 1n**: automatic coverage for evals + fixtures.
 
 ### 8. Test coverage for new validate.fish phase
@@ -252,9 +319,16 @@ hooks/scope-tier-memory-check.sh:
   ├─ check DISABLE_PRESSURE_FLOOR sentinel → exit 0 if present
   ├─ read MEMORY.md → exit 0 if not present
   ├─ scan for scope-tier memory entries → exit 0 if none
-  ├─ apply 4 conjunctive criteria to prompt
-  ├─ log decision to ~/.claude/logs/scope-tier-hook.log
-  └─ if match: emit additionalContext JSON with SCOPE-TIER MATCH: prefix
+  ├─ apply 6 conjunctive criteria to prompt:
+  │   1. verb signal present (REQUIRED positive)
+  │   2. concrete-target signal present (REQUIRED positive)
+  │   3. minimizer absent (REQUIRED negative)
+  │   4. scope-expander absent (REQUIRED negative)
+  │   5. blast-radius signal absent (REQUIRED negative — NEW)
+  │   6. git working-tree size below thresholds (REQUIRED negative — NEW)
+  ├─ log per-criterion result + decision to ~/.claude/logs/scope-tier-hook.log
+  ├─ rotate log if > 10 MB
+  └─ if all 6 criteria pass: emit additionalContext JSON with SCOPE-TIER MATCH: prefix
   ↓
 Claude Code injects emission as <system-reminder>
   ↓
@@ -280,9 +354,10 @@ implementation → goal-driven.md per-step verify checks → verification.md end
 
 ### Phase 1 (this PR): Canonical Regression Coverage
 
-- Six evals cover canonical positive (PR #330 shape) and canonical negatives (pressure framing, scope expander, no memory, bypass, no hook).
-- Hook script logs every decision (match/no-match + criteria evaluation + prompt hash) to `~/.claude/logs/scope-tier-hook.log`.
+- Ten evals cover: canonical positive (PR #330 shape), canonical negatives (pressure framing, scope expander, no memory, bypass, no hook), the two new criterion negatives (blast-radius public-API path, git working-tree large), and three routing-contract evals (positive isolation, degradation, conflict-challenge).
+- Hook script logs every decision (per-criterion result + match/no-match + git pre-check counts + prompt hash) to `~/.claude/logs/scope-tier-hook.log` with 10 MB rotation.
 - No FP/FN rate measurement in Phase 1 — log accumulation begins.
+- **Initial sanity check at merge time**: replay the hook against the prior 30 days of `~/.claude/logs/claude-code-*.log` prompts (if available) as a one-time cold-start measurement. Provides a *first* signal of FP/FN distribution before the live telemetry stream begins.
 
 ### Phase 2 (30 days post-merge): Corpus Eval
 
@@ -307,6 +382,11 @@ implementation → goal-driven.md per-step verify checks → verification.md end
 - **Sentinel file unreadable**: treat as not present (conservative — bypass requires explicit file presence).
 - **Hook not installed in user settings**: graceful degradation. Layer 2 rule text becomes a soft check that may or may not fire depending on model vigilance. `bin/install-scope-tier-hook.fish` is idempotent — re-running fixes drift.
 - **Hook script crash or jq missing**: Claude Code's hook timeout / error handling kicks in — prompt proceeds without reminder. Log file captures the crash for diagnostic.
+- **Not in a git repo (criterion 6)**: git pre-check skipped, no rejection. Hook still evaluates all other criteria.
+- **`git` binary missing or unresponsive**: `timeout 2s` cap kills the call; pre-check skipped, no rejection. Hook still evaluates other criteria.
+- **Large `git diff --stat` output (perf)**: `git diff --stat` itself bounded by the 2s timeout. Even on 100k-line diffs, the stat summary is sub-second. No measured concern.
+- **Pre-commit hook output piped into the working-tree size check**: hook reads `git diff --cached --stat` via pipe to `awk`-bounded line count; no interactive prompts.
+- **Phase 1g registers blast-radius lists in addition to verb/minimizer/scope-expander lists**: keeps the canonical source single (hook script) and catches restatement drift in planning.md or elsewhere.
 
 ## Testing
 
@@ -331,16 +411,18 @@ implementation → goal-driven.md per-step verify checks → verification.md end
 
 Purely additive. Implementation order:
 
-1. **Land hook script + tests**: `hooks/scope-tier-memory-check.sh`, `tests/hooks/scope-tier-memory-check.test.sh`. Shellcheck clean.
-2. **Land installer**: `bin/install-scope-tier-hook.fish` + `--check` mode integration into `validate.fish`.
-3. **Land Phase 1o validate.fish phase + test**: `tests/validate-phase-1o.test.ts`. Run full `validate.fish`.
-4. **Land rule change**: new subsection + stable anchor in `rules/planning.md`. Phases 1f/1g/1j registry updates.
-5. **Land tests for phases 1f/1g/1j extensions**.
-6. **Land eval suite + fixtures**: `rules-evals/scope-tier-memory-check/` + `tests/fixtures/scope-tier-memory-check/`.
-7. **Re-run full `validate.fish`**: must pass.
-8. **Install hook locally**: `fish bin/install-scope-tier-hook.fish`. Verify `~/.claude/settings.json` includes the `UserPromptSubmit` entry.
-9. **Fresh-session verification**: open new Claude Code session, issue PR #330-shape prompt, observe reminder + ack + direct routing.
-10. **File Phase 2 follow-up issue** at merge time: scope-tier corpus eval — measure FP/FN against 30-day log.
+1. **Land substrate adaptation**: `additional_context` field on Eval shape in `tests/evals-lib.ts` + runner emission in `tests/eval-runner-v2.ts` + Phase 1m contract update. Bun test for substrate field.
+2. **Land hook script + tests**: `hooks/scope-tier-memory-check.sh` (all 6 criteria + log rotation), `tests/hooks/scope-tier-memory-check.test.sh`, `tests/hooks/scope-tier-memory-check-log-rotation.test.sh`. Shellcheck clean.
+3. **Land installer**: `bin/install-scope-tier-hook.fish` + `--check` mode integration into `validate.fish`.
+4. **Land Phase 1o validate.fish phase + test**: `tests/validate-phase-1o.test.ts` (hook artifacts + Eval `additional_context` field presence).
+5. **Land rule change**: new subsection + stable anchor in `rules/planning.md`. Phases 1f/1g/1j registry updates (1g now includes blast-radius lists).
+6. **Land tests for phases 1f/1g/1j extensions**.
+7. **Land eval suite + fixtures**: `rules-evals/scope-tier-memory-check/` (10 evals) + `tests/fixtures/scope-tier-memory-check/` (10 subdirs + README).
+8. **Re-run full `validate.fish`**: must pass.
+9. **Install hook locally**: `fish bin/install-scope-tier-hook.fish`. Verify `~/.claude/settings.json` includes the `UserPromptSubmit` entry.
+10. **Fresh-session verification**: open new Claude Code session, issue PR #330-shape prompt, observe reminder + ack + direct routing. Also verify: blast-radius prompt (public API rename) does NOT fire; large in-flight working tree does NOT fire.
+11. **Run cold-start sanity check**: replay hook against 30 prior days of session logs, capture FP/FN counts into the merge-PR description.
+12. **File Phase 2 follow-up issue** at merge time: scope-tier corpus eval — measure FP/FN against 30-day live telemetry log.
 
 ## ADR
 
@@ -366,9 +448,11 @@ Add `~/.claude/projects/-Users-cantu-repos-claude-config/memory/scope_tier_memor
 These were surfaced in architectural review and explicitly accepted as V1 limitations:
 
 - **Description-field schema coupling (review defect #4)**: scope-tier keyword scan depends on MEMORY.md description field shape. Future MEMORY.md format changes break the scan. Tracked as follow-up: "design memory tag schema for scope-tier and future filtering needs."
-- **After-the-fact feedback loop missing (review defect #5)**: Layer 1 hook gives telemetry, but no automated post-merge audit catches misses on real PRs. Tracked as follow-up: "after-merge PR audit: re-run model against original prompt + memories, assert gate fired if it should have."
-- **Verb-list maintenance burden (review defect #7)**: three hardcoded lists (verbs, minimizers, scope-expanders). Lists will drift. Phase 1g catches restatement, not list content drift. Tracked as follow-up: "scope-tier criteria evolution: corpus-driven list updates."
-- **Coupling map density (review defect #10)**: nine surfaces (hook, installer, rule, four eval/test files, README, plus implicit MEMORY.md schema). No end-to-end integration test asserts hook output → model behavior → final routing. Tracked as follow-up: "scope-tier end-to-end integration test."
+- **After-the-fact feedback loop missing (review defect #5)**: Layer 1 hook gives telemetry, but no automated post-merge audit catches misses on real PRs. Tracked as follow-up: "after-merge PR audit: re-run model against original prompt + memories, assert gate fired if it should have." *(Partially mitigated by cold-start sanity check in rollout step 11, which catches the most egregious cases at merge time.)*
+- **Verb-list / blast-radius-list maintenance burden (review defect #7, expanded)**: now six hardcoded lists in the hook (scope-tier memory keywords, verb signals, minimizers, scope-expanders, blast-radius paths, blast-radius words). Lists will drift. Phase 1g catches restatement, not list content drift. Tracked as follow-up: "scope-tier criteria evolution: corpus-driven list updates."
+- **Coupling map density (review defect #10)**: now 11 surfaces (substrate field, hook, installer, rule, Phase 1f/1g/1j/1o validate.fish + tests, README, plus implicit MEMORY.md schema). End-to-end coverage via the 7 end-to-end evals at fixture level; an integration test that asserts hook stdout → substrate injection → model response → routing decision in one runner pass is deferred. Tracked as follow-up: "scope-tier end-to-end integration test (single bun-test orchestration)."
+- **Per-user hook install (confidence-assessment risk)**: hook is installed per-user via `bin/install-scope-tier-hook.fish`, not auto-installed on `fish install.fish`. New contributors mirror PR #330 until they run installer. Documented in README + repo onboarding. Tracked as follow-up: "auto-install scope-tier hook on `fish install.fish` once V1 measurement confirms low FP rate."
+- **`additionalContext` format dependency on Claude Code (confidence-assessment risk)**: hook's `{"additionalContext": "..."}` output format depends on Claude Code's stable hook protocol. If Claude Code changes the format, hook silently breaks. Phase 1o asserts hook script presence + shellcheck but doesn't validate against Claude Code's hook contract. Tracked as follow-up: "Claude Code hook contract regression test."
 
 ## Out of Scope
 
