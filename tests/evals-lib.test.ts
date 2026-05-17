@@ -2518,3 +2518,81 @@ describe("suiteExit()", () => {
     expect(r.exitCode).toBe(0);
   });
 });
+
+describe("loadEvalFile() — additional_context field", () => {
+  function scratch(): string {
+    return mkdtempSync(join(tmpdir(), "evals-ac-test-"));
+  }
+
+  function writeEval(root: string, skill: string, json: unknown): void {
+    const dir = join(root, skill, "evals");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, "evals.json"), JSON.stringify(json));
+  }
+
+  test("accepts string additional_context on single-turn eval", () => {
+    const root = scratch();
+    writeEval(root, "my-skill", {
+      skill: "my-skill",
+      evals: [
+        {
+          name: "e1",
+          prompt: "do thing",
+          additional_context: "SCOPE-TIER MATCH: foo",
+          assertions: [{ type: "contains", value: "x", description: "d" }],
+        },
+      ],
+    });
+    const ev = loadEvalFile(root, "my-skill")?.evals[0];
+    expect(ev?.kind).toBe("single");
+    if (ev?.kind === "single") {
+      expect(ev.additional_context).toBe("SCOPE-TIER MATCH: foo");
+    }
+  });
+
+  test("rejects non-string additional_context with error matching /additional_context.*string/", () => {
+    const root = scratch();
+    writeEval(root, "my-skill", {
+      skill: "my-skill",
+      evals: [
+        {
+          name: "e1",
+          prompt: "do thing",
+          additional_context: 42,
+          assertions: [{ type: "contains", value: "x", description: "d" }],
+        },
+      ],
+    });
+    expect(() => loadEvalFile(root, "my-skill")).toThrow(/additional_context.*string/);
+  });
+
+  test("absent additional_context preserves current behavior (field is undefined)", () => {
+    const root = scratch();
+    writeEval(root, "my-skill", {
+      skill: "my-skill",
+      evals: [
+        {
+          name: "e1",
+          prompt: "do thing",
+          assertions: [{ type: "contains", value: "x", description: "d" }],
+        },
+      ],
+    });
+    const ev = loadEvalFile(root, "my-skill")?.evals[0];
+    expect(ev?.kind).toBe("single");
+    if (ev?.kind === "single") {
+      expect(ev.additional_context).toBeUndefined();
+    }
+  });
+});
+
+describe("buildPrompt()", () => {
+  test("buildPrompt prepends additional_context as system-reminder", async () => {
+    const { buildPrompt } = await import("./eval-runner-v2.ts");
+    const result = buildPrompt({ kind: "single", name: "t", prompt: "do thing",
+      additional_context: "SCOPE-TIER MATCH: foo", assertions: [] } as any);
+    expect(result).toContain("<system-reminder>");
+    expect(result).toContain("SCOPE-TIER MATCH: foo");
+    expect(result.indexOf("SCOPE-TIER MATCH:")).toBeLessThan(result.indexOf("do thing"));
+  });
+});
