@@ -44,4 +44,63 @@ done < "$MEMORY_PATH"
 
 [[ ${#MATCHED_MEMORIES[@]} -eq 0 ]] && exit 0
 
-exit 0  # Task 5: criteria evaluation + emission
+# Arrays used via indirect expansion ("${!arr_name}") — shellcheck can't trace that.
+# shellcheck disable=SC2034
+VERB_SIGNALS=("prune" "rename" "delete" "trim" "swap" "move" "typo" "comment-only" "format-only" "add row to" "update entry in" "remove from")
+# shellcheck disable=SC2034
+MINIMIZERS=("just" "quick" "tiny" "trivial" "small change" "simple")
+# shellcheck disable=SC2034
+SCOPE_EXPANDERS=("redesign" "restructure" "rearchitect" "refactor across" "migrate to" "rewrite" "introduce new" "cross-cutting change")
+# shellcheck disable=SC2034
+BLAST_RADIUS_PATHS=("migrations/" "schema." ".sql" ".proto" "api/" "routes/" "controllers/" ".d.ts" "index.ts")
+# shellcheck disable=SC2034
+BLAST_RADIUS_WORDS=("public API" "exported" "breaking change" "version bump" "release" "deploy")
+
+PROMPT_LOWER=$(echo "$PROMPT" | tr '[:upper:]' '[:lower:]')
+
+prompt_contains_any() {
+  local arr_name="$1[@]"
+  local prompt_lower="$PROMPT_LOWER"
+  for needle in "${!arr_name}"; do
+    local needle_lower
+    needle_lower=$(echo "$needle" | tr '[:upper:]' '[:lower:]')
+    [[ "$prompt_lower" == *"$needle_lower"* ]] && return 0
+  done
+  return 1
+}
+
+prompt_has_concrete_target() {
+  echo "$PROMPT" | grep -qE '[A-Za-z0-9_./-]+\.(md|ts|js|sh|fish|json|toml|yaml|yml|py|go|rs|java|kt|swift)\b' && return 0
+  # shellcheck disable=SC2016  # backtick pattern intentional — not a variable expansion
+  echo "$PROMPT" | grep -qE '`[^`]+`' && return 0
+  echo "$PROMPT" | grep -qiE '\bline [0-9]+\b' && return 0
+  return 1
+}
+
+HAS_VERB=false; HAS_TARGET=false; HAS_MINIMIZER=false
+HAS_SCOPE_EXPANDER=false; HAS_BLAST_PATH=false; HAS_BLAST_WORD=false
+prompt_contains_any VERB_SIGNALS && HAS_VERB=true
+prompt_has_concrete_target && HAS_TARGET=true
+prompt_contains_any MINIMIZERS && HAS_MINIMIZER=true
+prompt_contains_any SCOPE_EXPANDERS && HAS_SCOPE_EXPANDER=true
+prompt_contains_any BLAST_RADIUS_PATHS && HAS_BLAST_PATH=true
+prompt_contains_any BLAST_RADIUS_WORDS && HAS_BLAST_WORD=true
+
+if [[ "$HAS_VERB" != "true" ]] || [[ "$HAS_TARGET" != "true" ]] \
+  || [[ "$HAS_MINIMIZER" == "true" ]] || [[ "$HAS_SCOPE_EXPANDER" == "true" ]] \
+  || [[ "$HAS_BLAST_PATH" == "true" ]] || [[ "$HAS_BLAST_WORD" == "true" ]]; then
+  exit 0
+fi
+
+# Task 6 inserts git pre-check here.
+
+memory_list=$(IFS=, ; echo "${MATCHED_MEMORIES[*]}")
+jq -n --arg mems "$memory_list" '{
+  additionalContext: ("SCOPE-TIER MATCH: " + $mems +
+    ". Per stored feedback, this prompt qualifies as small/mechanical/known-approach. " +
+    "Route to direct implementation: skip DTP, Systems Analysis, brainstorming, " +
+    "Fat Marker Sketch, and subagent-driven-development. execution-mode.md " +
+    "single-implementer mode, goal-driven.md per-step verify checks, and " +
+    "verification.md end-of-work gate STILL apply. If this match is wrong, " +
+    "the user can re-prompt with explicit pipeline-invocation language.")
+}'

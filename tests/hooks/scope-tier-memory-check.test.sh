@@ -112,11 +112,12 @@ run_case "no-memory-md-exits-silently" \
   "cd '$EMPTY_DIR'" \
   "cd - > /dev/null; rm -rf '$EMPTY_DIR'"
 
-# Test 7: MEMORY.md with scope-tier entry — hook reads without crashing, exits 0
+# Test 7: MEMORY.md with scope-tier entry — hook emits SCOPE-TIER MATCH and exits 0
+# (prompt has verb + concrete target, no minimizer/expander/blast-radius)
 TMPDIR_MEM=$(mktemp -d)
-run_case "memory-md-readable-no-crash" \
+run_case "memory-md-readable-emits-match" \
   '{"prompt":"prune lib/foo.ts"}' \
-  "" \
+  "SCOPE-TIER MATCH:" \
   0 \
   "setup_memory_fixture_positive '$TMPDIR_MEM' && export CLAUDE_PROJECT_DIR='$TMPDIR_MEM'" \
   "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_MEM'"
@@ -129,6 +130,63 @@ run_case "memory-md-no-scope-tier-keyword-exits-silently" \
   0 \
   "setup_memory_fixture_negative '$TMPDIR_MEM2' && export CLAUDE_PROJECT_DIR='$TMPDIR_MEM2'" \
   "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_MEM2'"
+
+# ── Task 5 tests (criteria + emission) ────────────────────────────────────────
+# All Task 5 tests use the positive memory fixture so MATCHED_MEMORIES is set.
+
+# Test 9: all criteria pass → emits SCOPE-TIER MATCH:
+TMPDIR_T9=$(mktemp -d)
+run_case "all-criteria-pass-emits-match" \
+  '{"prompt":"prune the dead block in rules/planning.md"}' \
+  "SCOPE-TIER MATCH:" \
+  0 \
+  "setup_memory_fixture_positive '$TMPDIR_T9' && export CLAUDE_PROJECT_DIR='$TMPDIR_T9'" \
+  "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_T9'"
+
+# Test 10: no mechanical verb → no emission
+TMPDIR_T10=$(mktemp -d)
+run_case "no-mechanical-verb-no-match" \
+  '{"prompt":"think about the dead block in rules/planning.md"}' \
+  "" \
+  0 \
+  "setup_memory_fixture_positive '$TMPDIR_T10' && export CLAUDE_PROJECT_DIR='$TMPDIR_T10'" \
+  "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_T10'"
+
+# Test 11: minimizer present → no emission
+TMPDIR_T11=$(mktemp -d)
+run_case "minimizer-present-no-match" \
+  '{"prompt":"just prune the dead block in rules/planning.md, small change"}' \
+  "" \
+  0 \
+  "setup_memory_fixture_positive '$TMPDIR_T11' && export CLAUDE_PROJECT_DIR='$TMPDIR_T11'" \
+  "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_T11'"
+
+# Test 12: scope expander present → no emission
+TMPDIR_T12=$(mktemp -d)
+run_case "scope-expander-present-no-match" \
+  '{"prompt":"rearchitect the front-door across rules/planning.md"}' \
+  "" \
+  0 \
+  "setup_memory_fixture_positive '$TMPDIR_T12' && export CLAUDE_PROJECT_DIR='$TMPDIR_T12'" \
+  "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_T12'"
+
+# Test 13: blast-radius public API path → no emission
+TMPDIR_T13=$(mktemp -d)
+run_case "blast-radius-public-api-no-match" \
+  '{"prompt":"rename the exported serializePayload in api/v1/checkout.ts"}' \
+  "" \
+  0 \
+  "setup_memory_fixture_positive '$TMPDIR_T13' && export CLAUDE_PROJECT_DIR='$TMPDIR_T13'" \
+  "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_T13'"
+
+# Test 14: no concrete target → no emission
+TMPDIR_T14=$(mktemp -d)
+run_case "no-concrete-target-no-match" \
+  '{"prompt":"prune things"}' \
+  "" \
+  0 \
+  "setup_memory_fixture_positive '$TMPDIR_T14' && export CLAUDE_PROJECT_DIR='$TMPDIR_T14'" \
+  "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_T14'"
 
 echo ""
 echo "Pass: $PASS, Fail: $FAIL"
