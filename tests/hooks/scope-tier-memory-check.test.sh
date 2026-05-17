@@ -11,6 +11,26 @@ FAILED_TESTS=()
 
 VALID_PROMPT='{"prompt":"implement a small feature for me"}'
 
+setup_memory_fixture_positive() {
+  local dir="$1"
+  mkdir -p "$dir/.claude/projects/-Users-cantu-repos-claude-config/memory"
+  cat > "$dir/.claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md" <<'EOF'
+# Memory Index
+
+- [feedback_right_size_ceremony](feedback_right_size_ceremony.md) — Right-size pipeline ceremony to feature size: small/mechanical changes should skip DTP/SA/brainstorm/FMS
+EOF
+}
+
+setup_memory_fixture_negative() {
+  local dir="$1"
+  mkdir -p "$dir/.claude/projects/-Users-cantu-repos-claude-config/memory"
+  cat > "$dir/.claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md" <<'EOF'
+# Memory Index
+
+- [Other memory](other.md) — Some unrelated thing
+EOF
+}
+
 run_case() {
   local name="$1"
   local stdin_input="$2"
@@ -91,6 +111,24 @@ run_case "no-memory-md-exits-silently" \
   0 \
   "cd '$EMPTY_DIR'" \
   "cd - > /dev/null; rm -rf '$EMPTY_DIR'"
+
+# Test 7: MEMORY.md with scope-tier entry — hook reads without crashing, exits 0
+TMPDIR_MEM=$(mktemp -d)
+run_case "memory-md-readable-no-crash" \
+  '{"prompt":"prune lib/foo.ts"}' \
+  "" \
+  0 \
+  "setup_memory_fixture_positive '$TMPDIR_MEM' && export CLAUDE_PROJECT_DIR='$TMPDIR_MEM'" \
+  "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_MEM'"
+
+# Test 8: MEMORY.md without scope-tier keyword — exits silently
+TMPDIR_MEM2=$(mktemp -d)
+run_case "memory-md-no-scope-tier-keyword-exits-silently" \
+  '{"prompt":"prune lib/foo.ts"}' \
+  "" \
+  0 \
+  "setup_memory_fixture_negative '$TMPDIR_MEM2' && export CLAUDE_PROJECT_DIR='$TMPDIR_MEM2'" \
+  "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_MEM2'"
 
 echo ""
 echo "Pass: $PASS, Fail: $FAIL"
