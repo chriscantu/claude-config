@@ -7,6 +7,45 @@ set -u
 if [[ -f "${HOME}/.claude/DISABLE_PRESSURE_FLOOR" ]] \
   || [[ -f ".claude/DISABLE_PRESSURE_FLOOR" ]]; then exit 0; fi
 
+# ── Logging infrastructure ────────────────────────────────────────────────────
+LOG_DIR="${SCOPE_TIER_LOG_DIR:-${HOME}/.claude/logs}"
+LOG_FILE="$LOG_DIR/scope-tier-hook.log"
+LOG_ROTATED="$LOG_FILE.1"
+LOG_THRESHOLD=$((10*1024*1024))
+LOG_KEEP_TAIL=$((5*1024*1024))
+mkdir -p "$LOG_DIR" 2>/dev/null || true
+
+rotate_log_if_needed() {
+  [[ ! -f "$LOG_FILE" ]] && return 0
+  local size
+  size=$(stat -f%z "$LOG_FILE" 2>/dev/null || stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)
+  if [[ "$size" -gt "$LOG_THRESHOLD" ]]; then
+    tail -c "$LOG_KEEP_TAIL" "$LOG_FILE" > "$LOG_ROTATED" 2>/dev/null || true
+    : > "$LOG_FILE"
+  fi
+}
+
+log_decision() {
+  local decision="$1"
+  rotate_log_if_needed
+  local ts prompt_hash matched_json
+  ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  prompt_hash=$(printf '%s' "${PROMPT:-}" | shasum -a 256 2>/dev/null | awk '{print substr($1,1,16)}')
+  if [[ ${#MATCHED_MEMORIES[@]:-0} -gt 0 ]]; then
+    matched_json=$(printf '%s\n' "${MATCHED_MEMORIES[@]}" | jq -R . | jq -s .)
+  else
+    matched_json='[]'
+  fi
+  jq -n -c --arg ts "$ts" --arg decision "$decision" --arg ph "$prompt_hash" \
+    --arg v "${HAS_VERB:-na}" --arg t "${HAS_TARGET:-na}" \
+    --arg m "${HAS_MINIMIZER:-na}" --arg se "${HAS_SCOPE_EXPANDER:-na}" \
+    --arg bp "${HAS_BLAST_PATH:-na}" --arg bw "${HAS_BLAST_WORD:-na}" \
+    --argjson mm "$matched_json" \
+    '{ts:$ts,decision:$decision,prompt_hash:$ph,criteria:{verb:$v,target:$t,minimizer:$m,scope_expander:$se,blast_path:$bp,blast_word:$bw},matched:$mm}' \
+    >> "$LOG_FILE" 2>/dev/null || true
+}
+# ─────────────────────────────────────────────────────────────────────────────
+
 INPUT=$(cat 2>/dev/null || true)
 [[ -z "$INPUT" ]] && exit 0
 
@@ -42,7 +81,10 @@ while IFS= read -r line; do
   done
 done < "$MEMORY_PATH"
 
-[[ ${#MATCHED_MEMORIES[@]} -eq 0 ]] && exit 0
+if [[ ${#MATCHED_MEMORIES[@]} -eq 0 ]]; then
+  log_decision "no_scope_tier_memory"
+  exit 0
+fi
 
 # Arrays used via indirect expansion ("${!arr_name}") — shellcheck can't trace that.
 # shellcheck disable=SC2034
@@ -89,6 +131,7 @@ prompt_contains_any BLAST_RADIUS_WORDS && HAS_BLAST_WORD=true
 if [[ "$HAS_VERB" != "true" ]] || [[ "$HAS_TARGET" != "true" ]] \
   || [[ "$HAS_MINIMIZER" == "true" ]] || [[ "$HAS_SCOPE_EXPANDER" == "true" ]] \
   || [[ "$HAS_BLAST_PATH" == "true" ]] || [[ "$HAS_BLAST_WORD" == "true" ]]; then
+  log_decision "no_match"
   exit 0
 fi
 
@@ -118,8 +161,12 @@ git_check_rejects() {
   [[ "$loc_total" -gt 200 ]] && return 0
   return 1
 }
-git_check_rejects && exit 0
+if git_check_rejects; then
+  log_decision "no_match_git"
+  exit 0
+fi
 
+log_decision "match"
 memory_list=$(IFS=, ; echo "${MATCHED_MEMORIES[*]}")
 jq -n --arg mems "$memory_list" '{
   additionalContext: ("SCOPE-TIER MATCH: " + $mems +
