@@ -174,4 +174,72 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
     const r = runValidate(badDir);
     expect(r.exitCode).toBe(1);
   });
+
+  // Tests F and G: scope-tier-memory-check.sh is the canonical home for the
+  // nine verb-signal / minimizer / scope-expander / blast-radius keyword lists.
+  // Phase 1g detects if any of those strings are restated in rules/*.md files.
+
+  test("F: scope-tier verb-list strings absent from rules/*.md → no drift", () => {
+    // Minimal fixture: planning.md with trivial-tier strings (their canonical
+    // home) but none of the scope-tier hook strings. Phase 1g must report
+    // "no drift" for all nine scope-tier registry entries.
+    const fixture = makeFixture();
+    writeFileSync(
+      join(fixture, "rules", "planning.md"),
+      [
+        "# canonical home",
+        "≤ ~200 LOC functional change",
+        "Single component / single-file primary surface",
+        "Unambiguous approach (one obvious design",
+        "Low blast radius (no cross-team",
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(join(fixture, "rules", "other.md"), "# unrelated rule\n");
+
+    const out = extractPhase1g(runValidate(fixture));
+    // All nine scope-tier labels should be present with "no drift"
+    expect(out).toContain("Scope-tier verb-signal add-row-to: no drift");
+    expect(out).toContain("Scope-tier verb-signal update-entry-in: no drift");
+    expect(out).toContain("Scope-tier minimizer small-change: no drift");
+    expect(out).toContain("Scope-tier scope-expander cross-cutting-change: no drift");
+    expect(out).toContain("Scope-tier scope-expander refactor-across: no drift");
+    expect(out).toContain("Scope-tier scope-expander introduce-new: no drift");
+    expect(out).toContain("Scope-tier blast-radius-word public-API: no drift");
+    expect(out).toContain("Scope-tier blast-radius-word breaking-change: no drift");
+    expect(out).toContain("Scope-tier blast-radius-word version-bump: no drift");
+    // Verify no scope-tier drift failures
+    expect(out).not.toMatch(/drift:.*scope-tier-memory-check/i);
+  });
+
+  test("G: scope-tier string restated in rules/planning.md → Phase 1g fails with drift message", () => {
+    // Append "add row to" (a registered Phase 1g scope-tier pattern) into
+    // rules/planning.md. Since planning.md != scope-tier-memory-check.sh,
+    // Phase 1g must detect drift and name both the string and the file.
+    const fixture = makeFixture();
+    writeFileSync(
+      join(fixture, "rules", "planning.md"),
+      [
+        "# planning stub",
+        "≤ ~200 LOC functional change",
+        "Single component / single-file primary surface",
+        "Unambiguous approach (one obvious design",
+        "Low blast radius (no cross-team",
+        "",
+        "## Test marker",
+        'verbs: prune, rename, delete (these are "add row to" verbs that trigger scope-tier checks)',
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(join(fixture, "rules", "other.md"), "# unrelated rule\n");
+
+    const out = extractPhase1g(runValidate(fixture));
+    // Phase 1g fail line names the label (add-row-to) and the offending file.
+    // The fail line format is:
+    //   drift: 'Scope-tier verb-signal add-row-to' restated in rules/planning.md
+    expect(out).toContain("add-row-to");
+    expect(out).toContain("planning.md");
+    // The drift: prefix signals a failure line, not just a mention
+    expect(out).toMatch(/drift:.*planning\.md/);
+  });
 });
