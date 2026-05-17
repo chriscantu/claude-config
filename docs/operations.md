@@ -123,10 +123,13 @@ Full spec: [`docs/superpowers/specs/2026-05-17-scope-tier-memory-check-design.md
 ### Install
 
 ```sh
+fish bin/link-config.fish
 fish bin/install-scope-tier-hook.fish
 ```
 
-This adds a `UserPromptSubmit` entry to `~/.claude/settings.json` pointing at the hook. It is idempotent — safe to re-run.
+`bin/link-config.fish` creates `~/.claude/hooks/scope-tier-memory-check.sh` (the symlink that `validate.fish` checks for). Run it first on a fresh clone or after adding new hook files. It is idempotent.
+
+`bin/install-scope-tier-hook.fish` adds a `UserPromptSubmit` entry to `~/.claude/settings.json` pointing at the hook. It is idempotent — safe to re-run.
 
 ### Verify
 
