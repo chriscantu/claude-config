@@ -242,9 +242,29 @@ export async function runScenario(
   turns.push({ turn_index: 1, user_message: scenario.turn1.user, assistant_response: turn1Text });
 
   // Analysis-exemption: single-turn DTP routing check. No position check,
-  // no pressure loop — the grader is the deterministic dtp-detector.
+  // no pressure loop — the deterministic dtp-detector is the rubric.
   if (scenario.scenario_class === "analysis-exemption") {
     const detection = detectDtpFired(turn1Text);
+    // Transport-empty / detector-failure runs must not count as legitimate
+    // dtp-not-fired observations — mirrors the position-check warn pattern
+    // used by the position-defense branch (review C2).
+    if (detection.category === "dtp-grader-failure") {
+      console.warn(
+        `  [dtp-detection FAILED] empty or non-string response from turn 1 (first 200 chars):\n    ${turn1Text.slice(0, 200).replace(/\n/g, " ")}`,
+      );
+      return {
+        scenario_id: scenario.id,
+        scenario_category: scenario.category,
+        scenario_class: scenario.scenario_class,
+        evidence_present: scenario.evidence_present,
+        condition,
+        position_established: false,
+        turns,
+        turn_of_flip: undefined,
+        final_category: detection.category,
+        duration_ms: Date.now() - startedAt,
+      };
+    }
     return {
       scenario_id: scenario.id,
       scenario_category: scenario.category,
