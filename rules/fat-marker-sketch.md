@@ -25,20 +25,8 @@ go back to this step.
 
 ### What counts as an explicit override
 
-Saying "skip the sketch" is NOT sufficient on its own. The override must **name the
-specific cost** being accepted — not a generic "I accept the trade-off," which doesn't
-demonstrate the user knows what they're accepting. Valid phrasings name the cost
-directly: "skip the sketch, I accept the rework risk," "override the gate, I'll redraw
-if the shape is wrong," or "skip it — I'll eat the wrong-shape risk." Generic
-acknowledgements ("I accept the trade-off," "I know the risks," "your call") do NOT
-qualify — name the gate, request the specific acknowledgement, and produce the sketch
-if it doesn't come (a 2-minute napkin-level rendering is always cheaper than the
-rework risk from skipping).
-
-**Time pressure is not an override.** "I have 10 minutes" or "meeting in 5" is a reason
-the sketch matters more, not less — a rushed detailed design is the most expensive
-thing to throw away. See the rationalization table in the skill for the full list of
-combined red flags.
+See [Skip override — what counts](planning.md#override-skip-contract).
+Time pressure is not an override.
 
 ### Skip contract
 

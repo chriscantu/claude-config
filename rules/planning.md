@@ -229,6 +229,54 @@ or tooling before completing the pipeline.
 5. Then proceed with detailed design
 </HARD-GATE>
 
+<a id="override-skip-contract"></a>
+
+## Skip override — what counts
+
+Saying "skip the gate" is NOT sufficient on its own. An override must
+**name the specific cost** being accepted. Valid forms cite the gate by
+name AND the specific risk accepted: "skip the sketch, I accept the
+rework risk"; "no verify checks, I'll catch breakage in review"; "skip
+pr-validation, I accept the risk of unverified merge"; "skip DTP, I
+accept the risk of building on an unstated problem". Generic
+acknowledgements ("trust me," "I accept the trade-off," "your call,"
+"I know the risks") do NOT qualify — name the gate, request the
+specific cost acknowledgement, and produce the gate's required
+artifact if it doesn't come.
+
+**Time pressure is not an override.** "Quick fix," "demo in 10
+minutes," "ship by Friday," "I have 10 minutes," "meeting in 5" make
+the gate more important, not less — a rushed unverified output is the
+most expensive thing to land.
+
+<a id="emission-contract-per-gate"></a>
+
+## Emission contract — per-gate skip honor
+
+When a named-cost skip is valid, you MUST invoke
+`mcp__named-cost-skip-ack__acknowledge_named_cost_skip` BEFORE
+proceeding past the gate. The tool invocation IS the honor — if you
+skip the call, produce the gate's required artifact instead. If the
+tool appears in the deferred-tool list, load its schema via
+`ToolSearch` with
+`query="select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip"`
+first.
+
+Per-gate `gate=` values (the `user_statement` argument is always the
+verbatim cost-naming clause from the user's message):
+
+| Rule / skill gate | `gate=` value |
+|---|---|
+| `define-the-problem` (DTP) | `DTP` |
+| `goal-driven.md` | `goal-driven` |
+| `fat-marker-sketch.md` | `fat-marker-sketch` |
+| `pr-validation.md` | `pr-validation` |
+| `think-before-coding.md` | `think-before-coding` |
+
+Only USER cost-naming counts. Agent self-skip is structurally
+impossible — there is no agent-emitted `user_statement` that satisfies
+the contract.
+
 ## Stage Visibility
 
 At each pipeline transition, announce the current stage:

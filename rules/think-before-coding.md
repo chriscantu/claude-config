@@ -103,24 +103,12 @@ blocker.
 
 ### What counts as an explicit override
 
-Saying "just recommend" or "skip the preamble" is NOT sufficient on its own.
-The override must **name the specific cost** being accepted. Valid: "skip
-the preamble, I accept the risk of unstated assumptions," "no simpler-path
-check, I've already ruled out the smaller version." Generic framings — "I
-trust you," "you know what I want," "ship it" — do NOT qualify.
-
-**Time pressure is not an override.** A rushed recommendation built on
-hidden assumptions is the most expensive to rework.
+See [Skip override — what counts](planning.md#override-skip-contract).
+Time pressure is not an override.
 
 ### Emission contract — MANDATORY
 
-When a named-cost skip is valid (Expert Fast-Track condensed form OR explicit
-override), invoke `mcp__named-cost-skip-ack__acknowledge_named_cost_skip` per
-[planning.md#emission-contract](planning.md#emission-contract). Use
-`gate="think-before-coding"` and the verbatim cost-naming clause as
-`user_statement`. The tool invocation IS the honor — if you skip the call,
-produce the full preamble instead. See [Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria)
-for the auto-skip carve-out.
+See [Emission contract — per-gate skip honor](planning.md#emission-contract-per-gate). Use `gate="think-before-coding"`. See [Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria) for the auto-skip carve-out.
 
 ## Relationship to Other Rules
 
