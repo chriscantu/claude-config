@@ -176,6 +176,8 @@ were added manually. The script and this README close the gap.
 
 The `bin/link-config.fish` script will skip `README.md` files automatically.
 
+<a id="hard-gate-cap"></a>
+
 ## Policy: HARD-GATE cap (issue #340)
 
 **Cap: 8 HARD-GATE rules.** The current set listed above is the ceiling. New
@@ -214,11 +216,13 @@ PRs that add a HARD-GATE rule without these three are rejected at review.
 Survey of overlap candidates among the current 8. None forced to merge —
 this is a discriminating-signal audit, not a deduplication pass.
 
+Discriminating-signal claims below reference evals under `rules-evals/<name>/evals/evals.json`.
+
 | Candidate pair | Overlap surface | Verdict |
 |---|---|---|
-| `think-before-coding.md` <-> `goal-driven.md` | Both fire at the Solution Design -> Implementation seam; both prescribe pre-code structure | **Keep separate.** TBC governs *what to surface* (assumptions/interpretations/simpler-path) at design; goal-driven governs *what success looks like* (verify criteria, loop semantics) at implementation. Distinct discriminating signals: TBC RED on missing preamble; goal-driven RED on missing verify check. Merging collapses two channels. |
-| `planning.md` (DTP/SA/SD) <-> `fat-marker-sketch.md` | FMS sits inside the planning pipeline between approach-selection and detailed-design | **Keep separate but watch.** FMS is a *gate within* planning, not a parallel gate. Per the 2026-04-23 ADR #0005 clarification and the per-gate-substitutable finding (PR #128), FMS per-gate blocks failed inverse-RED at their own boundary. FMS retained as a discrete file for substrate cost (its sketch artifact is a distinct deliverable), but flagged for re-evaluation if a discriminating signal at the FMS boundary cannot be authored. |
-| `disagreement.md` <-> `memory-discipline.md` | Both handle anti-sycophancy / pressure framing; both yield to "new evidence" semantics | **Keep separate.** Disagreement governs *live pushback in-turn*; memory-discipline governs *stored auto-memory defaults across turns*. Different trigger surfaces, different escape clauses (evidence vs. surfaced trade-off). Discriminating signals differ: disagreement RED on capitulation-without-evidence; memory-discipline RED on uncited stored-claim execution. |
+| `think-before-coding.md` <-> `goal-driven.md` | Both fire at the Solution Design -> Implementation seam; both prescribe pre-code structure | **Keep separate.** TBC governs *what to surface* (assumptions/interpretations/simpler-path) at design; goal-driven governs *what success looks like* (verify criteria, loop semantics) at implementation. Distinct discriminating signals: TBC RED on missing preamble; goal-driven RED on missing verify check. Merging collapses two channels. (evals: `rules-evals/think-before-coding/`, `rules-evals/goal-driven/`) |
+| `planning.md` (DTP/SA/SD) <-> `fat-marker-sketch.md` | FMS sits inside the planning pipeline between approach-selection and detailed-design | **Keep separate but watch.** FMS is a *gate within* planning, not a parallel gate. Per the 2026-04-23 ADR #0005 clarification and the per-gate-substitutable finding (PR #128), FMS per-gate blocks failed inverse-RED at their own boundary. FMS retained as a discrete file for substrate cost (its sketch artifact is a distinct deliverable), but flagged for re-evaluation if a discriminating signal at the FMS boundary cannot be authored. (evals: `skills/fat-marker-sketch/evals/`, `skills/{define-the-problem,systems-analysis,sdr}/evals/` — no `rules-evals/` home yet for FMS or planning rule) |
+| `disagreement.md` <-> `memory-discipline.md` | Both handle anti-sycophancy / pressure framing; both yield to "new evidence" semantics | **Keep separate.** Disagreement governs *live pushback in-turn*; memory-discipline governs *stored auto-memory defaults across turns*. Different trigger surfaces, different escape clauses (evidence vs. surfaced trade-off). Discriminating signals differ: disagreement RED on capitulation-without-evidence; memory-discipline RED on uncited stored-claim execution. (evals: `rules-evals/disagreement/`, `rules-evals/memory-discipline/`) |
 
 No merges proposed. Audit conclusion: the 8 are individually discriminable;
 the cap prevents a 9th from accreting without the same scrutiny.
