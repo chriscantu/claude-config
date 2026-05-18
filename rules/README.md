@@ -64,9 +64,11 @@ validator. Phases relevant to rules:
 - **1f. Rules anchor labels** — fails if `rules/planning.md` loses one
   of the labeled blocks that other rules delegate to (Skip contract,
   Pressure-framing floor, Emission contract, Architectural invariant,
-  Emergency bypass — sentinel file check), or if a dependent rule
+  Emergency bypass — sentinel file check, Skip override — what counts,
+  Emission contract — per-gate skip honor), or if a dependent rule
   (`fat-marker-sketch.md`, `goal-driven.md`, `think-before-coding.md`,
-  `execution-mode.md`) loses its reference to `planning.md`. Catches
+  `execution-mode.md`, `pr-validation.md`) loses its reference to
+  `planning.md`. Catches
   silent breakage when the anchor file is renamed or its sections
   restructured (issue #135).
 - **1g. Canonical-string drift** — fails if a canonical rule string

@@ -26,7 +26,8 @@ go back to this step.
 ### What counts as an explicit override
 
 See [Skip override — what counts](planning.md#override-skip-contract).
-Time pressure is not an override.
+Time pressure is not an override. For combined red-flag patterns, see
+the rationalization table in `skills/fat-marker-sketch/SKILL.md`.
 
 ### Skip contract
 

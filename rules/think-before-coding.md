@@ -108,7 +108,7 @@ Time pressure is not an override.
 
 ### Emission contract — MANDATORY
 
-See [Emission contract — per-gate skip honor](planning.md#emission-contract-per-gate). Use `gate="think-before-coding"`. See [Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria) for the auto-skip carve-out.
+See [Emission contract — per-gate skip honor](planning.md#emission-contract-per-gate). Use `gate="think-before-coding"`. Fires on Expert Fast-Track condensed form OR explicit override. See [Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria) for the auto-skip carve-out.
 
 ## Relationship to Other Rules
 
