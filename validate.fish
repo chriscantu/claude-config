@@ -544,7 +544,8 @@ set anchor_registry \
     "single-implementer-mode|execution-mode.md|Single-implementer execution mode" \
     "verify-checks|goal-driven.md|Goal-driven verify checks" \
     "scope-tier-memory-check|planning.md|Scope-tier memory check" \
-    "goal-verification|verification.md|Verification goal-vs-tasks gate"
+    "goal-verification|verification.md|Verification goal-vs-tasks gate" \
+    "hard-gate-cap|README.md|HARD-GATE cap policy"
 
 for entry in $anchor_registry
     set parts (string split -m 2 "|" $entry)
