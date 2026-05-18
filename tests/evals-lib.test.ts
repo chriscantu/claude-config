@@ -2298,6 +2298,71 @@ describe("seedScratchDecoy() — runtime behavior", () => {
     expect(readFileSync(join(cwd, "README.md"), "utf8")).toBe("# shared\n");
     expect(readFileSync(join(cwd, "README.md"), "utf8")).toBe("# shared\n");
   });
+
+  test("expands {{HOME}} token in value content", () => {
+    const home = process.env.HOME;
+    if (!home) throw new Error("test precondition: HOME must be set");
+    const cwd = mkdtempSync(join(tmpdir(), "seed-home-"));
+    seedScratchDecoy(cwd, brandedDecoy({
+      ".claude/settings.local.json": "{\"hook\":\"{{HOME}}/.claude/hooks/x.sh\"}",
+    }));
+    const written = readFileSync(join(cwd, ".claude/settings.local.json"), "utf8");
+    expect(written).toBe(`{"hook":"${home}/.claude/hooks/x.sh"}`);
+    expect(written).not.toContain("{{HOME}}");
+  });
+
+  test("expands {{REPO_ROOT}} token in value content", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "seed-repo-"));
+    seedScratchDecoy(cwd, brandedDecoy({
+      "ref.txt": "see {{REPO_ROOT}}/rules/planning.md",
+    }));
+    const written = readFileSync(join(cwd, "ref.txt"), "utf8");
+    expect(written).toMatch(/^see \//);
+    expect(written).toContain("/rules/planning.md");
+    expect(written).not.toContain("{{REPO_ROOT}}");
+  });
+
+  test("expands both {{HOME}} and {{REPO_ROOT}} in same value", () => {
+    const home = process.env.HOME;
+    if (!home) throw new Error("test precondition: HOME must be set");
+    const cwd = mkdtempSync(join(tmpdir(), "seed-both-"));
+    seedScratchDecoy(cwd, brandedDecoy({
+      "mix.txt": "{{HOME}}/.x and {{REPO_ROOT}}/y",
+    }));
+    const written = readFileSync(join(cwd, "mix.txt"), "utf8");
+    expect(written).toContain(`${home}/.x`);
+    expect(written).not.toContain("{{HOME}}");
+    expect(written).not.toContain("{{REPO_ROOT}}");
+  });
+
+  test("expands multiple occurrences of the same token", () => {
+    const home = process.env.HOME;
+    if (!home) throw new Error("test precondition: HOME must be set");
+    const cwd = mkdtempSync(join(tmpdir(), "seed-multi-"));
+    seedScratchDecoy(cwd, brandedDecoy({
+      "twice.txt": "{{HOME}}/a {{HOME}}/b",
+    }));
+    expect(readFileSync(join(cwd, "twice.txt"), "utf8")).toBe(`${home}/a ${home}/b`);
+  });
+
+  test("passes through values with no templating tokens unchanged (backward compat)", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "seed-passthrough-"));
+    const content = "no tokens here, just plain content with {curly} but not double";
+    seedScratchDecoy(cwd, brandedDecoy({ "plain.txt": content }));
+    expect(readFileSync(join(cwd, "plain.txt"), "utf8")).toBe(content);
+  });
+
+  test("throws when {{HOME}} appears but process.env.HOME is unset", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "seed-home-unset-"));
+    const decoy = brandedDecoy({ "x.txt": "{{HOME}}/path" });
+    const originalHome = process.env.HOME;
+    delete process.env.HOME;
+    try {
+      expect(() => seedScratchDecoy(cwd, decoy)).toThrow(/HOME/);
+    } finally {
+      if (originalHome !== undefined) process.env.HOME = originalHome;
+    }
+  });
 });
 
 describe("loadEvalFile rejects multi-turn evals with setup/teardown", () => {

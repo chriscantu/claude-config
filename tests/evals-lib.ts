@@ -3,6 +3,7 @@
  * signal extractor, and assertion evaluator.
  */
 
+import { execSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
@@ -396,6 +397,50 @@ export class ScratchDecoySeedError extends Error {
  * caller is responsible for scratch-dir cleanup (`rmSync` in the
  * runner's finally block).
  */
+// Cached repo-root discovered via `git rev-parse --show-toplevel` on first
+// {{REPO_ROOT}} expansion. Module-level so repeated seeds across a test run
+// share the same lookup; cleared only by process exit.
+let cachedRepoRoot: string | undefined;
+
+function getRepoRoot(): string {
+  if (cachedRepoRoot !== undefined) return cachedRepoRoot;
+  try {
+    cachedRepoRoot = execSync("git rev-parse --show-toplevel", { encoding: "utf8" }).trim();
+  } catch (err) {
+    throw new Error(
+      `scratch_decoy {{REPO_ROOT}} expansion failed: not inside a git repo (${(err as Error).message})`,
+    );
+  }
+  return cachedRepoRoot;
+}
+
+/**
+ * Expand templating tokens in a decoy value before write.
+ *
+ *   - `{{HOME}}` → `process.env.HOME`
+ *   - `{{REPO_ROOT}}` → `git rev-parse --show-toplevel` (cached)
+ *
+ * Values without any `{{...}}` tokens pass through untouched — backward
+ * compatible. Unknown `{{...}}` tokens (e.g. typo `{{HONE}}`) also pass
+ * through; downstream failure surfaces at hook-invocation time rather than
+ * adding a strict-validation surface here. HOME must be set when `{{HOME}}`
+ * appears; throws otherwise so the substrate fails loud at seed time.
+ */
+function expandTokens(value: string): string {
+  let result = value;
+  if (result.includes("{{HOME}}")) {
+    const home = process.env.HOME;
+    if (!home) {
+      throw new Error("scratch_decoy {{HOME}} expansion failed: process.env.HOME is unset");
+    }
+    result = result.replaceAll("{{HOME}}", home);
+  }
+  if (result.includes("{{REPO_ROOT}}")) {
+    result = result.replaceAll("{{REPO_ROOT}}", getRepoRoot());
+  }
+  return result;
+}
+
 export function seedScratchDecoy(
   cwd: string,
   decoy: ValidatedScratchDecoy | undefined,
@@ -407,7 +452,7 @@ export function seedScratchDecoy(
     const parentDir = dirname(fullPath);
     try {
       fs.mkdirSync(parentDir, { recursive: true });
-      fs.writeFileSync(fullPath, content, "utf8");
+      fs.writeFileSync(fullPath, expandTokens(content), "utf8");
     } catch (err) {
       throw new ScratchDecoySeedError(relPath, err as Error);
     }
