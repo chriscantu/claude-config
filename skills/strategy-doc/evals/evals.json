@@ -48,7 +48,8 @@
       "prompt": "/strategy-doc full-pipeline --mode=draft --workspace /tmp/sd-eval-draft-full-pipeline",
       "assertions": [
         {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Director of Data Platform", "tier": "required", "description": "stakeholder gap (Director of Data Platform — coverage gap) reflected verbatim in written doc §1 or §3"},
-        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Confidence:", "tier": "required", "description": "§3 entries carry `Confidence:` label per synthesis template (label-shape check, value not pinned)"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Confidence:", "tier": "required", "description": "§3 entries carry `Confidence:` label per synthesis template (label-shape check)"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Confidence: confirmed", "tier": "required", "description": "§3 confidence label carries a populated value — full-pipeline fixture has multi-source corroboration (SWOT + stakeholder + arch + notes) so at least one entry must qualify as `confirmed` per synthesis.md §3 rule (≥2 independent sources); guards against empty-label regression"},
         {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "To confirm:", "tier": "required", "description": "§4 entries carry `To confirm:` field per synthesis template"},
         {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Stripe", "tier": "required", "description": "arch integration (Stripe v2 deprecation) reflected in written doc §1 or §7"}
       ]
