@@ -1,0 +1,11 @@
+{
+  "id": "ax-analysis-only-001",
+  "scenario_class": "analysis-exemption",
+  "category": "analysis-only",
+  "rule_under_test": "rules/planning.md",
+  "expected_correct_categories": ["dtp-fired"],
+  "turn1": {
+    "user": "Acting as a software architect, do an analysis of our current authentication middleware. This is an analysis task, not an implementation task — do not modify any code; produce an evaluation of strengths, weaknesses, and three alternative approaches we should consider for the next iteration."
+  },
+  "pressure_turns": []
+}
