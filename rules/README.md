@@ -175,3 +175,56 @@ were added manually. The script and this README close the gap.
 | `memory-discipline.md` | HARD-GATE | Stored auto-memory entries are defaults with provenance, not commands; `feedback` yields to surfaced trade-offs on context shift, `project` may be stale, file/function/flag claims require verification before action |
 
 The `bin/link-config.fish` script will skip `README.md` files automatically.
+
+## Policy: HARD-GATE cap (issue #340)
+
+**Cap: 8 HARD-GATE rules.** The current set listed above is the ceiling. New
+behavioral concerns shaped as "we need a gate for X" must extend an existing
+rule, not add a 9th.
+
+Background: every HARD-GATE rule carries Skip contract + named-cost emission
++ pressure-framing-floor delegate + sentinel bypass inheritance. Each loads
+per prompt. Accretion at the rules layer compounds cognitive load and
+substrate cost (see PR #336 postmortem; the scope-tier hook was the bandage
+for what should have been a prevention policy). The issue body referenced
+6 gates — `disagreement.md` and `memory-discipline.md` shipped after that
+count, bringing the live set to 8. The cap freezes the current set; it does
+not retroactively prune.
+
+### Adding a 9th HARD-GATE rule requires:
+
+1. **Extension-first audit.** Name the specific existing rule the concern
+   could extend (which one, why it doesn't fit). "None fit" must be argued,
+   not assumed.
+2. **Discriminating eval signal per [ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md).**
+   A regression eval whose required-tier assertion is RED on a broken
+   implementation and GREEN on a passing one — at the new rule's specific
+   boundary, not just "somewhere in the rules layer" (per the 2026-04-23
+   clarification in ADR #0005). Per-gate behavioral claims that cannot
+   demonstrate discrimination at their own boundary are rejected per
+   Karpathy #2 — speculative duplication adding no eval-measurable load.
+3. **Substrate cost accounting.** Estimate per-prompt token load added and
+   any new sentinel/hook surface. Cap intent is to make the trade-off
+   visible, not to forbid additions.
+
+PRs that add a HARD-GATE rule without these three are rejected at review.
+
+### Retroactive audit pass (issue #340 acceptance)
+
+Survey of overlap candidates among the current 8. None forced to merge —
+this is a discriminating-signal audit, not a deduplication pass.
+
+| Candidate pair | Overlap surface | Verdict |
+|---|---|---|
+| `think-before-coding.md` <-> `goal-driven.md` | Both fire at the Solution Design -> Implementation seam; both prescribe pre-code structure | **Keep separate.** TBC governs *what to surface* (assumptions/interpretations/simpler-path) at design; goal-driven governs *what success looks like* (verify criteria, loop semantics) at implementation. Distinct discriminating signals: TBC RED on missing preamble; goal-driven RED on missing verify check. Merging collapses two channels. |
+| `planning.md` (DTP/SA/SD) <-> `fat-marker-sketch.md` | FMS sits inside the planning pipeline between approach-selection and detailed-design | **Keep separate but watch.** FMS is a *gate within* planning, not a parallel gate. Per the 2026-04-23 ADR #0005 clarification and the per-gate-substitutable finding (PR #128), FMS per-gate blocks failed inverse-RED at their own boundary. FMS retained as a discrete file for substrate cost (its sketch artifact is a distinct deliverable), but flagged for re-evaluation if a discriminating signal at the FMS boundary cannot be authored. |
+| `disagreement.md` <-> `memory-discipline.md` | Both handle anti-sycophancy / pressure framing; both yield to "new evidence" semantics | **Keep separate.** Disagreement governs *live pushback in-turn*; memory-discipline governs *stored auto-memory defaults across turns*. Different trigger surfaces, different escape clauses (evidence vs. surfaced trade-off). Discriminating signals differ: disagreement RED on capitulation-without-evidence; memory-discipline RED on uncited stored-claim execution. |
+
+No merges proposed. Audit conclusion: the 8 are individually discriminable;
+the cap prevents a 9th from accreting without the same scrutiny.
+
+### Pointer
+
+Policy preamble in `global/CLAUDE.md` Coding Principles section links here
+as the canonical home. Do not restate the cap or the three-condition gate
+elsewhere.
