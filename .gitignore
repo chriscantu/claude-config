@@ -4,6 +4,12 @@ default.profraw
 excalidraw.log
 .claude/worktrees/
 .claude/scheduled_tasks.lock
+.claude/state/
+.claude/sessions/
+.claude/memory/session-log.md
+.harness-mem/
+out/
+global/*.bak
 tests/results/*
 # Keep the baseline multi-turn transcript that Approach D's design rests on.
 !tests/results/systems-analysis-sunk-cost-migration-multi-turn-v2-multiturn-2026-04-19*.md
