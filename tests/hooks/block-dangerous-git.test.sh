@@ -1,9 +1,10 @@
 #!/bin/bash
 # Smoke tests for block-dangerous-git.sh.
-# Run from repo root: bash hooks/test-block-dangerous-git.sh
+# Run from repo root: bash tests/hooks/block-dangerous-git.test.sh
 set -u
 
-HOOK="$(dirname "$0")/block-dangerous-git.sh"
+REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+HOOK="$REPO_ROOT/hooks/block-dangerous-git.sh"
 PASS=0
 FAIL=0
 FAILURES=()

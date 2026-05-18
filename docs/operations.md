@@ -92,7 +92,7 @@ If `hooks.PreToolUse` already exists, **merge** into the existing array rather t
 ### Verify
 
 ```sh
-bash hooks/test-block-dangerous-git.sh   # smoke tests against the script
+bash tests/hooks/block-dangerous-git.test.sh   # smoke tests against the script
 echo '{"tool_input":{"command":"git push --force origin main"}}' \
   | ~/.claude/hooks/block-dangerous-git.sh   # should exit 2 with BLOCKED message
 ```
@@ -110,7 +110,7 @@ Delete the file to restore. Existence alone disables; content ignored.
 
 ### Customizing the blocklist
 
-Edit `hooks/block-dangerous-git.sh` and adjust `DANGEROUS_PATTERNS`. Patterns are extended-regex (`grep -E`). Re-run `bash hooks/test-block-dangerous-git.sh` after editing to confirm fixtures still pass.
+Edit `hooks/block-dangerous-git.sh` and adjust `DANGEROUS_PATTERNS`. Patterns are extended-regex (`grep -E`). Re-run `bash tests/hooks/block-dangerous-git.test.sh` after editing to confirm fixtures still pass.
 
 ## Scope-Tier Memory Check Hook (opt-in)
 
