@@ -22,10 +22,10 @@
       "assertions": [
         {"type": "skill_invoked", "skill": "strategy-doc", "tier": "diagnostic", "description": "diagnostic structural anchor: skill should route on /strategy-doc slash command. Diagnostic-tier per sdr precedent — slash-prefix re-emit unreliability"},
         {"type": "tool_input_matches", "tool": "Skill", "input_key": "skill", "input_value": "strategy-doc", "tier": "diagnostic", "description": "diagnostic: Skill tool surface contract — pins skill input value"},
-        {"type": "regex", "pattern": "## 1\\. What I learned", "flags": "i", "tier": "required", "description": "Section 1 heading present in printed doc"},
-        {"type": "regex", "pattern": "## 7\\. Risks and dependencies", "flags": "i", "tier": "required", "description": "Section 7 heading present in printed doc"},
-        {"type": "regex", "pattern": "<!-- strategy-doc:auto -->", "flags": "i", "tier": "required", "description": "section-fence sentinel present in printed doc"},
-        {"type": "regex", "pattern": "\\[TODO", "flags": "i", "tier": "required", "description": "[TODO] markers present (empty workspace → all sections [TODO])"}
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "## 1. What I learned", "tier": "required", "description": "Section 1 heading present in written doc content (Write tool input — survives caveman/terseness compression of assistant prose, per issue #298)"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "## 7. Risks and dependencies", "tier": "required", "description": "Section 7 heading present in written doc content"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "<!-- strategy-doc:auto -->", "tier": "required", "description": "section-fence sentinel present in written doc content"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "[TODO", "tier": "required", "description": "[TODO] markers present in written doc content (empty workspace → all sections [TODO])"}
       ]
     },
     {
@@ -35,9 +35,9 @@
       "teardown": "rm -rf /tmp/sd-eval-draft-with-swot-only",
       "prompt": "/strategy-doc with-swot-only --mode=draft --workspace /tmp/sd-eval-draft-with-swot-only",
       "assertions": [
-        {"type": "regex", "pattern": "(velocity|on-call|test coverage|stripe)", "flags": "i", "tier": "required", "description": "SWOT entity content reflected in synthesis"},
-        {"type": "regex", "pattern": "(§5|section 5|specific asks).{0,80}(TODO|user.supplied|cannot synthesize)", "flags": "i", "tier": "required", "description": "§5 reported as TODO/user-supplied (skill cannot synthesize asks)"},
-        {"type": "regex", "pattern": "(§6|section 6|milestone|30.60.90).{0,80}(TODO|user.supplied|cannot synthesize)", "flags": "i", "tier": "required", "description": "§6 reported as TODO/user-supplied"}
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "velocity", "tier": "required", "description": "SWOT entity content (velocity observation) reflected in written doc synthesis — substring picks the most stable SWOT token (`Engineering velocity high`); precision trade-off vs original OR regex accepted per issue #298"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Skill cannot synthesize asks", "tier": "required", "description": "§5 reported as user-supplied — pins literal template phrase from 90-day-plan-template.md (synthesis.md §5 routing rule says skill cannot synthesize asks from upstream)"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "W1-30", "tier": "required", "description": "§6 30/60/90 sub-heading present (template emits literal `### W1-30` even in user-supplied state per synthesis.md §6 routing rule)"}
       ]
     },
     {
@@ -47,10 +47,11 @@
       "teardown": "rm -rf /tmp/sd-eval-draft-full-pipeline",
       "prompt": "/strategy-doc full-pipeline --mode=draft --workspace /tmp/sd-eval-draft-full-pipeline",
       "assertions": [
-        {"type": "regex", "pattern": "(Director of Data Platform|data-platform|coverage gap)", "flags": "i", "tier": "required", "description": "stakeholder gap reflected in §1 or §3"},
-        {"type": "regex", "pattern": "Confidence:\\s*(confirmed|likely)", "flags": "i", "tier": "required", "description": "§3 entries carry confidence labels"},
-        {"type": "regex", "pattern": "To confirm:|To refute:", "flags": "i", "tier": "required", "description": "§4 entries carry confirm/refute fields"},
-        {"type": "regex", "pattern": "(stripe|integration|external)", "flags": "i", "tier": "required", "description": "arch integrations.md reflected in §1 or §7"}
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Director of Data Platform", "tier": "required", "description": "stakeholder gap (Director of Data Platform — coverage gap) reflected verbatim in written doc §1 or §3"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Confidence:", "tier": "required", "description": "§3 entries carry `Confidence:` label per synthesis template (label-shape check)"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Confidence: confirmed", "tier": "required", "description": "§3 confidence label carries a populated value — full-pipeline fixture has multi-source corroboration (SWOT + stakeholder + arch + notes) so at least one entry must qualify as `confirmed` per synthesis.md §3 rule (≥2 independent sources); guards against empty-label regression"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "To confirm:", "tier": "required", "description": "§4 entries carry `To confirm:` field per synthesis template"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Stripe", "tier": "required", "description": "arch integration (Stripe v2 deprecation) reflected in written doc §1 or §7"}
       ]
     },
     {
@@ -60,8 +61,8 @@
       "teardown": "rm -rf /tmp/sd-eval-draft-idempotent",
       "prompt": "/strategy-doc draft-with-user-edits --mode=draft --workspace /tmp/sd-eval-draft-idempotent",
       "assertions": [
-        {"type": "regex", "pattern": "USER PROSE: This is my own synthesis paragraph", "flags": "", "tier": "required", "description": "user prose below closing fence preserved verbatim"},
-        {"type": "not_regex", "pattern": "Old auto bullet — should be replaced on re-run", "flags": "", "tier": "required", "description": "stale inside-fence content replaced"}
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "USER PROSE: This is my own synthesis paragraph", "tier": "required", "description": "user prose below closing fence preserved verbatim in written doc"},
+        {"type": "not_tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "Old auto bullet — should be replaced on re-run", "tier": "required", "description": "stale inside-fence content replaced in written doc"}
       ]
     },
     {
@@ -69,7 +70,8 @@
       "summary": "tag: mode:90-day-plan. --mode=review renders sections; no mutation; no checks.",
       "prompt": "/strategy-doc clean-doc --mode=review --workspace /Users/cantu/repos/claude-config/tests/fixtures/strategy-doc/clean-doc",
       "assertions": [
-        {"type": "regex", "pattern": "(## 1\\.|### §1\\.|what I learned)", "flags": "i", "tier": "required", "description": "section 1 heading or content rendered to terminal"},
+        {"type": "tool_input_matches", "tool": "Read", "input_key": "file_path", "input_value": "90-day-plan.md", "tier": "required", "description": "review mode opens the 90-day-plan doc (structural surface — survives caveman/terseness compression of rendered prose, per issue #298)"},
+        {"type": "not_tool_called", "tools": ["Write", "Edit", "MultiEdit", "NotebookEdit"], "tier": "required", "description": "review mode does not mutate the doc (no Write/Edit tool call)"},
         {"type": "not_regex", "pattern": "(Layer 1.{0,20}(clean|fail|running)|running layer 2|layer 2 \\(quality\\)|layer 3 \\(consistency\\))", "flags": "i", "tier": "required", "description": "review mode does not execute challenge checks (may mention --mode=challenge as suggestion)"}
       ]
     },
@@ -134,8 +136,8 @@
       "teardown": "rm -rf /tmp/sd-eval-memory-mcp-unavailable",
       "prompt": "/strategy-doc fresh-workspace --mode=draft --workspace /tmp/sd-eval-memory-mcp-unavailable",
       "assertions": [
-        {"type": "regex", "pattern": "## 7\\. Risks and dependencies", "flags": "i", "tier": "required", "description": "all 7 sections still emitted in printed doc"},
-        {"type": "regex", "pattern": "(memory|mcp).{0,40}(unavailable|skip|filesystem)", "flags": "i", "tier": "diagnostic", "description": "informational warning emitted"}
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "## 7. Risks and dependencies", "tier": "required", "description": "all 7 sections still emitted in written doc (graceful degradation — MCP unavailable does not abort draft)"},
+        {"type": "regex", "pattern": "(memory|mcp).{0,40}(unavailable|skip|filesystem)", "flags": "i", "tier": "diagnostic", "description": "informational warning emitted (diagnostic — warning prose may be compressed under caveman/terseness)"}
       ]
     },
     {
@@ -145,8 +147,8 @@
       "teardown": "rm -rf /tmp/sd-eval-conflicting-evidence",
       "prompt": "/strategy-doc conflicting-evidence --mode=draft --workspace /tmp/sd-eval-conflicting-evidence",
       "assertions": [
-        {"type": "regex", "pattern": "\\[CONFLICT", "flags": "", "tier": "required", "description": "CONFLICT marker emitted inline"},
-        {"type": "regex", "pattern": "(test coverage|payments)", "flags": "i", "tier": "required", "description": "conflict cites the disputed surface"}
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "[CONFLICT", "tier": "required", "description": "CONFLICT marker emitted inline in written doc"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "test coverage", "tier": "required", "description": "conflict cites the disputed surface (test coverage) — substring picks the most stable token from both SWOT-strength and notes-weakness sides"}
       ]
     },
     {
@@ -165,8 +167,8 @@
       "teardown": "rm -rf /tmp/sd-eval-multi-day-overlap",
       "prompt": "/strategy-doc existing-old-doc --mode=draft --workspace /tmp/sd-eval-multi-day-overlap",
       "assertions": [
-        {"type": "regex", "pattern": "2026-04-23-90-day-plan\\.md", "flags": "", "tier": "required", "description": "existing dated filename referenced as mutation target"},
-        {"type": "not_regex", "pattern": "2026-05-07-90-day-plan\\.md", "flags": "", "tier": "required", "description": "no new dated file created today"}
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "file_path", "input_value": "2026-04-23-90-day-plan.md", "tier": "required", "description": "existing dated filename used as Write target (atomic-rename tmp path still contains substring per skill SKILL.md)"},
+        {"type": "not_tool_input_matches", "tool": "Write", "input_key": "file_path", "input_value": "2026-05-07-90-day-plan.md", "tier": "required", "description": "no new dated file created today (Write never targets today's date when an existing dated file is present)"}
       ]
     },
     {
