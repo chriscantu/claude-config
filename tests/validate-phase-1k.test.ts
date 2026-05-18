@@ -294,4 +294,59 @@ describe("validate.fish Phase 1k (anchor-link target resolution)", () => {
       expect(out).toContain("grep returned error status");
     },
   );
+
+  test("K: anchorless target cache miss does not corrupt subsequent cache hits (#353)", () => {
+    // Regression for #353. Cache stores parallel arrays — anchor_cache_files
+    // (basenames) and anchor_cache_anchors (joined anchor IDs). When a target
+    // has ZERO `<a id="...">` definitions, the pre-fix implementation appended
+    // a basename to the files array but appended ZERO elements to the anchors
+    // array (because the joined command substitution produced no output). On
+    // subsequent cache hits for ANY other target, anchor_cache_anchors[$idx]
+    // retrieved the wrong slot and the contains-check failed with a spurious
+    // DEAD ANCHOR for links that target valid anchors.
+    //
+    // Repro: rule_alpha.md links to BOTH an anchorless target (primes cache
+    // with misaligned indices) AND an anchored target (cache miss → fresh
+    // grep, correct). rule_beta.md then links to the anchored target — this
+    // exercises the cache HIT branch. Pre-fix: rule_beta's link reports DEAD.
+    // Post-fix: both arrays stay aligned and the link resolves.
+    const fixture = makeFixture();
+    const rules = join(fixture, "rules");
+    writeFileSync(
+      join(rules, "rule_alpha.md"),
+      "Empty: [x](target_empty.md#nope)\nGood: [v](target_good.md#valid)\n",
+    );
+    writeFileSync(
+      join(rules, "rule_beta.md"),
+      "Good again: [v](target_good.md#valid)\n",
+    );
+    writeFileSync(
+      join(rules, "target_empty.md"),
+      "no anchor definitions in this file\n",
+    );
+    writeFileSync(
+      join(rules, "target_good.md"),
+      '<a id="valid"></a>\n# valid\n',
+    );
+
+    const out = extractPhase1k(runValidate(fixture));
+
+    // True positive still fires.
+    expect(out).toContain(
+      "rules/rule_alpha.md links target_empty.md#nope → DEAD ANCHOR",
+    );
+    // Cache-miss resolution for target_good.md succeeds (rule_alpha's 2nd ref).
+    expect(out).toContain(
+      "rules/rule_alpha.md links target_good.md#valid → resolves",
+    );
+    // Bug-exposing assertion: cache-HIT resolution for target_good.md from
+    // rule_beta must also succeed. Pre-fix this reports DEAD ANCHOR because
+    // the cache_anchors array is short by one slot.
+    expect(out).toContain(
+      "rules/rule_beta.md links target_good.md#valid → resolves",
+    );
+    expect(out).not.toContain(
+      "rules/rule_beta.md links target_good.md#valid → DEAD ANCHOR",
+    );
+  });
 });

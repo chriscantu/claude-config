@@ -652,7 +652,19 @@ for rule_file in $repo_dir/rules/*.md
             end
             set defined_anchors (string replace -r '^<a id="' '' -- $raw_defs | string replace -r '"$' '')
             set -a anchor_cache_files $target_basename
-            set -a anchor_cache_anchors (string join "\n" $defined_anchors)
+            # Issue #353 — keep parallel arrays aligned even when target
+            # defines zero anchors. `(string join "\n" $empty_list)` expands
+            # to a zero-element command substitution, so a naive
+            # `set -a anchor_cache_anchors (...)` appends nothing and every
+            # subsequent cache hit retrieves the wrong slot. Explicit
+            # empty-string sentinel preserves alignment; the lookup's
+            # `string split "\n" ""` yields an empty list and the
+            # `contains $anchor_id $defined_anchors` check correctly fails.
+            if test (count $defined_anchors) -eq 0
+                set -a anchor_cache_anchors ""
+            else
+                set -a anchor_cache_anchors (string join "\n" $defined_anchors)
+            end
         end
         if contains $anchor_id $defined_anchors
             pass "rules/$rule_name links $target_basename#$anchor_id → resolves"
