@@ -17,10 +17,13 @@ runner's process cwd (repo root), not in the scratch tmpdir where claude
 executes. Using `scratch_decoy` ensures the hook sees the fixture MEMORY.md
 and settings when the claude process starts in its scratch dir.
 
-**Hook path**: hardcoded to the worktree absolute path
-(`/Users/cantu/.claude/hooks/scope-tier-memory-check.sh` — symlink installed by `bin/link-config.fish`; survives worktree teardown).
-Strategy B from the task spec — the runner doesn't export `HOOK_ABS_PATH`.
-If the worktree path changes, update the `scratch_decoy` entries in evals.json.
+**Hook path**: written via `{{HOME}}` templating in the `scratch_decoy` value
+(`{{HOME}}/.claude/hooks/scope-tier-memory-check.sh` — symlink installed by `bin/link-config.fish`; survives worktree teardown).
+The eval substrate expands `{{HOME}}` and `{{REPO_ROOT}}` tokens in
+`scratch_decoy` values before write (see `seedScratchDecoy` /
+`expandTokens` in `tests/evals-lib.ts`). Strategy B from the task spec —
+the runner doesn't export `HOOK_ABS_PATH`. Templating closes the
+"hardcoded to one user / one machine" defect from PR #336 (issue #342).
 
 **setup.sh files**: present in each end-to-end fixture subdir for documentation
 and manual testing, but not used by the automated eval runner (superseded by

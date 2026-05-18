@@ -2298,6 +2298,106 @@ describe("seedScratchDecoy() — runtime behavior", () => {
     expect(readFileSync(join(cwd, "README.md"), "utf8")).toBe("# shared\n");
     expect(readFileSync(join(cwd, "README.md"), "utf8")).toBe("# shared\n");
   });
+
+  test("expands {{HOME}} token in value content", () => {
+    const home = process.env.HOME;
+    if (!home) throw new Error("test precondition: HOME must be set");
+    const cwd = mkdtempSync(join(tmpdir(), "seed-home-"));
+    seedScratchDecoy(cwd, brandedDecoy({
+      ".claude/settings.local.json": "{\"hook\":\"{{HOME}}/.claude/hooks/x.sh\"}",
+    }));
+    const written = readFileSync(join(cwd, ".claude/settings.local.json"), "utf8");
+    expect(written).toBe(`{"hook":"${home}/.claude/hooks/x.sh"}`);
+    expect(written).not.toContain("{{HOME}}");
+  });
+
+  test("expands {{REPO_ROOT}} token in value content", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "seed-repo-"));
+    seedScratchDecoy(cwd, brandedDecoy({
+      "ref.txt": "see {{REPO_ROOT}}/rules/planning.md",
+    }));
+    const written = readFileSync(join(cwd, "ref.txt"), "utf8");
+    expect(written).toMatch(/^see \//);
+    expect(written).toContain("/rules/planning.md");
+    expect(written).not.toContain("{{REPO_ROOT}}");
+  });
+
+  test("expands both {{HOME}} and {{REPO_ROOT}} in same value", () => {
+    const home = process.env.HOME;
+    if (!home) throw new Error("test precondition: HOME must be set");
+    const cwd = mkdtempSync(join(tmpdir(), "seed-both-"));
+    seedScratchDecoy(cwd, brandedDecoy({
+      "mix.txt": "{{HOME}}/.x and {{REPO_ROOT}}/y",
+    }));
+    const written = readFileSync(join(cwd, "mix.txt"), "utf8");
+    expect(written).toContain(`${home}/.x`);
+    expect(written).not.toContain("{{HOME}}");
+    expect(written).not.toContain("{{REPO_ROOT}}");
+  });
+
+  test("expands multiple occurrences of the same token", () => {
+    const home = process.env.HOME;
+    if (!home) throw new Error("test precondition: HOME must be set");
+    const cwd = mkdtempSync(join(tmpdir(), "seed-multi-"));
+    seedScratchDecoy(cwd, brandedDecoy({
+      "twice.txt": "{{HOME}}/a {{HOME}}/b",
+    }));
+    expect(readFileSync(join(cwd, "twice.txt"), "utf8")).toBe(`${home}/a ${home}/b`);
+  });
+
+  test("passes through values with no templating tokens unchanged (backward compat)", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "seed-passthrough-"));
+    const content = "no tokens here, just plain content with {curly} but not double";
+    seedScratchDecoy(cwd, brandedDecoy({ "plain.txt": content }));
+    expect(readFileSync(join(cwd, "plain.txt"), "utf8")).toBe(content);
+  });
+
+  test("throws raw Error (NOT ScratchDecoySeedError) when {{HOME}} appears but process.env.HOME is unset", () => {
+    // Operator-config errors (token expansion) must propagate raw —
+    // distinct from fs errors which get wrapped in ScratchDecoySeedError.
+    // Pins the contract that the hoist of `expandTokens` OUT of the
+    // try/catch block preserves: typos in evals.json surface loud,
+    // not buried in a wrapper class for fs failures.
+    const cwd = mkdtempSync(join(tmpdir(), "seed-home-unset-"));
+    const decoy = brandedDecoy({ "x.txt": "{{HOME}}/path" });
+    const originalHome = process.env.HOME;
+    delete process.env.HOME;
+    try {
+      try {
+        seedScratchDecoy(cwd, decoy);
+        throw new Error("expected throw, got success");
+      } catch (err) {
+        expect(err).toBeInstanceOf(Error);
+        expect(err).not.toBeInstanceOf(ScratchDecoySeedError);
+        expect((err as Error).message).toMatch(/HOME/);
+      }
+    } finally {
+      if (originalHome !== undefined) process.env.HOME = originalHome;
+    }
+  });
+
+  test("throws raw Error on unrecognized {{TOKEN}} (strict validation, matches HOME-unset loud-fail discipline)", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "seed-unknown-token-"));
+    try {
+      seedScratchDecoy(cwd, brandedDecoy({ "x.txt": "{{HONE}}/typo" }));
+      throw new Error("expected throw, got success");
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      expect(err).not.toBeInstanceOf(ScratchDecoySeedError);
+      expect((err as Error).message).toContain("{{HONE}}");
+      expect((err as Error).message).toMatch(/unrecognized token/);
+    }
+  });
+
+  // NOTE on coverage gap: `{{REPO_ROOT}}` outside-git-repo throw path
+  // (rating-8 gap from PR #346 review). Cleanly testing it requires a
+  // test-only `_resetRepoRootCache` export — module-level cache means
+  // the throw fires only on first uncached call. Trade-off rejected
+  // here per Karpathy #2 (production surface for a single test). Throw
+  // path is mechanically simple (try/catch around execSync); regression
+  // would surface immediately if any eval starts using {{REPO_ROOT}}
+  // outside a repo, which today no eval does. Reopen this gap if a
+  // {{REPO_ROOT}}-using fixture lands or if execSync handling grows.
 });
 
 describe("loadEvalFile rejects multi-turn evals with setup/teardown", () => {
