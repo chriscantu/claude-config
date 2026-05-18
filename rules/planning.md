@@ -229,6 +229,51 @@ or tooling before completing the pipeline.
 5. Then proceed with detailed design
 </HARD-GATE>
 
+<a id="override-skip-contract"></a>
+
+## Skip override — what counts
+
+Saying "skip the gate" is NOT sufficient on its own. An override must
+**name the specific cost** being accepted. Valid forms cite the gate by
+name AND the specific risk accepted: "skip the sketch, I accept the
+rework risk"; "no verify checks, I'll catch breakage in review"; "skip
+pr-validation, I accept the risk of unverified merge"; "skip DTP, I
+accept the risk of building on an unstated problem". Generic
+acknowledgements ("trust me," "I accept the trade-off," "your call,"
+"I know the risks," "you know what I want," "ship it") do NOT qualify
+— name the gate, request the specific cost acknowledgement, and
+produce the gate's required artifact if it doesn't come.
+
+**Time pressure is not an override.** "Quick fix," "just do it," "demo in 10
+minutes," "ship by Friday," "5 minutes left," "I have 10 minutes," "meeting in 5" make
+the gate more important, not less — a rushed unverified output is the
+most expensive thing to land.
+
+<a id="emission-contract-per-gate"></a>
+
+## Emission contract — per-gate skip honor
+
+When a named-cost skip is valid for any HARD-GATE rule (not just DTP),
+invoke `mcp__named-cost-skip-ack__acknowledge_named_cost_skip` BEFORE
+proceeding past the gate. The tool invocation IS the honor — if you
+skip the call, produce the gate's required artifact instead. Deferred-tool
+schema load: see [DTP Emission contract](#emission-contract).
+
+Per-gate `gate=` values (the `user_statement` argument is always the
+verbatim cost-naming clause from the user's message):
+
+| Rule / skill gate | `gate=` value |
+|---|---|
+| `define-the-problem` (DTP) | `DTP` |
+| `goal-driven.md` | `goal-driven` |
+| `fat-marker-sketch.md` | `fat-marker-sketch` |
+| `pr-validation.md` | `pr-validation` |
+| `think-before-coding.md` | `think-before-coding` |
+
+For "Only USER cost-naming counts" + the autonomous-loop four-exit list
+(Pass / Carve-out / Sentinel bypass / Hard-block), see the Emission
+contract section in `rules/pr-validation.md`.
+
 ## Stage Visibility
 
 At each pipeline transition, announce the current stage:

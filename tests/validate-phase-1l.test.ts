@@ -101,7 +101,7 @@ const seedFullRegistry = (fixture: string): void => {
   );
   writeFileSync(
     join(rules, "fat-marker-sketch.md"),
-    "Floor: planning.md#pressure-framing-floor planning.md#emission-contract planning.md#emergency-bypass-sentinel\n",
+    "Floor: planning.md#pressure-framing-floor planning.md#emission-contract planning.md#emergency-bypass-sentinel planning.md#override-skip-contract\n",
   );
   writeFileSync(
     join(rules, "execution-mode.md"),
@@ -109,15 +109,15 @@ const seedFullRegistry = (fixture: string): void => {
   );
   writeFileSync(
     join(rules, "goal-driven.md"),
-    "Floor: planning.md#pressure-framing-floor planning.md#emission-contract planning.md#emergency-bypass-sentinel\n",
+    "Floor: planning.md#pressure-framing-floor planning.md#emission-contract planning.md#emergency-bypass-sentinel planning.md#override-skip-contract planning.md#emission-contract-per-gate\n",
   );
   writeFileSync(
     join(rules, "pr-validation.md"),
-    "Floor: planning.md#pressure-framing-floor planning.md#emission-contract planning.md#emergency-bypass-sentinel\n",
+    "Floor: planning.md#pressure-framing-floor planning.md#emission-contract planning.md#emergency-bypass-sentinel planning.md#override-skip-contract planning.md#emission-contract-per-gate\n",
   );
   writeFileSync(
     join(rules, "think-before-coding.md"),
-    "Floor: planning.md#emission-contract planning.md#trivial-tier-criteria\n",
+    "Floor: planning.md#emission-contract planning.md#trivial-tier-criteria planning.md#override-skip-contract planning.md#emission-contract-per-gate\n",
   );
 };
 
@@ -200,7 +200,7 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
     // a no-op — the `expect(patched).not.toBe(original)` guard fails the test
     // loudly so the coupling cannot silently degrade.
     const patched = original.replace(
-      '"think-before-coding.md|emission-contract,trivial-tier-criteria"',
+      '"think-before-coding.md|emission-contract,trivial-tier-criteria,override-skip-contract,emission-contract-per-gate"',
       '"think-before-coding.md|emission-contract,"',
     );
     expect(patched).not.toBe(original);

@@ -50,17 +50,8 @@ exit code, file presence. "Looks right" is NOT a verify check.
 
 ### What counts as an explicit override
 
-Saying "skip the plan" is NOT sufficient on its own. The override must **name
-the specific cost** being accepted. Valid forms: "skip the plan, I accept the
-risk of unverified completion," "no verify checks, I'll catch breakage in
-review," "ship without success criteria, I accept the rework risk." Generic
-acknowledgements ("I accept the trade-off," "I know the risks", "your call",
-"trust me") do NOT qualify — name the gate, request the specific cost
-acknowledgement, and produce the plan if it doesn't come.
-
-**Time pressure is not an override.** "Quick fix," "just do it," "5 minutes
-left" make verify checks more valuable, not less — an unverified rushed change
-is the most expensive thing to land.
+See [Skip override — what counts](planning.md#override-skip-contract).
+Time pressure is not an override.
 
 ### Pressure-framing floor
 
@@ -73,12 +64,7 @@ restatement is required.
 
 ### Emission contract — MANDATORY
 
-When a named-cost skip is valid, invoke
-`mcp__named-cost-skip-ack__acknowledge_named_cost_skip` per
-[planning.md#emission-contract](planning.md#emission-contract). Use
-`gate="goal-driven"` and the verbatim cost-naming clause as `user_statement`.
-The tool invocation IS the honor — if you skip the call, produce the plan
-instead.
+See [Emission contract — per-gate skip honor](planning.md#emission-contract-per-gate). Use `gate="goal-driven"`.
 
 ## Loop Until Verified
 

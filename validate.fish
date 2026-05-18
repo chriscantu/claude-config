@@ -545,7 +545,9 @@ set anchor_registry \
     "verify-checks|goal-driven.md|Goal-driven verify checks" \
     "scope-tier-memory-check|planning.md|Scope-tier memory check" \
     "goal-verification|verification.md|Verification goal-vs-tasks gate" \
-    "hard-gate-cap|README.md|HARD-GATE cap policy"
+    "hard-gate-cap|README.md|HARD-GATE cap policy" \
+    "override-skip-contract|planning.md|Skip override — what counts" \
+    "emission-contract-per-gate|planning.md|Emission contract — per-gate skip honor"
 
 for entry in $anchor_registry
     set parts (string split -m 2 "|" $entry)
@@ -678,11 +680,11 @@ echo "── Delegate-link presence"
 # output across rules/ — keep in sync when adding new delegate links. Add
 # (rule, anchors) pairs here when promoting a new floor delegation.
 set delegate_registry \
-    "fat-marker-sketch.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel" \
+    "fat-marker-sketch.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel,override-skip-contract" \
     "execution-mode.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel,trivial-tier-criteria" \
-    "goal-driven.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel" \
-    "pr-validation.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel" \
-    "think-before-coding.md|emission-contract,trivial-tier-criteria"
+    "goal-driven.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel,override-skip-contract,emission-contract-per-gate" \
+    "pr-validation.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel,override-skip-contract,emission-contract-per-gate" \
+    "think-before-coding.md|emission-contract,trivial-tier-criteria,override-skip-contract,emission-contract-per-gate"
 
 for entry in $delegate_registry
     set parts (string split -m 1 "|" $entry)

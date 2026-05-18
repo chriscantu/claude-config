@@ -122,18 +122,8 @@ mechanical check refuses the carve-out.
 
 ### What counts as an explicit override
 
-Saying "skip the gate" is NOT sufficient on its own. The override must
-**name the specific cost** being accepted. Valid forms: "skip
-pr-validation, I accept the risk of unverified merge", "ship without
-test plan, I'll catch breakage in production", "no validation, I
-accept the rework risk." Generic acknowledgements ("trust me", "I
-accept the trade-off", "your call", "I know the risks") do NOT
-qualify — name the gate, request the specific cost acknowledgement,
-and run the test plan if it doesn't come.
-
-**Time pressure is not an override.** "Quick fix," "demo in 10
-minutes," "ship by Friday" make the gate more important, not less —
-an unverified rushed merge is the most expensive thing to land.
+See [Skip override — what counts](planning.md#override-skip-contract).
+Time pressure is not an override.
 
 ### Pressure-framing floor
 
@@ -146,12 +136,7 @@ restatement is required.
 
 ### Emission contract — MANDATORY
 
-When a named-cost skip is valid, invoke
-`mcp__named-cost-skip-ack__acknowledge_named_cost_skip` per
-[planning.md#emission-contract](planning.md#emission-contract). Use
-`gate="pr-validation"` and the verbatim cost-naming clause as `user_statement`.
-The tool invocation IS the honor — if you skip the call, run the test plan
-instead.
+See [Emission contract — per-gate skip honor](planning.md#emission-contract-per-gate). Use `gate="pr-validation"`.
 
 Only USER cost-naming counts. Agent self-skip is structurally
 impossible — there is no agent-emitted `user_statement` that
