@@ -413,7 +413,8 @@ set required_labels \
     "**Pressure-framing floor.**" \
     "**Emission contract — MANDATORY.**" \
     "**Architectural invariant.**" \
-    "**Emergency bypass — sentinel file check.**"
+    "**Emergency bypass — sentinel file check.**" \
+    "**Scope-tier memory check (fires BEFORE pressure-framing floor).**"
 set dependent_rules \
     fat-marker-sketch.md \
     goal-driven.md \
@@ -467,7 +468,16 @@ set drift_registry \
     "**Deadline** — time-pressure framing|planning.md|Pressure-framing floor Deadline category" \
     "**Stated-next-step** — skip|planning.md|Pressure-framing floor Stated-next-step category" \
     "select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip|planning.md|Emission contract ToolSearch mechanics" \
-    "The falsehood is the asserted agreement|disagreement.md|Hedge-then-Comply falsehood definition"
+    "The falsehood is the asserted agreement|disagreement.md|Hedge-then-Comply falsehood definition" \
+    "add row to|scope-tier-memory-check.sh|Scope-tier verb-signal add-row-to" \
+    "update entry in|scope-tier-memory-check.sh|Scope-tier verb-signal update-entry-in" \
+    "small change|scope-tier-memory-check.sh|Scope-tier minimizer small-change" \
+    "cross-cutting change|scope-tier-memory-check.sh|Scope-tier scope-expander cross-cutting-change" \
+    "refactor across|scope-tier-memory-check.sh|Scope-tier scope-expander refactor-across" \
+    "introduce new|scope-tier-memory-check.sh|Scope-tier scope-expander introduce-new" \
+    "public API|scope-tier-memory-check.sh|Scope-tier blast-radius-word public-API" \
+    "breaking change|scope-tier-memory-check.sh|Scope-tier blast-radius-word breaking-change" \
+    "version bump|scope-tier-memory-check.sh|Scope-tier blast-radius-word version-bump"
 
 # Guard: empty rules/ dir means the drift loop scans nothing and silently passes.
 # Pre-check before the loop so missing-rules-dir is loud, not silent.
@@ -532,7 +542,8 @@ set anchor_registry \
     "emergency-bypass-sentinel|planning.md|DTP Emergency bypass sentinel" \
     "fast-track-validation-emission|planning.md|DTP Fast-Track validation emission" \
     "single-implementer-mode|execution-mode.md|Single-implementer execution mode" \
-    "verify-checks|goal-driven.md|Goal-driven verify checks"
+    "verify-checks|goal-driven.md|Goal-driven verify checks" \
+    "scope-tier-memory-check|planning.md|Scope-tier memory check"
 
 for entry in $anchor_registry
     set parts (string split -m 2 "|" $entry)
@@ -839,7 +850,11 @@ for skill_root in $fixture_skill_roots
     set fixture_roots_found 1
     set skill_slug (basename $skill_root)
     set fixtures_readme "$skill_root/README.md"
+    # Consumer may live under skills/ (skill-layer) or rules-evals/ (rules-layer).
     set evals_json "$repo_dir/skills/$skill_slug/evals/evals.json"
+    if not test -f $evals_json
+        set evals_json "$repo_dir/rules-evals/$skill_slug/evals/evals.json"
+    end
 
     if not test -f $fixtures_readme
         fail "tests/fixtures/$skill_slug/README.md missing — fixture-to-eval contract documentation required (Q3-C)"
@@ -847,7 +862,7 @@ for skill_root in $fixture_skill_roots
     end
 
     if not test -f $evals_json
-        fail "skills/$skill_slug/evals/evals.json missing — fixtures under tests/fixtures/$skill_slug/ have no eval consumer file"
+        fail "skills/$skill_slug/evals/evals.json (or rules-evals/$skill_slug/evals/evals.json) missing — fixtures under tests/fixtures/$skill_slug/ have no eval consumer file"
         continue
     end
 
@@ -870,7 +885,7 @@ for skill_root in $fixture_skill_roots
     set ref_names_raw (grep -oE "tests/fixtures/$skill_slug/[a-zA-Z0-9_-]+" $evals_json)
     set grep_status $status
     if test $grep_status -ge 2
-        fail "skills/$skill_slug/evals/evals.json: grep returned error status $grep_status (I/O error, permission denied, or signal) while extracting fixture references"
+        fail "$evals_json: grep returned error status $grep_status (I/O error, permission denied, or signal) while extracting fixture references"
         continue
     end
     set ref_names (printf '%s\n' $ref_names_raw | string replace "tests/fixtures/$skill_slug/" "" | string match -rv '^$' | sort -u)
@@ -895,13 +910,51 @@ for skill_root in $fixture_skill_roots
         if test -d "$skill_root$ref_name"
             pass "evals.json reference tests/fixtures/$skill_slug/$ref_name exists"
         else
-            fail "skills/$skill_slug/evals/evals.json references tests/fixtures/$skill_slug/$ref_name which does not exist on disk (dangling fixture reference)"
+            fail "$evals_json references tests/fixtures/$skill_slug/$ref_name which does not exist on disk (dangling fixture reference)"
         end
     end
 end
 
 if test $fixture_roots_found -eq 0
     pass "no tests/fixtures/<skill>/ directories — Phase 1n has nothing to validate"
+end
+
+echo ""
+
+# 1o. Scope-tier hook artifacts
+# Asserts the three scope-tier-memory-check deliverables are present and
+# structurally sound: the hook script (present + executable + shellcheck-clean),
+# the installer, and the additional_context field in tests/evals-lib.ts which
+# is the eval-substrate contract introduced by issue #332.
+echo "── Phase 1o: scope-tier hook artifacts"
+
+set -l hook_path "$repo_dir/hooks/scope-tier-memory-check.sh"
+set -l installer_path "$repo_dir/bin/install-scope-tier-hook.fish"
+set -l evals_lib_path "$repo_dir/tests/evals-lib.ts"
+
+if not test -f $hook_path
+    fail "hooks/scope-tier-memory-check.sh missing"
+else
+    pass "hooks/scope-tier-memory-check.sh present"
+    test -x $hook_path; and pass "executable"; or fail "not executable"
+    if command -q shellcheck
+        shellcheck $hook_path >/dev/null 2>&1
+            and pass "shellcheck clean"
+            or fail "shellcheck warnings"
+    end
+end
+
+test -f $installer_path
+    and pass "bin/install-scope-tier-hook.fish present"
+    or fail "bin/install-scope-tier-hook.fish missing"
+test -x $installer_path; or fail "installer not executable"
+
+if test -f $evals_lib_path
+    grep -qE 'additional_context\?:\s*string' $evals_lib_path
+        and pass "Eval.additional_context present"
+        or fail "Eval interface missing additional_context (substrate contract)"
+else
+    fail "tests/evals-lib.ts missing"
 end
 
 echo ""

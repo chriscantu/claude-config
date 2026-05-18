@@ -304,7 +304,7 @@ describe("validate.fish Phase 1n (fixture ↔ eval integrity)", () => {
     rmSync(evalsJson);
     const out = extractPhase1n(runValidate(repo));
     expect(out).toContain(
-      "skills/archx/evals/evals.json missing — fixtures under tests/fixtures/archx/ have no eval consumer file",
+      "or rules-evals/archx/evals/evals.json) missing — fixtures under tests/fixtures/archx/",
     );
     // Fail message must be distinct from the README-missing fail (Test E) so
     // a contributor knows which side of the contract is broken.

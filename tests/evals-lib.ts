@@ -112,6 +112,10 @@ export interface Eval {
    * file" / "this is an eval environment with no actual codebase."
    */
   scratch_decoy?: Record<string, string>;
+  /** Optional synthetic <system-reminder> the runner prepends to prompt
+   *  envelope. Mutually informative with `setup` (end-to-end) — this is
+   *  the routing-contract path. Single-turn only. */
+  additional_context?: string;
 }
 
 export interface ValidatedTurn {
@@ -136,6 +140,10 @@ export type ValidatedEval =
       readonly setup?: string;
       readonly teardown?: string;
       readonly scratch_decoy?: ValidatedScratchDecoy;
+      /** Optional synthetic <system-reminder> the runner prepends to prompt
+       *  envelope. Mutually informative with `setup` (end-to-end) — this is
+       *  the routing-contract path. Single-turn only. */
+      readonly additional_context?: string;
     }
   | {
       readonly kind: "multi";
@@ -522,6 +530,13 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
         validated.push(validateAssertion(a, `${file}: eval '${e.name}'`));
       }
       const decoy = validateScratchDecoy(e.scratch_decoy, `${file}: eval '${e.name}'`);
+      let validatedAdditionalContext: string | undefined;
+      if (e.additional_context !== undefined) {
+        if (typeof e.additional_context !== "string") {
+          throw new Error(`${file}: eval '${e.name}' additional_context must be a string (got ${typeof e.additional_context})`);
+        }
+        validatedAdditionalContext = e.additional_context;
+      }
       validatedEvals.push({
         kind: "single",
         name: e.name,
@@ -531,6 +546,7 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
         setup: e.setup,
         teardown: e.teardown,
         scratch_decoy: decoy,
+        additional_context: validatedAdditionalContext,
       });
       continue;
     }

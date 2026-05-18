@@ -73,7 +73,10 @@ validator. Phases relevant to rules:
   (e.g. the [Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria),
   defined in `planning.md`) is restated outside its canonical home.
   "Do not restate" markers in non-canonical files are editor hints;
-  this phase is the enforcement. Regression coverage:
+  this phase is the enforcement. Phase 1g also guards canonical
+  scope-tier hook strings (verb signals, minimizers, scope-expanders,
+  blast-radius words) — see `hooks/scope-tier-memory-check.sh` for
+  the canonical home. Regression coverage:
   `tests/validate-phase-1g.test.ts` (migrated from fish per ADR #0012).
 - **1j. Stable anchor presence** — fails if `planning.md` loses an
   explicit `<a id="…">` anchor that dependent rules deep-link to.
@@ -118,6 +121,14 @@ validator. Phases relevant to rules:
   fixtures rot or eval renames orphan their fixtures undetected
   (issue #234). Regression coverage:
   `tests/validate-phase-1n.test.ts`.
+- **1o. Scope-tier hook + installer + substrate field** — fails if
+  `hooks/scope-tier-memory-check.sh` is missing or not executable;
+  if `bin/install-scope-tier-hook.fish` is missing or not executable;
+  if shellcheck reports warnings on the hook; or if the `Eval`
+  interface in `tests/evals-lib.ts` does not declare the
+  `additional_context?: string` field (substrate contract for the
+  scope-tier routing-contract evals). Regression coverage:
+  `tests/validate-phase-1o.test.ts`.
 
 Use these in pre-push hooks or CI to catch the silent-failure modes
 (rule not loaded; rule restated and drifted; anchor structurally broken;

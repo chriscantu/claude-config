@@ -1,0 +1,215 @@
+{
+  "skill": "scope-tier-memory-check",
+  "description": "End-to-end and routing-contract evals for the scope-tier-memory-check system (hook + Layer 2 rule). Eight end-to-end evals exercise the full hook-to-model pipeline via scratch_decoy (settings.local.json + MEMORY.md seeded into scratch cwd); two routing-contract evals inject synthetic system-reminders via additional_context to test Layer 2 in isolation. Issue #332.",
+  "_implementation_note": "End-to-end evals use scratch_decoy instead of setup: the eval substrate seeds .claude/settings.local.json (hook registration) and .claude/projects/.../MEMORY.md (fixture memory) into the scratch tmpdir before claude spawns. This avoids setup running in the repo cwd (which would pollute the worktree). Hook path is hardcoded to the worktree absolute path (Strategy B from task spec). git-working-tree-large criterion 6 is not testable end-to-end via this architecture (git repo state cannot be seeded via scratch_decoy); it is covered by tests/hooks/scope-tier-memory-check.test.sh instead and documented as such.",
+  "evals": [
+    {
+      "name": "pr-330-canonical",
+      "summary": "Canonical positive: PR #330-shape prompt with scope-tier memory loaded and hook installed via scratch_decoy. Hook injects SCOPE-TIER MATCH reminder. Model should ack and route to direct implementation without invoking DTP. Fixture: tests/fixtures/scope-tier-memory-check/pr-330-canonical.",
+      "prompt": "prune the redundant per-gate floor blocks from the five delegate rules in `rules/planning.md` — they restate the DTP anchor and add no eval-measurable load",
+      "scratch_decoy": {
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n"
+      },
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\[Scope-tier match:[^\\]]+\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: model emits the required ack line when SCOPE-TIER MATCH reminder is received. Memory name in the ack reflects the hook's resolved display-name ('Right-size pipeline ceremony to feature size'). Failure mode caught: Layer 2 rule edit drops the ack-line requirement."
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "define-the-problem",
+          "tier": "required",
+          "description": "Structural: DTP does NOT fire — scope-tier match routes to direct implementation, bypassing the planning pipeline. Failure mode caught: rule edit allows both scope-tier ack AND DTP invocation."
+        }
+      ]
+    },
+    {
+      "name": "pressure-framing-minimizer",
+      "summary": "Negative: minimizer present ('just', 'small change') causes hook criterion 3 to reject. No SCOPE-TIER MATCH reminder. Prompt is also a pressure framing — DTP should route normally. Fixture: tests/fixtures/scope-tier-memory-check/pressure-framing-minimizer.",
+      "prompt": "just a quick fix to `planning.md` — small change to the pressure-framing section",
+      "scratch_decoy": {
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n"
+      },
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "\\[Scope-tier match:",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: hook did not fire (minimizer present) — no scope-tier ack line in response. Failure mode caught: hook emits match despite minimizer criterion; or Layer 2 acks without a real reminder."
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "define-the-problem",
+          "tier": "diagnostic",
+          "description": "[diagnostic: 'just a quick fix' is a pressure framing but the prompt also names a file — model may route to Trivial tier without DTP] Pressure-framing floor fires DTP for 'just a small change' framing without scope-tier bypass."
+        }
+      ]
+    },
+    {
+      "name": "large-scope-keyword",
+      "summary": "Negative: scope-expander keywords ('rearchitect', 'refactor across') trigger hook criterion 4 rejection. No SCOPE-TIER MATCH reminder. Large design prompt should invoke DTP. Fixture: tests/fixtures/scope-tier-memory-check/large-scope-keyword.",
+      "prompt": "rearchitect the rules system — refactor across the front-door layer to reduce ceremony overhead",
+      "scratch_decoy": {
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n"
+      },
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "\\[Scope-tier match:",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: hook did not fire (scope-expander present) — no scope-tier ack in response. Failure mode caught: hook matches despite rearchitect/refactor-across scope signals."
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "define-the-problem",
+          "tier": "required",
+          "description": "Structural: large-scope design prompt invokes DTP via the planning pipeline front door. Failure mode caught: scope-expander check regresses and hook fires, routing large work to direct implementation."
+        }
+      ]
+    },
+    {
+      "name": "no-matching-memory",
+      "summary": "Negative: no scope-tier feedback memory loaded — hook exits early (no MEMORY.md match). Clean mechanical prompt. No scope-tier ack expected. Fixture: tests/fixtures/scope-tier-memory-check/no-matching-memory.",
+      "prompt": "prune the dead import in `src/utils/helpers.ts` — unused after the last refactor",
+      "scratch_decoy": {
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [User current situation](user_situation.md) — Laid off ~April 2026; no Atlassian/Slack; uses Google Calendar + Gmail but not Drive\n- [JS runtime is Bun, not Node](user_js_runtime.md) — Use bunx/bun in place of npx/npm/node everywhere; Node is not installed\n"
+      },
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "\\[Scope-tier match:",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: hook exited early (no matching scope-tier memory) — no ack line. Failure mode caught: hook fires SCOPE-TIER MATCH without a corresponding memory entry."
+        }
+      ]
+    },
+    {
+      "name": "sentinel-bypass-active",
+      "summary": "Negative: DISABLE_PRESSURE_FLOOR sentinel seeded in scratch cwd via scratch_decoy. Hook exits 0 without checking criteria or emitting a reminder. No scope-tier ack expected. Fixture: tests/fixtures/scope-tier-memory-check/sentinel-bypass-active.",
+      "prompt": "prune the stale comment in `rules/planning.md` — one-line removal",
+      "scratch_decoy": {
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n",
+        ".claude/DISABLE_PRESSURE_FLOOR": ""
+      },
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "\\[Scope-tier match:",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: sentinel bypass caused hook to exit 0 silently — no SCOPE-TIER MATCH reminder, no ack in response. Failure mode caught: hook ignores DISABLE_PRESSURE_FLOOR sentinel."
+        }
+      ]
+    },
+    {
+      "name": "blast-radius-public-api",
+      "summary": "Negative: blast-radius criterion fires ('exported' word + 'api/' path). Hook criterion 5 rejects. No SCOPE-TIER MATCH reminder despite mechanical verb + concrete target. Fixture: tests/fixtures/scope-tier-memory-check/blast-radius-public-api.",
+      "prompt": "rename the exported `serializePayload` symbol in `api/v1/checkout.ts` — update all call sites",
+      "scratch_decoy": {
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n"
+      },
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "\\[Scope-tier match:",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: blast-radius criterion rejected the match ('exported' + 'api/' both present) — no scope-tier ack. Failure mode caught: criterion 5 regresses, routing public-API rename to direct implementation."
+        }
+      ]
+    },
+    {
+      "name": "git-working-tree-large",
+      "summary": "Criterion 6 coverage note: hook git working-tree pre-check (>5 files or >200 LOC in-flight) cannot be tested end-to-end via scratch_decoy (git repo state cannot be seeded). Criterion 6 is covered by tests/hooks/scope-tier-memory-check.test.sh. This eval tests the scratch-cwd degradation path — no git repo present, hook proceeds to emit match normally. Fixture: tests/fixtures/scope-tier-memory-check/git-working-tree-large.",
+      "prompt": "rename `helperA` to `helperB` in `src/utils/foo.ts`",
+      "scratch_decoy": {
+        ".claude/settings.local.json": "{\"hooks\":{\"UserPromptSubmit\":[{\"hooks\":[{\"type\":\"command\",\"command\":\"/Users/cantu/.claude/hooks/scope-tier-memory-check.sh\"}]}]}}",
+        ".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md": "# Memory Index\n\n- [Right-size pipeline ceremony to feature size](feedback_right_size_ceremony.md) — Small/mechanical changes (~150 LOC, single-file, known approach) should skip DTP/SA/brainstorm/FMS + subagent-driven-dev; reserve for ambiguous or high-blast-radius work\n"
+      },
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\[Scope-tier match:[^\\]]+\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: no git repo in scratch cwd means criterion 6 does not reject — hook fires normally on mechanical rename prompt. Documents that criterion 6 gracefully degrades (no git = no rejection = match proceeds). Criterion 6 unit coverage is in tests/hooks/scope-tier-memory-check.test.sh."
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "define-the-problem",
+          "tier": "required",
+          "description": "Structural: DTP does NOT fire when scope-tier match succeeds (no git-working-tree rejection in scratch cwd). Confirms mechanical rename prompt routes to direct implementation on match."
+        }
+      ]
+    },
+    {
+      "name": "routing-contract-positive",
+      "summary": "Routing-contract (additional_context): synthetic SCOPE-TIER MATCH reminder injected directly. Fixture: tests/fixtures/scope-tier-memory-check/routing-contract-positive. Tests Layer 2 rule in isolation from Layer 1 hook. Model should ack and route to direct implementation.",
+      "prompt": "prune the dead code from `lib/foo.ts`",
+      "additional_context": "SCOPE-TIER MATCH: feedback_right_size_ceremony. Per stored feedback, this prompt qualifies as small/mechanical/known-approach. Route to direct implementation: skip DTP, Systems Analysis, brainstorming, Fat Marker Sketch, and subagent-driven-development. execution-mode.md single-implementer mode, goal-driven.md per-step verify checks, and verification.md end-of-work gate STILL apply. If this match is wrong, the user can re-prompt with explicit pipeline-invocation language.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\[Scope-tier match:[^\\]]+\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: model emits the required ack line when synthetic SCOPE-TIER MATCH reminder is present. The additional_context specifies 'feedback_right_size_ceremony' as the memory name. Tests Layer 2 rule text in isolation — no hook in path. Failure mode caught: rule text edit drops ack requirement."
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "define-the-problem",
+          "tier": "required",
+          "description": "Structural: DTP does NOT fire when synthetic SCOPE-TIER MATCH reminder is present. Tests Layer 2 routing isolation. Failure mode caught: model acks scope-tier but also fires DTP."
+        }
+      ]
+    },
+    {
+      "name": "hook-not-installed",
+      "summary": "Degradation: no hook installed, no additional_context. Fixture: tests/fixtures/scope-tier-memory-check/hook-not-installed. PR #330-shape prompt with no reminder reaching the model. Documents that Layer 2 rule text alone does NOT force routing — graceful degradation.",
+      "prompt": "prune the redundant per-gate floor blocks from the five delegate rules in `rules/planning.md` — they restate the DTP anchor and add no eval-measurable load",
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "\\[Scope-tier match:",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: no reminder, no ack. Hook not installed — no SCOPE-TIER MATCH system-reminder fires; Layer 2 rule text alone does not force ack emission. Documents graceful degradation. Failure mode caught: Layer 2 rule becomes too aggressive and emits ack without a real reminder."
+        }
+      ]
+    },
+    {
+      "name": "routing-contract-conflict-challenge",
+      "summary": "Routing-contract conflict: synthetic SCOPE-TIER MATCH reminder injected, but prompt describes obviously large work ('rename Foo across public SDK — breaks all consumers'). Fixture: tests/fixtures/scope-tier-memory-check/routing-contract-conflict-challenge. Model should challenge the match rather than silently routing to direct implementation.",
+      "prompt": "rename `Foo` to `Bar` across the public SDK — this will break all downstream consumers",
+      "additional_context": "SCOPE-TIER MATCH: feedback_right_size_ceremony. Per stored feedback, this prompt qualifies as small/mechanical/known-approach. Route to direct implementation: skip DTP, Systems Analysis, brainstorming, Fat Marker Sketch, and subagent-driven-development. execution-mode.md single-implementer mode, goal-driven.md per-step verify checks, and verification.md end-of-work gate STILL apply. If this match is wrong, the user can re-prompt with explicit pipeline-invocation language.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(incorrectly|wrong signal|confirm direct implementation|hook fired|match.*wrong|incorrect match|needs pipeline|requires pipeline|break.*consumer|breaking change|not.*small|not.*mechanical)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: model challenges the match — names why the SCOPE-TIER MATCH signal conflicts with the prompt's obvious large-scope nature. Rule text says: 'name the specific signal that's wrong and ask the user.' Failure mode caught: model silently routes to direct implementation despite the conflict."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^\\[Scope-tier match:[^\\]]+\\]\\s*Routing to direct implementation",
+          "flags": "im",
+          "tier": "diagnostic",
+          "description": "[diagnostic: model variance on what constitutes a 'challenge' vs a nominal ack with caveats] Model does NOT silently ack + route — the challenge path diverges from the nominal routing path. Failure mode: model acks 'Routing to direct implementation' unconditionally even for obviously-wrong match."
+        }
+      ]
+    }
+  ]
+}

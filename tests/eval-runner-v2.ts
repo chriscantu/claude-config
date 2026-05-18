@@ -34,6 +34,7 @@ import {
   type MetaDecision,
   type Signals,
   type ValidatedAssertion,
+  type ValidatedEval,
   type ValidatedScratchDecoy,
   ScratchDecoySeedError,
   aggregateChainSignals,
@@ -288,6 +289,18 @@ export function formatRunFailure(
   const stderrLine = stderr.trim().split("\n")[0] || "(no stderr)";
   const detail = streamErr ?? stderrLine;
   return options.prefix === "exit" ? `claude exited ${exitCode}: ${detail}` : detail;
+}
+
+/**
+ * Build the prompt string to write to claude's stdin for a given eval.
+ * For single-turn evals with `additional_context`, the context is wrapped in
+ * a `<system-reminder>` block and prepended before the prompt text.
+ */
+export function buildPrompt(eval_: Extract<ValidatedEval, { kind: "single" }>): string {
+  if (eval_.additional_context) {
+    return `<system-reminder>\n${eval_.additional_context}\n</system-reminder>\n\n${eval_.prompt}`;
+  }
+  return eval_.prompt;
 }
 
 function colour(s: string, code: string): string {
@@ -690,7 +703,7 @@ async function main() {
       onTeardownError: (msg) =>
         console.log(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`)),
       work: () => {
-    const { stdout, stderr, exitCode, failure } = runClaude(e.prompt, undefined, e.scratch_decoy);
+    const { stdout, stderr, exitCode, failure } = runClaude(buildPrompt(e), undefined, e.scratch_decoy);
 
     if (failure || exitCode !== 0) {
       totalAssertions += e.assertions.length;
