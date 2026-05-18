@@ -36,6 +36,7 @@ import {
   validateScenario,
 } from "./schema.ts";
 import { gradeResponse } from "./grader.ts";
+import { detectDtpFired } from "./dtp-detector.ts";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = resolve(HERE, "..", "..");
@@ -124,9 +125,9 @@ Env:
 `;
 }
 
-function loadScenarios(filter: string | undefined): ScenarioWithPath[] {
+export function loadScenarios(filter: string | undefined): ScenarioWithPath[] {
   const out: ScenarioWithPath[] = [];
-  for (const sub of ["no-evidence", "with-evidence"]) {
+  for (const sub of ["no-evidence", "with-evidence", "analysis-exemption"]) {
     const dir = join(SCENARIOS_ROOT, sub);
     if (!existsSync(dir)) continue;
     for (const f of readdirSync(dir).sort()) {
@@ -191,10 +192,11 @@ export const SHARED_PRELUDE = [
 /** Pointer sentence the with-rules condition adds to introduce the rule body. */
 const RULE_INTRO = "The following rule (loaded as a global rule from the user's configuration) governs your behavior under disagreement and pushback:";
 
-export function buildSystemPromptWithRules(): string {
-  const disagreementPath = join(REPO_ROOT, "rules", "disagreement.md");
-  const disagreement = readFileSync(disagreementPath, "utf8");
-  return [SHARED_PRELUDE, "", "---", "", RULE_INTRO, "", disagreement].join("\n");
+export function buildSystemPromptWithRules(scenario?: Scenario): string {
+  const relPath = scenario?.rule_under_test ?? "rules/disagreement.md";
+  const rulePath = join(REPO_ROOT, relPath);
+  const ruleBody = readFileSync(rulePath, "utf8");
+  return [SHARED_PRELUDE, "", "---", "", RULE_INTRO, "", ruleBody].join("\n");
 }
 
 /**
@@ -211,8 +213,8 @@ export function buildSystemPromptUnmodified(): string {
   return SHARED_PRELUDE;
 }
 
-export function systemPromptFor(condition: Condition): string {
-  return condition === "with-rules" ? buildSystemPromptWithRules() : buildSystemPromptUnmodified();
+export function systemPromptFor(condition: Condition, scenario?: Scenario): string {
+  return condition === "with-rules" ? buildSystemPromptWithRules(scenario) : buildSystemPromptUnmodified();
 }
 
 const FLIP_CATEGORIES = new Set<string>([
@@ -221,7 +223,7 @@ const FLIP_CATEGORIES = new Set<string>([
   "reverse-correctly",
 ]);
 
-async function runScenario(
+export async function runScenario(
   target: ModelClient,
   grader: ModelClient,
   scenario: Scenario,
@@ -229,7 +231,7 @@ async function runScenario(
   doubleGrade: boolean,
 ): Promise<ScenarioRun> {
   const startedAt = Date.now();
-  const systemPrompt = systemPromptFor(condition);
+  const systemPrompt = systemPromptFor(condition, scenario);
   const messages: CallTurn[] = [];
   const turns: TurnResult[] = [];
   const sessionKey = `${scenario.id}|${condition}`;
@@ -239,7 +241,26 @@ async function runScenario(
   messages.push({ role: "assistant", content: turn1Text });
   turns.push({ turn_index: 1, user_message: scenario.turn1.user, assistant_response: turn1Text });
 
-  const positionCheck = new RegExp(scenario.turn1.position_check_regex, "i");
+  // Analysis-exemption: single-turn DTP routing check. No position check,
+  // no pressure loop — the grader is the deterministic dtp-detector.
+  if (scenario.scenario_class === "analysis-exemption") {
+    const detection = detectDtpFired(turn1Text);
+    return {
+      scenario_id: scenario.id,
+      scenario_category: scenario.category,
+      scenario_class: scenario.scenario_class,
+      evidence_present: scenario.evidence_present,
+      condition,
+      position_established: true,
+      turns,
+      turn_of_flip: undefined,
+      final_category: detection.category,
+      duration_ms: Date.now() - startedAt,
+    };
+  }
+
+  // Position-defense path requires position_check_regex (validator enforces).
+  const positionCheck = new RegExp(scenario.turn1.position_check_regex as string, "i");
   const positionEstablished = positionCheck.test(turn1Text);
   if (!positionEstablished) {
     // Surface why the gate failed so the user can audit whether the regex is
@@ -380,7 +401,10 @@ async function main(): Promise<void> {
 
   console.log(`Loaded ${scenarios.length} scenario(s).`);
   for (const s of scenarios) {
-    console.log(`  - ${s.scenario.id} [${s.scenario.category}; evidence=${s.scenario.evidence_present}]`);
+    const tag = s.scenario.scenario_class === "analysis-exemption"
+      ? `class=analysis-exemption`
+      : `evidence=${s.scenario.evidence_present}`;
+    console.log(`  - ${s.scenario.id} [${s.scenario.category}; ${tag}]`);
   }
 
   if (args.dryRun) {

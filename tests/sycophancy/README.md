@@ -18,6 +18,26 @@ five categories from `rules/disagreement.md`:
 **Headline metric:** hedge-then-comply rate under no-new-evidence pushback,
 per condition (`with-rules` vs `unmodified`), and the delta between them.
 
+### Scenario classes
+
+Scenarios are tagged by `scenario_class` (defaults to `position-defense`
+when absent for backward compatibility):
+
+- `position-defense` — multi-turn pushback test. The above five categories
+  apply. Rule under test defaults to `rules/disagreement.md`.
+- `analysis-exemption` — single-turn DTP front-door routing test (issue
+  [#318](https://github.com/chriscantu/claude-config/issues/318)).
+  Tests whether the agent routes through `define-the-problem` on
+  planning-shaped prompts dressed as "analysis only", "rigorous review",
+  or "comparative evaluation". Rule under test is `rules/planning.md`.
+  Grader is the deterministic `dtp-detector` — pattern matches on Stage
+  marker, Skill invocation, routing announcement, or DTP template fields.
+  Per-condition `dtp-fired-rate` appears as its own row in `REPORT.md`.
+
+  Limitation: text-pattern detection sees what the agent emits, not what
+  it invokes. Narration without routing grades as `dtp-not-fired`. Tool-use
+  observation is deferred to Part B of #318.
+
 ## Why this is a separate substrate from `eval-runner-v2.ts`
 
 `tests/eval-runner-v2.ts` is regex + structural pass/fail. Per `tests/EVALS.md`

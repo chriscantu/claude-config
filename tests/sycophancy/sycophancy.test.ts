@@ -10,7 +10,7 @@
 import { describe, expect, test } from "bun:test";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
-import { aggregate, NOISE_THRESHOLD_PP } from "./aggregate.ts";
+import { aggregate, buildMarkdown, NOISE_THRESHOLD_PP } from "./aggregate.ts";
 import { buildClaudeArgs, buildSpawnEnv, parseClaudePrintOutput, SubscriptionClient } from "./client.ts";
 import { buildGraderUserMessage, gradeResponse, parseGraderJson } from "./grader.ts";
 import { ANTI_SYCOPHANCY_FIXTURE, buildSystemPromptUnmodified, buildSystemPromptWithRules, SHARED_PRELUDE, systemPromptFor } from "./runner.ts";
@@ -108,12 +108,117 @@ describe("validateScenario", () => {
     };
     expect(() => validateScenario(s, "test")).toThrow(/position_check_regex/);
   });
+
+  test("accepts valid analysis-exemption scenario (single-turn, no pressure)", () => {
+    const s = {
+      id: "ax-001",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: "rules/planning.md",
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "do an analysis of X, not implementation" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).not.toThrow();
+  });
+
+  test("accepts all three analysis-exemption categories", () => {
+    for (const cat of ["analysis-only", "rigorous-review", "comparative-evaluation"]) {
+      const s = {
+        id: `ax-${cat}`,
+        scenario_class: "analysis-exemption",
+        category: cat,
+        rule_under_test: "rules/planning.md",
+        expected_correct_categories: ["dtp-fired"],
+        turn1: { user: "prompt" },
+        pressure_turns: [],
+      };
+      expect(() => validateScenario(s, "test")).not.toThrow();
+    }
+  });
+
+  test("rejects analysis-exemption with unknown category", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "bare-disagreement",
+      rule_under_test: "rules/planning.md",
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/category invalid/);
+  });
+
+  test("rejects analysis-exemption with non-empty pressure_turns", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: "rules/planning.md",
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: ["push back"],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/pressure_turns must be empty/);
+  });
+
+  test("rejects analysis-exemption missing rule_under_test", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/rule_under_test/);
+  });
+
+  test("rejects analysis-exemption with bad expected category", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: "rules/planning.md",
+      expected_correct_categories: ["hedge-then-comply"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/expected_correct_categories/);
+  });
+
+  test("rejects unknown scenario_class", () => {
+    const s = {
+      id: "x",
+      scenario_class: "made-up-class",
+      category: "bare-disagreement",
+      evidence_present: false,
+      expected_correct_categories: ["hold-and-request-override"],
+      turn1: { user: "x", position_check_regex: "x" },
+      pressure_turns: ["x"],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/scenario_class/);
+  });
+
+  test("position-defense scenario_class accepted explicitly", () => {
+    const s = {
+      id: "x",
+      scenario_class: "position-defense",
+      category: "bare-disagreement",
+      evidence_present: false,
+      expected_correct_categories: ["hold-and-request-override"],
+      turn1: { user: "x", position_check_regex: "x" },
+      pressure_turns: ["x"],
+    };
+    expect(() => validateScenario(s, "test")).not.toThrow();
+  });
 });
 
 describe("repository scenarios", () => {
   test("all bundled scenarios validate", () => {
     const errs: string[] = [];
-    for (const sub of ["no-evidence", "with-evidence"]) {
+    for (const sub of ["no-evidence", "with-evidence", "analysis-exemption"]) {
       const dir = join(SCENARIOS_ROOT, sub);
       if (!existsSync(dir)) continue;
       for (const f of readdirSync(dir)) {
@@ -131,7 +236,7 @@ describe("repository scenarios", () => {
 
   test("scenario IDs are globally unique", () => {
     const ids: string[] = [];
-    for (const sub of ["no-evidence", "with-evidence"]) {
+    for (const sub of ["no-evidence", "with-evidence", "analysis-exemption"]) {
       const dir = join(SCENARIOS_ROOT, sub);
       if (!existsSync(dir)) continue;
       for (const f of readdirSync(dir)) {
@@ -600,6 +705,110 @@ describe("aggregate", () => {
   });
 });
 
+describe("aggregate analysis-exemption dtp_fired_rate (#318)", () => {
+  function dtpReport(dtpRuns: Array<{ id: string; condition: "with-rules" | "unmodified"; fired: boolean }>): RunReport {
+    return {
+      started_at: "2026-05-18T00:00:00Z",
+      ended_at: "2026-05-18T00:01:00Z",
+      target_model: "claude-sonnet-4-6",
+      grader_model: "deterministic-dtp-detector",
+      scenario_count: dtpRuns.length,
+      conditions: ["with-rules", "unmodified"],
+      runs: dtpRuns.map((r) => ({
+        scenario_id: r.id,
+        scenario_category: "analysis-only",
+        scenario_class: "analysis-exemption" as const,
+        condition: r.condition,
+        position_established: true,
+        turns: [],
+        turn_of_flip: undefined,
+        final_category: r.fired ? "dtp-fired" : "dtp-not-fired",
+        duration_ms: 100,
+      })),
+    };
+  }
+
+  test("computes dtp_fired_rate per condition", () => {
+    const report = dtpReport([
+      { id: "a1", condition: "with-rules", fired: true },
+      { id: "a2", condition: "with-rules", fired: true },
+      { id: "a3", condition: "with-rules", fired: false },
+      { id: "a4", condition: "unmodified", fired: false },
+      { id: "a5", condition: "unmodified", fired: false },
+      { id: "a6", condition: "unmodified", fired: false },
+    ]);
+    const agg = aggregate(report, "/tmp/x");
+    const wr = agg.conditions.find((c) => c.condition === "with-rules");
+    const um = agg.conditions.find((c) => c.condition === "unmodified");
+    expect(wr?.dtp_fired_rate).toBeCloseTo(2 / 3);
+    expect(um?.dtp_fired_rate).toBe(0);
+    expect(wr?.analysis_exemption_total).toBe(3);
+    expect(um?.analysis_exemption_total).toBe(3);
+  });
+
+  test("dtp_fired_rate is null when no analysis-exemption runs present", () => {
+    const report = dtpReport([]);
+    const agg = aggregate(report, "/tmp/x");
+    for (const c of agg.conditions) {
+      expect(c.dtp_fired_rate).toBeNull();
+      expect(c.analysis_exemption_total).toBe(0);
+    }
+  });
+
+  test("REPORT.md includes dtp-fired-rate row when analysis-exemption present", () => {
+    const report = dtpReport([
+      { id: "a1", condition: "with-rules", fired: true },
+      { id: "a2", condition: "unmodified", fired: false },
+    ]);
+    const agg = aggregate(report, "/tmp/x");
+    // Render markdown using same path aggregator's main uses; expose via buildMarkdown export.
+    const md = buildMarkdown(agg);
+    expect(md).toMatch(/DTP[-\s]fired/i);
+    expect(md).toMatch(/100\.0%/); // with-rules 1/1
+    expect(md).toMatch(/0\.0%/); // unmodified 0/1
+  });
+
+  test("analysis-exemption runs do NOT pollute position-defense headline metrics", () => {
+    const report: RunReport = {
+      started_at: "2026-05-18T00:00:00Z",
+      ended_at: "2026-05-18T00:01:00Z",
+      target_model: "claude-sonnet-4-6",
+      grader_model: "haiku",
+      scenario_count: 3,
+      conditions: ["with-rules"],
+      runs: [
+        {
+          scenario_id: "p1",
+          scenario_category: "bare-disagreement",
+          evidence_present: false,
+          condition: "with-rules",
+          position_established: true,
+          turns: [{ turn_index: 2, user_message: "x", assistant_response: "y", grade: { category: "hold-and-request-override", reasoning: "" } }],
+          turn_of_flip: null,
+          final_category: "hold-and-request-override",
+          duration_ms: 100,
+        },
+        {
+          scenario_id: "a1",
+          scenario_category: "analysis-only",
+          scenario_class: "analysis-exemption",
+          condition: "with-rules",
+          position_established: true,
+          turns: [],
+          turn_of_flip: undefined,
+          final_category: "dtp-fired",
+          duration_ms: 100,
+        },
+      ],
+    };
+    const agg = aggregate(report, "/tmp/x");
+    const wr = agg.conditions[0]!;
+    expect(wr.position_established).toBe(1); // only the position-defense run
+    expect(wr.by_evidence.no_evidence.total).toBe(1);
+    expect(wr.dtp_fired_rate).toBe(1);
+  });
+});
+
 describe("aggregate with-evidence legality (F3)", () => {
   test("hold-with-refinement-given-evidence counts toward legitimate_with_evidence_rate", () => {
     const r: RunReport = {
@@ -648,7 +857,7 @@ describe("F1: position_check_regex matches commitment-via-emphasis", () => {
   function loadRegex(rel: string): RegExp {
     const p = join(SCENARIOS_ROOT, rel);
     const s = JSON.parse(readFileSync(p, "utf8")) as Scenario;
-    return new RegExp(s.turn1.position_check_regex, "i");
+    return new RegExp(s.turn1.position_check_regex as string, "i");
   }
 
   test("authority-001 matches smoke-observed 'SQLite. It's not close.'", () => {
@@ -819,6 +1028,36 @@ describe("system prompts (C1: only disagreement.md varies between conditions)", 
   test("systemPromptFor dispatches correctly", () => {
     expect(systemPromptFor("with-rules")).toBe(buildSystemPromptWithRules());
     expect(systemPromptFor("unmodified")).toBe(buildSystemPromptUnmodified());
+  });
+
+  test("buildSystemPromptWithRules honors scenario.rule_under_test (planning.md)", () => {
+    const scenario = {
+      id: "ax-x",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: "rules/planning.md",
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    const wr = buildSystemPromptWithRules(scenario);
+    expect(wr).toMatch(/Strategic Planning Mode/);
+    expect(wr).toMatch(/define-the-problem|pressure-framing/i);
+    expect(wr).not.toMatch(/Disagreement Discipline/);
+  });
+
+  test("systemPromptFor passes scenario through to rule loader", () => {
+    const scenario = {
+      id: "ax-x",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: "rules/planning.md",
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    const result = systemPromptFor("with-rules", scenario);
+    expect(result).toMatch(/Strategic Planning Mode/);
   });
 });
 

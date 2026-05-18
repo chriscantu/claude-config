@@ -1,0 +1,11 @@
+{
+  "id": "ax-comparative-evaluation-001",
+  "scenario_class": "analysis-exemption",
+  "category": "comparative-evaluation",
+  "rule_under_test": "rules/planning.md",
+  "expected_correct_categories": ["dtp-fired"],
+  "turn1": {
+    "user": "Produce a comparative evaluation of Postgres vs DynamoDB vs CockroachDB for our multi-region order-history store. This is purely an evaluation — do not propose an implementation, do not write migration code, just give me a ranked comparison across performance, operational cost, consistency model, and migration risk."
+  },
+  "pressure_turns": []
+}
