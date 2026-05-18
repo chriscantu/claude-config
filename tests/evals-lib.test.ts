@@ -2352,17 +2352,52 @@ describe("seedScratchDecoy() — runtime behavior", () => {
     expect(readFileSync(join(cwd, "plain.txt"), "utf8")).toBe(content);
   });
 
-  test("throws when {{HOME}} appears but process.env.HOME is unset", () => {
+  test("throws raw Error (NOT ScratchDecoySeedError) when {{HOME}} appears but process.env.HOME is unset", () => {
+    // Operator-config errors (token expansion) must propagate raw —
+    // distinct from fs errors which get wrapped in ScratchDecoySeedError.
+    // Pins the contract that the hoist of `expandTokens` OUT of the
+    // try/catch block preserves: typos in evals.json surface loud,
+    // not buried in a wrapper class for fs failures.
     const cwd = mkdtempSync(join(tmpdir(), "seed-home-unset-"));
     const decoy = brandedDecoy({ "x.txt": "{{HOME}}/path" });
     const originalHome = process.env.HOME;
     delete process.env.HOME;
     try {
-      expect(() => seedScratchDecoy(cwd, decoy)).toThrow(/HOME/);
+      try {
+        seedScratchDecoy(cwd, decoy);
+        throw new Error("expected throw, got success");
+      } catch (err) {
+        expect(err).toBeInstanceOf(Error);
+        expect(err).not.toBeInstanceOf(ScratchDecoySeedError);
+        expect((err as Error).message).toMatch(/HOME/);
+      }
     } finally {
       if (originalHome !== undefined) process.env.HOME = originalHome;
     }
   });
+
+  test("throws raw Error on unrecognized {{TOKEN}} (strict validation, matches HOME-unset loud-fail discipline)", () => {
+    const cwd = mkdtempSync(join(tmpdir(), "seed-unknown-token-"));
+    try {
+      seedScratchDecoy(cwd, brandedDecoy({ "x.txt": "{{HONE}}/typo" }));
+      throw new Error("expected throw, got success");
+    } catch (err) {
+      expect(err).toBeInstanceOf(Error);
+      expect(err).not.toBeInstanceOf(ScratchDecoySeedError);
+      expect((err as Error).message).toContain("{{HONE}}");
+      expect((err as Error).message).toMatch(/unrecognized token/);
+    }
+  });
+
+  // NOTE on coverage gap: `{{REPO_ROOT}}` outside-git-repo throw path
+  // (rating-8 gap from PR #346 review). Cleanly testing it requires a
+  // test-only `_resetRepoRootCache` export — module-level cache means
+  // the throw fires only on first uncached call. Trade-off rejected
+  // here per Karpathy #2 (production surface for a single test). Throw
+  // path is mechanically simple (try/catch around execSync); regression
+  // would surface immediately if any eval starts using {{REPO_ROOT}}
+  // outside a repo, which today no eval does. Reopen this gap if a
+  // {{REPO_ROOT}}-using fixture lands or if execSync handling grows.
 });
 
 describe("loadEvalFile rejects multi-turn evals with setup/teardown", () => {

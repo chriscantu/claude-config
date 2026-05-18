@@ -398,8 +398,7 @@ export class ScratchDecoySeedError extends Error {
  * runner's finally block).
  */
 // Cached repo-root discovered via `git rev-parse --show-toplevel` on first
-// {{REPO_ROOT}} expansion. Module-level so repeated seeds across a test run
-// share the same lookup; cleared only by process exit.
+// {{REPO_ROOT}} expansion. On throw, stays undefined → next call retries.
 let cachedRepoRoot: string | undefined;
 
 function getRepoRoot(): string {
@@ -421,10 +420,14 @@ function getRepoRoot(): string {
  *   - `{{REPO_ROOT}}` → `git rev-parse --show-toplevel` (cached)
  *
  * Values without any `{{...}}` tokens pass through untouched — backward
- * compatible. Unknown `{{...}}` tokens (e.g. typo `{{HONE}}`) also pass
- * through; downstream failure surfaces at hook-invocation time rather than
- * adding a strict-validation surface here. HOME must be set when `{{HOME}}`
- * appears; throws otherwise so the substrate fails loud at seed time.
+ * compatible. Unrecognized `{{...}}` tokens throw at seed time (typo in
+ * evals.json surfaces immediately, not as a downstream eval-assertion
+ * failure with no breadcrumb).
+ *
+ * Loud-at-seed-time discipline: operator errors in evals.json
+ * (missing HOME, typo'd token, non-git-repo for `{{REPO_ROOT}}`) all
+ * throw raw `Error` BEFORE the filesystem write — distinct from
+ * `ScratchDecoySeedError` which wraps fs failures only.
  */
 function expandTokens(value: string): string {
   let result = value;
@@ -438,6 +441,15 @@ function expandTokens(value: string): string {
   if (result.includes("{{REPO_ROOT}}")) {
     result = result.replaceAll("{{REPO_ROOT}}", getRepoRoot());
   }
+  // Strict-validation pass: any remaining `{{NAME}}` is an operator typo.
+  // Aligns with HOME-unset loud-fail; silent passthrough would surface as
+  // obscure downstream eval failures with no breadcrumb to the typo.
+  const leftover = result.match(/\{\{[A-Z_][A-Z0-9_]*\}\}/);
+  if (leftover) {
+    throw new Error(
+      `scratch_decoy expansion failed: unrecognized token ${leftover[0]} (known tokens: {{HOME}}, {{REPO_ROOT}})`,
+    );
+  }
   return result;
 }
 
@@ -448,11 +460,16 @@ export function seedScratchDecoy(
 ): void {
   if (!decoy) return;
   for (const [relPath, content] of Object.entries(decoy)) {
+    // Expansion errors (HOME unset, unrecognized token, non-git-repo) are
+    // operator-config failures distinct from fs errors. Hoist OUT of the
+    // try so they propagate raw — `ScratchDecoySeedError` wraps fs failures
+    // only (ENOSPC, EACCES, EROFS).
+    const expanded = expandTokens(content);
     const fullPath = join(cwd, relPath);
     const parentDir = dirname(fullPath);
     try {
       fs.mkdirSync(parentDir, { recursive: true });
-      fs.writeFileSync(fullPath, expandTokens(content), "utf8");
+      fs.writeFileSync(fullPath, expanded, "utf8");
     } catch (err) {
       throw new ScratchDecoySeedError(relPath, err as Error);
     }
