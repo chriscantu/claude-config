@@ -73,12 +73,13 @@ const extractPhase1j = (r: RunResult): string => {
 const fixtures: string[] = [];
 const TMP_PREFIX = tmpdir();
 
-// Build a minimal fixture with the three rule files Phase 1j needs:
+// Build a minimal fixture with the four rule files Phase 1j needs:
 //   rules/planning.md    — home for 8 anchors including scope-tier-memory-check
 //   rules/execution-mode.md — home for single-implementer-mode anchor
 //   rules/goal-driven.md — home for verify-checks anchor
+//   rules/verification.md — home for goal-verification anchor
 //
-// Seeding all three prevents Phase 1j from failing on "anchor home missing"
+// Seeding all four prevents Phase 1j from failing on "anchor home missing"
 // for sibling entries — keeping the extracted slice clean for assertions.
 const makeFixture = (planningMdContent?: string): string => {
   const dir = mkdtempSync(join(tmpdir(), "validate-phase-1j-"));
@@ -106,6 +107,13 @@ const makeFixture = (planningMdContent?: string): string => {
     "utf8",
   );
   writeFileSync(join(dir, "rules", "goal-driven.md"), gdContent);
+
+  // Seed verification.md: needs the goal-verification anchor.
+  const vmContent = readFileSync(
+    join(REPO, "rules", "verification.md"),
+    "utf8",
+  );
+  writeFileSync(join(dir, "rules", "verification.md"), vmContent);
 
   return dir;
 };
