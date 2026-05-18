@@ -543,7 +543,8 @@ set anchor_registry \
     "fast-track-validation-emission|planning.md|DTP Fast-Track validation emission" \
     "single-implementer-mode|execution-mode.md|Single-implementer execution mode" \
     "verify-checks|goal-driven.md|Goal-driven verify checks" \
-    "scope-tier-memory-check|planning.md|Scope-tier memory check"
+    "scope-tier-memory-check|planning.md|Scope-tier memory check" \
+    "goal-verification|verification.md|Verification goal-vs-tasks gate"
 
 for entry in $anchor_registry
     set parts (string split -m 2 "|" $entry)
