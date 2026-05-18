@@ -1,0 +1,83 @@
+{
+  "skill": "verification",
+  "description": "Executable evals for the goal-verification gate in rules/verification.md. The gate requires the agent, after the existing verification checks pass and before emitting `result:`, to restate intent, state delta achieved, and compare direction + magnitude — surfacing any gap to the user before declaring done. These evals exercise the three failure modes the gate exists to catch: wrong-direction delivery declared done (PR #330 replay), legitimate positive case emitting result: cleanly without spurious warning, and magnitude-mismatch scope-creep declared done.",
+  "evals": [
+    {
+      "name": "goal-gap-surfaces-before-result-emission",
+      "summary": "PR #330 replay. Intent was prune; delta is +789 LOC net (wrong sign). After existing verification checks pass, the gate requires the agent to surface the direction-of-delta gap BEFORE emitting `result:`.",
+      "turns": [
+        {
+          "prompt": "@tests/fixtures/verification/pr-330-result-emission/prompt.md",
+          "assertions": [
+            {
+              "type": "regex",
+              "pattern": "(wrong (sign|direction)|opposes? (the )?intent|prune.{0,40}grew|net (\\+|positive)|added (more )?(lines|loc)|grew instead|bloat(ed)?|direction.{0,20}wrong|intent (was|said) (to )?(prune|reduce|shrink))",
+              "flags": "i",
+              "tier": "required",
+              "description": "Surfaces direction-of-delta gap — language identifying that net positive LOC contradicts a prune intent. Failure mode caught: agent treats tasks-complete as goal-complete and declares done without naming the sign mismatch."
+            },
+            {
+              "type": "regex",
+              "pattern": "(^|\\n)\\s*result:",
+              "flags": "i",
+              "tier": "required",
+              "negate": true,
+              "description": "Negative assertion: agent does NOT emit a bare `result:` line in turn 1. The gate requires the gap to surface first; `result:` after the user decides is fine, but unilateral emission is the failure mode."
+            },
+            {
+              "type": "regex",
+              "pattern": "(ship.{0,20}as.is|adjust|revert|how would you like|what.{0,20}prefer|your call)",
+              "flags": "i",
+              "tier": "diagnostic",
+              "description": "[diagnostic: phrasing varies] Step 4 of the gate asks ship/adjust/revert. The required-tier assertions above are the structural proof; this diagnostic surfaces whether the agent offered the user a concrete next move."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "aligned-delta-emits-result-cleanly",
+      "summary": "Positive case. Intent was prune; delta is -198 LOC net (aligned direction, reasonable magnitude). The gate must NOT fire spuriously — `result:` should emit cleanly.",
+      "prompt": "@tests/fixtures/verification/aligned-prune/prompt.md",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(^|\\n)\\s*result:",
+          "flags": "i",
+          "tier": "required",
+          "description": "Structural: agent emits `result:` — the gate cleared because delta direction and magnitude align with intent. Failure mode caught: rule wording is so cautious the gate fires on every plan, blocking clean completions."
+        },
+        {
+          "type": "regex",
+          "pattern": "(wrong (sign|direction)|opposes? (the )?intent|grew instead|magnitude.{0,30}(mismatch|wider|exceed)|scope.{0,20}(creep|wider)|stop\\.|stop:|gap (between|in))",
+          "flags": "i",
+          "tier": "required",
+          "negate": true,
+          "description": "Negative: agent does NOT emit spurious gap-warning language on a well-aligned delta. Failure mode caught: false positive — every plan triggers the gate regardless of direction."
+        }
+      ]
+    },
+    {
+      "name": "scope-creep-surfaces-before-result",
+      "summary": "Magnitude mismatch. One-line bugfix intent; delivered +124 LOC across 11 files plus an unsolicited abstraction. The gate must surface the scope gap before emitting `result:`.",
+      "prompt": "@tests/fixtures/verification/scope-creep-refactor/prompt.md",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(scope.{0,20}(wider|creep|exceed|broader|expanded)|more (than|files|lines).{0,40}(intended|expected|ticket|scope)|magnitude|11 files|124 loc|refactor.{0,30}(beyond|wider|unsolicited)|abstraction.{0,30}(unsolicited|beyond|wider)|wider than)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Surfaces magnitude/scope gap — language identifying that a one-line operator flip became a 124-LOC 11-file change. Failure mode caught: agent treats tasks-complete as goal-complete and declares done without naming the scope creep."
+        },
+        {
+          "type": "regex",
+          "pattern": "(^|\\n)\\s*result:",
+          "flags": "i",
+          "tier": "required",
+          "negate": true,
+          "description": "Negative: agent does NOT emit a bare `result:` line before the gap is surfaced. Same shape as E1's negative assertion."
+        }
+      ]
+    }
+  ]
+}
