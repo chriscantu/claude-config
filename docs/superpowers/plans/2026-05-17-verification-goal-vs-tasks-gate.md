@@ -379,11 +379,10 @@ Run: `mkdir -p rules-evals/verification/evals`
               "description": "Surfaces direction-of-delta gap — language identifying that net positive LOC contradicts a prune intent. Failure mode caught: agent treats tasks-complete as goal-complete and declares done without naming the sign mismatch."
             },
             {
-              "type": "regex",
+              "type": "not_regex",
               "pattern": "(^|\\n)\\s*result:",
               "flags": "i",
               "tier": "required",
-              "negate": true,
               "description": "Negative assertion: agent does NOT emit a bare `result:` line in turn 1. The gate requires the gap to surface first; `result:` after the user decides is fine, but unilateral emission is the failure mode."
             },
             {
@@ -410,11 +409,10 @@ Run: `mkdir -p rules-evals/verification/evals`
           "description": "Structural: agent emits `result:` — the gate cleared because delta direction and magnitude align with intent. Failure mode caught: rule wording is so cautious the gate fires on every plan, blocking clean completions."
         },
         {
-          "type": "regex",
+          "type": "not_regex",
           "pattern": "(wrong (sign|direction)|opposes? (the )?intent|grew instead|magnitude.{0,30}(mismatch|wider|exceed)|scope.{0,20}(creep|wider)|stop\\.|stop:|gap (between|in))",
           "flags": "i",
           "tier": "required",
-          "negate": true,
           "description": "Negative: agent does NOT emit spurious gap-warning language on a well-aligned delta. Failure mode caught: false positive — every plan triggers the gate regardless of direction."
         }
       ]
@@ -432,11 +430,10 @@ Run: `mkdir -p rules-evals/verification/evals`
           "description": "Surfaces magnitude/scope gap — language identifying that a one-line operator flip became a 124-LOC 11-file change. Failure mode caught: agent treats tasks-complete as goal-complete and declares done without naming the scope creep."
         },
         {
-          "type": "regex",
+          "type": "not_regex",
           "pattern": "(^|\\n)\\s*result:",
           "flags": "i",
           "tier": "required",
-          "negate": true,
           "description": "Negative: agent does NOT emit a bare `result:` line before the gap is surfaced. Same shape as E1's negative assertion."
         }
       ]
@@ -465,7 +462,7 @@ E1: PR #330 replay — direction-of-delta gap must surface before result:
 E2: aligned positive — result: emits cleanly, no spurious warning
 E3: scope creep — magnitude gap must surface before result:
 
-All required-tier with negate assertions guarding against silent
+All required-tier with not_regex assertions guarding against silent
 result: emission. Diagnostic tier surfaces ship/adjust/revert phrasing."
 ```
 
@@ -525,7 +522,7 @@ Expected output to inspect:
 - [ ] **Step 4: Surface or emit**
 
 If both check out, emit:
-> `result: #333 goal-verification gate shipped — rules/verification.md +goal-verification section, rules-evals/verification/ with 3 required-tier evals, fixtures + validate Phase 1j registry updated. Acceptance E1 (PR #330 replay) satisfied. Ready for PR.`
+> `result: #333 goal-verification gate shipped — rules/verification.md +goal-verification section, rules-evals/verification/ with 3 required-tier evals, fixtures + validate Phase 1j registry updated. Acceptance E1 (PR #330 replay) authored; live-run deferred to #343. Ready for PR.`
 
 If anything diverged (rule body >55 LOC, eval JSON invalid, validate fails), STOP and surface the gap instead.
 

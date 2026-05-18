@@ -28,9 +28,7 @@ materially from intent, the agent surfaces the gap before declaring done.
 
 ## Constraints
 
-- **HARD-GATE cap (#340).** Currently 9 HARD-GATE rules; #340 caps at 6.
-  New rule file violates cap. Extension to existing `verification.md` is
-  the only conforming shape.
+- **HARD-GATE cap (#340).** Currently 8 HARD-GATE rules per `rules/README.md`; #340 caps at 6. Either count exceeds the cap — extension is the only conforming shape.
 - **Rule budget.** Extension ≤50 LOC. Issue acceptance: "don't reproduce
   PR #330's bloat by writing 200 lines of governance for an anti-bloat
   gate."
@@ -132,8 +130,11 @@ fixture-to-eval mapping.
 
 **Phase 1j** (stable anchor presence) — add `#goal-verification` to
 the registry of anchors that must persist in `rules/verification.md`.
-Currently Phase 1j guards `planning.md` anchors only; extend the
-registry to include `verification.md#goal-verification`.
+Currently Phase 1j guards anchors in `planning.md`, `execution-mode.md`,
+and `goal-driven.md`; extend the registry to add `verification.md`
+as a fourth canonical-home file. Also update
+`tests/validate-phase-1j.test.ts` `makeFixture()` to seed
+`verification.md` alongside the other anchor-home files.
 
 **Phase 1n** (fixture↔eval integrity) — the existing phase will
 auto-cover the new `tests/fixtures/verification/` directory once
