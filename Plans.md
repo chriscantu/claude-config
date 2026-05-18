@@ -15,7 +15,7 @@ Source of truth: GitHub issues on [chriscantu/claude-config](https://github.com/
 
 <!-- cc:WIP / cc:TODO / cc:完了 markers go here. Reference issues as #NNN. -->
 
-- cc:WIP #298 — /strategy-doc: rewrite eval assertions from regex-on-finalText to tool_input_matches (Write content)
+- cc:完了 [ec0fc6f] #298
 
 ## Backlog
 
