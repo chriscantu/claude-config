@@ -975,6 +975,55 @@ end
 
 echo ""
 
+# ── Phase 1p: rules-evals/README.md suite inventory
+#
+# Phase 1p closes the silent-failure mode where a new suite under
+# rules-evals/<name>/ ships without a corresponding bullet in
+# rules-evals/README.md "Current suites:" list (the rot that motivated
+# issue #361's adjacent README backfill). Bidirectional check: every
+# on-disk dir must have a bullet, every bullet must resolve to a dir.
+echo "── Phase 1p: rules-evals/README.md suite inventory"
+
+set -l rules_evals_dir "$repo_dir/rules-evals"
+set -l rules_evals_readme "$rules_evals_dir/README.md"
+
+if not test -d $rules_evals_dir
+    pass "no rules-evals/ directory — Phase 1p has nothing to validate"
+else if not test -f $rules_evals_readme
+    fail "rules-evals/ exists but README.md missing"
+else
+    set -l disk_suites
+    for d in $rules_evals_dir/*/
+        set -a disk_suites (basename $d)
+    end
+
+    set -l listed_suites
+    for line in (grep -E '^- `[a-z0-9][a-z0-9_-]*/`' $rules_evals_readme)
+        set -l slug (echo $line | sed -E 's/^- `([^`/]+)\/`.*/\1/')
+        set -a listed_suites $slug
+    end
+
+    set -l mismatch 0
+    for s in $disk_suites
+        if not contains $s $listed_suites
+            fail "rules-evals/$s/ exists on disk but missing from README.md 'Current suites:' list"
+            set mismatch 1
+        end
+    end
+    for s in $listed_suites
+        if not contains $s $disk_suites
+            fail "rules-evals/README.md lists '$s/' but no such directory exists"
+            set mismatch 1
+        end
+    end
+
+    if test $mismatch -eq 0
+        pass "rules-evals/README.md suite list matches on-disk dirs ("(count $disk_suites)" suites)"
+    end
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────

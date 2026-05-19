@@ -139,6 +139,13 @@ validator. Phases relevant to rules:
   `additional_context?: string` field (substrate contract for the
   scope-tier routing-contract evals). Regression coverage:
   `tests/validate-phase-1o.test.ts`.
+- **1p. rules-evals/README.md suite inventory** — bidirectional check
+  that `rules-evals/README.md`'s "Current suites:" bullet list matches
+  on-disk dirs under `rules-evals/`. Fails when an on-disk suite dir
+  has no README bullet, or a README bullet has no on-disk dir. Closes
+  the doc-rot mode that motivated issue #361's README backfill (the
+  prior README listed 2 of 7 live suites). Regression coverage:
+  `tests/validate-phase-1p.test.ts`.
 
 Use these in pre-push hooks or CI to catch the silent-failure modes
 (rule not loaded; rule restated and drifted; anchor structurally broken;

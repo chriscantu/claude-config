@@ -10,6 +10,8 @@ rules-evals/
         └── evals.json
 ```
 
+<!-- Suite list is enforced by validate.fish Phase 1p: bullets below must match
+     ls rules-evals/ exactly. Add a new bullet whenever you add a suite dir. -->
 Current suites:
 
 - `disagreement/` — covers the new-evidence requirement + Hedge-then-Comply
@@ -22,8 +24,8 @@ Current suites:
   test-plan locator, and zero-functional-change carve-out from
   [`rules/pr-validation.md`](../rules/pr-validation.md)
 - `scope-tier-memory-check/` — covers the `UserPromptSubmit` hook routing
-  contract that fires before the pressure-framing floor (see
-  [`rules/planning.md`](../rules/planning.md))
+  contract that fires before the pressure-framing floor, documented in
+  [`rules/planning.md`'s scope-tier section](../rules/planning.md#scope-tier-memory-check)
 - `think-before-coding/` — covers the three-part preamble + emission
   contract from [`rules/think-before-coding.md`](../rules/think-before-coding.md)
 - `verification/` — covers the end-of-work goal-verification gate from
@@ -32,23 +34,34 @@ Current suites:
 ## Coverage map vs HARD-GATE set
 
 The [HARD-GATE cap policy](../rules/README.md#hard-gate-cap) freezes the
-live set at 8 rules. Eval coverage lives in two roots — `skills/<name>/evals/`
-for gates that have a host skill, and `rules-evals/<gate>/evals/` for the rest.
+cap-frozen set listed in [`rules/README.md`](../rules/README.md)'s "What
+lives here" table.
+Eval coverage lives in two roots — `skills/<name>/evals/` for gates that
+have a host skill, and `rules-evals/<gate>/evals/` for the rest. The
+pressure-framing floor in `planning.md` is *inherited* by every HARD-GATE,
+so floor behavior is exercised indirectly through every per-rule suite —
+the rows below name each rule's *primary* eval home, not the inheritance
+graph.
 
 | HARD-GATE rule | Eval home |
 |---|---|
-| `planning.md` | `skills/define-the-problem/evals/` + `skills/systems-analysis/evals/` + 4 floor evals here (`disagreement`, `memory-discipline`, `pr-validation`, `scope-tier-memory-check`) |
+| `planning.md` | `skills/define-the-problem/evals/` + `skills/systems-analysis/evals/` |
 | `fat-marker-sketch.md` | `skills/fat-marker-sketch/evals/` (skill-layer boundary) |
 | `goal-driven.md` | `rules-evals/goal-driven/` |
 | `think-before-coding.md` | `rules-evals/think-before-coding/` |
 | `pr-validation.md` | `rules-evals/pr-validation/` |
 | `disagreement.md` | `rules-evals/disagreement/` |
 | `memory-discipline.md` | `rules-evals/memory-discipline/` |
-| `execution-mode.md` | **GAP — no discriminating eval at this rule's boundary; tracked in #361** |
+| `execution-mode.md` | **GAP — no discriminating eval at this rule's boundary; tracked in [#361](https://github.com/chriscantu/claude-config/issues/361)** |
 
-Soft rules (`tdd-pragmatic.md`, `verification.md`) are not required by
+<!-- When #361 closes, flip the execution-mode row above to point at
+     rules-evals/execution-mode/ (and verify the dir exists). The PR that
+     adds the eval should also flip this row in the same change. -->
+
+Soft rules (no `<HARD-GATE>` block, no skip contract) — `tdd-pragmatic.md`
+and `verification.md` — are not required by
 [ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md)
-to ship discriminating signal — `verification/` exists as bonus coverage,
+to ship discriminating signal. `verification/` exists as bonus coverage,
 not as a policy requirement.
 
 ## Why a sibling root rather than `skills/`
