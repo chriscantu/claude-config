@@ -12,10 +12,44 @@ rules-evals/
 
 Current suites:
 
+- `disagreement/` — covers the new-evidence requirement + Hedge-then-Comply
+  prohibition from [`rules/disagreement.md`](../rules/disagreement.md)
 - `goal-driven/` — covers the per-step verify checks + named-cost skip
   contract from [`rules/goal-driven.md`](../rules/goal-driven.md)
+- `memory-discipline/` — covers the re-challenge contract on material
+  context shift from [`rules/memory-discipline.md`](../rules/memory-discipline.md)
+- `pr-validation/` — covers the trigger surface (speech-act + action-bound),
+  test-plan locator, and zero-functional-change carve-out from
+  [`rules/pr-validation.md`](../rules/pr-validation.md)
+- `scope-tier-memory-check/` — covers the `UserPromptSubmit` hook routing
+  contract that fires before the pressure-framing floor (see
+  [`rules/planning.md`](../rules/planning.md))
 - `think-before-coding/` — covers the three-part preamble + emission
   contract from [`rules/think-before-coding.md`](../rules/think-before-coding.md)
+- `verification/` — covers the end-of-work goal-verification gate from
+  [`rules/verification.md`](../rules/verification.md)
+
+## Coverage map vs HARD-GATE set
+
+The [HARD-GATE cap policy](../rules/README.md#hard-gate-cap) freezes the
+live set at 8 rules. Eval coverage lives in two roots — `skills/<name>/evals/`
+for gates that have a host skill, and `rules-evals/<gate>/evals/` for the rest.
+
+| HARD-GATE rule | Eval home |
+|---|---|
+| `planning.md` | `skills/define-the-problem/evals/` + `skills/systems-analysis/evals/` + 4 floor evals here (`disagreement`, `memory-discipline`, `pr-validation`, `scope-tier-memory-check`) |
+| `fat-marker-sketch.md` | `skills/fat-marker-sketch/evals/` (skill-layer boundary) |
+| `goal-driven.md` | `rules-evals/goal-driven/` |
+| `think-before-coding.md` | `rules-evals/think-before-coding/` |
+| `pr-validation.md` | `rules-evals/pr-validation/` |
+| `disagreement.md` | `rules-evals/disagreement/` |
+| `memory-discipline.md` | `rules-evals/memory-discipline/` |
+| `execution-mode.md` | **GAP — no discriminating eval at this rule's boundary; tracked in #361** |
+
+Soft rules (`tdd-pragmatic.md`, `verification.md`) are not required by
+[ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md)
+to ship discriminating signal — `verification/` exists as bonus coverage,
+not as a policy requirement.
 
 ## Why a sibling root rather than `skills/`
 
