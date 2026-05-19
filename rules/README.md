@@ -61,6 +61,11 @@ points to the wrong target.
 `validate.fish` (top-level) is the consolidated structural + concept
 validator. Phases relevant to rules:
 
+- **1a. Skill frontmatter** — fails on missing `skills/<slug>/SKILL.md`, missing required field (`name:`, `description:`), or `name:` ≠ dir slug. Lineage: PR #147.
+- **1b. Rule frontmatter** — fails on missing `---` delimiter or `description:` field in `rules/*.md`. Lineage: commit 5c470b0 (no PR ref).
+- **1c. Agent frontmatter** — fails on missing required YAML field (`description:`, `tools:`) in `agents/*.md`. Lineage: commit 5c470b0 (no PR ref).
+- **1d. Pipeline cross-references** — fails when rule/skill `/skill-name` or `/agent-name` reference has no matching dir/file on disk. Lineage: commit 5c470b0 (no PR ref).
+- **1e. Symlink verification** — fails when any managed entry (rules/, agents/, commands/, hooks/, CLAUDE.md, skills/) is missing/stale/non-symlink in `~/.claude/`. Generalized to uniformly cover `commands/`+`hooks/`: PR #198.
 - **1f. Rules anchor labels** — fails if `rules/planning.md` loses one
   of the labeled blocks that other rules delegate to (Skip contract,
   Pressure-framing floor, Emission contract, Architectural invariant,
@@ -80,6 +85,8 @@ validator. Phases relevant to rules:
   blast-radius words) — see `hooks/scope-tier-memory-check.sh` for
   the canonical home. Regression coverage:
   `tests/validate-phase-1g.test.ts` (migrated from fish per ADR #0012).
+- **1h. Hook ↔ user docs consistency** — fails when non-test `hooks/*.sh` script is undocumented in `README.md` or `docs/*.md`. Lineage: PR #179 (issue #175).
+- **1i. Dangling hook permissions** (warn-only) — warns when `.claude/settings.json` Bash permission references hook script no longer present under `hooks/`. Warn-only because absolute paths may be valid on other machines. Lineage: PR #179.
 - **1j. Stable anchor presence** — fails if `planning.md` loses an
   explicit `<a id="…">` anchor that dependent rules deep-link to.
   Currently guards `#trivial-tier-criteria`, `#skip-contract`,
@@ -87,6 +94,7 @@ validator. Phases relevant to rules:
   `#architectural-invariant`, and `#emergency-bypass-sentinel`; add
   to the registry when promoting another rule construct to a citable
   anchor.
+- **1k. Anchor-link target resolution** — fails when cross-rule `[text](other.md#anchor-id)` link in `rules/*.md` targets an undefined anchor. Generalized from planning.md-only to all rule-to-rule refs: PR #282 (issue #276). Regression coverage: `tests/validate-phase-1k.test.ts`.
 - **1l. Delegate-link presence** — fails if a rule registered as
   delegating to a `planning.md` anchor loses the `planning.md#<id>`
   link. Currently guards 15 (rule, anchor) pairs covering
