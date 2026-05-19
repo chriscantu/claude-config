@@ -997,28 +997,55 @@ else
         set -a disk_suites (basename $d)
     end
 
-    set -l listed_suites
-    for line in (grep -E '^- `[a-z0-9][a-z0-9_-]*/`' $rules_evals_readme)
-        set -l slug (echo $line | sed -E 's/^- `([^`/]+)\/`.*/\1/')
-        set -a listed_suites $slug
-    end
+    # Structural rot guard: README must retain the "Current suites:" header
+    # the bullet inventory hangs off. Without this, a README that lost the
+    # header AND has zero on-disk subdirs would silently pass the
+    # bidirectional check (both lists empty → match). Mirrors the test-plan
+    # locator contract in rules/pr-validation.md.
+    set -l header_check (grep -cE '^Current suites:\s*$' $rules_evals_readme)
+    set -l header_grep_status $status
+    if test $header_grep_status -ge 2
+        fail "rules-evals/README.md: grep returned error status $header_grep_status while checking 'Current suites:' header (I/O error, permission denied, or signal)"
+    else if test "$header_check" -eq 0
+        fail "rules-evals/README.md missing 'Current suites:' header (structural rot — bullets must hang off this header)"
+    else
+        # Extract suite slugs from bullets shaped `- \`<slug>/\` — ...`.
+        # Capture grep status separately so I/O errors (status ≥ 2) surface
+        # as a distinct fail rather than collapsing to "zero bullets" — that
+        # collapse would mask the real cause and emit N misleading
+        # "missing from README" errors. Mirrors Phase 1n error-status
+        # hardening at line 901.
+        set -l bullet_lines (grep -E '^- `[a-z0-9][a-z0-9_-]*/`' $rules_evals_readme)
+        set -l bullet_grep_status $status
+        if test $bullet_grep_status -ge 2
+            fail "rules-evals/README.md: grep returned error status $bullet_grep_status while extracting suite bullets"
+        else
+            set -l listed_suites
+            for line in $bullet_lines
+                set -l slug (echo $line | sed -E 's/^- `([^`/]+)\/`.*/\1/')
+                if test -n "$slug"
+                    set -a listed_suites $slug
+                end
+            end
 
-    set -l mismatch 0
-    for s in $disk_suites
-        if not contains $s $listed_suites
-            fail "rules-evals/$s/ exists on disk but missing from README.md 'Current suites:' list"
-            set mismatch 1
-        end
-    end
-    for s in $listed_suites
-        if not contains $s $disk_suites
-            fail "rules-evals/README.md lists '$s/' but no such directory exists"
-            set mismatch 1
-        end
-    end
+            set -l mismatch 0
+            for s in $disk_suites
+                if not contains $s $listed_suites
+                    fail "rules-evals/$s/ exists on disk but missing from README.md 'Current suites:' list"
+                    set mismatch 1
+                end
+            end
+            for s in $listed_suites
+                if not contains $s $disk_suites
+                    fail "rules-evals/README.md lists '$s/' but no such directory exists"
+                    set mismatch 1
+                end
+            end
 
-    if test $mismatch -eq 0
-        pass "rules-evals/README.md suite list matches on-disk dirs ("(count $disk_suites)" suites)"
+            if test $mismatch -eq 0
+                pass "rules-evals/README.md suite list matches on-disk dirs ("(count $disk_suites)" suites)"
+            end
+        end
     end
 end
 

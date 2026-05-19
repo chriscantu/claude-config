@@ -10,8 +10,11 @@ rules-evals/
         └── evals.json
 ```
 
-<!-- Suite list is enforced by validate.fish Phase 1p: bullets below must match
-     ls rules-evals/ exactly. Add a new bullet whenever you add a suite dir. -->
+<!-- Suite list is enforced by validate.fish Phase 1p: bullets below must
+     match ls rules-evals/ exactly. Add a new bullet whenever you add a
+     suite dir. Bullet format is load-bearing — must be
+     `- \`<lowercase-slug>/\` — ...` exactly; uppercase or non-[a-z0-9_-]
+     chars in the slug are rejected by the strict filter regex. -->
 Current suites:
 
 - `disagreement/` — covers the new-evidence requirement + Hedge-then-Comply
@@ -34,8 +37,8 @@ Current suites:
 ## Coverage map vs HARD-GATE set
 
 The [HARD-GATE cap policy](../rules/README.md#hard-gate-cap) freezes the
-cap-frozen set listed in [`rules/README.md`](../rules/README.md)'s "What
-lives here" table.
+set listed in [`rules/README.md`](../rules/README.md)'s "What lives here"
+table at 8 rules.
 Eval coverage lives in two roots — `skills/<name>/evals/` for gates that
 have a host skill, and `rules-evals/<gate>/evals/` for the rest. The
 pressure-framing floor in `planning.md` is *inherited* by every HARD-GATE,
