@@ -35,7 +35,14 @@ source $repo_dir/bin/lib/symlinks.fish
 # Optional --skill <slug>: validate one skill's structural shape only.
 # Skips Phase 1b/1c/1d/1e and Phase 2 — used by bin/new-skill on freshly
 # scaffolded skills (no symlinks yet, concept coverage not its concern).
+#
+# Optional --log-path <path>: write JSONL phase telemetry; default off.
+# Each phase emits one line {ts, commit, phase, status, duration_ms}.
+# Foundation for Phase 1q retirement-signal monitoring (issue #352).
+# HARNESS_VALIDATE_LOG env var enables default path
+# .claude/state/validate-phase-log.jsonl when --log-path is unset.
 set single_skill ""
+set log_path ""
 set i 1
 while test $i -le (count $argv)
     set arg $argv[$i]
@@ -47,12 +54,26 @@ while test $i -le (count $argv)
                 exit 2
             end
             set single_skill $argv[$i]
+        case --log-path
+            set i (math $i + 1)
+            if test $i -gt (count $argv)
+                echo "ERROR: --log-path requires a path argument" >&2
+                exit 2
+            end
+            set log_path $argv[$i]
         case '*'
             echo "ERROR: unknown argument: $arg" >&2
-            echo "Usage: fish validate.fish [--skill <slug>]" >&2
+            echo "Usage: fish validate.fish [--skill <slug>] [--log-path <path>]" >&2
             exit 2
     end
     set i (math $i + 1)
+end
+
+# Env fallback: HARNESS_VALIDATE_LOG=1 (or any non-empty value) selects the
+# default repo-local log path. --log-path takes precedence. The directory
+# `.claude/state/` is already gitignored.
+if test -z "$log_path"; and set -q HARNESS_VALIDATE_LOG; and test -n "$HARNESS_VALIDATE_LOG"
+    set log_path "$repo_dir/.claude/state/validate-phase-log.jsonl"
 end
 
 function pass
@@ -62,12 +83,56 @@ end
 
 function fail
     set -g fail_count (math $fail_count + 1)
+    set -g _current_phase_failed 1
     echo "  ✗ $argv"
 end
 
 function warn
     set -g warn_count (math $warn_count + 1)
     echo "  ⚠ $argv"
+end
+
+# Phase-log telemetry helpers. Active only when $log_path is non-empty.
+# fail() flips _current_phase_failed; _phase_begin closes the prior phase
+# and resets the flag for the next one; _phase_finalize emits the last
+# phase at end-of-run. Second-precision timing — fish lacks portable
+# millisecond timestamps and Phase 1q's retirement-signal use case
+# doesn't require sub-second resolution.
+set -g _current_phase ""
+set -g _phase_start_s 0
+set -g _current_phase_failed 0
+
+function _emit_phase_log --argument-names phase ph_status duration_ms
+    test -z "$log_path"; and return 0
+    set -l ts (date -u +"%Y-%m-%dT%H:%M:%SZ")
+    set -l commit (git -C $repo_dir rev-parse HEAD 2>/dev/null; or echo "unknown")
+    set -l line "{\"ts\":\"$ts\",\"commit\":\"$commit\",\"phase\":\"$phase\",\"status\":\"$ph_status\",\"duration_ms\":$duration_ms}"
+    mkdir -p (dirname $log_path)
+    echo $line >> $log_path
+end
+
+function _phase_begin --argument-names id
+    if test -n "$_current_phase"
+        set -l ph_status pass
+        test $_current_phase_failed -eq 1; and set ph_status fail
+        set -l dur 0
+        test $_phase_start_s -ne 0; and set dur (math \( (date +%s) - $_phase_start_s \) "* 1000")
+        _emit_phase_log $_current_phase $ph_status $dur
+    end
+    set -g _current_phase $id
+    set -g _phase_start_s (date +%s)
+    set -g _current_phase_failed 0
+end
+
+function _phase_finalize
+    if test -n "$_current_phase"
+        set -l ph_status pass
+        test $_current_phase_failed -eq 1; and set ph_status fail
+        set -l dur 0
+        test $_phase_start_s -ne 0; and set dur (math \( (date +%s) - $_phase_start_s \) "* 1000")
+        _emit_phase_log $_current_phase $ph_status $dur
+        set -g _current_phase ""
+    end
 end
 
 # Helper: check if frontmatter contains a field (searches only between --- delimiters)
@@ -257,6 +322,7 @@ if test -n "$single_skill"
 end
 
 # 1a. Skill frontmatter
+_phase_begin "1a"
 echo "── Skill frontmatter"
 set skill_dirs $repo_dir/skills/*/
 if test (count $skill_dirs) -eq 0; or not test -d "$skill_dirs[1]"
@@ -270,6 +336,7 @@ end
 echo ""
 
 # 1b. Rule frontmatter
+_phase_begin "1b"
 echo "── Rule frontmatter"
 set rule_files $repo_dir/rules/*.md
 if test (count $rule_files) -eq 0; or not test -f "$rule_files[1]"
@@ -303,6 +370,7 @@ end
 echo ""
 
 # 1c. Agent frontmatter
+_phase_begin "1c"
 echo "── Agent frontmatter"
 set agent_files $repo_dir/agents/*.md
 if test (count $agent_files) -eq 0; or not test -f "$agent_files[1]"
@@ -346,6 +414,7 @@ end
 echo ""
 
 # 1d. Pipeline cross-references
+_phase_begin "1d"
 echo "── Pipeline cross-references"
 
 # Extract all skill/agent invocation targets from rules and skills
@@ -372,6 +441,7 @@ echo ""
 # via re-install, latter requires manual resolution). Capture the lib
 # output to a list before iterating so an empty result (e.g. lib early-
 # return on bad args) is loud instead of a silent zero-iteration loop.
+_phase_begin "1e"
 echo "── Symlink verification"
 
 set results (check_symlink_layout $repo_dir $claude_dir)
@@ -405,6 +475,7 @@ echo ""
 # rules/planning.md is the SINGLE anchor for pressure-framing-floor mechanics.
 # Four dependent rules delegate to it by reference. If a labeled block disappears
 # or is reworded, the anchor breaks silently.
+_phase_begin "1f"
 echo "── Rules anchor labels"
 
 set anchor_file "$repo_dir/rules/planning.md"
@@ -454,6 +525,7 @@ echo ""
 # restated — by other rules. "Do not restate" markers are editor hints, not
 # enforcement. This phase greps for canonical strings outside their canonical
 # home and fails if found.
+_phase_begin "1g"
 echo "── Canonical-string drift"
 
 # Registry: <pattern>|<canonical-file-basename>|<human-name>
@@ -530,6 +602,7 @@ echo ""
 # are fragile (em dashes, punctuation, renames break them silently); explicit
 # `<a id="…">` anchors are the load-bearing contract. This phase asserts each
 # registered anchor is still present in its canonical home.
+_phase_begin "1j"
 echo "── Stable anchor presence"
 
 # Registry: <anchor-id>|<canonical-file-basename>|<human-name>
@@ -596,6 +669,7 @@ echo ""
 # Charset for anchor IDs accepts the same set the `<a id>` extractor produces
 # (alnum/underscore/dash), so uppercase or underscore IDs are validated rather
 # than silently skipped.
+_phase_begin "1k"
 echo "── Anchor-link target resolution"
 
 # Cache defined-anchor lookups so a heavily linked target file is grep'd once.
@@ -684,6 +758,7 @@ echo ""
 # from a dependent rule — the HARD-GATE then silently weakens. This phase
 # asserts each registered (rule, anchor) pair still has a live `planning.md#<id>`
 # link in the dependent rule.
+_phase_begin "1l"
 echo "── Delegate-link presence"
 
 # Registry: <rule-basename>|<comma-separated-anchor-ids>
@@ -751,6 +826,7 @@ echo ""
 # Asserts each evals.json discovered by tests/eval-runner-v2.ts conforms to
 # the loadEvalFile contract — a malformed file there is a silent skip at
 # runtime (zero evals discovered, no structural error surfaced).
+_phase_begin "1m"
 echo "── evals.json shape"
 
 # Fish leaves unmatched globs as the literal pattern in `set`; the per-file
@@ -778,6 +854,7 @@ echo ""
 # the omission here. Symlinking happens via bin/link-config.fish; this phase
 # guards the documentation seam. README.md and docs/*.md both count — the
 # README may delegate operator-facing hook docs to docs/operations.md.
+_phase_begin "1h"
 echo "── Hook ↔ user docs consistency"
 
 set readme "$repo_dir/README.md"
@@ -816,6 +893,7 @@ echo ""
 # renamed or removed, those permissions can dangle. Warn so they get cleaned;
 # don't fail because the path is user/machine-specific (e.g., absolute paths
 # from another machine remain valid for that user's setup).
+_phase_begin "1i"
 echo "── Dangling hook permissions (warn-only)"
 
 set proj_settings "$repo_dir/.claude/settings.json"
@@ -854,6 +932,7 @@ echo ""
 #   - each fixture subdir → consumed by eval, OR listed as documented orphan (warn), else fail
 #   - each eval-referenced fixture path → must exist on disk, else fail
 # Issue #234.
+_phase_begin "1n"
 echo "── Fixture ↔ eval integrity"
 
 set fixture_skill_roots $repo_dir/tests/fixtures/*/
@@ -942,6 +1021,7 @@ echo ""
 # structurally sound: the hook script (present + executable + shellcheck-clean),
 # the installer, and the additional_context field in tests/evals-lib.ts which
 # is the eval-substrate contract introduced by issue #332.
+_phase_begin "1o"
 echo "── Phase 1o: scope-tier hook artifacts"
 
 set -l hook_path "$repo_dir/hooks/scope-tier-memory-check.sh"
@@ -982,6 +1062,7 @@ echo ""
 # rules-evals/README.md "Current suites:" list (the rot that motivated
 # issue #361's adjacent README backfill). Bidirectional check: every
 # on-disk dir must have a bullet, every bullet must resolve to a dir.
+_phase_begin "1p"
 echo "── Phase 1p: rules-evals/README.md suite inventory"
 
 set -l rules_evals_dir "$repo_dir/rules-evals"
@@ -1119,6 +1200,8 @@ echo ""
 # ─────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────
+
+_phase_finalize
 
 echo "─────────────────────────────────────────────────"
 echo "Results: $pass_count passed, $fail_count failed, $warn_count warnings"
