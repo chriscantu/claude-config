@@ -13,75 +13,153 @@ Cantu
 * Claude (design partner)
 
 ## Lifecycle
-Steady-state
+POC
 
 ## Status
-Proposed
+Rejected (2026-05-20)
 
 ## Context
 
 `rules/pr-validation.md` is 186 lines / ~8,280 chars / ~2,070 tokens (10% of the rules budget — see baseline at `docs/superpowers/decisions/2026-05-20-token-determinism-baseline.md`). Auto-injected every session via the rules symlink.
 
-Wording analysis identifies four sources of token redundancy without semantic loss:
+The baseline flagged this file as the #5 reduction candidate (~-400 tok estimated) on the grounds of four wording-redundancy claims: overlapping behavior sections, exhaustive trigger enumeration, redundant detection-state rows, and dense cross-rule prose.
 
-1. **`Required Behavior` (lines 82-90) duplicates `Loop Until Verified` (lines 153-165).** Both restate: execute each item, observe pass/fail, mark only confirmed, flag unverifiable items. The two sections cite different aspects (per-item action vs loop semantics) but the operative bullets overlap ~80%.
-2. **`Trigger Surface` speech-act enumeration (lines 32-35) lists 10 specific phrases plus "Any equivalent phrase."** Per the file's own admission ("Speech-act detection is fuzzy by nature"), the catch-all is what carries the load. Compressing to 2-3 categorical buckets (completion-assertion / merge-readiness / shipping-language) plus the "Any equivalent" backstop preserves the trigger semantics and matches the fuzzy detection model.
-3. **`Detection states` table has 6 rows where 4 carry distinct logic.** Rows 1-2 (header present + ≥1 item / + 0 items) are the same path with a count check. Rows 5 (gh unavailable) and 6 (fork without push) are distinct, but row 3 (header absent + prose) collapses into row 2 (no items found = gate fires).
-4. **`Relationship to Other Rules` prose (lines 167-186) is dense restatement of cross-rule semantics already captured by anchored deep-links elsewhere.** The `goal-driven.md` ↔ `pr-validation.md` bracketing relationship is described in three different sentences spanning 4 lines.
+This ADR was proposed to capture that compression candidate as a tracked decision.
 
-The four exits in §Emission contract (lines 143-151), the carve-out mechanical adjudication (lines 99-121), the trigger surface fuzz-tolerance commentary (lines 37-39), and the action-bound trigger list (lines 41-49) are NOT compression candidates — each carries discriminating semantics that the existing eval suite (`rules-evals/pr-validation/`, 12 evals) tests for.
+## Original Proposal (for audit trail)
 
-Forces in tension:
-- **Token budget vs literal-trigger detectability** — the explicit phrase list aids both human readers and eval grep-style assertions; categorical compression risks weakening eval discrimination
-- **Wording compression vs HARD-GATE semantic stability** — every load-bearing claim in this file has shipped through PR review; "obvious overlap" between sections often masks a load-bearing distinction
-- **Existing eval coverage as safety net** — 12 evals at `rules-evals/pr-validation/` test trigger firing, carve-out adjudication, fork-fallback announcement, and emission-contract enforcement. They are the discriminating signal that proves a compression is safe.
+Compress along four axes, each gated by the existing 12-eval `rules-evals/pr-validation/` suite:
 
-This ADR differs from [ADR #0015](./0015-split-rules-readme-governance-from-operations.md) in shape: #0015 was structural relocation (split into two files, change auto-load surface); this is in-file wording compression with no file-count or load-surface change.
+1. **Merge `Required Behavior` + `Loop Until Verified`** — claimed ~80% bullet overlap. Estimated -60 tok.
+2. **Compress `Trigger Surface` speech-act list** — 10 phrases → 3 categories + 2 examples each + backstop. Estimated -80 tok.
+3. **Collapse `Detection states` table 6→4** — claimed rows 1-2 and rows 2-3 collapse. Estimated -70 tok.
+4. **Compress `Relationship to Other Rules` prose** to bullet pointers. Estimated -120 tok.
 
-## Decision
+Total estimated saving: ~330 tok/session (~0.7% of measured baseline).
 
-We will compress `rules/pr-validation.md` along four axes, each gated by the existing `rules-evals/pr-validation/` 12-eval suite:
+## SME Audit (2026-05-20)
 
-1. **Merge `Required Behavior` + `Loop Until Verified` into a single `Required Behavior — execute and loop` section.** Preserve all four bullets from each (execute / observe / mark-only-confirmed / flag-unverifiable + pass-action / fail-action / cannot-verify-action). Eliminate the duplicate framing prose. Estimated −60 tokens.
+User asked for an architect + Anthropic-SME review of the proposal for accuracy, agentic best practices, and efficiency. The audit ran ground-truth checks against the actual eval substrate (`rules-evals/pr-validation/evals/evals.json`, 12 evals) and the actual rule text before promoting the proposal.
 
-2. **Compress `Trigger Surface` speech-act list from 10 explicit phrases to 3 categories + 2 representative examples each.** Preserve the "Any equivalent phrase asserting completion of the PR scope" backstop verbatim. Categories: completion-assertion ("done", "complete"), merge-readiness ("ready to merge", "good to go"), shipping-language ("shipping this"). Estimated −80 tokens.
+**Findings invalidate the proposal at three of four axes.**
 
-3. **Collapse `Detection states` table from 6 rows to 4** by merging "header absent + prose" into "header present + 0 items" (both → gate fires with empty-plan-found semantics). Keep distinct: standard flow, empty plan, no-remote-PR, gh-unavailable hard-fail, fork-without-push. Estimated −70 tokens.
+### Axis 1: Merge Required Behavior + Loop Until Verified
 
-4. **Compress `Relationship to Other Rules` prose** to bullet pointers without re-narrating each relationship. Replace 4-line `verification.md` paragraph with a single bullet citing the no-trust-window rule + a delegate link. Estimated −120 tokens.
+Original claim: ~80% bullet overlap.
 
-**Total estimated saving: ~330 tokens (~16% of file, ~0.7% of measured per-prompt baseline).** Below initial estimate (−400) but conservative — the baseline includes the four compression axes only, not commentary lines that may also trim.
+Ground truth: the two sections carry **distinct load-bearing bullets**:
 
-Pre-merge discriminating eval gate (per ADR #0005):
-- All 12 existing `rules-evals/pr-validation/` evals must pass on the compressed file with no assertion language adjustments. A failure means the compression removed load-bearing semantics; the compression is reverted at that axis and re-scoped.
-- The eval suite's existing RED/GREEN discrimination at trigger-firing, carve-out adjudication, fork-fallback, and emission-contract boundaries IS the safety substrate — no new evals required.
-- Verification command in the implementation PR's test plan: `bun run tests/eval-runner-v2.ts --dry-run pr-validation` for schema, then live N=2 run for behavioral discrimination IF cost-authorized at merge time.
+- `Required Behavior` — per-item action: execute / observe / mark-only-confirmed / flag-unverifiable
+- `Loop Until Verified` — sequencing: "Fail → diagnose, fix, re-execute the SAME verify, do NOT advance until passes" + "A failed item is not a checkbox to skip — it is a defect to fix"
 
-## Consequences
+The "do NOT advance" and "defect to fix" language is unique to `Loop Until Verified`. Bullet overlap is closer to ~40%, not 80%. A merge that retains both bullet sets nets ~30 tokens (section framing only), not 60.
 
-Positive:
-- **~330 token savings per session** on a HARD-GATE-protected file with existing eval coverage. Lower per-PR token-load reduction than #0015 but lower risk.
-- Compressed sections become easier to scan — the duplicate-overlap between `Required Behavior` and `Loop Until Verified` actively obscures the gate's flow on first read.
-- Categorical trigger list reduces grep-style false-positives (10 specific phrases vs 3 categories with examples narrows the match surface for unintended trigger fires in agent prose).
+**Verdict:** OK with reduced expectations (~30 tok), but ROI worsens.
 
-Negative:
-- **Categorical trigger compression weakens literal-phrase matching for evals or third-party tooling that grep on exact strings.** Existing 12 evals don't appear to do this (they test fired-vs-not-fired behavior, not literal-phrase enumeration), but any future eval that asserts presence of specific trigger phrases would break. Mitigation: keep representative examples in-line so grep paths see them.
-- **Wording compression cannot be reversed cheaply** — once merged, distinguishing original from rewritten requires git blame archaeology. Documentation drift over multiple compression rounds is a known failure mode.
-- **`Relationship to Other Rules` prose loss removes context for new contributors** who don't yet know what bracketing means. Mitigation: keep at least one full sentence per related rule, not just bare bullets.
+### Axis 2: Categorical Trigger Surface compression
 
-Neutral:
-- File line count drops from ~186 to ~155-160. No anchor changes — all `<a id="…">` and section headers preserved. Validator phases 1f, 1j, 1l have no new registrations needed.
-- The carve-out adjudication section (lines 99-121) is intentionally NOT compressed — its load-bearing role in the four-exit gate (per `rules/pr-validation.md` §Emission contract) requires the mechanical-check wording to remain exact.
+Original claim: 10 explicit phrases → 3 categories + examples preserves trigger semantics.
 
-## Implementation gate
+Ground truth: the speech-act list is what the agent reads to **classify its own outgoing speech**. Replacing literal phrases with categorical labels ("merge-readiness", "completion-assertion") forces the agent to do classification work at inference time that literal pattern matching does for free.
 
-Per ADR #0005 and the rules/README.md HARD-GATE cap policy: this ADR cannot be marked Accepted until an implementation PR demonstrates that all 12 evals at `rules-evals/pr-validation/` pass on the compressed file (RED/GREEN equivalence with the current file). If even one eval fails, the corresponding compression axis is reverted, the ADR scope shrinks to the remaining axes, and the gate re-runs.
+Anthropic best practice: specific enumerated triggers outperform categorical labels for instruction-following — categorical labels require inference; enumerations are recall.
 
-Compression PR test plan must explicitly include the `bun run tests/eval-runner-v2.ts pr-validation` invocation as an unchecked item (cost-gated if live N=2 needed).
+Net effect: saves ~80 prompt tokens, costs an unmeasured-but-positive number of inference tokens per gate-fire decision. Possibly net-negative on total token budget.
+
+**Verdict:** REJECT this axis — speculative savings, real inference cost.
+
+### Axis 3: Detection states 6→4 collapse
+
+Original claim: rows 1-2 are "same path with count check" and row 3 collapses into row 2.
+
+Ground truth: **row 3 has distinct required follow-up behavior** — "agent must add structured plan." Row 2 does not prescribe this. Eval `empty-test-plan-fires-gate` (line 113 of evals.json) asserts:
+
+```
+"add (a |the )?(structured |proper )?test plan"
+```
+
+as a required-tier regex. Collapsing rows 2+3 removes the prescription that an agent must add a plan — which is the exact load-bearing distinction the row exists to capture. Demonstrably weakens an existing eval.
+
+**Verdict:** REJECT this axis — collapses a row with eval-asserted unique behavior.
+
+### Axis 4: Relationship to Other Rules compression
+
+Original claim: replace 4-line `verification.md` paragraph with a single bullet.
+
+Ground truth: the paragraph carries the no-trust-window rule + its rationale ("agents lack a reliable turn counter; either show the verify output you're relying on, or re-run"). Bullet form can preserve the rule but typically loses the rationale, which is what helps the model judge edge cases — analog to `memory-discipline.md`'s "Why:" line guidance.
+
+No eval directly tests this paragraph, but rationale erosion is a known long-context failure mode for instruction-following.
+
+**Verdict:** OK with care (~100 tok), but highest information-loss-per-token-saved ratio of the four axes.
+
+### Revised savings table
+
+| Axis | Original Δ | Audited Δ | Verdict |
+|------|------------|-----------|---------|
+| 1. Merge Required/Loop | -60 | -30 | OK |
+| 2. Categorical triggers | -80 | 0 (or net-negative) | REJECT |
+| 3. Detection 6→4 | -70 | -0 (breaks eval) | REJECT |
+| 4. Relationship compress | -120 | -100 | OK with care |
+
+Safe net saving: ~130 tok/session (~0.3% of measured baseline), not the proposed 330.
+
+## Rejection Rationale
+
+### ROI math
+
+130 tok/session × 20 sessions/day × 365 days = 949K tok/year.
+
+At Opus 4.7 input pricing ($15/M tok): **~$14.20/year saved.**
+
+Engineering cost to ship the safe portion:
+- Implementation PR: ~2 hr
+- Live eval re-run for behavioral verification (cost-gated): ~$1-2 API spend, ~30 min wall-clock
+- Per-axis revert risk if any eval edges: up to 2 hr
+
+At any reasonable labor-cost imputation, **break-even is decades, not months.** The compression candidate fails on first-principles ROI before any safety analysis.
+
+### Architectural finding
+
+HARD-GATE files are the **least suitable** compression targets in this repo. Reasoning:
+
+1. Their job is safety substrate; redundancy is reinforcement, not waste — directly analogous to the `per_gate_floor_blocks_substitutable.md` memory note's audit method, which validates *delegation* but does not endorse *compression*.
+2. Long-context "lost in the middle" failure modes make load-bearing safety rules the highest-risk place to thin out language.
+3. The eval substrate at `rules-evals/` greps agent OUTPUT for vocabulary the rule provides. Compressing the rule reduces the agent's vocabulary, which probabilistically reduces eval match rates — even if no eval breaks structurally today.
+4. The original baseline proposal bundled four axes as if they were one decision. Per Karpathy #3 (Surgical Changes), bundling axes with different risk profiles forces all-or-nothing thinking on a per-axis problem.
+
+### Decision
+
+Reject this ADR per Karpathy #2 (Simplicity First) + ADR #0005 discriminating-signal discipline.
+
+The 0.7% (claimed) / 0.3% (audited) per-session token savings does not justify:
+- Engineering cost (decades to break-even)
+- HARD-GATE safety substrate risk
+- Inference-cost increase on Axis 2
+- Eval substrate weakening on Axes 2-3
+
+Keep the proposal documented here as audit trail for future contributors who might re-propose the same compression candidate without running the same ground-truth audit.
+
+### What would reopen this
+
+- Token-load measurement under conditions where prompt-token cost dominates inference-token cost by >10× (e.g., a session pattern that re-loads the rules 100× per output token)
+- A discriminating-eval suite that demonstrates RED/GREEN equivalence at all four axes including the categorical-trigger case
+- A user-level decision to relax HARD-GATE coverage in favor of token budget — out of scope for an architect decision; requires owner decision
+
+## Lessons Learned
+
+For future token-load optimization candidates pulled from the baseline:
+
+1. **Run ground-truth audit before promoting any wording-compression ADR.** Inspect: (a) actual rule text for the claimed redundancy, (b) actual eval assertions for the affected sections, (c) ROI math at realistic session-volume + pricing assumptions.
+2. **Decompose by axis.** Each compression axis is a separate decision with its own risk profile; bundle by ROI tier, not by file.
+3. **HARD-GATE files are the LAST place to compress.** Target order should be: transient context (tool results) → low-frequency docs → structural relocation (per #0015 shape) → wording compression of HARD-GATE rules (last, if ever).
+4. **Categorical vs enumerated is not free.** Categories save prompt tokens but cost inference tokens; net effect depends on session shape and is rarely worth measuring before optimization.
+5. **The baseline's #3 (skill enumeration) and #4 (auto-memory) savings are upstream-blocked but are also where the real token-load opportunity lives** (~7,500 + ~500 tok/session, vs ~330 here). File upstream feedback issues instead of chasing local-controllable scraps.
 
 ## References
 
 - Baseline that produced this candidate: `docs/superpowers/decisions/2026-05-20-token-determinism-baseline.md` (top-5 reduction candidate #5)
-- ADR #0005 (discriminating-signal requirement)
-- ADR #0015 (split rules/README.md — analogous shape, different mechanism)
-- Existing eval substrate: `rules-evals/pr-validation/evals/evals.json` (12 evals)
+- [ADR #0005](./0005-behavioral-adr-promotion-requires-discriminating-signal.md) — discriminating-signal requirement
+- [ADR #0006](./0006-systems-analysis-pressure-framing-floor.md) — rejection pattern + Karpathy-#2 discipline
+- [ADR #0015](./0015-split-rules-readme-governance-from-operations.md) — analogous baseline candidate, accepted as structural relocation rather than wording compression
+- Existing eval substrate: `rules-evals/pr-validation/evals/evals.json` (12 evals — inspected during SME audit)
+- Memory note: `per_gate_floor_blocks_substitutable.md` (audit method for cross-gate substitutability — distinct from wording compression)
