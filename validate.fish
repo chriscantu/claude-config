@@ -975,6 +975,82 @@ end
 
 echo ""
 
+# ── Phase 1p: rules-evals/README.md suite inventory
+#
+# Phase 1p closes the silent-failure mode where a new suite under
+# rules-evals/<name>/ ships without a corresponding bullet in
+# rules-evals/README.md "Current suites:" list (the rot that motivated
+# issue #361's adjacent README backfill). Bidirectional check: every
+# on-disk dir must have a bullet, every bullet must resolve to a dir.
+echo "── Phase 1p: rules-evals/README.md suite inventory"
+
+set -l rules_evals_dir "$repo_dir/rules-evals"
+set -l rules_evals_readme "$rules_evals_dir/README.md"
+
+if not test -d $rules_evals_dir
+    pass "no rules-evals/ directory — Phase 1p has nothing to validate"
+else if not test -f $rules_evals_readme
+    fail "rules-evals/ exists but README.md missing"
+else
+    set -l disk_suites
+    for d in $rules_evals_dir/*/
+        set -a disk_suites (basename $d)
+    end
+
+    # Structural rot guard: README must retain the "Current suites:" header
+    # the bullet inventory hangs off. Without this, a README that lost the
+    # header AND has zero on-disk subdirs would silently pass the
+    # bidirectional check (both lists empty → match). Mirrors the test-plan
+    # locator contract in rules/pr-validation.md.
+    set -l header_check (grep -cE '^Current suites:\s*$' $rules_evals_readme)
+    set -l header_grep_status $status
+    if test $header_grep_status -ge 2
+        fail "rules-evals/README.md: grep returned error status $header_grep_status while checking 'Current suites:' header (I/O error, permission denied, or signal)"
+    else if test "$header_check" -eq 0
+        fail "rules-evals/README.md missing 'Current suites:' header (structural rot — bullets must hang off this header)"
+    else
+        # Extract suite slugs from bullets shaped `- \`<slug>/\` — ...`.
+        # Capture grep status separately so I/O errors (status ≥ 2) surface
+        # as a distinct fail rather than collapsing to "zero bullets" — that
+        # collapse would mask the real cause and emit N misleading
+        # "missing from README" errors. Mirrors Phase 1n error-status
+        # hardening at line 901.
+        set -l bullet_lines (grep -E '^- `[a-z0-9][a-z0-9_-]*/`' $rules_evals_readme)
+        set -l bullet_grep_status $status
+        if test $bullet_grep_status -ge 2
+            fail "rules-evals/README.md: grep returned error status $bullet_grep_status while extracting suite bullets"
+        else
+            set -l listed_suites
+            for line in $bullet_lines
+                set -l slug (echo $line | sed -E 's/^- `([^`/]+)\/`.*/\1/')
+                if test -n "$slug"
+                    set -a listed_suites $slug
+                end
+            end
+
+            set -l mismatch 0
+            for s in $disk_suites
+                if not contains $s $listed_suites
+                    fail "rules-evals/$s/ exists on disk but missing from README.md 'Current suites:' list"
+                    set mismatch 1
+                end
+            end
+            for s in $listed_suites
+                if not contains $s $disk_suites
+                    fail "rules-evals/README.md lists '$s/' but no such directory exists"
+                    set mismatch 1
+                end
+            end
+
+            if test $mismatch -eq 0
+                pass "rules-evals/README.md suite list matches on-disk dirs ("(count $disk_suites)" suites)"
+            end
+        end
+    end
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
