@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
-import { createTeardownTracker, runPool } from "./evals-lib.ts";
+import { createTeardownTracker, runLifecycleAsync, runPool } from "./evals-lib.ts";
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 
@@ -181,5 +181,51 @@ describe("runPool + createTeardownTracker integration", () => {
     const drained: string[] = [];
     t.drain((cmd) => drained.push(cmd));
     expect(drained).toEqual([shared]);
+  });
+});
+
+describe("runLifecycleAsync teardown-error ordering", () => {
+  test("teardown-error message is appended to out buffer AFTER work's log lines", async () => {
+    const out: string[] = [];
+    const result = await runLifecycleAsync({
+      teardown: "rm /tmp/will-fail",
+      work: async () => {
+        out.push("transcript line 1");
+        out.push("transcript line 2");
+        return "work-result";
+      },
+      exec: (cmd) => {
+        if (cmd === "rm /tmp/will-fail") throw new Error("teardown blew up");
+      },
+      onTeardownError: (msg) => out.push(`teardown failed: ${msg}`),
+    });
+
+    expect(result).toEqual({ kind: "ok", value: "work-result" });
+    expect(out).toEqual([
+      "transcript line 1",
+      "transcript line 2",
+      "teardown failed: teardown blew up",
+    ]);
+  });
+
+  test("teardown-error fires even when work throws, and lands after any work-side pushes", async () => {
+    const out: string[] = [];
+    const work = runLifecycleAsync({
+      teardown: "rm /tmp/will-fail",
+      work: async () => {
+        out.push("partial transcript before throw");
+        throw new Error("work failed");
+      },
+      exec: (cmd) => {
+        if (cmd === "rm /tmp/will-fail") throw new Error("teardown blew up");
+      },
+      onTeardownError: (msg) => out.push(`teardown failed: ${msg}`),
+    });
+
+    await expect(work).rejects.toThrow("work failed");
+    expect(out).toEqual([
+      "partial transcript before throw",
+      "teardown failed: teardown blew up",
+    ]);
   });
 });

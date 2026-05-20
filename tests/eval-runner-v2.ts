@@ -103,8 +103,15 @@ function parseConcurrencyFlag(input: readonly string[]): { concurrency: number; 
     rest.push(a);
   }
   if (!consumed && process.env.EVAL_CONCURRENCY) {
-    const n = Number.parseInt(process.env.EVAL_CONCURRENCY, 10);
-    if (Number.isFinite(n) && n >= 1) concurrency = n;
+    const raw = process.env.EVAL_CONCURRENCY;
+    const n = Number.parseInt(raw, 10);
+    if (Number.isFinite(n) && n >= 1) {
+      concurrency = n;
+    } else {
+      console.warn(
+        `[eval-runner] ignoring invalid EVAL_CONCURRENCY=${JSON.stringify(raw)} (must be integer >= 1); using default ${concurrency}`,
+      );
+    }
   }
   return { concurrency, rest };
 }
