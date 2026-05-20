@@ -1340,3 +1340,116 @@ export function runLifecycle<T>(opts: {
     }
   }
 }
+
+/**
+ * Refcounted tracker for pending teardown commands. Under concurrent eval
+ * execution, two evals may share the same teardown string; a plain Set
+ * would let one eval's normal-path teardown unregister the other's
+ * pending state, so a SIGINT firing between the two leaves the second
+ * eval's cleanup invisible to the drain path. The refcount keeps the
+ * entry alive until ALL bumping evals have drained.
+ *
+ * Drain runs each unique cmd ONCE — teardowns are idempotent cleanup
+ * commands (rm -f, file removal), not counted resources. The refcount
+ * tracks visibility, not execution multiplicity.
+ */
+export interface TeardownTracker {
+  readonly add: (cmd: string) => void;
+  readonly drop: (cmd: string) => void;
+  readonly drain: (exec: (cmd: string) => void, onError?: (cmd: string, msg: string) => void) => void;
+  /** Snapshot of {cmd: count}. Test-only — production code should not depend on internal state. */
+  readonly snapshot: () => ReadonlyMap<string, number>;
+}
+
+export function createTeardownTracker(): TeardownTracker {
+  const counts = new Map<string, number>();
+  return {
+    add: (cmd) => {
+      counts.set(cmd, (counts.get(cmd) ?? 0) + 1);
+    },
+    drop: (cmd) => {
+      const c = counts.get(cmd);
+      if (c === undefined) return;
+      if (c <= 1) counts.delete(cmd);
+      else counts.set(cmd, c - 1);
+    },
+    drain: (exec, onError) => {
+      for (const cmd of counts.keys()) {
+        try {
+          exec(cmd);
+        } catch (err) {
+          const msg = err instanceof Error ? err.message : String(err);
+          onError?.(cmd, msg);
+        }
+      }
+      counts.clear();
+    },
+    snapshot: () => new Map(counts),
+  };
+}
+
+/**
+ * Run `worker(item)` over `items` with at most `n` in flight. Results land
+ * in original index order so output remains deterministic regardless of
+ * which item completed first. Stateless across calls.
+ *
+ * Why index-preserving: deterministic transcript ordering matters for
+ * regression diffing (--concurrency=1 vs --concurrency=4 should produce
+ * byte-identical summary lines).
+ */
+export async function runPool<T, R>(
+  items: readonly T[],
+  n: number,
+  worker: (t: T, idx: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const width = Math.max(1, Math.min(n, items.length));
+  const results: R[] = new Array(items.length);
+  let next = 0;
+  const drivers = Array.from({ length: width }, async () => {
+    while (true) {
+      const idx = next++;
+      if (idx >= items.length) return;
+      results[idx] = await worker(items[idx], idx);
+    }
+  });
+  await Promise.all(drivers);
+  return results;
+}
+
+/**
+ * Async twin of `runLifecycle`. Same contract — setup is atomic and short-
+ * circuits on failure; teardown fires in finally after work resolves or
+ * throws; teardown failures are reported via `onTeardownError` and
+ * swallowed. Difference: `work` returns a Promise and is awaited inside
+ * the try, so teardown runs AFTER the promise settles, not after it's
+ * created.
+ */
+export async function runLifecycleAsync<T>(opts: {
+  setup?: string;
+  teardown?: string;
+  work: () => Promise<T>;
+  exec: (cmd: string) => void;
+  onTeardownError?: (msg: string) => void;
+}): Promise<LifecycleResult<T>> {
+  if (opts.setup) {
+    try {
+      opts.exec(opts.setup);
+    } catch (err) {
+      return { kind: "setup_failed", error: err instanceof Error ? err : new Error(String(err)) };
+    }
+  }
+  try {
+    const value = await opts.work();
+    return { kind: "ok", value };
+  } finally {
+    if (opts.teardown) {
+      try {
+        opts.exec(opts.teardown);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        opts.onTeardownError?.(msg);
+      }
+    }
+  }
+}

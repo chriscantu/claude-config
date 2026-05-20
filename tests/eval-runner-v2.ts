@@ -23,7 +23,7 @@
  * coexist during side-by-side comparison.
  */
 
-import { execSync, spawnSync } from "node:child_process";
+import { execSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
@@ -38,6 +38,7 @@ import {
   type ValidatedScratchDecoy,
   ScratchDecoySeedError,
   aggregateChainSignals,
+  createTeardownTracker,
   discoverSkills,
   evaluate,
   evaluateChain,
@@ -49,6 +50,8 @@ import {
   metaCheck,
   parseStreamJson,
   runLifecycle,
+  runLifecycleAsync,
+  runPool,
   seedScratchDecoy,
   suiteExit,
   tallyEval,
@@ -64,7 +67,50 @@ const claudeBin = process.env.CLAUDE_BIN ?? "claude";
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
 const textNonblocking = args.includes("--text-nonblocking") || process.env.EVAL_TEXT_NONBLOCKING === "1";
-const skillFilter = args.find((a) => !a.startsWith("--"));
+
+/**
+ * Parse `--concurrency N` or `--concurrency=N`. Returns the parsed value
+ * (default 1) and a residual arg list with both the flag and its value
+ * stripped, so downstream consumers (skillFilter detection) don't pick
+ * up the bare number as a positional.
+ */
+function parseConcurrencyFlag(input: readonly string[]): { concurrency: number; rest: string[] } {
+  const rest: string[] = [];
+  let concurrency = 1;
+  let consumed = false;
+  for (let i = 0; i < input.length; i++) {
+    const a = input[i];
+    if (a.startsWith("--concurrency=")) {
+      const n = Number.parseInt(a.slice("--concurrency=".length), 10);
+      if (!Number.isFinite(n) || n < 1) {
+        throw new Error(`invalid --concurrency value: ${a}`);
+      }
+      concurrency = n;
+      consumed = true;
+      continue;
+    }
+    if (a === "--concurrency") {
+      const v = input[i + 1];
+      const n = Number.parseInt(v ?? "", 10);
+      if (!Number.isFinite(n) || n < 1) {
+        throw new Error(`invalid --concurrency value: ${v ?? "(missing)"}`);
+      }
+      concurrency = n;
+      i++; // skip the value
+      consumed = true;
+      continue;
+    }
+    rest.push(a);
+  }
+  if (!consumed && process.env.EVAL_CONCURRENCY) {
+    const n = Number.parseInt(process.env.EVAL_CONCURRENCY, 10);
+    if (Number.isFinite(n) && n >= 1) concurrency = n;
+  }
+  return { concurrency, rest };
+}
+
+const { concurrency, rest: argsAfterConcurrency } = parseConcurrencyFlag(args);
+const skillFilter = argsAfterConcurrency.find((a) => !a.startsWith("--"));
 
 /**
  * `exitCode` is null when the process was killed by signal or never started
@@ -83,6 +129,23 @@ interface ChainRun {
   readonly sessionId: string | null;
   /** Set when the chain could not proceed — e.g. turn 1 failed or yielded no session_id. */
   readonly chainFailure?: string;
+}
+
+/**
+ * Per-eval outcome returned by `runSingleTurnEval` / `runMultiTurnEval`.
+ *
+ * Replaces the old pattern where each eval mutated shared `tallies`,
+ * `allDecisions`, and counters mid-loop. Concurrent evals must not race
+ * on those counters — collect locally, reduce after.
+ *
+ * `logLines` carries the per-eval console output as buffered strings so
+ * the main loop can flush each eval's block atomically. Under
+ * --concurrency N, this prevents interleaved stdout from racing evals.
+ */
+interface EvalResult {
+  readonly tally: EvalTally;
+  readonly decisions: readonly MetaDecision[];
+  readonly logLines: readonly string[];
 }
 
 const TURN_TIMEOUT_MS = 5 * 60 * 1000;
@@ -139,6 +202,89 @@ function spawnClaudeCli(args: readonly string[], prompt: string, cwd: string): C
 }
 
 /**
+ * Async twin of `spawnClaudeCli` — same CliRun shape, same timeout/signal
+ * classification, but non-blocking. Enables concurrent eval execution via
+ * `--concurrency N` without the spawnSync barrier.
+ *
+ * Manual maxBuffer enforcement: node's `spawn` (unlike `spawnSync`) does NOT
+ * cap stdout/stderr. Without the cap, a runaway claude process could OOM the
+ * runner. Match spawnSync's 64MB ceiling and classify overflow as a failure.
+ */
+const MAX_BUFFER_BYTES = 64 * 1024 * 1024;
+
+function spawnClaudeCliAsync(args: readonly string[], prompt: string, cwd: string): Promise<CliRun> {
+  return new Promise((resolve) => {
+    const child = spawn(claudeBin, [...args], { cwd, stdio: ["pipe", "pipe", "pipe"] });
+
+    const stdoutChunks: Buffer[] = [];
+    const stderrChunks: Buffer[] = [];
+    let stdoutBytes = 0;
+    let stderrBytes = 0;
+    let overflow = false;
+    let timedOut = false;
+    let spawnError: NodeJS.ErrnoException | null = null;
+    let settled = false;
+
+    const timer = setTimeout(() => {
+      timedOut = true;
+      child.kill("SIGTERM");
+    }, TURN_TIMEOUT_MS);
+
+    const finish = (exitCode: number | null, signal: NodeJS.Signals | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      const stdout = Buffer.concat(stdoutChunks).toString("utf8");
+      const stderr = Buffer.concat(stderrChunks).toString("utf8");
+      let failure: string | undefined;
+      if (spawnError) {
+        failure = `spawn error: ${spawnError.code ?? ""} ${spawnError.message}`.trim();
+      } else if (overflow) {
+        failure = `stdout/stderr exceeded ${MAX_BUFFER_BYTES}-byte cap`;
+      } else if (timedOut) {
+        failure = `timed out after ${TURN_TIMEOUT_MS / 1000}s (SIGTERM)`;
+      } else if (signal) {
+        failure = `killed by signal ${signal}`;
+      } else if (exitCode === null) {
+        failure = "process exited without status (no signal, no error)";
+      }
+      resolve({ stdout, stderr, exitCode, failure });
+    };
+
+    child.stdout?.on("data", (chunk: Buffer) => {
+      stdoutBytes += chunk.length;
+      if (stdoutBytes > MAX_BUFFER_BYTES) {
+        overflow = true;
+        child.kill("SIGTERM");
+        return;
+      }
+      stdoutChunks.push(chunk);
+    });
+    child.stderr?.on("data", (chunk: Buffer) => {
+      stderrBytes += chunk.length;
+      if (stderrBytes > MAX_BUFFER_BYTES) {
+        overflow = true;
+        child.kill("SIGTERM");
+        return;
+      }
+      stderrChunks.push(chunk);
+    });
+    child.on("error", (err) => {
+      spawnError = err as NodeJS.ErrnoException;
+      finish(null, null);
+    });
+    child.on("close", (code, signal) => {
+      finish(code, signal);
+    });
+
+    // Write prompt to stdin. EPIPE on broken pipe (child exited early) is
+    // expected — swallow it; the 'close' handler will produce the failure.
+    child.stdin?.on("error", () => {});
+    child.stdin?.end(prompt);
+  });
+}
+
+/**
  * Spawn a single fresh `claude --print` turn in an isolated scratch cwd.
  * Used for single-turn evals and as turn 1 of a multi-turn chain.
  *
@@ -153,7 +299,7 @@ function spawnClaudeCli(args: readonly string[], prompt: string, cwd: string): C
  * relPath + errno — claude is NOT spawned. This matches the runner's
  * existing fail-fast posture for substrate failures.
  */
-function runClaude(prompt: string, cwd?: string, decoy?: ValidatedScratchDecoy): CliRun {
+async function runClaude(prompt: string, cwd?: string, decoy?: ValidatedScratchDecoy): Promise<CliRun> {
   const ownCwd = cwd ?? mkdtempSync(join(tmpdir(), "claude-eval-"));
   try {
     try {
@@ -168,7 +314,7 @@ function runClaude(prompt: string, cwd?: string, decoy?: ValidatedScratchDecoy):
         : `decoy seed failed: ${(err as Error).message}`;
       return { stdout: "", stderr: "", exitCode: null, failure: msg };
     }
-    return spawnClaudeCli(CLI_BASE_ARGS, prompt, ownCwd);
+    return await spawnClaudeCliAsync(CLI_BASE_ARGS, prompt, ownCwd);
   } finally {
     if (!cwd) {
       try {
@@ -191,7 +337,7 @@ function runClaude(prompt: string, cwd?: string, decoy?: ValidatedScratchDecoy):
  * Each turn has its own 5-minute timeout; a 3-turn chain therefore caps at 15
  * minutes of wall time.
  */
-function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedScratchDecoy): ChainRun {
+async function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedScratchDecoy): Promise<ChainRun> {
   if (turnPrompts.length === 0) {
     return { turns: [], sessionId: null, chainFailure: "chain has zero turns" };
   }
@@ -207,7 +353,7 @@ function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedScratch
     // which only restores conversation state). If seeding throws,
     // runClaude returns a structured CliRun.failure that becomes
     // `chainFailure: "turn 1 failed: decoy seed failed for ..."` below.
-    const t1 = runClaude(turnPrompts[0], scratchDir, decoy);
+    const t1 = await runClaude(turnPrompts[0], scratchDir, decoy);
     runs.push(t1);
     if (t1.failure || t1.exitCode !== 0) {
       chainFailure = `turn 1 failed: ${formatRunFailure(t1.failure, t1.exitCode, t1.stdout, t1.stderr, { prefix: "raw" })}`;
@@ -222,7 +368,7 @@ function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedScratch
 
     // Turns 2..N: resume
     for (let i = 1; i < turnPrompts.length; i++) {
-      const turnRun = spawnClaudeCli(
+      const turnRun = await spawnClaudeCliAsync(
         ["--resume", sessionId, ...CLI_BASE_ARGS],
         turnPrompts[i],
         scratchDir,
@@ -311,6 +457,29 @@ const red = (s: string) => colour(s, "31");
 const yellow = (s: string) => colour(s, "33");
 const dim = (s: string) => colour(s, "2");
 const bold = (s: string) => colour(s, "1");
+
+/**
+ * Buffered twin of `renderDecisions`. Returns lines instead of calling
+ * console.log so concurrent evals can capture their output and flush as
+ * an atomic block.
+ */
+function formatDecisions(decisions: readonly MetaDecision[], turnLabel: string | null): string[] {
+  const out: string[] = [];
+  for (const d of decisions) {
+    const prefix = turnLabel ? `${turnLabel}: ` : "";
+    const tierSuffix = d.tier === "diagnostic" ? dim(" [diagnostic]") : "";
+    if (d.kind === "pass") {
+      out.push(`    ${green("✓")} ${prefix}${d.description}${tierSuffix}`);
+    } else if (d.kind === "silent_fire") {
+      out.push(`    ${red("SILENT-FIRE FAILURE")} ${prefix}${d.description}${tierSuffix}`);
+      out.push(`        ${dim(d.detail)}`);
+    } else {
+      out.push(`    ${red("✗")} ${prefix}${d.description}${tierSuffix}`);
+      out.push(`        ${dim(d.detail)}`);
+    }
+  }
+  return out;
+}
 
 function renderDecisions(decisions: readonly MetaDecision[], turnLabel: string | null): void {
   for (const d of decisions) {
@@ -643,20 +812,15 @@ async function main() {
   // a SIGINT (Ctrl-C) or SIGTERM during a long claude spawn skips finally
   // blocks entirely — leaving e.g. ~/.claude/DISABLE_PRESSURE_FLOOR on disk
   // and silently bypassing the pressure-framing floor in subsequent
-  // sessions. We register each eval's teardown command in this Set before
-  // running it and clear it after; the signal/exit handlers drain whatever
-  // remains.
-  const pendingTeardowns = new Set<string>();
-  const drainTeardowns = () => {
-    for (const cmd of pendingTeardowns) {
-      try {
-        execSync(cmd, { stdio: "inherit" });
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        console.error(dim(`      safety-net teardown failed (${cmd}): ${msg}`));
-      }
-    }
-    pendingTeardowns.clear();
+  // sessions. Each eval's teardown command is registered here before
+  // running and dropped after; the signal/exit handlers drain whatever
+  // remains. See createTeardownTracker for the refcount rationale.
+  const pendingTeardowns = createTeardownTracker();
+  const drainTeardowns = (): void => {
+    pendingTeardowns.drain(
+      (cmd) => execSync(cmd, { stdio: "inherit" }),
+      (cmd, msg) => console.error(dim(`      safety-net teardown failed (${cmd}): ${msg}`)),
+    );
   };
   const onSignal = (signal: NodeJS.Signals) => {
     console.error(dim(`\n[eval-runner] received ${signal} — running pending teardowns`));
@@ -686,113 +850,115 @@ async function main() {
   // Shared helpers captured by the two branches below so the report counters
   // and transcript paths come from one place.
 
-  function runSingleTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "single" }>): void {
+  async function runSingleTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "single" }>): Promise<EvalResult> {
     const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-${timestamp}.md`);
+    const out: string[] = [`  ${bold("▸")} ${e.name}${e.summary ? dim(" — " + e.summary) : ""}`];
+    const failedResult = (): EvalResult => ({
+      tally: { evalPassed: false, assertionCount: e.assertions.length, passedAssertionCount: 0, silentFireCount: 0 },
+      decisions: [],
+      logLines: out,
+    });
 
     if (e.teardown) pendingTeardowns.add(e.teardown);
-    const lifecycle = runLifecycle<void>({
+    let workResult: EvalResult | null = null;
+    const lifecycle = await runLifecycleAsync<void>({
       setup: e.setup,
       teardown: e.teardown,
       exec: (cmd) => {
         execSync(cmd, { stdio: "inherit" });
-        // Teardown just ran cleanly — drop it from the safety net so a
-        // later signal doesn't re-run it. (setup also flows through here;
-        // dropping a setup cmd is a no-op since we only `add` teardowns.)
-        if (cmd === e.teardown) pendingTeardowns.delete(cmd);
+        // Teardown just ran cleanly — drop its refcount so the safety
+        // net no longer treats this eval's cleanup as pending. (Setup
+        // also flows through here; dropping a setup cmd is a no-op
+        // since refcounts are only bumped for teardowns.)
+        if (cmd === e.teardown) pendingTeardowns.drop(cmd);
       },
       onTeardownError: (msg) =>
-        console.log(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`)),
-      work: () => {
-    const { stdout, stderr, exitCode, failure } = runClaude(buildPrompt(e), undefined, e.scratch_decoy);
+        out.push(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`)),
+      work: async () => {
+        const { stdout, stderr, exitCode, failure } = await runClaude(buildPrompt(e), undefined, e.scratch_decoy);
 
-    if (failure || exitCode !== 0) {
-      totalAssertions += e.assertions.length;
-      const reason = formatRunFailure(failure, exitCode, stdout, stderr, { prefix: "exit" });
-      console.log(`    ${red("✗")} ${reason}`);
-      writeTranscript({
-        path: transcriptFile,
-        skillName,
-        evalName: e.name,
-        prompt: e.prompt,
-        signals: null,
-        rawStdout: stdout,
-        rawStderr: stderr,
-        exitCode,
-        failure: reason,
-        unevaluatedAssertions: e.assertions,
-      });
-      console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
-      tallies.push({ evalPassed: false, assertionCount: e.assertions.length, passedAssertionCount: 0, silentFireCount: 0 });
-      return;
-    }
+        if (failure || exitCode !== 0) {
+          const reason = formatRunFailure(failure, exitCode, stdout, stderr, { prefix: "exit" });
+          out.push(`    ${red("✗")} ${reason}`);
+          writeTranscript({
+            path: transcriptFile,
+            skillName,
+            evalName: e.name,
+            prompt: e.prompt,
+            signals: null,
+            rawStdout: stdout,
+            rawStderr: stderr,
+            exitCode,
+            failure: reason,
+            unevaluatedAssertions: e.assertions,
+          });
+          out.push(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+          workResult = failedResult();
+          return;
+        }
 
-    const { events, skipped } = parseStreamJson(stdout);
+        const { events, skipped } = parseStreamJson(stdout);
 
-    // Exit 0 with no parseable events means the CLI returned without emitting
-    // the structured stream we rely on. Without this gate, every negative
-    // assertion (not_contains / not_regex / not_skill_invoked) would trivially
-    // pass against an empty signal set — a silent regression relative to v1.
-    if (events.length === 0) {
-      totalAssertions += e.assertions.length;
-      const reason = `no parseable stream-json events (exit 0, stdout=${stdout.length}B, skipped=${skipped})`;
-      console.log(`    ${red("✗")} ${reason}`);
-      writeTranscript({
-        path: transcriptFile,
-        skillName,
-        evalName: e.name,
-        prompt: e.prompt,
-        signals: null,
-        rawStdout: stdout,
-        rawStderr: stderr,
-        exitCode,
-        parsedEvents: 0,
-        skippedLines: skipped,
-        failure: reason,
-        unevaluatedAssertions: e.assertions,
-      });
-      console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
-      tallies.push({ evalPassed: false, assertionCount: e.assertions.length, passedAssertionCount: 0, silentFireCount: 0 });
-      return;
-    }
+        // Exit 0 with no parseable events means the CLI returned without emitting
+        // the structured stream we rely on. Without this gate, every negative
+        // assertion (not_contains / not_regex / not_skill_invoked) would trivially
+        // pass against an empty signal set — a silent regression relative to v1.
+        if (events.length === 0) {
+          const reason = `no parseable stream-json events (exit 0, stdout=${stdout.length}B, skipped=${skipped})`;
+          out.push(`    ${red("✗")} ${reason}`);
+          writeTranscript({
+            path: transcriptFile,
+            skillName,
+            evalName: e.name,
+            prompt: e.prompt,
+            signals: null,
+            rawStdout: stdout,
+            rawStderr: stderr,
+            exitCode,
+            parsedEvents: 0,
+            skippedLines: skipped,
+            failure: reason,
+            unevaluatedAssertions: e.assertions,
+          });
+          out.push(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+          workResult = failedResult();
+          return;
+        }
 
-    const signals = extractSignals(events);
+        const signals = extractSignals(events);
 
-    const perTurn: Array<{ assertion: typeof e.assertions[number]; result: ReturnType<typeof evaluate>; signals: Signals | null; turnIndex: number }> = [];
-    for (const a of e.assertions) {
-      perTurn.push({ assertion: a, result: evaluate(a, signals), signals, turnIndex: 0 });
-    }
-    const meta = metaCheck({ perTurn, final: [] });
-    const tally = tallyEval(meta, e.assertions.length);
-    allDecisions.push(...meta.decisions);
+        const perTurn: Array<{ assertion: typeof e.assertions[number]; result: ReturnType<typeof evaluate>; signals: Signals | null; turnIndex: number }> = [];
+        for (const a of e.assertions) {
+          perTurn.push({ assertion: a, result: evaluate(a, signals), signals, turnIndex: 0 });
+        }
+        const meta = metaCheck({ perTurn, final: [] });
+        const tally = tallyEval(meta, e.assertions.length);
 
-    writeTranscript({
-      path: transcriptFile,
-      skillName,
-      evalName: e.name,
-      prompt: e.prompt,
-      signals,
-      rawStdout: stdout,
-      rawStderr: stderr,
-      exitCode,
-      parsedEvents: events.length,
-      skippedLines: skipped,
-      decisions: meta.decisions,
-    });
+        writeTranscript({
+          path: transcriptFile,
+          skillName,
+          evalName: e.name,
+          prompt: e.prompt,
+          signals,
+          rawStdout: stdout,
+          rawStderr: stderr,
+          exitCode,
+          parsedEvents: events.length,
+          skippedLines: skipped,
+          decisions: meta.decisions,
+        });
 
-    renderDecisions(meta.decisions, /* turnLabel */ null);
-    totalAssertions += tally.assertionCount;
-    passedAssertions += tally.passedAssertionCount;
-    if (tally.evalPassed) passedEvals++;
-    if (tally.silentFireCount > 0) {
-      console.log(red(`      ${tally.silentFireCount} SILENT-FIRE FAILURE(S) — required-tier negative assertions trivially passed against empty signals`));
-    }
-    tallies.push(tally);
-    console.log(
-      dim(
-        `      transcript → ${transcriptFile.replace(repoDir + "/", "")}` +
-          ` (events=${events.length} skipped=${skipped} tools=${signals.toolUses.length} skills=${signals.skillInvocations.length})`,
-      ),
-    );
+        out.push(...formatDecisions(meta.decisions, /* turnLabel */ null));
+        if (tally.silentFireCount > 0) {
+          out.push(red(`      ${tally.silentFireCount} SILENT-FIRE FAILURE(S) — required-tier negative assertions trivially passed against empty signals`));
+        }
+        out.push(
+          dim(
+            `      transcript → ${transcriptFile.replace(repoDir + "/", "")}` +
+              ` (events=${events.length} skipped=${skipped} tools=${signals.toolUses.length} skills=${signals.skillInvocations.length})`,
+          ),
+        );
+        workResult = { tally, decisions: meta.decisions, logLines: out };
       },
     });
 
@@ -800,18 +966,19 @@ async function main() {
       // Setup failed — nothing was created, so drop the teardown from the
       // safety net to avoid running it against a clean system (which would
       // produce a spurious "rm: No such file" on abnormal exit).
-      if (e.teardown) pendingTeardowns.delete(e.teardown);
-      console.log(`    ${red("✗")} ${skillName}/${e.name}: setup failed (${e.setup}): ${lifecycle.error.message}`);
-      totalAssertions += e.assertions.length;
-      tallies.push({ evalPassed: false, assertionCount: e.assertions.length, passedAssertionCount: 0, silentFireCount: 0 });
+      if (e.teardown) pendingTeardowns.drop(e.teardown);
+      out.push(`    ${red("✗")} ${skillName}/${e.name}: setup failed (${e.setup}): ${lifecycle.error.message}`);
+      return failedResult();
     }
+    return workResult ?? failedResult();
   }
 
-  function runMultiTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "multi" }>): void {
+  async function runMultiTurnEval(skillName: string, e: Extract<EvalFile["evals"][number], { kind: "multi" }>): Promise<EvalResult> {
     const turns = e.turns;
     const turnPrompts = turns.map((t) => t.prompt);
     const transcriptFile = join(resultsDir, `${skillName}-${e.name}-v2-multiturn-${timestamp}.md`);
-    const { turns: runs, sessionId, chainFailure } = runClaudeChain(turnPrompts, e.scratch_decoy);
+    const out: string[] = [`  ${bold("▸")} ${e.name}${e.summary ? dim(" — " + e.summary) : ""}`];
+    const { turns: runs, sessionId, chainFailure } = await runClaudeChain(turnPrompts, e.scratch_decoy);
 
     // Extract per-turn signals for each completed turn. Missing turns (chain
     // aborted before reaching them) get null signals; their assertions count
@@ -849,12 +1016,13 @@ async function main() {
         chainFailure,
         unevaluatedAssertions: allAssertions,
       });
-      console.log(`    ${red("✗")} ${chainFailure}`);
-      // All assertions still count — mark them failed so the summary is honest.
-      totalAssertions += allAssertions.length;
-      console.log(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
-      tallies.push({ evalPassed: false, assertionCount: allAssertions.length, passedAssertionCount: 0, silentFireCount: 0 });
-      return;
+      out.push(`    ${red("✗")} ${chainFailure}`);
+      out.push(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+      return {
+        tally: { evalPassed: false, assertionCount: allAssertions.length, passedAssertionCount: 0, silentFireCount: 0 },
+        decisions: [],
+        logLines: out,
+      };
     }
 
     const perTurn: Array<{ assertion: (typeof turns)[number]["assertions"][number]; result: ReturnType<typeof evaluate>; signals: Signals | null; turnIndex: number }> = [];
@@ -878,7 +1046,6 @@ async function main() {
 
     const meta = metaCheck({ perTurn, final });
     const tally = tallyEval(meta, allAssertions.length);
-    allDecisions.push(...meta.decisions);
 
     writeChainTranscript({
       path: transcriptFile,
@@ -896,30 +1063,27 @@ async function main() {
     let decisionIdx = 0;
     for (let i = 0; i < turns.length; i++) {
       const n = turns[i].assertions.length;
-      renderDecisions(meta.decisions.slice(decisionIdx, decisionIdx + n), `turn ${i + 1}`);
+      out.push(...formatDecisions(meta.decisions.slice(decisionIdx, decisionIdx + n), `turn ${i + 1}`));
       decisionIdx += n;
     }
     if (final.length > 0) {
-      renderDecisions(meta.decisions.slice(decisionIdx), "final");
+      out.push(...formatDecisions(meta.decisions.slice(decisionIdx), "final"));
     }
 
-    totalAssertions += tally.assertionCount;
-    passedAssertions += tally.passedAssertionCount;
-    if (tally.evalPassed) passedEvals++;
     if (tally.silentFireCount > 0) {
-      console.log(red(`      ${tally.silentFireCount} SILENT-FIRE FAILURE(S) — required-tier negative assertions trivially passed against empty signals`));
+      out.push(red(`      ${tally.silentFireCount} SILENT-FIRE FAILURE(S) — required-tier negative assertions trivially passed against empty signals`));
     }
-    tallies.push(tally);
     const union = turnSignals.reduce((sum, s) => sum + (s?.skillInvocations.length ?? 0), 0);
-    console.log(
+    out.push(
       dim(
         `      transcript → ${transcriptFile.replace(repoDir + "/", "")}` +
           ` (turns=${runs.length}/${turns.length} skills=${union} session=${sessionId ?? "none"})`,
       ),
     );
+    return { tally, decisions: meta.decisions, logLines: out };
   }
 
-  console.log(dim(`v2 runner — stream-json CLI${dryRun ? " (dry-run)" : ""}\n`));
+  console.log(dim(`v2 runner — stream-json CLI${dryRun ? " (dry-run)" : ""}${concurrency > 1 ? ` (concurrency=${concurrency})` : ""}\n`));
 
   for (const skillName of skills) {
     const evalFile = loaded.get(skillName)!;
@@ -927,11 +1091,11 @@ async function main() {
     console.log(bold(`━━━ ${skillName} ━━━`));
     if (evalFile.description) console.log(dim(evalFile.description) + "\n");
 
-    for (const e of evalFile.evals) {
-      totalEvals++;
-      console.log(`  ${bold("▸")} ${e.name}${e.summary ? dim(" — " + e.summary) : ""}`);
+    totalEvals += evalFile.evals.length;
 
-      if (dryRun) {
+    if (dryRun) {
+      for (const e of evalFile.evals) {
+        console.log(`  ${bold("▸")} ${e.name}${e.summary ? dim(" — " + e.summary) : ""}`);
         const turns = e.kind === "multi" ? e.turns : [{ prompt: e.prompt, assertions: e.assertions }];
         for (const t of turns) {
           for (const a of t.assertions) {
@@ -948,14 +1112,24 @@ async function main() {
           }
         }
         passedEvals++;
-        continue;
       }
+      console.log("");
+      continue;
+    }
 
-      if (e.kind === "multi") {
-        runMultiTurnEval(skillName, e);
-      } else {
-        runSingleTurnEval(skillName, e);
-      }
+    // Per-skill worker pool. Per-skill (vs flat-global) keeps the `━━━ skill ━━━`
+    // header grouping deterministic. Index-preserving pool yields byte-identical
+    // ordered output as concurrency=1.
+    const results = await runPool(evalFile.evals, concurrency, (e) =>
+      e.kind === "multi" ? runMultiTurnEval(skillName, e) : runSingleTurnEval(skillName, e),
+    );
+    for (const result of results) {
+      for (const line of result.logLines) console.log(line);
+      tallies.push(result.tally);
+      allDecisions.push(...result.decisions);
+      totalAssertions += result.tally.assertionCount;
+      passedAssertions += result.tally.passedAssertionCount;
+      if (result.tally.evalPassed) passedEvals++;
     }
     console.log("");
   }
