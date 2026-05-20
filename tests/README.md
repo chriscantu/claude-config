@@ -98,7 +98,12 @@ never mutate `process.env.HOME`.
 ```fish
 bun test tests/                              # all TS suites
 bun test tests/link-config.test.ts           # one suite
+bun test tests/eval-runner-concurrency.test.ts  # eval runner pool + teardown refcount
 ```
+
+The eval runner's `--concurrency N` flag is documented in `EVALS.md`;
+this directory only covers the substrate primitives (`runPool`,
+`createTeardownTracker`).
 
 ### CI wiring
 

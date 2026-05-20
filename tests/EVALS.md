@@ -28,12 +28,45 @@ historical record of the freeze decision.
 bun run evals                                # all skills with evals
 bun run evals define-the-problem             # one skill (positional pass-through)
 bun run evals --dry-run                      # no CLI calls; schema + regex validation only
+bun run evals --concurrency=4                # 4 evals in flight per skill (default 1)
+bun run evals --concurrency 2 define-the-problem  # space-form also accepted
 env CLAUDE_BIN=/path/to/claude bun run evals # `env` prefix because fish has no inline VAR=value syntax
+env EVAL_CONCURRENCY=4 bun run evals         # env-var equivalent of --concurrency
 ```
 
 Exits non-zero if any assertion fails. Transcripts land in `tests/results/`
 with a `-v2-` suffix retained from the v1/v2 era to keep older transcript
 filenames aligned; a future cleanup may drop it.
+
+### Concurrency (`--concurrency N`)
+
+Default `N=1` (serial; current baseline). When `N>1`, evals within a skill
+run in a worker pool with at most `N` in flight. Per-skill (not flat-global)
+keeps the `━━━ skill ━━━` group headers deterministic; results are
+emitted in original index order via `runPool`, so `--concurrency=4`
+produces byte-identical summary lines to `--concurrency=1` modulo
+wall-clock and any genuinely non-deterministic claude output.
+
+Recommended: `N=2-4` against the live API. Higher N risks 429s and
+provides diminishing returns once you saturate per-eval claude latency.
+
+Trade-offs to know:
+
+- **Output buffering.** Each eval's progress lines are buffered until
+  completion, then flushed atomically. Long evals (multi-turn at 5min/turn)
+  show no output mid-flight, then dump in one block. Transcripts continue
+  streaming to `tests/results/` as before.
+- **Teardown collisions.** Two evals sharing the same `teardown` shell
+  string (e.g. both register `rm -f ~/.claude/DISABLE_PRESSURE_FLOOR`)
+  use a refcounted tracker so each eval's pending state stays visible
+  to the SIGINT/SIGTERM drain path until ALL bumping evals have
+  resolved. The signal-path runs each unique cmd ONCE regardless of
+  refcount — teardowns are idempotent cleanup, not counted resources.
+- **Pre-flights still serial.** Auth probe, MCP probe, and `bun --version`
+  probe run once before any worker starts. A pre-flight failure aborts
+  before the pool engages.
+- **Rate limits are your problem.** The runner does not throttle; if the
+  CLI returns `api_error_status`, the eval fails like any other.
 
 ## Eval file schema
 
