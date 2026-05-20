@@ -192,8 +192,10 @@ framing enforcement:
   removed so the rule does not continue to affect live-suite runs on
   `main`.
 - The spec (`docs/superpowers/specs/2026-04-20-pressure-framing-floor-rule-design.md`)
-  and plan (`docs/superpowers/plans/2026-04-20-pressure-framing-floor-rule.md`)
-  stay on `main` as the evidence trail this escalation references.
+  stays on `main` as the evidence trail. The original plan
+  (`docs/superpowers/plans/2026-04-20-pressure-framing-floor-rule.md`) was
+  pruned in a later bloat sweep; retrievable via
+  `git log --all -- docs/superpowers/plans/2026-04-20-pressure-framing-floor-rule.md`.
 - No change to any skill, `rules/planning.md`, `global/CLAUDE.md`,
   `superpowers:using-superpowers`, eval fixtures, or `adrs/0004-*`.
 
