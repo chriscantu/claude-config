@@ -12,3 +12,16 @@ they add no eval-measurable load given the single DTP anchor in planning.md.
 The substitutability claim is historical evidence backing the pruned design,
 not a recommendation for future per-gate blocks. New gates should follow the
 delegate-link pattern from the outset.
+
+## Status (2026-05-20)
+
+Override + time-pressure + emission boilerplate consolidated to canonical
+anchors in `rules/planning.md` (`#override-skip-contract`,
+`#emission-contract-per-gate`) by PR #350 (commit `c8edebf`). Net delete
+~54 lines across 4 rules (fat-marker-sketch.md, goal-driven.md,
+pr-validation.md, think-before-coding.md). Phase 1l registry expanded
+with both anchor IDs; HARD-GATE eval suite passed unchanged post-prune.
+
+Substitutability hypothesis CONFIRMED in practice. This memory is now
+historical reference for the design decision, not active guidance —
+delete or migrate to `decisions/` if it stops earning its keep.

@@ -1132,6 +1132,98 @@ end
 
 echo ""
 
+# 1q. Retirement signals (issue #352 Stream 3)
+#
+# Three checks on $repo_dir/validate.fish + .claude/state/validate-phase-log.jsonl:
+#   1. Tombstone format (HARD-FAIL) — every commented `# function _phase_`
+#      block must have a preceding `# RETIRED YYYY-MM-DD — reason` line plus
+#      a `# Restore:` hint. A soft-retire without an audit trail is the
+#      anti-pattern this catches.
+#   2. Retirement candidate (WARN) — active phase (declared via
+#      `_phase_begin "<id>"`) with 0 firings in last 100 log entries. Silent
+#      when log <10 entries to avoid noise on freshly-bootstrapped logs.
+#   3. Hard-delete eligible (WARN) — tombstone aged ≥12 months. Operator
+#      then deletes the commented block + test file per the governance H2
+#      in rules/README.md.
+#
+# Active-phase list and tombstones BOTH come from $repo_dir/validate.fish
+# so fixtures (CLAUDE_CONFIG_REPO_DIR) can inject synthetic versions to
+# drive each check independently of the real script's content.
+_phase_begin "1q"
+echo "── Phase 1q: retirement signals"
+
+set -l _p1q_target "$repo_dir/validate.fish"
+set -l _p1q_log "$repo_dir/.claude/state/validate-phase-log.jsonl"
+
+if not test -f "$_p1q_target"
+    pass "no validate.fish at $repo_dir — Phase 1q has nothing to scan"
+else
+    # Check 1: Tombstone format (HARD-FAIL)
+    set -l _p1q_check1_clean 1
+    set -l _commented_funcs (grep -nE '^# function _phase_' "$_p1q_target")
+    set -l _grep1_status $status
+    if test $_grep1_status -ge 2
+        fail "Phase 1q: grep returned error status $_grep1_status while scanning for commented `_phase_` functions"
+        set _p1q_check1_clean 0
+    else
+        for ln in $_commented_funcs
+            set -l lineno (echo $ln | cut -d: -f1)
+            set -l start (math $lineno - 5)
+            test $start -lt 1; and set start 1
+            set -l preamble (sed -n "$start,$lineno"p "$_p1q_target")
+            if not echo $preamble | grep -qE '^# RETIRED [0-9]{4}-[0-9]{2}-[0-9]{2} '
+                fail "Phase 1q: commented `_phase_` at line $lineno missing tombstone (expected `# RETIRED YYYY-MM-DD — reason` in preceding 5 lines)"
+                set _p1q_check1_clean 0
+            else if not echo $preamble | grep -qE '^# Restore:'
+                fail "Phase 1q: tombstone near line $lineno missing `# Restore:` hint"
+                set _p1q_check1_clean 0
+            end
+        end
+    end
+    test $_p1q_check1_clean -eq 1; and pass "tombstone format OK"
+
+    # Check 2: Retirement candidate (WARN) — active phase with 0 firings
+    # in last 100 log entries. Silent when log <10 entries.
+    if test -f "$_p1q_log"
+        set -l _line_count (wc -l < "$_p1q_log" | string trim)
+        if test -z "$_line_count"
+            set _line_count 0
+        end
+        if test $_line_count -ge 10
+            set -l _active_ids (grep -oE '_phase_begin "[^"]+"' "$_p1q_target" | sed -E 's/_phase_begin "(.+)"/\1/' | sort -u)
+            set -l _recent (tail -100 "$_p1q_log")
+            for pid in $_active_ids
+                if not echo $_recent | grep -q "\"phase\":\"$pid\""
+                    warn "Phase 1q: phase $pid has 0 firings in last $_line_count log entries (retirement candidate)"
+                end
+            end
+        end
+    end
+
+    # Check 3: Hard-delete eligible (WARN) — tombstone aged ≥12 months.
+    # BSD (macOS) vs GNU (Linux) date both supported; on parse failure the
+    # tombstone is silently skipped rather than flagged — Check 1 already
+    # validated the format.
+    set -l _now (date +%s)
+    set -l _12mo_ago (math $_now - 31536000)
+    set -l _tombstones (grep -E '^# RETIRED [0-9]{4}-[0-9]{2}-[0-9]{2}' "$_p1q_target")
+    for ts in $_tombstones
+        set -l _d (echo $ts | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+        set -l _e (date -j -f "%Y-%m-%d" $_d +%s 2>/dev/null)
+        if test -z "$_e"
+            set _e (date -d $_d +%s 2>/dev/null)
+        end
+        if test -z "$_e"
+            continue
+        end
+        if test $_e -lt $_12mo_ago
+            warn "Phase 1q: tombstone $_d is ≥12mo old (hard-delete eligible — see rules/README.md 'Retiring a rule or validator phase')"
+        end
+    end
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
