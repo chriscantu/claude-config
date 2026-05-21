@@ -76,10 +76,11 @@ const seedFixture = (): {
   const home = mkdtempSync(join(tmpdir(), "first-run-test-"));
   fixtures.push(home);
   mkdirSync(join(home, ".claude"), { recursive: true });
-  // Seed a CLAUDE.md identical to the repo's HEAD copy. Use the real repo
-  // file as the seed so the "user has local edits" detection has a known
-  // baseline to compare against (script does `git hash-object` then compares
-  // to HEAD:global/CLAUDE.md).
+  // Seed a CLAUDE.md identical to the repo's HEAD copy. The script's
+  // "user has local edits" detection greps for the upstream H1 sentinel
+  // (`# Global Claude Code Configuration`) — copying the real repo file
+  // gives the sentinel a known baseline; stripping it in a test exercises
+  // the abort path.
   const claudeMd = join(home, "CLAUDE.md");
   copyFileSync(join(REPO, "global", "CLAUDE.md"), claudeMd);
   const settings = join(home, ".claude", "settings.json");

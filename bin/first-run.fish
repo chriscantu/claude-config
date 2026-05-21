@@ -30,6 +30,11 @@
 #                                        (tests run them separately)
 
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
+if test -z "$repo" -o ! -d "$repo/global"
+    echo "ERROR: cannot resolve repo root (got: '$repo')." >&2
+    echo "       Expected to find <repo>/global/ alongside bin/first-run.fish." >&2
+    exit 2
+end
 
 # --- args ---------------------------------------------------------------
 
@@ -62,6 +67,23 @@ end
 
 set -l marker_open  "<!-- managed:first-run -->"
 set -l marker_close "<!-- /managed:first-run -->"
+
+set -l hook_dangerous "$repo/hooks/block-dangerous-git.sh"
+set -l hook_scopetier "$repo/hooks/scope-tier-memory-check.sh"
+
+# --- preflight: validate hook exec bits before any mutation -------------
+# Even if the user declines hook registration later, we fail fast here so
+# a broken checkout never produces a half-applied install (patched
+# CLAUDE.md + skipped hooks).
+
+if not test -x $hook_dangerous
+    echo "ERROR: hook not executable: $hook_dangerous" >&2
+    exit 2
+end
+if not test -x $hook_scopetier
+    echo "ERROR: hook not executable: $hook_scopetier" >&2
+    exit 2
+end
 
 # --- answer source: env CSV (tests) or interactive read -----------------
 
@@ -176,6 +198,14 @@ set -l out_tmp (mktemp)
 if test $marker_present -eq 1
     # Replace existing block. awk handles multi-line marker replacement
     # without sed portability headaches.
+    #
+    # IDEMPOTENCY CONTRACT: $block_tmp ALREADY contains its own open + close
+    # marker pair (built above). This awk drops the EXISTING markers + their
+    # contents from $claude_md and splices in the entire $block_tmp verbatim
+    # — markers included. If you ever change the block builder to omit the
+    # markers, this branch will silently strip them on re-run and the next
+    # invocation will append a new block instead of replacing. Test
+    # `idempotent re-run` asserts opens.length === 1 across N runs; keep it.
     awk -v marker_open_s="$marker_open" -v marker_close_s="$marker_close" -v blockfile="$block_tmp" '
         BEGIN { in_block = 0 }
         index($0, marker_open_s) == 1 && !in_block {
@@ -216,17 +246,7 @@ if string match -qi 'y*' -- $hooks_yn
 end
 
 if test $hooks_enabled -eq 1
-    set -l hook_dangerous "$repo/hooks/block-dangerous-git.sh"
-    set -l hook_scopetier "$repo/hooks/scope-tier-memory-check.sh"
-
-    if not test -x $hook_dangerous
-        echo "ERROR: hook not executable: $hook_dangerous" >&2
-        exit 2
-    end
-    if not test -x $hook_scopetier
-        echo "ERROR: hook not executable: $hook_scopetier" >&2
-        exit 2
-    end
+    # Hook paths + exec-bit validation already ran at preflight (top of file).
 
     # Ensure parent dir exists and seed an empty settings.json if missing.
     set -l settings_dir (dirname $settings)
