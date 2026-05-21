@@ -82,6 +82,7 @@ Precedence on conflict: User instructions > `rules/*.md` HARD-GATEs > Karpathy C
 
 | Skill | Purpose |
 |-------|---------|
+| `/catalog` | In-session inventory of rules, skills, agents, and templates — grouped by purpose. Read-only. |
 | `/new-project` | New-project scaffold from a vetted template. |
 | `/excalidraw` | Drive an Excalidraw canvas via MCP for diagrams, flowcharts, and visuals. |
 
