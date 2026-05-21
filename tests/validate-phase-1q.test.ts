@@ -188,4 +188,65 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
     expect(out).not.toMatch(/retirement candidate/);
     expect(out).not.toMatch(/has 0 firings/);
   });
+
+  test("E: properly-tombstoned commented `# function _phase_` PASSES Check 1", () => {
+    // Positive case for Check 1. Pins the intended invariant: a soft-retire
+    // with valid tombstone + Restore line MUST NOT trigger HARD-FAIL on
+    // tombstone format. Regression guard for the original `echo $preamble
+    // | grep` bug where fish space-joined the preamble list and broke the
+    // `^# RETIRED` anchor — every real tombstone falsely HARD-FAILed.
+    const tombstoned = [
+      "# RETIRED 2025-06-01 — synthetic retire for Check 1 positive test",
+      "# Restore: uncomment block + drop .skip on tests/validate-phase-1y.test.ts",
+      "# function _phase_1y",
+      "# end",
+    ].join("\n");
+    const fixture = makeFixture(synthValidate(["1a"], tombstoned), null);
+    const out = extractPhase1q(runValidate(fixture));
+    expect(out).toContain("tombstone format OK");
+    expect(out).not.toMatch(/missing tombstone/);
+    expect(out).not.toMatch(/missing `# Restore:`/);
+  });
+
+  test("F: tombstone with date but missing Restore line fires Restore-only fail", () => {
+    // Distinct branch in Check 1: RETIRED line present, Restore line absent.
+    // Catches a future refactor that collapses the two branches or drops the
+    // `# Restore:` regex entirely.
+    const restoreless = [
+      "# RETIRED 2025-06-01 — tombstone missing Restore hint",
+      "# function _phase_1y",
+      "# end",
+    ].join("\n");
+    const fixture = makeFixture(synthValidate(["1a"], restoreless), null);
+    const r = runValidate(fixture);
+    const out = extractPhase1q(r);
+    expect(out).toContain("✗");
+    expect(out).toMatch(/missing `# Restore:`/);
+    expect(out).not.toMatch(/missing tombstone/);
+    expect(r.exitCode).not.toBe(0);
+  });
+
+  test("G: --log-path overrides default; Phase 1q reader honors the override", () => {
+    // Reader/writer path symmetry: a custom --log-path must be readable by
+    // Phase 1q Check 2. Hardcoded default in Phase 1q would silently no-op
+    // when the user logs elsewhere. Active phase IDs are intentionally
+    // non-colliding ("alpha"/"beta") so the writer's own appends (which use
+    // real phase IDs 1a..1q) cannot pollute the recent-window check.
+    const fixture = makeFixture(synthValidate(["alpha", "beta"]));
+    const customLog = join(fixture, "custom-phase-log.jsonl");
+    writeFileSync(customLog, synthLog(100, "alpha"));
+    const result = spawnSync("fish", [VALIDATE, "--log-path", customLog], {
+      env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
+      encoding: "utf8",
+    });
+    if (result.error) throw result.error;
+    const r: RunResult = {
+      exitCode: result.status ?? -1,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    };
+    const out = extractPhase1q(r);
+    expect(out).toMatch(/phase beta has 0 firings/);
+    expect(out).not.toMatch(/phase alpha has 0 firings/);
+  });
 });

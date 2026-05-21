@@ -102,13 +102,28 @@ set -g _current_phase ""
 set -g _phase_start_s 0
 set -g _current_phase_failed 0
 
+set -g _phase_log_write_warned 0
+
 function _emit_phase_log --argument-names phase ph_status duration_ms
     test -z "$log_path"; and return 0
     set -l ts (date -u +"%Y-%m-%dT%H:%M:%SZ")
     set -l commit (git -C $repo_dir rev-parse HEAD 2>/dev/null; or echo "unknown")
     set -l line "{\"ts\":\"$ts\",\"commit\":\"$commit\",\"phase\":\"$phase\",\"status\":\"$ph_status\",\"duration_ms\":$duration_ms}"
-    mkdir -p (dirname $log_path)
-    echo $line >> $log_path
+    if not mkdir -p (dirname $log_path) 2>/dev/null
+        if test $_phase_log_write_warned -eq 0
+            echo "  ⚠ phase-log write failed (mkdir): $log_path — telemetry disabled this run" >&2
+            set -g _phase_log_write_warned 1
+            set -g warn_count (math $warn_count + 1)
+        end
+        return 0
+    end
+    if not echo $line >> $log_path 2>/dev/null
+        if test $_phase_log_write_warned -eq 0
+            echo "  ⚠ phase-log write failed (append): $log_path — telemetry disabled this run" >&2
+            set -g _phase_log_write_warned 1
+            set -g warn_count (math $warn_count + 1)
+        end
+    end
 end
 
 function _phase_begin --argument-names id
@@ -1153,7 +1168,12 @@ _phase_begin "1q"
 echo "── Phase 1q: retirement signals"
 
 set -l _p1q_target "$repo_dir/validate.fish"
-set -l _p1q_log "$repo_dir/.claude/state/validate-phase-log.jsonl"
+# Reader honors the writer's --log-path / HARNESS_VALIDATE_LOG selection so
+# Check 2 doesn't silently no-op when telemetry lands at a custom path.
+set -l _p1q_log "$log_path"
+if test -z "$_p1q_log"
+    set _p1q_log "$repo_dir/.claude/state/validate-phase-log.jsonl"
+end
 
 if not test -f "$_p1q_target"
     pass "no validate.fish at $repo_dir — Phase 1q has nothing to scan"
@@ -1170,11 +1190,13 @@ else
             set -l lineno (echo $ln | cut -d: -f1)
             set -l start (math $lineno - 5)
             test $start -lt 1; and set start 1
-            set -l preamble (sed -n "$start,$lineno"p "$_p1q_target")
-            if not echo $preamble | grep -qE '^# RETIRED [0-9]{4}-[0-9]{2}-[0-9]{2} '
+            # Re-read the preamble straight from disk so each line is grepped
+            # as its own line (`echo $preamble` would space-join the fish list
+            # and collapse `^` anchor matches to the first element only).
+            if not sed -n "$start,$lineno"p "$_p1q_target" | grep -qE '^# RETIRED [0-9]{4}-[0-9]{2}-[0-9]{2} '
                 fail "Phase 1q: commented `_phase_` at line $lineno missing tombstone (expected `# RETIRED YYYY-MM-DD — reason` in preceding 5 lines)"
                 set _p1q_check1_clean 0
-            else if not echo $preamble | grep -qE '^# Restore:'
+            else if not sed -n "$start,$lineno"p "$_p1q_target" | grep -qE '^# Restore:'
                 fail "Phase 1q: tombstone near line $lineno missing `# Restore:` hint"
                 set _p1q_check1_clean 0
             end
@@ -1201,9 +1223,10 @@ else
     end
 
     # Check 3: Hard-delete eligible (WARN) — tombstone aged ≥12 months.
-    # BSD (macOS) vs GNU (Linux) date both supported; on parse failure the
-    # tombstone is silently skipped rather than flagged — Check 1 already
-    # validated the format.
+    # BSD (macOS) vs GNU (Linux) date both supported. Parse failure WARNs
+    # rather than continuing silently — Check 1 only validates the regex
+    # shape, not date validity (e.g., 2026-02-30 passes Check 1's
+    # `[0-9]{4}-[0-9]{2}-[0-9]{2}` but fails both date parsers).
     set -l _now (date +%s)
     set -l _12mo_ago (math $_now - 31536000)
     set -l _tombstones (grep -E '^# RETIRED [0-9]{4}-[0-9]{2}-[0-9]{2}' "$_p1q_target")
@@ -1213,7 +1236,10 @@ else
         if test -z "$_e"
             set _e (date -d $_d +%s 2>/dev/null)
         end
-        if test -z "$_e"
+        # Reject non-numeric or empty parse results — a broken `date` binary
+        # leaking text to stdout would otherwise crash the `-lt` comparison.
+        if not string match -rq '^[0-9]+$' -- "$_e"
+            warn "Phase 1q: tombstone date $_d unparseable on both BSD and GNU date — hard-delete check skipped"
             continue
         end
         if test $_e -lt $_12mo_ago
