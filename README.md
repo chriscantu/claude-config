@@ -48,7 +48,7 @@ Two distribution paths. Pick by audience — see the trade-off below.
 
 Install from the Claude Code marketplace:
 
-> **Coming soon** — marketplace publish pending. Marketplace URL will be added here once published.
+> **Coming soon** — marketplace publish pending. Tracked in [#374](https://github.com/chriscantu/claude-config/issues/374); marketplace URL will be added here once published.
 
 **What you get:** skills (`/sdr`, `/adr`, `/onboard`, `/tech-radar`, `/stakeholder-map`, and the rest of the leadership toolkit), agents, commands, hooks, and MCP servers.
 
@@ -70,7 +70,7 @@ Existing real files are backed up with `.bak`. Re-running is safe. CI uses `fish
 
 ### Trade-off
 
-The plugin path ships ~70% of the surface area but loses pre-load enforcement of the planning pipeline (`define-the-problem` / `systems-analysis` / `fat-marker-sketch` / `goal-driven` / `verification` / `pr-validation` / `disagreement` / `execution-mode` / `think-before-coding` / `memory-discipline`). For end users in the leadership audience (Director / VP / Sr. IC consumers), the plugin path is sufficient — skills, agents, and hooks cover the daily workflow. For contributors, and for anyone who wants the full anti-sycophancy + planning-pipeline discipline pre-loaded into every session, the power-user path is required.
+The plugin path ships the runtime extension surface (skills, agents, commands, hooks, MCP) but loses pre-load enforcement of the planning pipeline (`define-the-problem` / `systems-analysis` / `fat-marker-sketch` / `goal-driven` / `verification` / `pr-validation` / `disagreement` / `execution-mode` / `think-before-coding` / `memory-discipline`). For end users in the leadership audience (Director / VP / Sr. IC consumers), the plugin path is sufficient — skills, agents, and hooks cover the daily workflow. For contributors, and for anyone who wants the full anti-sycophancy + planning-pipeline discipline pre-loaded into every session, the power-user path is required.
 
 See [ADR #0018](adrs/0018-distribution-shape-hybrid-plugin-and-git-clone.md) for the decision rationale and [ADR #0013](adrs/0013-shared-vocab-monorepo-only.md) for the original distribution-shape deferral that #0018 supersedes.
 

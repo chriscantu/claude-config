@@ -16,7 +16,7 @@ Cantu
 Steady-state
 
 ## Status
-Superseded by [ADR #0018](./0018-distribution-shape-hybrid-plugin-and-git-clone.md) on the distribution-shape question only (abort signal #4 — Anthropic plugin marketplace now live). The vocab-file decision in this ADR (Option 1: monorepo-only for `references/architecture-language.md`) remains intact within its narrow scope.
+Superseded by [ADR #0018](./0018-distribution-shape-hybrid-plugin-and-git-clone.md) on 2026-05-21 — distribution-shape question only (abort signal #4: Anthropic plugin marketplace went live, observed via Claude Code release notes and the `.claude-plugin/` directory becoming the documented bundle layout). The vocab-file decision in this ADR (Option 1: monorepo-only for `references/architecture-language.md`) remains intact within its narrow scope.
 
 Originally Accepted (2026-05-06)
 

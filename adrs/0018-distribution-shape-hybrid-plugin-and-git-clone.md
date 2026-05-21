@@ -31,6 +31,17 @@ Forces in tension:
 - **Current state of `.claude-plugin/plugin.json` is incomplete.** Declares only `./skills/`. Does not enumerate agents, commands, hooks, or MCP servers. `.claude-plugin/hooks.json` contains leftover references to a foreign plugin (`claude-code-harness`); requires cleanup before publish.
 - **Competing configs are landing in marketplace.** Each week of deferral cedes mindshare and the canonical-vocabulary slot to other publishers.
 
+## Alternatives Considered
+
+| # | Option | Effort | Risk | Reversible | Audience-install gap closed? |
+|---|--------|--------|------|------------|------------------------------|
+| 1 | **Stay git-clone-only** (reaffirm #0013) | none | none today | n/a | no — status quo; leadership audience cannot install via fish + symlink chain |
+| 2 | **Plugin-only** — encode rules as skills, or embed rule content into a single `CLAUDE.md` import | high — requires rewriting HARD-GATE pre-load semantics into lazy-load skill semantics; loses `~/.claude/rules/*.md` autoload | high — pre-load enforcement model dies; `validate.fish` phase coverage breaks; ADR governance loses contributor surface | partial — rules-as-skills is hard to unwind | yes for surface, no for substance — audience gets skills but the discipline that makes them load-bearing is gone |
+| 3 | **Hybrid — plugin (audience) + git-clone (power-user)** (selected) | low–medium — `.claude-plugin/plugin.json` expand, `hooks.json` cleanup, README restructure; no runtime semantics change | medium — version skew between two distribution channels; HARD-GATE absence from plugin path must be stated explicitly to avoid silent fork-consumer hostility | yes — both paths preserved | yes — leadership audience gets zero-friction plugin; power-user path stays for contributors and full enforcement |
+| 4 | **Wait for Anthropic to add a `rules` slot to plugin spec** | none | none today | n/a | no — indefinite hold; cedes mindshare and canonical-vocabulary marketplace position to competing configs |
+
+Option 3 wins on the audience-install gap dimension without paying Option 2's pre-load enforcement cost. Options 1 and 4 fail trigger #4 from ADR #0013 (Anthropic packager standardization) — the abort signal that reopened this question is incompatible with both.
+
 ## Decision
 
 We will ship a hybrid distribution:
@@ -38,7 +49,7 @@ We will ship a hybrid distribution:
 1. **Plugin path (default for audience):** Publish a Claude Code plugin via marketplace. Bundle includes skills + agents + commands + hooks + MCP server declarations. Plugin install is the documented default in README.
 2. **Power-user path (preserved):** `git clone` + `bin/link-config.fish` remains supported and documented. This path additionally installs `~/.claude/rules/*.md` HARD-GATEs, exposes `validate.fish` for contributors, and includes ADR governance and rules-evals tooling. Required for anyone who wants the HARD-GATE pre-load enforcement model.
 3. **`.claude-plugin/plugin.json` expands** from skills-only to enumerate every plugin-shaped surface the repo ships: skills, agents, commands, hooks, MCP servers. Foreign `claude-code-harness` references in `hooks.json` are removed.
-4. **README install section is restructured** to document both paths with explicit trade-off statement: plugin path covers ~70% of the surface (skills, agents, commands, hooks, MCP); HARD-GATE rules and validator tooling require the power-user path.
+4. **README install section is restructured** to document both paths with explicit trade-off statement: plugin path covers the runtime extension surface (skills, agents, commands, hooks, MCP); HARD-GATE rules and validator tooling require the power-user path.
 5. **No skill-encoding of rules.** Rules stay as `~/.claude/rules/*.md` autoload. Until Anthropic's plugin spec adds a `rules` slot, the pre-load enforcement model is git-clone-only.
 
 This ADR supersedes [ADR #0013](./0013-shared-vocab-monorepo-only.md) ONLY on the question of whole-repo packaging direction. #0013's Option 1 decision for the shared vocab file remains intact under the hybrid model — the plugin path bundles `references/architecture-language.md` inside the skills directory, and the monorepo-only header note remains accurate for that file.
@@ -81,7 +92,7 @@ Reopen with a superseding ADR when ANY of:
 
 ## Validation
 
-- [ ] `.claude-plugin/plugin.json` enumerates skills, agents, commands, hooks, MCP servers (currently skills-only)
+- [ ] `.claude-plugin/plugin.json` enumerates skills, agents, commands, hooks, MCP servers
 - [ ] `.claude-plugin/hooks.json` foreign `claude-code-harness` references removed
 - [ ] README install section documents both paths with explicit trade-off statement
 - [ ] Plugin bundle audited — confirm each skill, agent, command, hook is loadable from a fresh `~/.claude/plugins/` install
