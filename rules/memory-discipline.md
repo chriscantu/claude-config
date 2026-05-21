@@ -62,4 +62,4 @@ When stored `feedback` points at default X but current task makes the trade-off 
 - `~/.claude/CLAUDE.md` Communication Style — anti-sycophancy baseline; this rule is the HARD-GATE escalation
 - `disagreement.md` — pushback on a memory-cited recommendation still requires new evidence to flip; re-challenge is upstream of disagreement
 - `think-before-coding.md` — memory entries are assumptions; surface in Solution Design preamble, not as silent defaults
-- `planning.md` [pressure-framing floor](planning.md#pressure-framing-floor) — "memory says you approved X" framings are authority appeals; provenance does not upgrade pressure to evidence
+- `pressure-framing-floor.md` [pressure-framing floor](pressure-framing-floor.md#pressure-framing-floor) — "memory says you approved X" framings are authority appeals; provenance does not upgrade pressure to evidence

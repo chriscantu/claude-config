@@ -132,7 +132,7 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
   test("C: clean fixture → all four canonical labels pass, no drift", () => {
     const fixture = makeFixture();
     writeFileSync(
-      join(fixture, "rules", "planning.md"),
+      join(fixture, "rules", "planning-pipeline.md"),
       [
         "# canonical home with all four canonical strings",
         "≤ ~200 LOC functional change",
@@ -180,12 +180,12 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
   // Phase 1g detects if any of those strings are restated in rules/*.md files.
 
   test("F: scope-tier verb-list strings absent from rules/*.md → no drift", () => {
-    // Minimal fixture: planning.md with trivial-tier strings (their canonical
-    // home) but none of the scope-tier hook strings. Phase 1g must report
-    // "no drift" for all nine scope-tier registry entries.
+    // Minimal fixture: planning-pipeline.md with trivial-tier strings (their
+    // canonical home) but none of the scope-tier hook strings. Phase 1g must
+    // report "no drift" for all nine scope-tier registry entries.
     const fixture = makeFixture();
     writeFileSync(
-      join(fixture, "rules", "planning.md"),
+      join(fixture, "rules", "planning-pipeline.md"),
       [
         "# canonical home",
         "≤ ~200 LOC functional change",
@@ -216,15 +216,14 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
     // Append "add row to" (a registered Phase 1g scope-tier pattern) into
     // rules/planning.md. Since planning.md != scope-tier-memory-check.sh,
     // Phase 1g must detect drift and name both the string and the file.
+    // (Note: Trivial-tier canonical strings moved to planning-pipeline.md
+    // per issue #375 split — we deliberately omit them from this fixture
+    // to isolate the scope-tier drift assertion.)
     const fixture = makeFixture();
     writeFileSync(
       join(fixture, "rules", "planning.md"),
       [
         "# planning stub",
-        "≤ ~200 LOC functional change",
-        "Single component / single-file primary surface",
-        "Unambiguous approach (one obvious design",
-        "Low blast radius (no cross-team",
         "",
         "## Test marker",
         'verbs: prune, rename, delete (these are "add row to" verbs that trigger scope-tier checks)',

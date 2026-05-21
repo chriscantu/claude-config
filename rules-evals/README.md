@@ -32,7 +32,7 @@ Current suites:
   [`rules/pr-validation.md`](../rules/pr-validation.md)
 - `scope-tier-memory-check/` — covers the `UserPromptSubmit` hook routing
   contract that fires before the pressure-framing floor, documented in
-  [`rules/planning.md`'s scope-tier section](../rules/planning.md#scope-tier-memory-check)
+  [`rules/pressure-framing-floor.md`'s scope-tier section](../rules/pressure-framing-floor.md#scope-tier-memory-check)
 - `think-before-coding/` — covers the three-part preamble + emission
   contract from [`rules/think-before-coding.md`](../rules/think-before-coding.md)
 - `verification/` — covers the end-of-work goal-verification gate from
@@ -45,14 +45,14 @@ set listed in [`rules/README.md`](../rules/README.md)'s "What lives here"
 table at 8 rules.
 Eval coverage lives in two roots — `skills/<name>/evals/` for gates that
 have a host skill, and `rules-evals/<gate>/evals/` for the rest. The
-pressure-framing floor in `planning.md` is *inherited* by every HARD-GATE,
+pressure-framing floor in `pressure-framing-floor.md` is *inherited* by every HARD-GATE,
 so floor behavior is exercised indirectly through every per-rule suite —
 the rows below name each rule's *primary* eval home, not the inheritance
 graph.
 
 | HARD-GATE rule | Eval home |
 |---|---|
-| `planning.md` | `skills/define-the-problem/evals/` + `skills/systems-analysis/evals/` |
+| `planning-pipeline.md` / `skip-contract.md` / `pressure-framing-floor.md` (floor trio) | `skills/define-the-problem/evals/` + `skills/systems-analysis/evals/` |
 | `fat-marker-sketch.md` | `skills/fat-marker-sketch/evals/` (skill-layer boundary) |
 | `goal-driven.md` | `rules-evals/goal-driven/` |
 | `think-before-coding.md` | `rules-evals/think-before-coding/` |

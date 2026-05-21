@@ -15,8 +15,8 @@ import { join, resolve } from "node:path";
 
 // Regression tests for validate.fish Phase 1l (Delegate-link presence).
 //
-// Phase 1l asserts each rule that delegates to a planning.md anchor still
-// contains the `planning.md#<id>` link. The HARD-GATE silently weakens if a
+// Phase 1l asserts each rule that delegates to a floor-trio anchor still
+// contains the `<basename>.md#<id>` link. The HARD-GATE silently weakens if a
 // contributor deletes the entire delegate paragraph from a dependent rule —
 // Phase 1g (drift) only fires on RESTATEMENT, Phase 1k (anchor-link target
 // resolution) only fires on DANGLING anchor LINKS, neither catches DELETION.
@@ -26,12 +26,15 @@ import { join, resolve } from "node:path";
 //   B) Deleted delegate link in multi-anchor rule → Phase 1l fails AND
 //      surviving anchors in same rule still pass (no first-fail masking)
 //   C) Missing dependent rule file → Phase 1l fails loudly
-//   D) Empty anchor ID in CSV (trailing comma) → Phase 1l fails
-//      (no silent grep-pattern collapse to bare "planning.md#")
+//   D) Empty link token in CSV (trailing comma) → Phase 1l fails
+//      (no silent grep-pattern collapse to empty pattern)
 //   E) Unreadable rule file → grep I/O error surfaces distinctly
 //      (mirrors Phase 1g hardening; not misdirected to "missing link")
 //
 // Migrated from tests/validate-phase-1l.fish per ADR #0012 (issue #211).
+// Updated for issue #375: planning.md split into planning-pipeline.md /
+// skip-contract.md / pressure-framing-floor.md. Registry now uses fully
+// qualified `<basename>.md#<anchor>` tokens.
 
 const REPO = resolve(import.meta.dir, "..");
 const VALIDATE = join(REPO, "validate.fish");
@@ -92,32 +95,28 @@ const makeFixture = (): string => {
 };
 
 // Seed every dependent rule registered in Phase 1l with all its registered
-// anchor links. Anchor list mirrors the canonical registry in validate.fish.
+// anchor links. Link list mirrors the canonical registry in validate.fish.
 const seedFullRegistry = (fixture: string): void => {
   const rules = join(fixture, "rules");
   writeFileSync(
-    join(rules, "planning.md"),
-    "# planning sentinel (Phase 1l does not read this; sibling phases may)\n",
-  );
-  writeFileSync(
     join(rules, "fat-marker-sketch.md"),
-    "Floor: planning.md#pressure-framing-floor planning.md#emission-contract planning.md#emergency-bypass-sentinel planning.md#override-skip-contract\n",
+    "Floor: pressure-framing-floor.md#pressure-framing-floor skip-contract.md#emission-contract pressure-framing-floor.md#emergency-bypass-sentinel skip-contract.md#override-skip-contract\n",
   );
   writeFileSync(
     join(rules, "execution-mode.md"),
-    "Floor: planning.md#pressure-framing-floor planning.md#emission-contract planning.md#emergency-bypass-sentinel planning.md#trivial-tier-criteria\n",
+    "Floor: pressure-framing-floor.md#pressure-framing-floor skip-contract.md#emission-contract pressure-framing-floor.md#emergency-bypass-sentinel planning-pipeline.md#trivial-tier-criteria\n",
   );
   writeFileSync(
     join(rules, "goal-driven.md"),
-    "Floor: planning.md#pressure-framing-floor planning.md#emission-contract planning.md#emergency-bypass-sentinel planning.md#override-skip-contract planning.md#emission-contract-per-gate\n",
+    "Floor: pressure-framing-floor.md#pressure-framing-floor skip-contract.md#emission-contract pressure-framing-floor.md#emergency-bypass-sentinel skip-contract.md#override-skip-contract skip-contract.md#emission-contract-per-gate\n",
   );
   writeFileSync(
     join(rules, "pr-validation.md"),
-    "Floor: planning.md#pressure-framing-floor planning.md#emission-contract planning.md#emergency-bypass-sentinel planning.md#override-skip-contract planning.md#emission-contract-per-gate\n",
+    "Floor: pressure-framing-floor.md#pressure-framing-floor skip-contract.md#emission-contract pressure-framing-floor.md#emergency-bypass-sentinel skip-contract.md#override-skip-contract skip-contract.md#emission-contract-per-gate\n",
   );
   writeFileSync(
     join(rules, "think-before-coding.md"),
-    "Floor: planning.md#emission-contract planning.md#trivial-tier-criteria planning.md#override-skip-contract planning.md#emission-contract-per-gate\n",
+    "Floor: skip-contract.md#emission-contract planning-pipeline.md#trivial-tier-criteria skip-contract.md#override-skip-contract skip-contract.md#emission-contract-per-gate\n",
   );
 };
 
@@ -157,22 +156,22 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
   test("B: deleted link in multi-anchor rule → fail surfaces AND surviving anchors still pass", () => {
     const fixture = makeFixture();
     seedFullRegistry(fixture);
-    // fat-marker-sketch is registered for 3 anchors; drop pressure-framing-floor
-    // but keep the other two. Asserts the inner loop does NOT break on first
+    // fat-marker-sketch is registered for 4 links; drop pressure-framing-floor
+    // but keep the other links. Asserts the inner loop does NOT break on first
     // fail — the surviving pass lines must still appear.
     writeFileSync(
       join(fixture, "rules", "fat-marker-sketch.md"),
-      "Only: planning.md#emission-contract planning.md#emergency-bypass-sentinel\n",
+      "Only: skip-contract.md#emission-contract pressure-framing-floor.md#emergency-bypass-sentinel\n",
     );
     const out = extractPhase1l(runValidate(fixture));
     expect(out).toContain(
-      "rules/fat-marker-sketch.md missing delegate link to planning.md#pressure-framing-floor",
+      "rules/fat-marker-sketch.md missing delegate link to pressure-framing-floor.md#pressure-framing-floor",
     );
     expect(out).toContain(
-      "rules/fat-marker-sketch.md delegates to planning.md#emission-contract",
+      "rules/fat-marker-sketch.md delegates to skip-contract.md#emission-contract",
     );
     expect(out).toContain(
-      "rules/fat-marker-sketch.md delegates to planning.md#emergency-bypass-sentinel",
+      "rules/fat-marker-sketch.md delegates to pressure-framing-floor.md#emergency-bypass-sentinel",
     );
   });
 
@@ -186,9 +185,9 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
     );
   });
 
-  test("D: empty anchor ID in CSV (trailing comma) → Phase 1l fails", () => {
-    // Phase 1l's empty-anchor guard prevents `planning.md#` (no anchor) from
-    // matching incidentally on any anchored link. The registry is hard-coded
+  test("D: empty link token in CSV (trailing comma) → Phase 1l fails", () => {
+    // Phase 1l's empty-link guard prevents a bare empty pattern from
+    // matching incidentally against the rule file. The registry is hard-coded
     // in validate.fish, so simulate the bad-input case via a temp validator
     // copy whose registry has been surgically edited to inject a trailing
     // comma.
@@ -196,12 +195,12 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
     seedFullRegistry(fixture);
     const original = readFileSync(VALIDATE, "utf8");
     // Coupling: the literal below must match the registry entry in
-    // validate.fish:615 verbatim. If the entry is renamed, replace() becomes
+    // validate.fish verbatim. If the entry is renamed, replace() becomes
     // a no-op — the `expect(patched).not.toBe(original)` guard fails the test
     // loudly so the coupling cannot silently degrade.
     const patched = original.replace(
-      '"think-before-coding.md|emission-contract,trivial-tier-criteria,override-skip-contract,emission-contract-per-gate"',
-      '"think-before-coding.md|emission-contract,"',
+      '"think-before-coding.md|skip-contract.md#emission-contract,planning-pipeline.md#trivial-tier-criteria,skip-contract.md#override-skip-contract,skip-contract.md#emission-contract-per-gate"',
+      '"think-before-coding.md|skip-contract.md#emission-contract,"',
     );
     expect(patched).not.toBe(original);
     // Write the patched validator inside the fixture so afterEach cleans it
@@ -209,7 +208,7 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
     const tmpValidate = join(fixture, "validate-patched.fish");
     writeFileSync(tmpValidate, patched);
     const out = extractPhase1l(runValidate(fixture, tmpValidate));
-    expect(out).toContain("empty anchor ID");
+    expect(out).toContain("empty link token");
   });
 
   // chmod 000 does not block reads when running as root; fish original

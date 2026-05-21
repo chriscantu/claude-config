@@ -4,7 +4,7 @@ description: >
   controller to choose and announce execution mode (subagent-driven vs.
   single-implementer) before the first implementer dispatch, based on plan
   size and integration coupling. Wraps the plugin-cached skill rather than
-  editing it. Composes with `planning.md` Trivial-tier carve-out.
+  editing it. Composes with `planning-pipeline.md` Trivial-tier carve-out.
 ---
 
 # Execution Mode Selection
@@ -53,8 +53,8 @@ plan; one comprehensive review at the end against the full spec) when ANY of:
 - Plan has ≤4 tasks
 - All tasks touch the same file
 - Each task is a TDD increment ≤50 LOC
-- [Trivial/Mechanical tier](planning.md#trivial-tier-criteria) per
-  `rules/planning.md` Scope Calibration — canonical criteria live at the
+- [Trivial/Mechanical tier](planning-pipeline.md#trivial-tier-criteria) per
+  `rules/planning-pipeline.md` Scope Calibration — canonical criteria live at the
   anchor; do not restate inline
 
 The final cross-task review still runs — single-implementer mode trades
@@ -85,18 +85,19 @@ been honored.
 
 ## Pressure-framing floor
 
-See [pressure-framing routing](planning.md#pressure-framing-floor),
-[emission contract](planning.md#emission-contract),
-[sentinel bypass](planning.md#emergency-bypass-sentinel), and
-[Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria) —
-canonical mechanics live in `rules/planning.md`. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+See [pressure-framing routing](pressure-framing-floor.md#pressure-framing-floor),
+[emission contract](skip-contract.md#emission-contract),
+[sentinel bypass](pressure-framing-floor.md#emergency-bypass-sentinel), and
+[Trivial/Mechanical tier criteria](planning-pipeline.md#trivial-tier-criteria) —
+canonical mechanics live in `rules/planning-pipeline.md`, `rules/skip-contract.md`,
+and `rules/pressure-framing-floor.md`. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
 and memory note `per_gate_floor_blocks_substitutable.md`, no per-gate
 restatement is required.
 
 ## Relationship to Other Rules
 
-- `rules/planning.md` — Scope Calibration's
-  [Trivial/Mechanical tier](planning.md#trivial-tier-criteria) feeds this
+- `rules/planning-pipeline.md` — Scope Calibration's
+  [Trivial/Mechanical tier](planning-pipeline.md#trivial-tier-criteria) feeds this
   rule (Trivial → single-implementer). This rule fires AFTER planning has
   produced a plan; it governs HOW the plan is executed, not whether one
   is needed.

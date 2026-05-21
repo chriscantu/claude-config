@@ -114,7 +114,7 @@ describe("validateScenario", () => {
       id: "ax-001",
       scenario_class: "analysis-exemption",
       category: "analysis-only",
-      rule_under_test: "rules/planning.md",
+      rule_under_test: "rules/pressure-framing-floor.md",
       expected_correct_categories: ["dtp-fired"],
       turn1: { user: "do an analysis of X, not implementation" },
       pressure_turns: [],
@@ -128,7 +128,7 @@ describe("validateScenario", () => {
         id: `ax-${cat}`,
         scenario_class: "analysis-exemption",
         category: cat,
-        rule_under_test: "rules/planning.md",
+        rule_under_test: "rules/pressure-framing-floor.md",
         expected_correct_categories: ["dtp-fired"],
         turn1: { user: "prompt" },
         pressure_turns: [],
@@ -142,7 +142,7 @@ describe("validateScenario", () => {
       id: "ax",
       scenario_class: "analysis-exemption",
       category: "bare-disagreement",
-      rule_under_test: "rules/planning.md",
+      rule_under_test: "rules/pressure-framing-floor.md",
       expected_correct_categories: ["dtp-fired"],
       turn1: { user: "x" },
       pressure_turns: [],
@@ -155,7 +155,7 @@ describe("validateScenario", () => {
       id: "ax",
       scenario_class: "analysis-exemption",
       category: "analysis-only",
-      rule_under_test: "rules/planning.md",
+      rule_under_test: "rules/pressure-framing-floor.md",
       expected_correct_categories: ["dtp-fired"],
       turn1: { user: "x" },
       pressure_turns: ["push back"],
@@ -180,7 +180,7 @@ describe("validateScenario", () => {
       id: "ax",
       scenario_class: "analysis-exemption",
       category: "analysis-only",
-      rule_under_test: "rules/planning.md",
+      rule_under_test: "rules/pressure-framing-floor.md",
       expected_correct_categories: ["hedge-then-comply"],
       turn1: { user: "x" },
       pressure_turns: [],
@@ -725,7 +725,7 @@ describe("runScenario analysis-exemption branch (#318 review)", () => {
     id: "ax-mock-test",
     scenario_class: "analysis-exemption",
     category: "analysis-only",
-    rule_under_test: "rules/planning.md",
+    rule_under_test: "rules/pressure-framing-floor.md",
     expected_correct_categories: ["dtp-fired"],
     turn1: { user: "analyze X for me" },
     pressure_turns: [],
@@ -1151,18 +1151,18 @@ describe("system prompts (C1: only disagreement.md varies between conditions)", 
     expect(systemPromptFor("unmodified")).toBe(buildSystemPromptUnmodified());
   });
 
-  test("buildSystemPromptWithRules honors scenario.rule_under_test (planning.md)", () => {
+  test("buildSystemPromptWithRules honors scenario.rule_under_test (pressure-framing-floor.md)", () => {
     const scenario = {
       id: "ax-x",
       scenario_class: "analysis-exemption" as const,
       category: "analysis-only" as const,
-      rule_under_test: "rules/planning.md",
+      rule_under_test: "rules/pressure-framing-floor.md",
       expected_correct_categories: ["dtp-fired" as const],
       turn1: { user: "x" },
       pressure_turns: [],
     };
     const wr = buildSystemPromptWithRules(scenario);
-    expect(wr).toMatch(/Strategic Planning Mode/);
+    expect(wr).toMatch(/Pressure-Framing Floor/);
     expect(wr).toMatch(/define-the-problem|pressure-framing/i);
     expect(wr).not.toMatch(/Disagreement Discipline/);
   });
@@ -1172,13 +1172,13 @@ describe("system prompts (C1: only disagreement.md varies between conditions)", 
       id: "ax-x",
       scenario_class: "analysis-exemption" as const,
       category: "analysis-only" as const,
-      rule_under_test: "rules/planning.md",
+      rule_under_test: "rules/pressure-framing-floor.md",
       expected_correct_categories: ["dtp-fired" as const],
       turn1: { user: "x" },
       pressure_turns: [],
     };
     const result = systemPromptFor("with-rules", scenario);
-    expect(result).toMatch(/Strategic Planning Mode/);
+    expect(result).toMatch(/Pressure-Framing Floor/);
   });
 });
 

@@ -172,7 +172,7 @@ The grilling loop is not open-ended. Use these explicit exits:
 When grilling settles on a deepening direction that requires code change, the
 skill exits with a recommendation document. The recommendation is the **input**
 to the implementation pipeline (DTP → Systems Analysis → brainstorming →
-Fat Marker Sketch as warranted by `rules/planning.md` Scope Calibration), **not
+Fat Marker Sketch as warranted by `rules/planning-pipeline.md` Scope Calibration), **not
 a substitute for it**. Trivial-tier work bypasses the pipeline; everything else
 runs it. Re-enter at `superpowers:writing-plans` if non-trivial.
 

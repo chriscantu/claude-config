@@ -28,7 +28,7 @@ is referenced from other rules, promote it to a citable anchor:
    heading. Auto-generated GitHub heading IDs are fragile — punctuation,
    em dashes, and renames silently break links.
 2. Dependent rules deep-link with `[Display Text](BASENAME.md#kebab-name)`
-   where BASENAME is the canonical file (e.g., `planning`).
+   where BASENAME is the canonical file (e.g., `pressure-framing-floor`).
 3. Add the anchor ID to `validate.fish` Phase 1j's registry so future
    removal fails CI.
 
@@ -40,9 +40,15 @@ dependent.
 
 ## Policy: HARD-GATE cap
 
-**Cap: 8 HARD-GATE rules.** The current set listed in
+**Cap: 8 HARD-GATE behavioral concerns.** The current set listed in
 [`README.md`'s "What lives here" table](README.md#what-lives-here) is the
-ceiling.
+ceiling. Note: the planning-pipeline / skip-contract /
+pressure-framing-floor trio is **one concern** (the planning pipeline +
+floor mechanics) implemented across three files for cognitive-load
+hygiene per issue #375. Counting concerns rather than files, the live
+set is: planning trio, fat-marker-sketch, think-before-coding,
+goal-driven, execution-mode, pr-validation, disagreement,
+memory-discipline = 8.
 
 <!-- The README.md#what-lives-here anchor is defined explicitly in rules/README.md
      to make this deep-link Phase 1k-resolvable per the Stable anchor pattern. -->
@@ -56,7 +62,9 @@ substrate cost. The cap is a prevention policy; per-prompt fixes (scope-tier
 hooks, conditional loaders) are downstream remediation, not substitutes. The
 originating issue referenced 6 gates — `disagreement.md` and `memory-discipline.md` shipped after that
 count, bringing the live set to 8. The cap freezes the current set; it does
-not retroactively prune.
+not retroactively prune. Splitting an existing concern across multiple
+files for cognitive-load reasons (as in #375) is structural, not
+accretive — it does not consume cap budget.
 
 ### Adding a 9th HARD-GATE rule requires:
 
@@ -85,7 +93,7 @@ Discriminating-signal claims below reference evals under `rules-evals/<name>/eva
 | Candidate pair | Overlap surface | Verdict |
 |---|---|---|
 | `think-before-coding` <-> `goal-driven` | Both fire at the Solution Design -> Implementation seam; both prescribe pre-code structure | **Keep separate.** TBC governs *what to surface* (assumptions/interpretations/simpler-path) at design; goal-driven governs *what success looks like* (verify criteria, loop semantics) at implementation. Distinct discriminating signals: TBC RED on missing preamble; goal-driven RED on missing verify check. Merging collapses two channels. (evals: `rules-evals/think-before-coding/`, `rules-evals/goal-driven/`) |
-| `planning` (DTP/SA/SD) <-> `fat-marker-sketch` | FMS sits inside the planning pipeline between approach-selection and detailed-design | **Keep separate but watch.** FMS is a *gate within* planning, not a parallel gate. Per the per-gate-boundary discrimination rule (see condition 2 above) and a four-cell inverse-RED audit, FMS per-gate blocks failed discrimination at their own boundary. FMS retained as a discrete file for substrate cost (its sketch artifact is a distinct deliverable), but flagged for re-evaluation if a discriminating signal at the FMS boundary cannot be authored. (evals: `skills/fat-marker-sketch/evals/`, `skills/{define-the-problem,systems-analysis,sdr}/evals/` — no `rules-evals/` home yet for FMS or planning rule) |
+| `planning-pipeline` + floor trio <-> `fat-marker-sketch` | FMS sits inside the planning pipeline between approach-selection and detailed-design | **Keep separate but watch.** FMS is a *gate within* planning, not a parallel gate. Per the per-gate-boundary discrimination rule (see condition 2 above) and a four-cell inverse-RED audit, FMS per-gate blocks failed discrimination at their own boundary. FMS retained as a discrete file for substrate cost (its sketch artifact is a distinct deliverable), but flagged for re-evaluation if a discriminating signal at the FMS boundary cannot be authored. (evals: `skills/fat-marker-sketch/evals/`, `skills/{define-the-problem,systems-analysis,sdr}/evals/` — no `rules-evals/` home yet for FMS or planning rule) |
 | `disagreement` <-> `memory-discipline` | Both handle anti-sycophancy / pressure framing; both yield to "new evidence" semantics | **Keep separate.** Disagreement governs *live pushback in-turn*; memory-discipline governs *stored auto-memory defaults across turns*. Different trigger surfaces, different escape clauses (evidence vs. surfaced trade-off). Discriminating signals differ: disagreement RED on capitulation-without-evidence; memory-discipline RED on uncited stored-claim execution. (evals: `rules-evals/disagreement/`, `rules-evals/memory-discipline/`) |
 
 No merges proposed. Audit conclusion: the 8 are individually discriminable;
@@ -146,8 +154,8 @@ Skip-override prose ("What counts as an explicit override" + "Time
 pressure is not an override" + per-gate "Emission contract — MANDATORY"
 boilerplate) is canonical at:
 
-- `rules/planning.md#override-skip-contract`
-- `rules/planning.md#emission-contract-per-gate`
+- `rules/skip-contract.md#override-skip-contract`
+- `rules/skip-contract.md#emission-contract-per-gate`
 
 Delegate rules link to these anchors with a one-line `See [...]` and
 their own `gate=` value. Do not restate the canonical text in a

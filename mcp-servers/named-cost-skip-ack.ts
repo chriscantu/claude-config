@@ -9,7 +9,7 @@
  *
  * Phase 2 (issue #117): enum extended with systems-analysis and
  * fat-marker-sketch. Single MCP tool, per-gate `gate` value — copy-paste-
- * parameterize pattern from rules/planning.md.
+ * parameterize pattern from rules/skip-contract.md.
  *
  * Phase 3 (issue #136): enum extended with think-before-coding and
  * goal-driven, matching the HARD-GATE promotions in rules/.

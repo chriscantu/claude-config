@@ -25,17 +25,17 @@ go back to this step.
 
 ### What counts as an explicit override
 
-See [Skip override — what counts](planning.md#override-skip-contract).
+See [Skip override — what counts](skip-contract.md#override-skip-contract).
 Time pressure is not an override. For combined red-flag patterns, see
 the rationalization table in `skills/fat-marker-sketch/SKILL.md`.
 
 ### Skip contract
 
-See [pressure-framing routing](planning.md#pressure-framing-floor),
-[emission contract](planning.md#emission-contract), and
-[sentinel bypass](planning.md#emergency-bypass-sentinel) — canonical mechanics
-live in `rules/planning.md`. Per ADR #0007 and the 2026-04-24 inverse-RED audit,
-no per-gate restatement is required.
+See [pressure-framing routing](pressure-framing-floor.md#pressure-framing-floor),
+[emission contract](skip-contract.md#emission-contract), and
+[sentinel bypass](pressure-framing-floor.md#emergency-bypass-sentinel) — canonical mechanics
+live in `rules/skip-contract.md` and `rules/pressure-framing-floor.md`. Per ADR #0007
+and the 2026-04-24 inverse-RED audit, no per-gate restatement is required.
 
 ## Producing the Sketch
 

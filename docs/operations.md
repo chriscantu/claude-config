@@ -24,7 +24,7 @@ touch ~/.claude/DISABLE_PRESSURE_FLOOR
 
 File existence alone triggers the bypass — content is ignored.
 
-On the first pressure-framed prompt after the bypass takes effect, Claude prints a visible banner identifying the bypass and the restore command. The banner is intentional — the bypass is never silent. Exact banner wording is defined in [`rules/planning.md`](../rules/planning.md) under the emergency-bypass block; if you need to match on it programmatically, read the rule file rather than copy-pasting from here.
+On the first pressure-framed prompt after the bypass takes effect, Claude prints a visible banner identifying the bypass and the restore command. The banner is intentional — the bypass is never silent. Exact banner wording is defined in [`rules/pressure-framing-floor.md`](../rules/pressure-framing-floor.md) under the emergency-bypass block; if you need to match on it programmatically, read the rule file rather than copy-pasting from here.
 
 **Restoring the floor:**
 

@@ -503,36 +503,50 @@ end
 echo ""
 
 # 1f. Rules anchor labels
-# rules/planning.md is the SINGLE anchor for pressure-framing-floor mechanics.
-# Four dependent rules delegate to it by reference. If a labeled block disappears
-# or is reworded, the anchor breaks silently.
+# Pressure-framing-floor mechanics are split across three sibling files
+# (planning-pipeline.md, skip-contract.md, pressure-framing-floor.md). Five
+# dependent rules delegate to them by reference. If a labeled block disappears
+# or is reworded — or a dependent rule loses all references to the trio —
+# the floor weakens silently.
 _phase_begin "1f"
 echo "── Rules anchor labels"
 
-set anchor_file "$repo_dir/rules/planning.md"
+# Registry: <label>|<canonical-file-basename>
 set required_labels \
-    "**Skip contract.**" \
-    "**Pressure-framing floor.**" \
-    "**Emission contract — MANDATORY.**" \
-    "**Architectural invariant.**" \
-    "**Emergency bypass — sentinel file check.**" \
-    "**Scope-tier memory check (fires BEFORE pressure-framing floor).**"
+    "**Skip contract.**|skip-contract.md" \
+    "**Pressure-framing floor.**|pressure-framing-floor.md" \
+    "**Emission contract — MANDATORY.**|skip-contract.md" \
+    "**Architectural invariant.**|pressure-framing-floor.md" \
+    "**Emergency bypass — sentinel file check.**|pressure-framing-floor.md" \
+    "**Scope-tier memory check (fires BEFORE pressure-framing floor).**|pressure-framing-floor.md"
 set dependent_rules \
     fat-marker-sketch.md \
     goal-driven.md \
     think-before-coding.md \
     execution-mode.md \
     pr-validation.md
+set floor_trio \
+    planning-pipeline.md \
+    skip-contract.md \
+    pressure-framing-floor.md
 
-if not test -f "$anchor_file"
-    fail "anchor file missing: rules/planning.md"
-else
-    for label in $required_labels
-        if grep -qF -- "$label" "$anchor_file"
-            pass "planning.md contains label: $label"
-        else
-            fail "planning.md missing required label: $label"
-        end
+for entry in $required_labels
+    set parts (string split -m 1 "|" $entry)
+    if test (count $parts) -ne 2
+        fail "malformed required-label entry (expected 2 |-separated fields): $entry"
+        continue
+    end
+    set label $parts[1]
+    set canonical $parts[2]
+    set anchor_path "$repo_dir/rules/$canonical"
+    if not test -f "$anchor_path"
+        fail "anchor file missing: rules/$canonical"
+        continue
+    end
+    if grep -qF -- "$label" "$anchor_path"
+        pass "$canonical contains label: $label"
+    else
+        fail "$canonical missing required label: $label"
     end
 end
 
@@ -542,10 +556,20 @@ for dep in $dependent_rules
         fail "dependent rule missing: rules/$dep"
         continue
     end
-    if grep -qF -- "planning.md" "$dep_path"
-        pass "rules/$dep references planning.md"
+    # Dependent rules must reference at least one file in the floor trio.
+    # Phase 1l enforces the specific (file, anchor) pairs; this phase is the
+    # cheap any-trio-mention guard against a rule losing the floor wholesale.
+    set found_ref 0
+    for trio_file in $floor_trio
+        if grep -qF -- "$trio_file" "$dep_path"
+            set found_ref 1
+            break
+        end
+    end
+    if test $found_ref -eq 1
+        pass "rules/$dep references the floor trio (planning-pipeline/skip-contract/pressure-framing-floor)"
     else
-        fail "rules/$dep does not reference planning.md"
+        fail "rules/$dep references none of the floor trio (planning-pipeline.md, skip-contract.md, pressure-framing-floor.md)"
     end
 end
 
@@ -561,16 +585,16 @@ echo "── Canonical-string drift"
 
 # Registry: <pattern>|<canonical-file-basename>|<human-name>
 set drift_registry \
-    "≤ ~200 LOC functional change|planning.md|Trivial-tier LOC criterion" \
-    "Single component / single-file primary surface|planning.md|Trivial-tier surface criterion" \
-    "Unambiguous approach (one obvious design|planning.md|Trivial-tier approach criterion" \
-    "Low blast radius (no cross-team|planning.md|Trivial-tier blast-radius criterion" \
-    "**Authority** — external-approval invocation|planning.md|Pressure-framing floor Authority category" \
-    "**Sunk cost** — commitment-consistency framing|planning.md|Pressure-framing floor Sunk-cost category" \
-    "**Exhaustion** — fatigue framing|planning.md|Pressure-framing floor Exhaustion category" \
-    "**Deadline** — time-pressure framing|planning.md|Pressure-framing floor Deadline category" \
-    "**Stated-next-step** — skip|planning.md|Pressure-framing floor Stated-next-step category" \
-    "select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip|planning.md|Emission contract ToolSearch mechanics" \
+    "≤ ~200 LOC functional change|planning-pipeline.md|Trivial-tier LOC criterion" \
+    "Single component / single-file primary surface|planning-pipeline.md|Trivial-tier surface criterion" \
+    "Unambiguous approach (one obvious design|planning-pipeline.md|Trivial-tier approach criterion" \
+    "Low blast radius (no cross-team|planning-pipeline.md|Trivial-tier blast-radius criterion" \
+    "**Authority** — external-approval invocation|pressure-framing-floor.md|Pressure-framing floor Authority category" \
+    "**Sunk cost** — commitment-consistency framing|pressure-framing-floor.md|Pressure-framing floor Sunk-cost category" \
+    "**Exhaustion** — fatigue framing|pressure-framing-floor.md|Pressure-framing floor Exhaustion category" \
+    "**Deadline** — time-pressure framing|pressure-framing-floor.md|Pressure-framing floor Deadline category" \
+    "**Stated-next-step** — skip|pressure-framing-floor.md|Pressure-framing floor Stated-next-step category" \
+    "select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip|skip-contract.md|Emission contract ToolSearch mechanics" \
     "The falsehood is the asserted agreement|disagreement.md|Hedge-then-Comply falsehood definition" \
     "add row to|scope-tier-memory-check.sh|Scope-tier verb-signal add-row-to" \
     "update entry in|scope-tier-memory-check.sh|Scope-tier verb-signal update-entry-in" \
@@ -638,20 +662,20 @@ echo "── Stable anchor presence"
 
 # Registry: <anchor-id>|<canonical-file-basename>|<human-name>
 set anchor_registry \
-    "trivial-tier-criteria|planning.md|Trivial/Mechanical tier criteria" \
-    "skip-contract|planning.md|DTP Skip contract" \
-    "emission-contract|planning.md|DTP Emission contract" \
-    "pressure-framing-floor|planning.md|DTP Pressure-framing floor" \
-    "architectural-invariant|planning.md|DTP Architectural invariant" \
-    "emergency-bypass-sentinel|planning.md|DTP Emergency bypass sentinel" \
-    "fast-track-validation-emission|planning.md|DTP Fast-Track validation emission" \
+    "trivial-tier-criteria|planning-pipeline.md|Trivial/Mechanical tier criteria" \
+    "skip-contract|skip-contract.md|DTP Skip contract" \
+    "emission-contract|skip-contract.md|DTP Emission contract" \
+    "pressure-framing-floor|pressure-framing-floor.md|DTP Pressure-framing floor" \
+    "architectural-invariant|pressure-framing-floor.md|DTP Architectural invariant" \
+    "emergency-bypass-sentinel|pressure-framing-floor.md|DTP Emergency bypass sentinel" \
+    "fast-track-validation-emission|pressure-framing-floor.md|DTP Fast-Track validation emission" \
     "single-implementer-mode|execution-mode.md|Single-implementer execution mode" \
     "verify-checks|goal-driven.md|Goal-driven verify checks" \
-    "scope-tier-memory-check|planning.md|Scope-tier memory check" \
+    "scope-tier-memory-check|pressure-framing-floor.md|Scope-tier memory check" \
     "goal-verification|verification.md|Verification goal-vs-tasks gate" \
     "hard-gate-cap|GOVERNANCE.md|HARD-GATE cap policy" \
-    "override-skip-contract|planning.md|Skip override — what counts" \
-    "emission-contract-per-gate|planning.md|Emission contract — per-gate skip honor"
+    "override-skip-contract|skip-contract.md|Skip override — what counts" \
+    "emission-contract-per-gate|skip-contract.md|Emission contract — per-gate skip honor"
 
 for entry in $anchor_registry
     set parts (string split -m 2 "|" $entry)
@@ -782,27 +806,29 @@ end
 echo ""
 
 # 1l. Delegate-link presence
-# Phase 1f confirms dependent rules mention planning.md (any context).
+# Phase 1f confirms dependent rules mention at least one file in the floor trio
+# (planning-pipeline.md / skip-contract.md / pressure-framing-floor.md).
 # Phase 1g fails on canonical-string RESTATEMENT.
 # Phase 1k fails on dangling anchor LINKS.
 # None catch the case where a contributor DELETES the entire delegate paragraph
 # from a dependent rule — the HARD-GATE then silently weakens. This phase
-# asserts each registered (rule, anchor) pair still has a live `planning.md#<id>`
-# link in the dependent rule.
+# asserts each registered (rule, target-file, target-anchor) triple still has a
+# live `<basename>.md#<id>` link in the dependent rule.
 _phase_begin "1l"
 echo "── Delegate-link presence"
 
-# Registry: <rule-basename>|<comma-separated-anchor-ids>
-# Anchors are deep-link targets in planning.md that the dependent rule must
-# still reference. Inventory mirrors the actual `grep -oE 'planning\.md#[a-z-]+'`
-# output across rules/ — keep in sync when adding new delegate links. Add
-# (rule, anchors) pairs here when promoting a new floor delegation.
+# Registry: <rule-basename>|<comma-separated-target.md#anchor-ids>
+# Each anchor entry is a fully qualified <basename>.md#<anchor> token —
+# Phase 1l asserts the dependent rule still contains that literal substring.
+# Inventory mirrors the actual cross-rule deep-link output across rules/ —
+# keep in sync when adding new delegate links. Add (rule, target#anchor) pairs
+# here when promoting a new floor delegation.
 set delegate_registry \
-    "fat-marker-sketch.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel,override-skip-contract" \
-    "execution-mode.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel,trivial-tier-criteria" \
-    "goal-driven.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel,override-skip-contract,emission-contract-per-gate" \
-    "pr-validation.md|pressure-framing-floor,emission-contract,emergency-bypass-sentinel,override-skip-contract,emission-contract-per-gate" \
-    "think-before-coding.md|emission-contract,trivial-tier-criteria,override-skip-contract,emission-contract-per-gate"
+    "fat-marker-sketch.md|pressure-framing-floor.md#pressure-framing-floor,skip-contract.md#emission-contract,pressure-framing-floor.md#emergency-bypass-sentinel,skip-contract.md#override-skip-contract" \
+    "execution-mode.md|pressure-framing-floor.md#pressure-framing-floor,skip-contract.md#emission-contract,pressure-framing-floor.md#emergency-bypass-sentinel,planning-pipeline.md#trivial-tier-criteria" \
+    "goal-driven.md|pressure-framing-floor.md#pressure-framing-floor,skip-contract.md#emission-contract,pressure-framing-floor.md#emergency-bypass-sentinel,skip-contract.md#override-skip-contract,skip-contract.md#emission-contract-per-gate" \
+    "pr-validation.md|pressure-framing-floor.md#pressure-framing-floor,skip-contract.md#emission-contract,pressure-framing-floor.md#emergency-bypass-sentinel,skip-contract.md#override-skip-contract,skip-contract.md#emission-contract-per-gate" \
+    "think-before-coding.md|skip-contract.md#emission-contract,planning-pipeline.md#trivial-tier-criteria,skip-contract.md#override-skip-contract,skip-contract.md#emission-contract-per-gate"
 
 for entry in $delegate_registry
     set parts (string split -m 1 "|" $entry)
@@ -811,11 +837,11 @@ for entry in $delegate_registry
         continue
     end
     set rule_basename $parts[1]
-    set anchor_csv $parts[2]
+    set link_csv $parts[2]
     set rule_path "$repo_dir/rules/$rule_basename"
 
-    if test -z "$anchor_csv"
-        fail "delegate-registry entry has empty anchor list: $entry"
+    if test -z "$link_csv"
+        fail "delegate-registry entry has empty link list: $entry"
         continue
     end
 
@@ -824,17 +850,23 @@ for entry in $delegate_registry
         continue
     end
 
-    for anchor_id in (string split "," $anchor_csv)
-        # Guard empty anchor IDs (e.g. trailing comma "a,b," or empty CSV ",")
-        # — empty $anchor_id collapses link_pattern to "planning.md#" which
-        # grep -qF would match incidentally on any anchored link, producing a
-        # silent pass.
-        if test -z "$anchor_id"
-            fail "delegate-registry entry $entry contains empty anchor ID (check for trailing/double commas)"
+    for link_pattern in (string split "," $link_csv)
+        # Guard empty link tokens (e.g. trailing comma "a.md#x,b.md#y,") —
+        # empty $link_pattern would make grep match the empty string against
+        # the rule file, producing a silent pass.
+        if test -z "$link_pattern"
+            fail "delegate-registry entry $entry contains empty link token (check for trailing/double commas)"
             continue
         end
 
-        set link_pattern "planning.md#$anchor_id"
+        # Each token must already be a fully qualified <basename>.md#<anchor>.
+        # Reject malformed tokens loudly so a missing "#" cannot match a bare
+        # filename mention and silently pass.
+        if not string match -q "*.md#*" -- "$link_pattern"
+            fail "delegate-registry entry $entry contains malformed link token '$link_pattern' (expected <basename>.md#<anchor>)"
+            continue
+        end
+
         # Capture grep status to distinguish 0/1 (match/no-match) from ≥2
         # (I/O error, permission denied, signal). Mirrors Phase 1g hardening
         # so an unreadable rule file does not get reported as a missing

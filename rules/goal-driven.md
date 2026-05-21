@@ -44,27 +44,28 @@ exit code, file presence. "Looks right" is NOT a verify check.
 - Single-line edits with no behavioral change (typo, comment, formatting)
 - Pure file moves / renames the user explicitly directed
 - Throwaway exploration the user has scoped as exploration ("just poke around X")
-- Emergency bypass via `DISABLE_PRESSURE_FLOOR` sentinel (see [planning.md](planning.md#emergency-bypass-sentinel)) —
+- Emergency bypass via `DISABLE_PRESSURE_FLOOR` sentinel (see [pressure-framing-floor.md](pressure-framing-floor.md#emergency-bypass-sentinel)) —
   the bypass disables pressure-framing routing, not the verify discipline; if
   you skip on bypass grounds, say so
 
 ### What counts as an explicit override
 
-See [Skip override — what counts](planning.md#override-skip-contract).
+See [Skip override — what counts](skip-contract.md#override-skip-contract).
 Time pressure is not an override.
 
 ### Pressure-framing floor
 
-See [pressure-framing routing](planning.md#pressure-framing-floor),
-[emission contract](planning.md#emission-contract), and
-[sentinel bypass](planning.md#emergency-bypass-sentinel) — canonical mechanics
-live in `rules/planning.md`. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+See [pressure-framing routing](pressure-framing-floor.md#pressure-framing-floor),
+[emission contract](skip-contract.md#emission-contract), and
+[sentinel bypass](pressure-framing-floor.md#emergency-bypass-sentinel) — canonical mechanics
+live in `rules/skip-contract.md` and `rules/pressure-framing-floor.md`. Per
+[ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
 and memory note `per_gate_floor_blocks_substitutable.md`, no per-gate
 restatement is required.
 
 ### Emission contract — MANDATORY
 
-See [Emission contract — per-gate skip honor](planning.md#emission-contract-per-gate). Use `gate="goal-driven"`.
+See [Emission contract — per-gate skip honor](skip-contract.md#emission-contract-per-gate). Use `gate="goal-driven"`.
 
 ## Loop Until Verified
 
@@ -90,7 +91,7 @@ will ping the user every step.
 - `tdd-pragmatic.md` — provides the test-first discipline that makes most
   verify checks cheap. For non-trivial logic, the verify check IS the failing
   test from TDD.
-- `planning.md` — DTP and Systems Analysis happen BEFORE this rule fires.
+- `planning-pipeline.md` — DTP and Systems Analysis happen BEFORE this rule fires.
   Goal-driven execution governs the implementation phase only.
 - Karpathy Coding Principle #4 in `~/.claude/CLAUDE.md` — the soft form.
   This file is the enforced form.

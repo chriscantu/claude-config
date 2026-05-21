@@ -2314,11 +2314,11 @@ describe("seedScratchDecoy() — runtime behavior", () => {
   test("expands {{REPO_ROOT}} token in value content", () => {
     const cwd = mkdtempSync(join(tmpdir(), "seed-repo-"));
     seedScratchDecoy(cwd, brandedDecoy({
-      "ref.txt": "see {{REPO_ROOT}}/rules/planning.md",
+      "ref.txt": "see {{REPO_ROOT}}/rules/planning-pipeline.md",
     }));
     const written = readFileSync(join(cwd, "ref.txt"), "utf8");
     expect(written).toMatch(/^see \//);
-    expect(written).toContain("/rules/planning.md");
+    expect(written).toContain("/rules/planning-pipeline.md");
     expect(written).not.toContain("{{REPO_ROOT}}");
   });
 
@@ -2537,10 +2537,10 @@ describe("runLifecycle()", () => {
   });
 });
 
-describe("planning.md stage markers contract", () => {
-  test("rules/planning.md contains the canonical [Stage: ...] markers", () => {
+describe("planning-pipeline.md stage markers contract", () => {
+  test("rules/planning-pipeline.md contains the canonical [Stage: ...] markers", () => {
     const planning = readFileSync(
-      join(import.meta.dir, "..", "rules", "planning.md"),
+      join(import.meta.dir, "..", "rules", "planning-pipeline.md"),
       "utf8",
     );
     expect(planning).toContain("[Stage: Problem Definition]");
