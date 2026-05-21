@@ -82,6 +82,7 @@ Precedence on conflict: User instructions > `rules/*.md` HARD-GATEs > Karpathy C
 
 | Skill | Purpose |
 |-------|---------|
+| `/catalog` | In-session inventory of this file's rules, skills, agents, and templates — grouped by purpose. Optional args: `skills`, `agents`, `rules`, `leader`. `--mine` flag lists skills under `~/.claude/skills/` absent from this catalog. Read-only, `disable-model-invocation: true`. |
 | `/new-project` | New-project scaffold from a vetted template. |
 | `/excalidraw` | Drive an Excalidraw canvas via MCP for diagrams, flowcharts, and visuals. |
 
