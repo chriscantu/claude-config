@@ -1,0 +1,146 @@
+{
+  "skill": "execution-mode",
+  "description": "Executable evals for the execution-mode HARD-GATE in rules/execution-mode.md. The gate requires the controller to choose AND announce execution mode (subagent-driven vs. single-implementer) before the first implementer dispatch when invoking `superpowers:subagent-driven-development`. Sizing inputs: ≥5 tasks AND ≥2 files AND ≥300 LOC (ALL of) → subagent-driven; ≤4 tasks OR single file OR ≤50 LOC TDD increments OR Trivial-tier (ANY of) → single-implementer. Tie-break: when both fire, single-implementer wins (conjunctive triggers are the more expensive path; require all gates). These evals exercise the five discrimination cells in issue #361: subagent-mode-justified, single-implementer-justified, Trivial-tier auto-route, bug-fix skip (no marker), and tie-break ambiguity.",
+  "_contract_note": "The execution-mode rule's required artifact IS prose — a one-line `[Execution mode: <mode>]` announcement followed by a rationale sentence. Text-tier `regex` assertions on the marker are canonical here, NOT a fallback to substitute for a missing structural channel. This is the inverse of the goal-driven/think-before-coding pattern where the MCP ack tool carries the structural load. The required-tier text marker (`[Execution mode: subagent-driven]` or `[Execution mode: single-implementer]`) is paired with a diagnostic-tier rationale regex to discriminate marker-without-rationale from marker-with-rationale. Bug-fix cell uses `not_regex` to discriminate the skip clause — the gate explicitly does NOT fire on bug fixes per the When-to-Skip section. Per ADR #0005 §3, text-marker required assertions are acceptable only when the substrate cannot emit a structural signal — this rule has no MCP tool, no skill invocation that fires only on mode-decision, and no tool_input shape that carries the announcement. The marker is the artifact.",
+  "evals": [
+    {
+      "name": "subagent-mode-on-large-multifile-plan",
+      "summary": "Plan satisfies ALL three conjunctive triggers (≥5 tasks, ≥2 files, ≥300 LOC). The controller invokes subagent-driven-development; the gate requires the `[Execution mode: subagent-driven]` marker + rationale BEFORE the first implementer dispatch.",
+      "prompt": "I have a written plan ready to execute — please drive it as a coordinated set of implementer dispatches with per-task spec review. Plan summary: 7 tasks spanning 4 files (src/auth/session.ts, src/auth/middleware.ts, src/auth/refresh.ts, src/auth/index.ts), total ~480 LOC of functional change. Tasks include: (1) introduce SessionStore interface, (2) implement RedisSessionStore, (3) wire middleware to read session cookie, (4) refresh-token rotation flow, (5) revocation list propagation, (6) integration test for cross-tab logout, (7) wire index exports. There's cross-component contract coupling between (1)→(2) and (3)→(4)→(5). Execute the plan.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\[Execution mode:\\s*subagent[- ]driven\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required-tier text marker: `[Execution mode: subagent-driven]` is emitted. Failure mode caught: controller dispatches first implementer with no mode announcement, OR announces wrong mode (single-implementer) on a plan that meets ALL three conjunctive triggers. Canonical required artifact per rules/execution-mode.md `Required Announcement` section."
+        },
+        {
+          "type": "regex",
+          "pattern": "(7\\s*tasks?|4\\s*files?|480\\s*LOC|integration\\s*coupling|cross[- ]component|spec\\s*review|per[- ]task\\s*(review|spec)|conjunctive)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "[diagnostic: text-tier rationale wording varies — model may cite different facets of the plan; required marker above is the load-bearing signal] Rationale references the plan-size facts (task count, file count, LOC, or integration coupling) the gate uses to justify subagent-driven mode. Failure mode caught: marker emitted with empty/boilerplate rationale — gate satisfied syntactically but the decision isn't auditable."
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "superpowers:subagent-driven-development",
+          "tier": "diagnostic",
+          "description": "[diagnostic: silent-fire risk when no skills invoked; required marker regex above carries the discriminating load] Forward progress: controller actually routes through the subagent-driven-development skill after announcing the mode. Failure mode caught: model announces subagent-driven but proceeds inline without invoking the skill — the announcement is theatrical."
+        }
+      ]
+    },
+    {
+      "name": "single-implementer-on-small-single-file-plan",
+      "summary": "Plan satisfies disjunctive single-implementer triggers (≤4 tasks, all touching the same file, TDD increments ≤50 LOC each). Gate requires `[Execution mode: single-implementer]` marker + rationale; subagent-driven would be wrong.",
+      "prompt": "I have a plan to execute — please drive it. Plan summary: 3 TDD-shaped tasks on a single file src/utils/parser.ts. (1) Write failing test for `parseISO8601(s)` accepting `YYYY-MM-DD`, then implement (~30 LOC). (2) Add failing test for `YYYY-MM-DDTHH:MM:SSZ` extension, then implement the time-component branch (~40 LOC). (3) Add failing test for timezone offset `±HH:MM`, then implement offset handling (~50 LOC). Each task is a TDD red-green increment. Execute the plan.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\[Execution mode:\\s*single[- ]implementer\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required-tier marker is emitted. Failure mode caught: no marker (gate not honored), OR subagent-driven picked on a 3-task single-file plan — paying per-task review cost without proportional return, the exact failure the rule exists to prevent."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "\\[Execution mode:\\s*subagent[- ]driven\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "subagent-driven marker is NOT emitted. Paired with positive marker to discriminate single-implementer-chosen from both-modes-announced. Failure mode caught: model hedges by announcing both modes or flips mid-response — neither honors the gate's single-decision contract."
+        },
+        {
+          "type": "regex",
+          "pattern": "(3\\s*tasks?|single\\s*file|same\\s*file|TDD|≤\\s*50\\s*LOC|50\\s*LOC|final\\s*review|≤\\s*4\\s*tasks?|disjunctive|ANY\\s*of)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "[diagnostic: rationale wording varies — required markers above carry the discriminating load] Rationale cites a disjunctive single-implementer trigger. Failure mode caught: mode chosen with no plan-facts rationale — auditability gap."
+        }
+      ]
+    },
+    {
+      "name": "trivial-tier-routes-to-single-implementer",
+      "summary": "Plan satisfies the Trivial/Mechanical tier criteria from planning.md (≤200 LOC, single component, unambiguous approach, low blast radius). Per the cross-rule anchor reference, Trivial tier auto-routes to single-implementer. Gate requires the marker even on trivial work.",
+      "prompt": "Mechanical change — please execute. Replace the deprecated `crypto.createCipher` calls with `crypto.createCipheriv` across src/crypto/legacy.ts. Approach is unambiguous (Node deprecation guide spells out the swap). Scope: single file, ~120 LOC of changes (one function plus its 3 callers in the same file), no API surface change, no consumers outside this module. Execute it.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\[Execution mode:\\s*single[- ]implementer\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Trivial-tier scope routes to single-implementer per rules/execution-mode.md's cross-rule reference to planning.md#trivial-tier-criteria. Failure mode caught: controller picks subagent-driven on Trivial-tier work — the highest-cost failure mode the rule guards against."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "\\[Execution mode:\\s*subagent[- ]driven\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "subagent-driven NOT emitted on Trivial work. Failure mode caught: model misreads 120 LOC across 3 callsites as ≥300 LOC or as multi-file, triggering subagent mode on what is structurally a single-file mechanical edit."
+        },
+        {
+          "type": "regex",
+          "pattern": "(trivial|mechanical|single[- ]file|unambiguous|low\\s*blast\\s*radius|≤\\s*200\\s*LOC|200\\s*LOC|deprecat|same\\s*file|planning\\.md|scope\\s*calibration)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "[diagnostic: rationale phrasing varies; required markers carry discriminating load] Rationale references Trivial-tier criteria or the cross-rule planning.md anchor. Failure mode caught: mode chosen by gut feel without naming the tier — gate satisfied syntactically but cross-rule semantic invisible."
+        }
+      ]
+    },
+    {
+      "name": "bug-fix-skip-no-marker-required",
+      "summary": "Bug fix with diagnosis already in hand — per When-to-Skip, bug fixes have no plan to size, so the gate does NOT fire. The execution-mode marker must NOT be emitted.",
+      "prompt": "Bug fix — diagnosed and ready. In src/api/handler.ts line 47, `await db.query(sql, params)` is missing a try/catch, so connection errors propagate as unhandled 500s instead of the structured 503 envelope the rest of the handler uses. Wrap in try/catch and reuse the existing `handleDbError(err, res)` helper that's already imported. Single line of behavior change. Make the fix.",
+      "assertions": [
+        {
+          "type": "not_regex",
+          "pattern": "\\[Execution mode:\\s*(subagent[- ]driven|single[- ]implementer)\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Execution-mode marker NOT emitted on bug fixes. Per rules/execution-mode.md `When to Skip`: 'Bug fixes (no plan to size)'. Failure mode caught: model over-applies the rule and emits the marker on bug-fix paths, polluting transcripts with a decision artifact that has no decision to record. Discriminates the skip clause from the fire-on-all-coding interpretation that would conflate this rule with goal-driven.md."
+        },
+        {
+          "type": "not_skill_invoked",
+          "skill": "superpowers:subagent-driven-development",
+          "tier": "required",
+          "description": "Structural: subagent-driven-development skill NOT invoked on a single-line bug fix. Failure mode caught: model dispatches a fresh subagent for a one-line fix — the exact substrate-cost waste the rule's sizing guard prevents. Structural complement to the text-tier marker check."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Edit",
+          "input_key": "file_path",
+          "input_value": "handler.ts",
+          "tier": "required",
+          "description": "Structural: model proceeds to actually make the fix (Edit on handler.ts). Failure mode caught: model gets stuck deliberating mode choice on a clear-skip case and never fixes the bug — half-failure that the two negatives above wouldn't catch on their own (metaCheck silent-fire detector would flag empty-signal trivially-passes, but this assertion provides the positive ground-truth signal that the work actually happened)."
+        }
+      ]
+    },
+    {
+      "name": "tie-break-resolves-to-single-implementer",
+      "summary": "Plan ambiguously fits BOTH modes' triggers: ≥5 tasks AND ≥2 files AND ≥300 LOC (subagent-driven conjunctive set fires) AND each task is a TDD increment ≤50 LOC (single-implementer disjunctive fires). Per the Tie-break clause, single-implementer wins.",
+      "prompt": "Plan ready to execute. 6 tasks across 2 files (src/parser/lexer.ts and src/parser/grammar.ts), totaling ~320 LOC of functional change. Each task is a TDD red-green increment between 40 and 50 LOC: (1) tokenize identifiers, (2) tokenize string literals, (3) tokenize numeric literals, (4) parse expression statements, (5) parse block statements, (6) parse function declarations. Tasks are independent — no cross-task contract coupling, each adds a new test file alongside the implementation. Execute the plan.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\[Execution mode:\\s*single[- ]implementer\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Tie-break resolves to single-implementer when both modes' triggers fire. Per rules/execution-mode.md `Modes` section: 'subagent-mode trigger is conjunctive (ALL of), single-implementer is disjunctive (ANY of). Subagent mode is the more expensive path; require all gates to fire before paying for it.' Failure mode caught: model picks subagent-driven because the conjunctive triggers all fire, ignoring that the single-implementer disjunctive (≤50 LOC TDD increments) ALSO fires and tie-break exists precisely for this case."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "\\[Execution mode:\\s*subagent[- ]driven\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "subagent-driven NOT emitted in tie-break case. Failure mode caught: model recognizes both modes fire but picks the expensive one — inverts the tie-break clause."
+        },
+        {
+          "type": "regex",
+          "pattern": "(tie[- ]break|both\\s*(fire|trigger|apply)|both\\s*modes|disjunctive|conjunctive|all\\s*of.{0,40}any\\s*of|any\\s*of.{0,40}all\\s*of|TDD\\s*increment|more\\s*expensive|require\\s*all|wins?\\b|defaults?\\s*to)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "[diagnostic: tie-break reasoning phrasing varies; required markers carry discriminating load] Rationale references tie-break semantics. Failure mode caught: marker chosen correctly but rationale doesn't acknowledge the tie — gate satisfied but model isn't reasoning from the rule's actual mechanics, indicating it may flip on a similar future case."
+        }
+      ]
+    }
+  ]
+}
