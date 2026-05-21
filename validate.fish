@@ -639,7 +639,7 @@ set anchor_registry \
     "verify-checks|goal-driven.md|Goal-driven verify checks" \
     "scope-tier-memory-check|planning.md|Scope-tier memory check" \
     "goal-verification|verification.md|Verification goal-vs-tasks gate" \
-    "hard-gate-cap|README.md|HARD-GATE cap policy" \
+    "hard-gate-cap|GOVERNANCE.md|HARD-GATE cap policy" \
     "override-skip-contract|planning.md|Skip override — what counts" \
     "emission-contract-per-gate|planning.md|Emission contract — per-gate skip honor"
 
@@ -1262,7 +1262,7 @@ else
             continue
         end
         if test $_e -lt $_12mo_ago
-            warn "Phase 1q: tombstone $_d is ≥12mo old (hard-delete eligible — see rules/README.md 'Retiring a rule or validator phase')"
+            warn "Phase 1q: tombstone $_d is ≥12mo old (hard-delete eligible — see rules/GOVERNANCE.md 'Retiring a rule or validator phase')"
         end
     end
 end

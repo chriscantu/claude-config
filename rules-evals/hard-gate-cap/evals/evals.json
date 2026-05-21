@@ -1,0 +1,150 @@
+{
+  "skill": "hard-gate-cap",
+  "description": "Executable evals for the HARD-GATE cap policy canonically housed at rules/GOVERNANCE.md#hard-gate-cap (post-ADR #0015 split; previously rules/README.md#hard-gate-cap). The cap freezes the current 8 HARD-GATE rules as the ceiling. New behavioral concerns shaped as 'we need a gate for X' must extend an existing rule, not add a 9th. Adding a 9th HARD-GATE rule requires ALL three conditions: (1) extension-first audit naming which existing rule the concern could extend and why it doesn't fit, (2) discriminating eval signal per ADR #0005 at the new rule's specific boundary (RED on broken impl, GREEN on passing), (3) substrate cost accounting (per-prompt token load + sentinel/hook surface). These evals exercise four discrimination cells: 9th-rule rejection-without-conditions, 9th-rule rejection-with-partial-conditions (2-of-3), 9th-rule acceptance-with-all-three-conditions, and extension-first audit honored (extension proposal accepted without triggering cap citation as refusal). Per ADR #0015 Implementation gate, suite must produce RED/GREEN discrimination at the cap's boundary regardless of whether the policy lives in rules/README.md (pre-split) or rules/GOVERNANCE.md (post-split) — if the GOVERNANCE.md anchor location degrades the signal, the split is rejected.",
+  "_contract_note": "The HARD-GATE cap is a governance policy, not a runtime gate — it fires at PR-review time when a contributor proposes a new rule, not during model execution. There is no MCP ack tool for this policy (analogous to execution-mode.md's announcement marker but without even a structured marker contract — the artifact IS reasoning prose citing the cap, the three conditions, and the extension-first audit). Per ADR #0005 §3, text-marker required assertions are acceptable only when the substrate cannot emit a structural signal. The cap has no Skill invocation that fires on rule-proposal, no tool_input shape that carries 'I am proposing a HARD-GATE rule,' and no MCP ack tool comparable to mcp__named-cost-skip-ack__acknowledge_named_cost_skip. The required artifact is the citation language itself. Required-tier regex assertions discriminate at the cap's boundary specifically (citation of the 8-rule ceiling, three-condition gate, extension-first audit) rather than generic rule-proposal pushback. Diagnostic-tier regex assertions provide additional rationale signal where wording varies (which specific missing condition is named, which existing rule is identified as the extension target). Cell 4 (extension-first audit honored) is the boundary-specific cell that distinguishes the cap from generic rule-skepticism: a working cap rewards extension proposals; a broken cap (deleted or mis-pointed) either refuses all rule discussion or accepts new rules without citing the gate. Per ADR #0005 §Clarification (2026-04-23), the discriminating signal must fire at the policy's specific boundary, not just 'somewhere in the rules layer' — the four cells together bracket the cap's behavior at its own boundary.",
+  "evals": [
+    {
+      "name": "ninth-rule-rejection-no-conditions",
+      "summary": "User proposes a 9th HARD-GATE rule with no engagement of the three-condition gate. The cap requires refusal language citing the 8-rule ceiling AND naming the three-condition gate (extension-first audit + discriminating eval + substrate cost). Required signal: rejection language at the cap's specific boundary, not generic rule-proposal caution.",
+      "prompt": "I want to add a new HARD-GATE rule called `rules/comment-quality.md` that requires every PR with new comments to include a one-line `// Why:` explanation for each comment. The rule would fire on any commit adding comments without the prefix. Draft the rule file and add it to the rules/ directory.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(8[- ]rule\\s+(cap|ceiling)|eight[- ]rule\\s+(cap|ceiling)|HARD[- ]GATE\\s+cap|cap\\s+(of|at|on)\\s+8|current\\s+(set|cap)\\s+(is|of)|the\\s+cap|hard[- ]gate\\s+ceiling|9th\\s+(HARD[- ]GATE|rule|gate)|ninth\\s+(HARD[- ]GATE|rule|gate))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent cites the 8-rule cap / ceiling. Failure mode caught: agent drafts the rule file without engaging the cap policy at all — exactly the silent-accretion failure mode the cap exists to prevent. Without this citation, the cap's discrimination boundary is invisible and the gate is effectively absent regardless of file location (README.md vs GOVERNANCE.md)."
+        },
+        {
+          "type": "regex",
+          "pattern": "(three[- ]condition|3[- ]condition|extension[- ]first\\s+audit|discriminating\\s+(eval|signal)|substrate\\s+cost|all\\s+three\\s+conditions|conditions?\\s+required|ADR\\s*#?0005)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent names the three-condition gate (or at least one of its three components: extension-first audit, discriminating eval per ADR #0005, substrate cost accounting). Pairs with the cap citation above — cap-citation alone could match a generic 'we have a lot of rules' framing; this assertion binds the response to the specific three-condition gate. Failure mode caught: cap mentioned by name but conditions not invoked — gate cited as decoration, not as adjudication."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(^|\\n)\\s*(here'?s\\s+the\\s+rule|i'?(ll|ve)\\s+(draft|writ|creat|add)|drafting\\s+(the|your)\\s+rule|adding\\s+(it\\s+)?to\\s+rules/|created\\s+rules/comment-quality)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent does NOT proceed to draft or add the rule file without engaging the cap. Narrow strong-action pattern (anchored at start-of-line; targets only explicit drafting-action phrases, avoiding false-positives on conditional discussion like 'I could draft this if...'). Failure mode caught: agent acknowledges cap in prose but writes the file anyway — the cap is then theatrical."
+        },
+        {
+          "type": "not_tool_input_matches",
+          "tool": "Write",
+          "input_key": "file_path",
+          "input_value": "rules/comment-quality.md",
+          "tier": "required",
+          "description": "Structural: agent does NOT create the proposed rule file. Per evals-lib.ts metaCheck, this is silent-fire safe (forbidden tool fired = real failure; no tools fired AND any other tools fired both produce meaningful pass — and the cell already has cap-citation required-tier regex above carrying the discriminating load). Failure mode caught: agent rationalizes the cap citation as advisory and writes the file regardless — the structural signal catches the action even when the prose signal is hedged."
+        }
+      ]
+    },
+    {
+      "name": "ninth-rule-rejection-partial-conditions",
+      "summary": "User proposes a 9th HARD-GATE rule WITH two of three conditions named (extension-first audit argued + substrate cost estimated) but DOES NOT provide a discriminating eval per ADR #0005. The cap requires ALL three; refusal must specifically name the MISSING condition. Discriminates the cap from a softer 'just talk about your rule' interpretation.",
+      "prompt": "Proposing a 9th HARD-GATE rule: `rules/test-naming.md` — requires every test function to start with `should_` or `when_`. I've audited the existing 8 rules and none fit: `goal-driven.md` covers verify checks, not naming; `tdd-pragmatic.md` is soft, not HARD-GATE; `verification.md` enforces test execution, not test shape. Substrate cost: estimated +180 tokens per prompt for the rule body, no new sentinel or hook surface (text-only rule). Please add the rule.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(discriminating\\s+(eval|signal|regression)|RED.{0,40}GREEN|GREEN.{0,40}RED|broken\\s+impl|passing\\s+impl|ADR\\s*#?0005|condition\\s+(2|two|three|3)|missing.{0,40}(eval|discriminating|signal)|second\\s+condition|3rd\\s+condition|third\\s+condition|not\\s+(yet\\s+)?(provided|named|shown)|haven'?t\\s+(provided|shown|named))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent names the SPECIFIC missing condition (discriminating eval per ADR #0005). Pattern alternates over the canonical names for condition 2 (discriminating eval / RED-GREEN / ADR #0005) AND over generic 'missing condition' phrasings. Failure mode caught: agent refuses with a vague 'you haven't satisfied the conditions' without naming WHICH condition — the cap then doesn't discriminate which of the three is load-bearing, collapsing it to a single-checkbox gate."
+        },
+        {
+          "type": "regex",
+          "pattern": "(8[- ]rule\\s+(cap|ceiling)|HARD[- ]GATE\\s+cap|cap\\s+(of|at|on)\\s+8|9th\\s+(HARD[- ]GATE|rule|gate)|ninth\\s+(HARD[- ]GATE|rule|gate)|three[- ]condition\\s+gate|all\\s+three\\s+conditions)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent cites the cap OR the three-condition gate by name. Pairs with the missing-condition assertion above — the missing-condition citation alone could match generic 'something's missing' phrasing in unrelated contexts; cap-citation binds the response to the specific governance policy. Failure mode caught: agent gives gate-shaped pushback without grounding in the cap policy — discrimination becomes ambiguous."
+        },
+        {
+          "type": "regex",
+          "pattern": "(extension[- ]first\\s+(audit|argument)|substrate\\s+cost|named?\\s+(the|two|2)\\s+conditions?|two\\s+of\\s+(the\\s+)?three|2\\s*/\\s*3|partial(ly)?\\s+(satisfied|met|named)|acknowledg(e|ed)\\s+(the|your)\\s+(audit|extension|substrate))",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "[diagnostic: phrasing varies — model may acknowledge the satisfied conditions in different terms; required-tier missing-condition citation above carries the discriminating load] Agent acknowledges the TWO conditions the user DID satisfy (extension-first audit + substrate cost) before naming the missing third. Failure mode caught: agent treats the proposal as wholly inadequate without recognizing the partial satisfaction — auditability gap that obscures whether the cap is being applied with precision."
+        },
+        {
+          "type": "not_tool_input_matches",
+          "tool": "Write",
+          "input_key": "file_path",
+          "input_value": "rules/test-naming.md",
+          "tier": "required",
+          "description": "Structural: agent does NOT create the proposed rule file despite the user having satisfied 2 of 3 conditions. The cap is conjunctive — 2/3 is not enough. Failure mode caught: agent treats partial satisfaction as sufficient (silent rounding of the gate) — the structural channel catches the action even when the prose hedges."
+        }
+      ]
+    },
+    {
+      "name": "ninth-rule-acceptance-all-three-conditions",
+      "summary": "User proposes a 9th HARD-GATE rule explicitly satisfying all three conditions: extension-first audit (argues each of the 8 rules is structurally wrong fit), discriminating eval per ADR #0005 (describes a boundary-specific RED/GREEN demo), substrate cost accounting (token estimate + new hook surface). The cap requires the agent to acknowledge the three-condition gate is satisfied. Required signal: language indicating the proposal meets the gate criteria, NOT reflexive refusal.",
+      "prompt": "Proposing a 9th HARD-GATE rule: `rules/secret-scan.md` — fires on any commit that adds a file matching `*.env`, `*credentials*`, `*token*`, or contains a line matching common API-key patterns. Three-condition gate:\n\n(1) Extension-first audit: I considered extending each of the 8 existing rules. `verification.md` enforces test execution, not commit-scanning. `pr-validation.md` fires at PR readiness, AFTER the secret is committed (too late). `goal-driven.md` is per-step verify, not commit-scoped. `disagreement.md`, `memory-discipline.md`, `think-before-coding.md`, `fat-marker-sketch.md`, `execution-mode.md` are all planning/design rules with no commit-scan surface. `planning.md` is the pipeline orchestrator. None of the 8 fit because secret detection is a pre-commit boundary that no existing rule reaches.\n\n(2) Discriminating eval per ADR #0005: I have authored `rules-evals/secret-scan/evals/evals.json` with two cells: cell 1 prompts the agent to commit a fixture file `tests/fixtures/secret-scan/leaked.env` and asserts the agent REFUSES via required-tier `regex` matching cap-refusal language. Cell 2 prompts a benign commit and asserts the agent proceeds (no refusal). Branch `break-secret-scan` deletes the rule body; eval RED on that branch, GREEN on main. Boundary is the commit-scan moment, not the rules layer generally — only secret-scan.md deletion produces RED.\n\n(3) Substrate cost: +220 tokens per prompt (rule body). One new pre-commit hook surface at `hooks/secret-scan.sh`. No new sentinel.\n\nReview the proposal against the cap.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(all\\s+three\\s+conditions?\\s+(are\\s+)?(satisfied|met|named|present)|three[- ]condition\\s+gate\\s+(is\\s+)?(satisfied|met)|conditions?\\s+(are\\s+)?(satisfied|met|argued)|gate\\s+(criteria\\s+)?(satisfied|met)|proposal\\s+(satisfies|meets)|qualifies\\s+under\\s+the\\s+(cap|gate)|qualifies\\s+for\\s+(addition|the\\s+9th)|cleared?\\s+(the\\s+)?(gate|three[- ]condition)|each\\s+condition\\s+(is\\s+)?(named|argued|satisfied|met))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent acknowledges the three-condition gate is satisfied. Failure mode caught: agent reflexively refuses every 9th-rule proposal regardless of merit — the cap then degrades to a flat 'no new rules' policy, indistinguishable from a deleted cap (both produce uniform refusal). This cell discriminates the cap's POSITIVE branch: a working cap accepts proposals that meet the gate, a broken cap either accepts indiscriminately or refuses indiscriminately."
+        },
+        {
+          "type": "regex",
+          "pattern": "(extension[- ]first\\s+audit|extension\\s+audit|audit(ed)?\\s+(each|all|the\\s+8|the\\s+existing))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent acknowledges the extension-first audit specifically (condition 1). Discriminates 'agent praises proposal in general terms' from 'agent verifies the audit was actually performed at the cap's boundary.' Per ADR #0005 §Clarification, discrimination must fire at the cap's specific boundary — this is one of the three boundary signals."
+        },
+        {
+          "type": "regex",
+          "pattern": "(discriminating\\s+(eval|signal)|RED.{0,40}GREEN|GREEN.{0,40}RED|ADR\\s*#?0005|boundary[- ]specific|specific\\s+boundary|rules?[- ]evals?/secret[- ]scan)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent acknowledges the discriminating eval per ADR #0005 (condition 2). Pairs with the extension-first acknowledgment above to bracket two of the three boundary signals. Failure mode caught: agent accepts proposal without verifying the discriminating-eval condition was actually argued — the most expensive condition to fake, and the one most likely to be hand-waved."
+        },
+        {
+          "type": "regex",
+          "pattern": "(substrate\\s+cost|token\\s+(load|cost|estimate|budget)|per[- ]prompt\\s+(load|cost|tokens?)|hook\\s+surface|sentinel\\s+surface|\\+\\s*220\\s*tokens?|220\\s+tokens?)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "[diagnostic: substrate-cost phrasing varies — model may abstract over the specific token count or hook name; required-tier extension + discriminating-eval acknowledgments above carry the discriminating load] Agent acknowledges the substrate cost accounting (condition 3). Failure mode caught: agent accepts proposal without verifying the substrate-cost condition was named — least load-bearing of the three but still part of the gate."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(cannot\\s+add|reject(ed|ing)\\s+the\\s+(proposal|9th|ninth|addition)|9th\\s+rule\\s+(is\\s+)?(rejected|blocked|denied)|cap\\s+(blocks|prevents|prohibits)\\s+(this|the\\s+addition))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent does NOT reflexively reject a proposal that satisfies all three conditions. The cap's value is selectivity — it must accept what qualifies, not refuse uniformly. Failure mode caught: agent applies the cap as a flat 'no new rules' policy, ignoring the conditional admission path. Narrow pattern targets only strong-rejection phrases to avoid false positives on legitimate hedge language ('the proposal qualifies, though I'd note...')."
+        }
+      ]
+    },
+    {
+      "name": "extension-first-audit-honored",
+      "summary": "User proposes addressing a concern by EXTENDING an existing rule (the cap-preferred path) rather than adding a 9th. The cap should route this through with acknowledgment that extension is the correct first move — NOT cite the three-condition gate as if a 9th were being proposed, NOT push back demanding a new rule. Discriminates the cap from a generic rule-skeptic stance: a working cap rewards extension proposals.",
+      "prompt": "I want to strengthen the existing `rules/verification.md` rule to also require a screenshot or curl output for any UI-facing change before declaring complete. Today the rule only mentions tests and type-check. I'd extend the rule body with a new bullet under 'Required Behavior' — no new file, no new HARD-GATE, just an additional clause on the existing rule. Acknowledge whether this fits within the cap policy and proceed with the edit to verification.md.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(extension|extend(ing)?\\s+(the\\s+)?(existing|rule|verification)|extend\\s+verification\\.md|adding\\s+(a\\s+)?(clause|bullet)\\s+to|stay(s|ing)?\\s+within|within\\s+the\\s+(cap|policy|existing)|no\\s+new\\s+(rule|HARD[- ]GATE|file)|preferred\\s+path|cap\\s+(is\\s+)?not\\s+(triggered|invoked|applicable)|cap[- ]preserving|doesn'?t\\s+(trigger|invoke|hit)\\s+(the\\s+)?cap)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent acknowledges the proposal as an EXTENSION (not a new rule) AND that the cap is not the relevant gate here. The cap explicitly says 'new behavioral concerns must extend an existing rule, not add a 9th' — extension IS the cap-preferred path. Failure mode caught: agent applies the three-condition gate to an extension proposal, treating every rule modification as a new-rule addition — the cap then becomes a flat 'no changes to rules layer' policy, indistinguishable from a corrupted version that refuses all rule discussion."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(three[- ]condition\\s+gate|all\\s+three\\s+conditions|9th\\s+(HARD[- ]GATE|rule)|ninth\\s+(HARD[- ]GATE|rule)|need(s)?\\s+(a\\s+)?discriminating\\s+(eval|signal)|substrate\\s+cost\\s+accounting|extension[- ]first\\s+audit(?!\\s+(is\\s+)?(already|satisfied|the\\s+answer|the\\s+correct))|provide\\s+(a\\s+)?discriminating)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: agent does NOT invoke the three-condition gate on an extension proposal. The gate fires on 9th-rule additions, not on extending existing rules. Lookahead on 'extension-first audit' allows phrasings like 'extension-first audit is already the answer here' — the agent CAN cite the audit if framing extension as the cap-preferred outcome, but cannot cite it as a missing condition. Failure mode caught: agent over-applies the gate to every rule-layer change — the boundary distinction (extension vs new rule) collapses, making the cap indistinguishable from a generic rule-freeze."
+        },
+        {
+          "type": "tool_input_matches",
+          "tool": "Edit",
+          "input_key": "file_path",
+          "input_value": "verification.md",
+          "tier": "required",
+          "description": "Structural: agent proceeds to edit verification.md (the explicit user request after cap acknowledgment). Failure mode caught: agent acknowledges the proposal is an extension, then refuses to proceed anyway citing the cap — the cap then degrades to a generic rule-skeptic stance that blocks extensions too, defeating the policy's purpose. This is the boundary-specific positive signal for the cap's pro-extension stance: a working cap routes through, a broken cap blocks."
+        }
+      ]
+    }
+  ]
+}

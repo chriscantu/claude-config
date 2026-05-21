@@ -78,7 +78,7 @@ const TMP_PREFIX = tmpdir();
 //   rules/execution-mode.md — home for single-implementer-mode anchor
 //   rules/goal-driven.md — home for verify-checks anchor
 //   rules/verification.md — home for goal-verification anchor
-//   rules/README.md — home for hard-gate-cap anchor
+//   rules/GOVERNANCE.md — home for hard-gate-cap anchor
 //
 // Seeding all five prevents Phase 1j from failing on "anchor home missing"
 // for sibling entries — keeping the extracted slice clean for assertions.
@@ -116,12 +116,12 @@ const makeFixture = (planningMdContent?: string): string => {
   );
   writeFileSync(join(dir, "rules", "verification.md"), vmContent);
 
-  // Seed README.md: needs the hard-gate-cap anchor.
-  const readmeContent = readFileSync(
-    join(REPO, "rules", "README.md"),
+  // Seed GOVERNANCE.md: needs the hard-gate-cap anchor (moved here per ADR #0015).
+  const governanceContent = readFileSync(
+    join(REPO, "rules", "GOVERNANCE.md"),
     "utf8",
   );
-  writeFileSync(join(dir, "rules", "README.md"), readmeContent);
+  writeFileSync(join(dir, "rules", "GOVERNANCE.md"), governanceContent);
 
   return dir;
 };

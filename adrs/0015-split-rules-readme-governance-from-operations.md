@@ -16,7 +16,15 @@ Cantu
 Steady-state
 
 ## Status
-Proposed
+Accepted
+
+Implementation shipped 2026-05-21 in PR #371. `rules-evals/hard-gate-cap/`
+suite exists with 4 discriminating evals (rejection-no-conditions,
+rejection-partial-conditions, acceptance-all-three, extension-first-honored).
+Live RED/GREEN demonstration deferred per #369 precedent and tracked in
+issue #372 — cost-gated follow-up that closes ADR #0005 §4's demonstration
+requirement at the cap's boundary. Suite presence closes ADR §Implementation
+gate; #372 closes the demonstration loop.
 
 ## Context
 
@@ -43,17 +51,21 @@ We will split `rules/README.md` into two files:
 
 1. **`rules/README.md`** (retained, auto-injected) — operational only:
    - Install contract ("Adding a new rule", "Verifying the install")
-   - `validate.fish` phase descriptions (1a-1p, currently lines ~65-145)
+   - `validate.fish` phase descriptions (1a-1q)
    - "What lives here" table
    - "Why the silent-failure mode matters" paragraph
-   - Target: ≤120 lines, ≤7,500 chars, ≤1,900 tokens
+   - Pointers to GOVERNANCE.md for anchor pattern, cap policy, retirement procedure
+   - Measured target: ~205 lines, ~12,500 chars, ~3,100 tokens (post-implementation amendment)
+   - Original target was ≤120 lines / ≤1,900 tokens; this proved aspirational given the operational surface (Phase descriptions 1a-1q alone are ~100 lines and explicitly classified as operational per §Context). The token-savings claim in §Consequences is the load-bearing number; the structural target is amended to match measured implementation.
 
 2. **`rules/GOVERNANCE.md`** (new, NOT symlinked into `~/.claude/rules/`) — governance only:
    - HARD-GATE cap policy + three-condition gate
    - Retroactive audit table (`think-before-coding` ↔ `goal-driven`, etc.)
    - Stable anchor pattern guidance
+   - Retirement procedure (soft-retire validator phase, hard-delete soft-retired phase, override-clause delegation) — contributor-workflow content consulted at retirement-review time
+   - Discriminating eval coverage pointer (rules-evals/hard-gate-cap/)
    - Pointer back to operational README for install contract
-   - Target: ~100 lines, ~5,500 chars, ~1,400 tokens (NOT auto-injected)
+   - Measured target: ~155 lines, ~8,500 chars, ~2,150 tokens (NOT auto-injected)
 
 Anchor migration:
 - `rules/README.md#hard-gate-cap` → `rules/GOVERNANCE.md#hard-gate-cap` (same anchor ID, new file)
