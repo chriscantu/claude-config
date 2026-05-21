@@ -16,6 +16,13 @@
           "description": "Required-tier text marker: `[Execution mode: subagent-driven]` is emitted. Failure mode caught: controller dispatches first implementer with no mode announcement, OR announces wrong mode (single-implementer) on a plan that meets ALL three conjunctive triggers. Canonical required artifact per rules/execution-mode.md `Required Announcement` section."
         },
         {
+          "type": "not_regex",
+          "pattern": "\\[Execution mode:\\s*single[- ]implementer\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Negative discriminator: single-implementer marker MUST NOT appear on a plan that meets ALL three conjunctive subagent-driven triggers. Paired with the positive marker assertion to catch the hedge-both-modes failure mode (model announces both modes or flips mid-response). Symmetry with evals 2/3/5; review-suggested PR #369."
+        },
+        {
           "type": "regex",
           "pattern": "(7\\s*tasks?|4\\s*files?|480\\s*LOC|integration\\s*coupling|cross[- ]component|spec\\s*review|per[- ]task\\s*(review|spec)|conjunctive)",
           "flags": "i",
@@ -137,8 +144,8 @@
           "type": "regex",
           "pattern": "(tie[- ]break|both\\s*(fire|trigger|apply)|both\\s*modes|disjunctive|conjunctive|all\\s*of.{0,40}any\\s*of|any\\s*of.{0,40}all\\s*of|TDD\\s*increment|more\\s*expensive|require\\s*all|wins?\\b|defaults?\\s*to)",
           "flags": "i",
-          "tier": "diagnostic",
-          "description": "[diagnostic: tie-break reasoning phrasing varies; required markers carry discriminating load] Rationale references tie-break semantics. Failure mode caught: marker chosen correctly but rationale doesn't acknowledge the tie — gate satisfied but model isn't reasoning from the rule's actual mechanics, indicating it may flip on a similar future case."
+          "tier": "required",
+          "description": "Required: rationale references tie-break semantics. Per ADR #0005 §2 + the 2026-04-23 boundary-specific clarification, discriminating signal must fire at the rule's specific boundary — here, the tie-break clause itself (rules/execution-mode.md lines 28-31). The positive `[Execution mode: single-implementer]` marker alone could pass by chance if the model reads 'ANY of' on the disjunctive before fully evaluating the conjunctive set; promoting this rationale regex to required binds the eval to the tie-break clause specifically. Wide alternation (8+ phrasings) keeps text-tier flake low. Failure mode caught: tie-break paragraph deletion — model picks single-implementer but rationale doesn't engage with the tie."
         }
       ]
     }
