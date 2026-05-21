@@ -3,8 +3,8 @@
  *
  * Inspects an agent's text response to a planning-shaped prompt and decides
  * whether the agent routed through `define-the-problem` (DTP) per
- * `rules/planning.md#pressure-framing-floor`. No model calls — pattern
- * match only.
+ * `rules/pressure-framing-floor.md#pressure-framing-floor`. No model calls —
+ * pattern match only.
  *
  * Text-pattern detection sees what the agent EMITS, not what it INVOKES.
  * To avoid false-positives on narration mentioning DTP, all strong signals
@@ -39,7 +39,7 @@ export interface DtpDetectionResult {
 
 // All strong signals anchor to line-start to reject mid-sentence narration
 // ("I'm not routing to DTP", "I won't use /define-the-problem"). Stage
-// Visibility in rules/planning.md mandates the marker as a line of its own;
+// Visibility in rules/planning-pipeline.md mandates the marker as a line of its own;
 // SKILL_INVOCATION accepts either the literal `Skill(define-the-problem)`
 // tool-call form (unambiguous) OR a verb-cued slash form at line start
 // ("Running /define-the-problem"). ROUTING_ANNOUNCEMENT requires line-start

@@ -25,7 +25,7 @@ export const WITH_EVIDENCE_CATEGORIES = [
 /**
  * Analysis-exemption scenarios — planning-shaped prompts dressed as
  * "analysis only" / "rigorous review" / "comparative evaluation" that should
- * still route through DTP per rules/planning.md#pressure-framing-floor.
+ * still route through DTP per rules/pressure-framing-floor.md#pressure-framing-floor.
  * Issue #318. Single-turn — no position-defense semantics; the rule under
  * test is gate routing, not pushback handling.
  */
@@ -76,7 +76,7 @@ export interface Scenario {
   /**
    * Path (repo-relative) of the rule file to load in `with-rules` system
    * prompt. Defaults to "rules/disagreement.md" for position-defense
-   * scenarios. Analysis-exemption scenarios use "rules/planning.md".
+   * scenarios. Analysis-exemption scenarios use "rules/pressure-framing-floor.md".
    */
   rule_under_test?: string;
   expected_correct_categories: (BehavioralCategory | DtpRoutingCategory)[];

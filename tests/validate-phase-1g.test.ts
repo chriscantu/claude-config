@@ -241,4 +241,42 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
     // The drift: prefix signals a failure line, not just a mention
     expect(out).toMatch(/drift:.*planning\.md/);
   });
+
+  // Restores the co-control coverage that earlier Test G implicitly had
+  // before the issue #375 split moved Trivial-tier canonical strings to
+  // planning-pipeline.md. Asserts Phase 1g treats the two label families
+  // independently: Trivial-tier strings at their canonical home (planning-
+  // pipeline.md) do NOT trigger drift while scope-tier strings in the same
+  // file DO. Catches a registry coupling regression where adjusting one
+  // family's pattern accidentally widens or narrows the other.
+  test("H: Trivial-tier (canonical) + scope-tier (drift) co-exist in same file → independent verdicts", () => {
+    const fixture = makeFixture();
+    writeFileSync(
+      join(fixture, "rules", "planning-pipeline.md"),
+      [
+        "# canonical home for Trivial-tier criteria",
+        "≤ ~200 LOC functional change",
+        "Single component / single-file primary surface",
+        "Unambiguous approach (one obvious design",
+        "Low blast radius (no cross-team",
+        "",
+        "## Co-tenant: scope-tier verb (should drift — canonical is .sh)",
+        'verbs: prune, rename, delete (these are "add row to" verbs that trigger scope-tier checks)',
+        "",
+      ].join("\n"),
+    );
+    writeFileSync(join(fixture, "rules", "other.md"), "# unrelated rule\n");
+
+    const out = extractPhase1g(runValidate(fixture));
+    // Trivial-tier strings live at canonical home → no drift
+    expect(out).toContain("Trivial-tier LOC criterion: no drift");
+    expect(out).toContain("Trivial-tier surface criterion: no drift");
+    expect(out).toContain("Trivial-tier approach criterion: no drift");
+    expect(out).toContain("Trivial-tier blast-radius criterion: no drift");
+    // Scope-tier verb is restated outside its .sh canonical home → drift fires
+    expect(out).toContain("add-row-to");
+    expect(out).toMatch(/drift:.*planning-pipeline\.md/);
+    // No Trivial-tier drift mention
+    expect(out).not.toMatch(/drift:.*Trivial-tier/);
+  });
 });

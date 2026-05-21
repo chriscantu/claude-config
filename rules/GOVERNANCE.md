@@ -83,6 +83,31 @@ accretive — it does not consume cap budget.
 
 PRs that add a HARD-GATE rule without these three are rejected at review.
 
+### Concern-split eligibility test
+
+The trio precedent (issue #375) allows splitting an existing behavioral
+concern across multiple files without consuming cap budget. To prevent
+that carve-out from becoming a cap-evasion pattern ("my new gate is a
+sub-concern of X"), a split qualifies as **one concern** only when ALL
+three conditions hold:
+
+1. **Shared trigger surface.** Every dependent rule referencing the
+   pre-split file must reference each post-split file. Phase 1f's
+   trio-mention guard plus Phase 1l's per-anchor registry enforce this
+   structurally — a split that leaves a dependent referencing only some
+   of the post-split files is a different concern by definition.
+2. **ADR-documented rationale.** The split must be motivated by a named
+   cognitive-load or substrate-cost problem (file size, anchor density,
+   dependent count) in an ADR. "Feels cleaner" is not a rationale.
+3. **Atomic registry update.** Phase 1f / Phase 1j / Phase 1l registries
+   must be extended in the SAME commit as the split. A split that lands
+   structurally but leaves validator registries pointing at the old
+   single file is incomplete — and indistinguishable from accretion.
+
+A new rule that fails any of these tests is a new concern and consumes
+cap budget. "Refinement of existing concern X" without satisfying all
+three is accretion in disguise.
+
 ### Retroactive audit pass
 
 Survey of overlap candidates among the current 8. None forced to merge —
@@ -154,8 +179,8 @@ Skip-override prose ("What counts as an explicit override" + "Time
 pressure is not an override" + per-gate "Emission contract — MANDATORY"
 boilerplate) is canonical at:
 
-- `rules/skip-contract.md#override-skip-contract`
-- `rules/skip-contract.md#emission-contract-per-gate`
+- [`rules/skip-contract.md#override-skip-contract`](skip-contract.md#override-skip-contract)
+- [`rules/skip-contract.md#emission-contract-per-gate`](skip-contract.md#emission-contract-per-gate)
 
 Delegate rules link to these anchors with a one-line `See [...]` and
 their own `gate=` value. Do not restate the canonical text in a

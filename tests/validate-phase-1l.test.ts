@@ -118,6 +118,10 @@ const seedFullRegistry = (fixture: string): void => {
     join(rules, "think-before-coding.md"),
     "Floor: skip-contract.md#emission-contract planning-pipeline.md#trivial-tier-criteria skip-contract.md#override-skip-contract skip-contract.md#emission-contract-per-gate\n",
   );
+  writeFileSync(
+    join(rules, "GOVERNANCE.md"),
+    "Override delegation: skip-contract.md#override-skip-contract skip-contract.md#emission-contract-per-gate\n",
+  );
 };
 
 const TMP_PREFIX = tmpdir();
@@ -153,27 +157,64 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
     expect(out).not.toContain("grep returned error status");
   });
 
-  test("B: deleted link in multi-anchor rule → fail surfaces AND surviving anchors still pass", () => {
-    const fixture = makeFixture();
-    seedFullRegistry(fixture);
-    // fat-marker-sketch is registered for 4 links; drop pressure-framing-floor
-    // but keep the other links. Asserts the inner loop does NOT break on first
-    // fail — the surviving pass lines must still appear.
-    writeFileSync(
-      join(fixture, "rules", "fat-marker-sketch.md"),
-      "Only: skip-contract.md#emission-contract pressure-framing-floor.md#emergency-bypass-sentinel\n",
-    );
-    const out = extractPhase1l(runValidate(fixture));
-    expect(out).toContain(
-      "rules/fat-marker-sketch.md missing delegate link to pressure-framing-floor.md#pressure-framing-floor",
-    );
-    expect(out).toContain(
-      "rules/fat-marker-sketch.md delegates to skip-contract.md#emission-contract",
-    );
-    expect(out).toContain(
-      "rules/fat-marker-sketch.md delegates to pressure-framing-floor.md#emergency-bypass-sentinel",
-    );
-  });
+  // Parameterized across all three trio basenames (issue #375 split). Each
+  // case picks a dependent rule that delegates to the trio file under test
+  // and drops one specific link, asserting Phase 1l fails on the deleted
+  // link AND that surviving links in the same rule still report PASS (the
+  // inner loop must not break on first fail).
+  test.each([
+    {
+      trioFile: "pressure-framing-floor.md",
+      dependent: "fat-marker-sketch.md",
+      dropLink: "pressure-framing-floor.md#pressure-framing-floor",
+      keepBody:
+        "Only: skip-contract.md#emission-contract pressure-framing-floor.md#emergency-bypass-sentinel\n",
+      survivingLinks: [
+        "skip-contract.md#emission-contract",
+        "pressure-framing-floor.md#emergency-bypass-sentinel",
+      ],
+    },
+    {
+      trioFile: "skip-contract.md",
+      dependent: "goal-driven.md",
+      // Drop override-skip-contract rather than emission-contract — the
+      // latter is a substring of emission-contract-per-gate, so grep -F
+      // would still find it via the longer anchor's presence (a quirk of
+      // the substring-match approach, not the test's concern).
+      dropLink: "skip-contract.md#override-skip-contract",
+      keepBody:
+        "Only: pressure-framing-floor.md#pressure-framing-floor skip-contract.md#emission-contract pressure-framing-floor.md#emergency-bypass-sentinel skip-contract.md#emission-contract-per-gate\n",
+      survivingLinks: [
+        "pressure-framing-floor.md#pressure-framing-floor",
+        "skip-contract.md#emission-contract-per-gate",
+      ],
+    },
+    {
+      trioFile: "planning-pipeline.md",
+      dependent: "execution-mode.md",
+      dropLink: "planning-pipeline.md#trivial-tier-criteria",
+      keepBody:
+        "Only: pressure-framing-floor.md#pressure-framing-floor skip-contract.md#emission-contract pressure-framing-floor.md#emergency-bypass-sentinel\n",
+      survivingLinks: [
+        "pressure-framing-floor.md#pressure-framing-floor",
+        "skip-contract.md#emission-contract",
+      ],
+    },
+  ])(
+    "B: deleted $trioFile link in $dependent → fail surfaces AND surviving links still pass",
+    ({ dependent, dropLink, keepBody, survivingLinks }) => {
+      const fixture = makeFixture();
+      seedFullRegistry(fixture);
+      writeFileSync(join(fixture, "rules", dependent), keepBody);
+      const out = extractPhase1l(runValidate(fixture));
+      expect(out).toContain(
+        `rules/${dependent} missing delegate link to ${dropLink}`,
+      );
+      for (const link of survivingLinks) {
+        expect(out).toContain(`rules/${dependent} delegates to ${link}`);
+      }
+    },
+  );
 
   test("C: missing dependent rule file → Phase 1l fails loudly", () => {
     const fixture = makeFixture();
@@ -203,6 +244,13 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
       '"think-before-coding.md|skip-contract.md#emission-contract,"',
     );
     expect(patched).not.toBe(original);
+    // Positive assert: patched content must contain the trailing-comma
+    // shape the test depends on. Catches the failure mode where the
+    // replace() matched a future-edited literal but produced an
+    // unintended substitution silently.
+    expect(patched).toContain(
+      '"think-before-coding.md|skip-contract.md#emission-contract,"',
+    );
     // Write the patched validator inside the fixture so afterEach cleans it
     // automatically via rmSync(dir, recursive) — no parallel tmpFiles[] needed.
     const tmpValidate = join(fixture, "validate-patched.fish");

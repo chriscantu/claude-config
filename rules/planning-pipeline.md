@@ -35,20 +35,15 @@ or tooling before completing the pipeline.
    surface concrete concerns. A bare "skip" without naming the cost is not
    an override.
 
-   Floor enforcement (pressure-framing routing, emission contract, sentinel
-   bypass) is anchored in step 1 above (see
-   [`pressure-framing-floor.md`](pressure-framing-floor.md) and
-   [`skip-contract.md`](skip-contract.md)). Per
-   [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md),
-   the model generalizes that anchor to the active pipeline stage, so an
-   SA per-gate block here adds no eval-measurable load given the DTP
-   anchor. Reopening requires new evals that fail under DTP-only AND pass
-   under DTP+SA — a per-gate block that merely adds text without producing
-   that discrimination signal is speculative.
+   Floor inherits from step 1 per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md);
+   no SA per-gate restatement is required. Reopening requires new evals
+   that fail under DTP-only AND pass under DTP+SA.
 3. Solution Design — invoke `superpowers:brainstorming` (opt-in: Sequential Thinking available if not converging)
 4. Fat Marker Sketch — invoke `/fat-marker-sketch` (after approach selected).
-   See `rules/fat-marker-sketch.md` for the HARD-GATE, pressure-framing
-   floor, emission contract, and sentinel bypass.
+   See `rules/fat-marker-sketch.md` for the sketch HARD-GATE; floor/skip
+   mechanics inherit from step 1 (canonical homes:
+   [`skip-contract.md`](skip-contract.md),
+   [`pressure-framing-floor.md`](pressure-framing-floor.md)).
 5. Then proceed with detailed design
 </HARD-GATE>
 

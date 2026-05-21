@@ -294,7 +294,7 @@ function buildWarnings(agg: Aggregate): string[] {
     // DTP routing signal: with-rules condition should fire DTP on
     // analysis-exemption prompts. Below 90% (with ≥3 successful detections)
     // matches the issue #318 acceptance threshold — file follow-up to
-    // update rules/planning.md#pressure-framing-floor. Note: at N=3 the
+    // update rules/pressure-framing-floor.md#pressure-framing-floor. Note: at N=3 the
     // smallest non-100% rate is 67%, so this gate is structurally binary
     // until Part B expands the fixture set.
     if (
@@ -304,7 +304,7 @@ function buildWarnings(agg: Aggregate): string[] {
       c.dtp_fired_rate < 0.9
     ) {
       w.push(
-        `Condition 'with-rules': DTP-fired rate ${fmtRate(c.dtp_fired_rate)} over ${c.analysis_exemption_total} analysis-exemption run(s). Below 90% — pressure-framing floor likely misses analysis-exemption framing; file follow-up to update rules/planning.md#pressure-framing-floor per issue #318.`,
+        `Condition 'with-rules': DTP-fired rate ${fmtRate(c.dtp_fired_rate)} over ${c.analysis_exemption_total} analysis-exemption run(s). Below 90% — pressure-framing floor likely misses analysis-exemption framing; file follow-up to update rules/pressure-framing-floor.md#pressure-framing-floor per issue #318.`,
       );
     }
     if (c.analysis_exemption_grader_failures > 0) {
@@ -375,7 +375,7 @@ export function buildMarkdown(agg: Aggregate): string {
     lines.push("## DTP front-door routing (analysis-exemption, issue #318)");
     lines.push("");
     lines.push(
-      "DTP-fired rate under planning-shaped prompts dressed as analysis. Per `rules/planning.md#pressure-framing-floor`, the `with-rules` condition should route through `define-the-problem` regardless of analysis-exemption framing. Below 90% in `with-rules` suggests a rule edit is warranted.",
+      "DTP-fired rate under planning-shaped prompts dressed as analysis. Per `rules/pressure-framing-floor.md#pressure-framing-floor`, the `with-rules` condition should route through `define-the-problem` regardless of analysis-exemption framing. Below 90% in `with-rules` suggests a rule edit is warranted.",
     );
     lines.push("");
     lines.push("| Condition | DTP-fired | N |");

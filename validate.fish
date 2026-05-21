@@ -557,8 +557,17 @@ for dep in $dependent_rules
         continue
     end
     # Dependent rules must reference at least one file in the floor trio.
-    # Phase 1l enforces the specific (file, anchor) pairs; this phase is the
-    # cheap any-trio-mention guard against a rule losing the floor wholesale.
+    # A strict "all three" check produces false-positives because not every
+    # dependent rule delegates to every trio file (e.g. think-before-coding.md
+    # has no pressure-framing-floor delegation; fat-marker-sketch.md has no
+    # planning-pipeline.md delegation per the Phase 1l registry).
+    #
+    # Wholesale floor-loss detection is layered: Phase 1l asserts the specific
+    # (file, anchor) pairs per dependent and fails loudly on each missing
+    # link. If a dependent loses its entire skip-contract paragraph, Phase 1l
+    # emits N anchor-missing failures — louder than a single 1f fail. Phase 1f
+    # is the cheap "rule lost the floor entirely" guard; Phase 1l is the
+    # per-anchor authoritative check.
     set found_ref 0
     for trio_file in $floor_trio
         if grep -qF -- "$trio_file" "$dep_path"
@@ -593,7 +602,7 @@ set drift_registry \
     "**Sunk cost** — commitment-consistency framing|pressure-framing-floor.md|Pressure-framing floor Sunk-cost category" \
     "**Exhaustion** — fatigue framing|pressure-framing-floor.md|Pressure-framing floor Exhaustion category" \
     "**Deadline** — time-pressure framing|pressure-framing-floor.md|Pressure-framing floor Deadline category" \
-    "**Stated-next-step** — skip|pressure-framing-floor.md|Pressure-framing floor Stated-next-step category" \
+    "**Stated-next-step** — skip-DTP framing|pressure-framing-floor.md|Pressure-framing floor Stated-next-step category" \
     "select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip|skip-contract.md|Emission contract ToolSearch mechanics" \
     "The falsehood is the asserted agreement|disagreement.md|Hedge-then-Comply falsehood definition" \
     "add row to|scope-tier-memory-check.sh|Scope-tier verb-signal add-row-to" \
@@ -828,7 +837,8 @@ set delegate_registry \
     "execution-mode.md|pressure-framing-floor.md#pressure-framing-floor,skip-contract.md#emission-contract,pressure-framing-floor.md#emergency-bypass-sentinel,planning-pipeline.md#trivial-tier-criteria" \
     "goal-driven.md|pressure-framing-floor.md#pressure-framing-floor,skip-contract.md#emission-contract,pressure-framing-floor.md#emergency-bypass-sentinel,skip-contract.md#override-skip-contract,skip-contract.md#emission-contract-per-gate" \
     "pr-validation.md|pressure-framing-floor.md#pressure-framing-floor,skip-contract.md#emission-contract,pressure-framing-floor.md#emergency-bypass-sentinel,skip-contract.md#override-skip-contract,skip-contract.md#emission-contract-per-gate" \
-    "think-before-coding.md|skip-contract.md#emission-contract,planning-pipeline.md#trivial-tier-criteria,skip-contract.md#override-skip-contract,skip-contract.md#emission-contract-per-gate"
+    "think-before-coding.md|skip-contract.md#emission-contract,planning-pipeline.md#trivial-tier-criteria,skip-contract.md#override-skip-contract,skip-contract.md#emission-contract-per-gate" \
+    "GOVERNANCE.md|skip-contract.md#override-skip-contract,skip-contract.md#emission-contract-per-gate"
 
 for entry in $delegate_registry
     set parts (string split -m 1 "|" $entry)
@@ -859,11 +869,13 @@ for entry in $delegate_registry
             continue
         end
 
-        # Each token must already be a fully qualified <basename>.md#<anchor>.
-        # Reject malformed tokens loudly so a missing "#" cannot match a bare
-        # filename mention and silently pass.
-        if not string match -q "*.md#*" -- "$link_pattern"
-            fail "delegate-registry entry $entry contains malformed link token '$link_pattern' (expected <basename>.md#<anchor>)"
+        # Each token must already be a fully qualified <basename>.md#<anchor>
+        # with a NON-EMPTY anchor segment. Reject malformed tokens loudly so a
+        # missing "#" cannot match a bare filename mention and silently pass,
+        # and an empty anchor (`foo.md#`) cannot produce a misleading
+        # "missing delegate link" error when the real defect is the registry.
+        if not string match -qr '\.md#.+$' -- "$link_pattern"
+            fail "delegate-registry entry $entry contains malformed link token '$link_pattern' (expected <basename>.md#<non-empty-anchor>)"
             continue
         end
 
