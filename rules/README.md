@@ -174,52 +174,10 @@ PR #121 discovered this live: two new HARD-GATE rules shipped without
 symlinks and were silently no-op'd in fresh sessions until the symlinks
 were added manually. The script and this README close the gap.
 
-## Retiring a rule or validator phase
-
-When a rule or validator phase no longer earns its keep, retire it
-**softly first**. Phase 1q (retirement signals) surfaces candidates
-mechanically — read its WARN output as the signal to begin this
-procedure.
-
-### Soft-retire a validator phase
-
-1. Comment out the phase block in `validate.fish`.
-2. Prepend a tombstone immediately above the commented block:
-
-   ```fish
-   # RETIRED YYYY-MM-DD — <reason: zero firings / superseded by X / etc.>
-   # Restore: uncomment block + drop .skip on tests/validate-phase-1X.test.ts
-   ```
-3. If a corresponding `tests/validate-phase-1X.test.ts` exists, change
-   the top-level `describe(` to `describe.skip(`.
-4. Commit with `chore(validate): soft-retire phase 1X — <reason>`.
-
-Phase 1q HARD-FAILs if a commented `# function _phase_` block lacks its
-tombstone — this is intentional. Tombstones are the audit trail; a
-soft-retire that skips them is a silent regression dressed as cleanup.
-
-### Hard-delete a soft-retired phase
-
-Trigger: Phase 1q emits `WARN ... hard-delete eligible` (tombstone aged
-≥12 months). The signal means the soft-retired phase has gone an entire
-release cycle without anyone needing to restore it.
-
-1. Delete the commented block + tombstone from `validate.fish`.
-2. Delete the corresponding `tests/validate-phase-1X.test.ts` file.
-3. Commit with `chore(validate): hard-delete phase 1X (12mo+ no activity)`.
-
-### Override-clause delegation
-
-Skip-override prose ("What counts as an explicit override" + "Time
-pressure is not an override" + per-gate "Emission contract — MANDATORY"
-boilerplate) is canonical at:
-
-- `rules/planning.md#override-skip-contract`
-- `rules/planning.md#emission-contract-per-gate`
-
-Delegate rules link to these anchors with a one-line `See [...]` and
-their own `gate=` value. Do not restate the canonical text in a
-delegate rule — Phase 1l + Phase 1g guard against drift.
+Retirement procedure (soft-retire, hard-delete) and override-clause
+delegation guidance live in [`GOVERNANCE.md`](GOVERNANCE.md#retiring-a-rule-or-validator-phase)
+— contributor-workflow content, consulted only at retirement-review
+time.
 
 <a id="what-lives-here"></a>
 

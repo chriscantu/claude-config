@@ -1262,7 +1262,7 @@ else
             continue
         end
         if test $_e -lt $_12mo_ago
-            warn "Phase 1q: tombstone $_d is ≥12mo old (hard-delete eligible — see rules/README.md 'Retiring a rule or validator phase')"
+            warn "Phase 1q: tombstone $_d is ≥12mo old (hard-delete eligible — see rules/GOVERNANCE.md 'Retiring a rule or validator phase')"
         end
     end
 end
