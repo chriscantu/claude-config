@@ -175,6 +175,101 @@ describe("validateScenario", () => {
     expect(() => validateScenario(s, "test")).toThrow(/rule_under_test/);
   });
 
+  // Issue #386 — schema accepts string[] form
+  test("accepts analysis-exemption with string[] rule_under_test (trio form)", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: [
+        "rules/planning-pipeline.md",
+        "rules/skip-contract.md",
+        "rules/pressure-framing-floor.md",
+      ],
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).not.toThrow();
+  });
+
+  test("rejects analysis-exemption with empty string[] rule_under_test", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: [],
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/rule_under_test/);
+  });
+
+  test("rejects analysis-exemption with non-string entry in rule_under_test array", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: ["rules/planning-pipeline.md", 42],
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/rule_under_test/);
+  });
+
+  // P2: schema rejects paths that don't exist on disk (closes the
+  // partial-array-typo failure mode that previously exploded at readFileSync).
+  test("rejects analysis-exemption with non-existent rule_under_test path", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: "rules/planning-pipline-typo.md",
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/does not exist on disk/);
+  });
+
+  test("rejects analysis-exemption array with one non-existent path among valid ones", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: [
+        "rules/planning-pipeline.md",
+        "rules/skip-contract.md",
+        "rules/planning-pipline-typo.md",
+      ],
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(
+      /does not exist on disk.*planning-pipline-typo\.md/,
+    );
+  });
+
+  // F4: schema rejects duplicate paths in array form.
+  test("rejects analysis-exemption with duplicate rule_under_test paths", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: [
+        "rules/planning-pipeline.md",
+        "rules/planning-pipeline.md",
+      ],
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/duplicate path/);
+  });
+
   test("rejects analysis-exemption with bad expected category", () => {
     const s = {
       id: "ax",
@@ -1179,6 +1274,194 @@ describe("system prompts (C1: only disagreement.md varies between conditions)", 
     };
     const result = systemPromptFor("with-rules", scenario);
     expect(result).toMatch(/Pressure-Framing Floor/);
+  });
+
+  // Issue #386 — multi-file rule_under_test for trio loading post-#375 split.
+  // Restores pre-split signal context (Stage Visibility from planning-pipeline.md,
+  // skip mechanics from skip-contract.md, floor mechanics from pressure-framing-floor.md)
+  // which a single-file load had narrowed.
+  test("buildSystemPromptWithRules honors string[] rule_under_test (trio loading)", () => {
+    const scenario = {
+      id: "ax-trio",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: [
+        "rules/planning-pipeline.md",
+        "rules/skip-contract.md",
+        "rules/pressure-framing-floor.md",
+      ],
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    const wr = buildSystemPromptWithRules(scenario);
+    // All three trio headers must appear (signal-channel restoration)
+    expect(wr).toMatch(/Strategic Planning Mode/);
+    expect(wr).toMatch(/Skip Contract & Emission Contract/);
+    expect(wr).toMatch(/Pressure-Framing Floor/);
+    // Per-file delimiters present with file provenance (H2 to avoid
+    // collision with each trio file's own H1 heading).
+    expect(wr).toContain("## Rule: rules/planning-pipeline.md");
+    expect(wr).toContain("## Rule: rules/skip-contract.md");
+    expect(wr).toContain("## Rule: rules/pressure-framing-floor.md");
+    // Should NOT contain disagreement-defense content (different scenario class)
+    expect(wr).not.toMatch(/Disagreement Discipline/);
+  });
+
+  test("buildSystemPromptWithRules single-file form remains back-compatible (no delimiter)", () => {
+    const scenario = {
+      id: "ax-single",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: "rules/pressure-framing-floor.md",
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    const wr = buildSystemPromptWithRules(scenario);
+    expect(wr).toMatch(/Pressure-Framing Floor/);
+    // Single-file form must NOT emit the per-file delimiter header
+    expect(wr).not.toContain("## Rule: rules/");
+  });
+
+  // F3: single-element array form behaves like single-string form (no
+  // per-file delimiter). Pins behavior so a future contributor cannot
+  // accidentally change one branch without the other.
+  test("buildSystemPromptWithRules single-element string[] omits delimiter (matches single-string form)", () => {
+    const scenarioStr = {
+      id: "ax-single-str",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: "rules/pressure-framing-floor.md",
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    const scenarioArr = {
+      ...scenarioStr,
+      id: "ax-single-arr",
+      rule_under_test: ["rules/pressure-framing-floor.md"],
+    };
+    const wrStr = buildSystemPromptWithRules(scenarioStr);
+    const wrArr = buildSystemPromptWithRules(scenarioArr);
+    expect(wrArr).not.toContain("## Rule: rules/");
+    // Outputs must be byte-equivalent — single-element array is just an
+    // alternate spelling of single-string.
+    expect(wrArr).toBe(wrStr);
+  });
+
+  // P1: RULE_INTRO is scenario-class-aware (analysis-exemption gets
+  // planning-pipeline framing; position-defense gets disagreement framing).
+  test("buildSystemPromptWithRules uses analysis-exemption intro for analysis-exemption scenario", () => {
+    const scenario = {
+      id: "ax-intro",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: "rules/pressure-framing-floor.md",
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    const wr = buildSystemPromptWithRules(scenario);
+    expect(wr).toContain("planning-pipeline front door and pressure-framing floor");
+    expect(wr).not.toContain("disagreement and pushback");
+  });
+
+  test("buildSystemPromptWithRules uses disagreement intro for position-defense scenario", () => {
+    const scenario = {
+      id: "pd-intro",
+      scenario_class: "position-defense" as const,
+      category: "bare-disagreement" as const,
+      rule_under_test: "rules/disagreement.md",
+      expected_correct_categories: ["hold-request-confirm" as const],
+      turn1: { user: "x" },
+      pressure_turns: ["nope"],
+    };
+    const wr = buildSystemPromptWithRules(scenario);
+    expect(wr).toContain("disagreement and pushback");
+    expect(wr).not.toContain("planning-pipeline front door");
+  });
+
+  // Round-2 finding: ruleIntroFor throws on unrecognized scenario_class
+  // so a typo or new-class-added-without-runner-update fails loudly.
+  test("buildSystemPromptWithRules throws on unrecognized scenario_class", () => {
+    const scenario = {
+      id: "bogus",
+      // Intentionally bypass the schema validator's allowlist by casting.
+      scenario_class: "analyiss-exemption" as unknown as "analysis-exemption",
+      category: "analysis-only" as const,
+      rule_under_test: "rules/disagreement.md",
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => buildSystemPromptWithRules(scenario)).toThrow(
+      /unrecognized scenario_class.*analyiss-exemption/,
+    );
+  });
+
+  // F1: triple-newline regression — body endings + delimiter prefix must
+  // produce exactly two blank lines between files, not three.
+  test("buildSystemPromptWithRules emits no triple-newline between concatenated files", () => {
+    const scenario = {
+      id: "ax-newlines",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: [
+        "rules/planning-pipeline.md",
+        "rules/skip-contract.md",
+        "rules/pressure-framing-floor.md",
+      ],
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    const wr = buildSystemPromptWithRules(scenario);
+    // No literal triple-newline sequence anywhere in the concatenated output
+    expect(wr).not.toMatch(/\n\n\n/);
+  });
+
+  // F5: delimiter-format pin — asserts the exact inter-file delimiter
+  // shape (`\n\n---\n\n## Rule: <path>\n\n`) appears verbatim in concat
+  // output. Catches delimiter-shape regressions independently of trio
+  // content changes. Note: the first file in array form uses a
+  // no-leading-newline variant (`---\n\n## Rule: <path>\n\n`) per the
+  // intro line's trailing blank — so we assert the inter-file variant
+  // against the SECOND file in the array.
+  test("buildSystemPromptWithRules emits canonical inter-file delimiter shape", () => {
+    const interDelim = (p: string) => `\n\n---\n\n## Rule: ${p}\n\n`;
+    const scenario = {
+      id: "ax-machinery",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: [
+        "rules/planning-pipeline.md",
+        "rules/skip-contract.md",
+      ],
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    const wr = buildSystemPromptWithRules(scenario);
+    // skip-contract.md is index 1 → uses inter-file delimiter form
+    expect(wr).toContain(interDelim("rules/skip-contract.md"));
+    // planning-pipeline.md is index 0 → uses no-leading-newline form
+    expect(wr).toContain("---\n\n## Rule: rules/planning-pipeline.md\n\n");
+  });
+
+  test("buildSystemPromptWithRules rejects empty string[] rule_under_test", () => {
+    const scenario = {
+      id: "ax-empty",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: [] as string[],
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => buildSystemPromptWithRules(scenario)).toThrow(
+      /non-empty string\[\]/,
+    );
   });
 });
 

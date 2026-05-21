@@ -5,6 +5,11 @@
  * Issue: https://github.com/chriscantu/claude-config/issues/304
  */
 
+import { existsSync } from "node:fs";
+import { join } from "node:path";
+
+const SCHEMA_REPO_ROOT = join(import.meta.dir, "..", "..");
+
 export const NO_EVIDENCE_CATEGORIES = [
   "bare-disagreement",
   "authority",
@@ -74,11 +79,26 @@ export interface Scenario {
   /** Required for position-defense; ignored / omitted for analysis-exemption. */
   evidence_present?: boolean;
   /**
-   * Path (repo-relative) of the rule file to load in `with-rules` system
+   * Path (repo-relative) of the rule file(s) to load in `with-rules` system
    * prompt. Defaults to "rules/disagreement.md" for position-defense
-   * scenarios. Analysis-exemption scenarios use "rules/pressure-framing-floor.md".
+   * scenarios. Analysis-exemption scenarios load the floor trio array
+   * ["rules/planning-pipeline.md", "rules/skip-contract.md",
+   * "rules/pressure-framing-floor.md"] per issue #386 follow-up to #375.
+   *
+   * Accepts either:
+   * - `string` — single file, back-compatible with pre-#386 scenarios
+   * - `string[]` — multiple files concatenated with per-file delimiters in
+   *   the system prompt (used to restore pre-split signal context after
+   *   issue #375 split planning.md into a three-file trio)
+   *
+   * NOTE: this field is TS-optional but RUNTIME-required for
+   * analysis-exemption scenarios — see validateAnalysisExemption (rejects
+   * absent rule_under_test). Position-defense scenarios fall through to
+   * the runner's default "rules/disagreement.md". A full TS discriminated
+   * union (PositionDefense | AnalysisExemption) was considered but
+   * deferred — see follow-up issue.
    */
-  rule_under_test?: string;
+  rule_under_test?: string | string[];
   expected_correct_categories: (BehavioralCategory | DtpRoutingCategory)[];
   turn1: {
     user: string;
@@ -278,10 +298,46 @@ function validateAnalysisExemption(
     typeof r.category === "string" && RECOGNIZED_ANALYSIS_EXEMPTION_SCENARIO.has(r.category as string),
     `category invalid for analysis-exemption: ${String(r.category)} (expected one of ${[...ANALYSIS_EXEMPTION_CATEGORIES].join(", ")})`,
   );
+  // rule_under_test accepts either a non-empty string OR a non-empty
+  // string[] (issue #386 multi-file form for trio loading post-#375 split).
+  // Additional guards:
+  //   - Each path must resolve on-disk (existsSync) so partial-array typos
+  //     fail loudly at schema-validation time, not deep in readFileSync.
+  //   - Array entries must be unique — duplicates would silently double the
+  //     loaded rule body in the system prompt, biasing eval signal.
+  const rut = r.rule_under_test as unknown;
+  const rutShapeValid =
+    (typeof rut === "string" && rut.length > 0) ||
+    (Array.isArray(rut) &&
+      rut.length > 0 &&
+      rut.every((p) => typeof p === "string" && p.length > 0));
   ok(
-    typeof r.rule_under_test === "string" && (r.rule_under_test as string).length > 0,
-    "rule_under_test required for analysis-exemption scenarios",
+    rutShapeValid,
+    "rule_under_test required for analysis-exemption scenarios (string or non-empty string[])",
   );
+  // Subsequent dedupe + existsSync checks only run when the shape is valid;
+  // otherwise we'd crash on path.join with undefined / non-string entries
+  // before ok() has a chance to surface the shape error to the caller.
+  if (rutShapeValid) {
+    const rutPaths: string[] =
+      typeof rut === "string" ? [rut] : (rut as string[]);
+    if (Array.isArray(rut)) {
+      const seen = new Set<string>();
+      for (const p of rutPaths) {
+        ok(
+          !seen.has(p),
+          `rule_under_test contains duplicate path '${p}' — duplicates would double the loaded rule body`,
+        );
+        seen.add(p);
+      }
+    }
+    for (const p of rutPaths) {
+      ok(
+        existsSync(join(SCHEMA_REPO_ROOT, p)),
+        `rule_under_test path does not exist on disk: '${p}' (resolved against repo root ${SCHEMA_REPO_ROOT})`,
+      );
+    }
+  }
   ok(
     Array.isArray(r.expected_correct_categories) && (r.expected_correct_categories as unknown[]).length > 0,
     "expected_correct_categories must be a non-empty array",
