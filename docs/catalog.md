@@ -66,6 +66,7 @@ Precedence on conflict: User instructions > `rules/*.md` HARD-GATEs > Karpathy C
 | `/cross-project` | How a change in this repo affects other local repos. Scans `~/repos/` for dependents. |
 | `/improve-codebase-architecture` | Surface deepening opportunities — shallow→deep modules via shared vocabulary (module / interface / depth / seam / adapter) and deletion-test discipline. |
 | `/architecture-overview` | Multi-repo technical landscape — produces a 4-file bundle (inventory, dependencies, data flow, integrations) using LANGUAGE.md vocabulary. Use for new-leader codebase ramp. |
+| `/glossary` | Canonicalizes per-project terminology in `./CONTEXT.md`. Invoked end-of-skill by `/define-the-problem` and `/systems-analysis` to surface candidate terms for approval. |
 
 ### Senior eng leader toolkit
 
