@@ -42,15 +42,37 @@ _Claude holds a recommendation until new evidence flips it._
 
 ## Install
 
+Two distribution paths. Pick by audience — see the trade-off below.
+
+### Plugin path (default — leadership audience)
+
+Install from the Claude Code marketplace:
+
+> **Coming soon** — marketplace publish pending. Tracked in [#374](https://github.com/chriscantu/claude-config/issues/374); marketplace URL will be added here once published.
+
+**What you get:** skills (`/sdr`, `/adr`, `/onboard`, `/tech-radar`, `/stakeholder-map`, and the rest of the leadership toolkit), agents, commands, hooks, and MCP servers.
+
+**What you don't get:** pre-load enforcement of the HARD-GATE rules (planning pipeline, anti-sycophancy, verification), `validate.fish` governance, the ADR/SDR contributor tooling, and `rules-evals/`.
+
+### Power-user path (engineer-grade — full HARD-GATE enforcement)
+
 Requires [fish shell](https://fishshell.com/) (`brew install fish` on macOS, `apt install fish` on Debian).
 
 ```sh
 git clone https://github.com/chriscantu/claude-config.git ~/repos/claude-config
 cd ~/repos/claude-config
-bash install.sh    # or: fish install.fish
+./bin/link-config.fish
 ```
 
-Both delegate to `bin/link-config.fish --install`. Existing real files are backed up with `.bak`. Re-running is safe. CI uses `fish bin/link-config.fish --check` for verification.
+Existing real files are backed up with `.bak`. Re-running is safe. CI uses `fish bin/link-config.fish --check` for verification.
+
+**What you get:** everything in the plugin path PLUS `rules/` (HARD-GATE pre-load enforcement), `validate.fish` (structural + concept validation across rules, skills, agents, hooks, evals), `rules-evals/` (discriminating-signal eval suites), `bin/` tooling, and the ADR/SDR governance docs.
+
+### Trade-off
+
+The plugin path ships the runtime extension surface (skills, agents, commands, hooks, MCP) but loses pre-load enforcement of the planning pipeline (`define-the-problem` / `systems-analysis` / `fat-marker-sketch` / `goal-driven` / `verification` / `pr-validation` / `disagreement` / `execution-mode` / `think-before-coding` / `memory-discipline`). For end users in the leadership audience (Director / VP / Sr. IC consumers), the plugin path is sufficient — skills, agents, and hooks cover the daily workflow. For contributors, and for anyone who wants the full anti-sycophancy + planning-pipeline discipline pre-loaded into every session, the power-user path is required.
+
+See [ADR #0018](adrs/0018-distribution-shape-hybrid-plugin-and-git-clone.md) for the decision rationale and [ADR #0013](adrs/0013-shared-vocab-monorepo-only.md) for the original distribution-shape deferral that #0018 supersedes.
 
 **Customize `global/CLAUDE.md`** to match your shell, language defaults, and communication style — it's the one file you should personalize.
 
