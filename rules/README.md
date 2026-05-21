@@ -146,6 +146,18 @@ validator. Phases relevant to rules:
   the doc-rot mode that motivated issue #361's README backfill (the
   prior README listed 2 of 7 live suites). Regression coverage:
   `tests/validate-phase-1p.test.ts`.
+- **1q. Retirement signals** — three checks on `validate.fish` plus the
+  opt-in `.claude/state/validate-phase-log.jsonl`: (a) HARD-FAILs when a
+  commented `# function _phase_` block lacks a preceding
+  `# RETIRED YYYY-MM-DD — reason` + `# Restore:` tombstone (no audit
+  trail = no soft-retire); (b) WARNs when an active phase has 0 firings
+  in the last 100 log entries (silent when log <10); (c) WARNs when a
+  tombstone is ≥12 months old (hard-delete eligible). Reads phase IDs
+  from `_phase_begin "<id>"` markers, so fixtures can inject synthetic
+  validate.fish content to test each check in isolation. Lineage:
+  issue #352. Regression coverage: `tests/validate-phase-1q.test.ts`.
+  Soft-retire / hard-delete procedure: see ["Retiring a rule or
+  validator phase"](#retiring-a-rule-or-validator-phase) below.
 
 Use these in pre-push hooks or CI to catch the silent-failure modes
 (rule not loaded; rule restated and drifted; anchor structurally broken;
@@ -175,6 +187,53 @@ provides false confidence that the discipline is in place when it isn't.
 PR #121 discovered this live: two new HARD-GATE rules shipped without
 symlinks and were silently no-op'd in fresh sessions until the symlinks
 were added manually. The script and this README close the gap.
+
+## Retiring a rule or validator phase
+
+When a rule or validator phase no longer earns its keep, retire it
+**softly first**. Phase 1q (retirement signals) surfaces candidates
+mechanically — read its WARN output as the signal to begin this
+procedure.
+
+### Soft-retire a validator phase
+
+1. Comment out the phase block in `validate.fish`.
+2. Prepend a tombstone immediately above the commented block:
+
+   ```fish
+   # RETIRED YYYY-MM-DD — <reason: zero firings / superseded by X / etc.>
+   # Restore: uncomment block + drop .skip on tests/validate-phase-1X.test.ts
+   ```
+3. If a corresponding `tests/validate-phase-1X.test.ts` exists, change
+   the top-level `describe(` to `describe.skip(`.
+4. Commit with `chore(validate): soft-retire phase 1X — <reason>`.
+
+Phase 1q HARD-FAILs if a commented `# function _phase_` block lacks its
+tombstone — this is intentional. Tombstones are the audit trail; a
+soft-retire that skips them is a silent regression dressed as cleanup.
+
+### Hard-delete a soft-retired phase
+
+Trigger: Phase 1q emits `WARN ... hard-delete eligible` (tombstone aged
+≥12 months). The signal means the soft-retired phase has gone an entire
+release cycle without anyone needing to restore it.
+
+1. Delete the commented block + tombstone from `validate.fish`.
+2. Delete the corresponding `tests/validate-phase-1X.test.ts` file.
+3. Commit with `chore(validate): hard-delete phase 1X (12mo+ no activity)`.
+
+### Override-clause delegation
+
+Skip-override prose ("What counts as an explicit override" + "Time
+pressure is not an override" + per-gate "Emission contract — MANDATORY"
+boilerplate) is canonical at:
+
+- `rules/planning.md#override-skip-contract`
+- `rules/planning.md#emission-contract-per-gate`
+
+Delegate rules link to these anchors with a one-line `See [...]` and
+their own `gate=` value. Do not restate the canonical text in a
+delegate rule — Phase 1l + Phase 1g guard against drift.
 
 ## What lives here
 
