@@ -19,6 +19,8 @@ Current suites:
 
 - `disagreement/` — covers the new-evidence requirement + Hedge-then-Comply
   prohibition from [`rules/disagreement.md`](../rules/disagreement.md)
+- `execution-mode/` — covers the sizing-guard mode announcement (subagent-driven
+  vs. single-implementer) from [`rules/execution-mode.md`](../rules/execution-mode.md)
 - `goal-driven/` — covers the per-step verify checks + named-cost skip
   contract from [`rules/goal-driven.md`](../rules/goal-driven.md)
 - `memory-discipline/` — covers the re-challenge contract on material
@@ -55,11 +57,7 @@ graph.
 | `pr-validation.md` | `rules-evals/pr-validation/` |
 | `disagreement.md` | `rules-evals/disagreement/` |
 | `memory-discipline.md` | `rules-evals/memory-discipline/` |
-| `execution-mode.md` | **GAP — no discriminating eval at this rule's boundary; tracked in [#361](https://github.com/chriscantu/claude-config/issues/361)** |
-
-<!-- When #361 closes, flip the execution-mode row above to point at
-     rules-evals/execution-mode/ (and verify the dir exists). The PR that
-     adds the eval should also flip this row in the same change. -->
+| `execution-mode.md` | `rules-evals/execution-mode/` |
 
 Soft rules (no `<HARD-GATE>` block, no skip contract) — `tdd-pragmatic.md`
 and `verification.md` — are not required by
