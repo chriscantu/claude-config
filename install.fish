@@ -8,4 +8,13 @@
 # For idempotent re-sync without backup, use: fish bin/link-config.fish
 
 set -l repo_dir (cd (dirname (status filename)); and pwd)
-exec fish $repo_dir/bin/link-config.fish --install
+fish $repo_dir/bin/link-config.fish --install
+set -l link_status $status
+
+if test $link_status -eq 0
+    echo ""
+    echo "Want to personalize global/CLAUDE.md and register hooks?"
+    echo "  Run: fish $repo_dir/bin/first-run.fish"
+end
+
+exit $link_status
