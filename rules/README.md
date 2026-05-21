@@ -66,19 +66,19 @@ validator. Phases relevant to rules:
 - **1c. Agent frontmatter** — fails on missing required YAML field (`description:`, `tools:`) in `agents/*.md`. Lineage: commit 5c470b0 (no PR ref).
 - **1d. Pipeline cross-references** — fails when rule/skill `/skill-name` or `/agent-name` reference has no matching dir/file on disk. Lineage: commit 5c470b0 (no PR ref).
 - **1e. Symlink verification** — fails when any managed entry (rules/, agents/, commands/, hooks/, CLAUDE.md, skills/) is missing/stale/non-symlink in `~/.claude/`. Generalized to uniformly cover `commands/`+`hooks/`: PR #198.
-- **1f. Rules anchor labels** — fails if `rules/planning.md` loses one
-  of the labeled blocks that other rules delegate to (Skip contract,
-  Pressure-framing floor, Emission contract, Architectural invariant,
-  Emergency bypass — sentinel file check, Skip override — what counts,
-  Emission contract — per-gate skip honor), or if a dependent rule
+- **1f. Rules anchor labels** — fails if any file in the floor trio
+  (`planning-pipeline.md`, `skip-contract.md`,
+  `pressure-framing-floor.md`) loses a labeled block that other rules
+  delegate to (Skip contract, Pressure-framing floor, Emission
+  contract, Architectural invariant, Emergency bypass — sentinel file
+  check, Scope-tier memory check), or if a dependent rule
   (`fat-marker-sketch.md`, `goal-driven.md`, `think-before-coding.md`,
-  `execution-mode.md`, `pr-validation.md`) loses its reference to
-  `planning.md`. Catches
-  silent breakage when the anchor file is renamed or its sections
-  restructured (issue #135).
+  `execution-mode.md`, `pr-validation.md`) loses references to all
+  three trio files. Catches silent breakage when an anchor file is
+  renamed or its sections restructured (issue #135; trio split issue #375).
 - **1g. Canonical-string drift** — fails if a canonical rule string
-  (e.g. the [Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria),
-  defined in `planning.md`) is restated outside its canonical home.
+  (e.g. the [Trivial/Mechanical tier criteria](planning-pipeline.md#trivial-tier-criteria),
+  defined in `planning-pipeline.md`) is restated outside its canonical home.
   "Do not restate" markers in non-canonical files are editor hints;
   this phase is the enforcement. Phase 1g also guards canonical
   scope-tier hook strings (verb signals, minimizers, scope-expanders,
@@ -87,27 +87,34 @@ validator. Phases relevant to rules:
   `tests/validate-phase-1g.test.ts` (migrated from fish per ADR #0012).
 - **1h. Hook ↔ user docs consistency** — fails when non-test `hooks/*.sh` script is undocumented in `README.md` or `docs/*.md`. Lineage: PR #179 (issue #175).
 - **1i. Dangling hook permissions** (warn-only) — warns when `.claude/settings.json` Bash permission references hook script no longer present under `hooks/`. Warn-only because absolute paths may be valid on other machines. Lineage: PR #179.
-- **1j. Stable anchor presence** — fails if `planning.md` loses an
-  explicit `<a id="…">` anchor that dependent rules deep-link to.
-  Currently guards `#trivial-tier-criteria`, `#skip-contract`,
-  `#emission-contract`, `#pressure-framing-floor`,
-  `#architectural-invariant`, and `#emergency-bypass-sentinel`; add
-  to the registry when promoting another rule construct to a citable
-  anchor.
+- **1j. Stable anchor presence** — fails if any file in the floor trio
+  (`planning-pipeline.md`, `skip-contract.md`,
+  `pressure-framing-floor.md`) loses an explicit `<a id="…">` anchor
+  that dependent rules deep-link to. Currently guards
+  `#trivial-tier-criteria` (planning-pipeline), `#skip-contract` /
+  `#emission-contract` / `#override-skip-contract` /
+  `#emission-contract-per-gate` (skip-contract), and
+  `#pressure-framing-floor` / `#scope-tier-memory-check` /
+  `#fast-track-validation-emission` / `#architectural-invariant` /
+  `#emergency-bypass-sentinel` (pressure-framing-floor); add to the
+  registry when promoting another rule construct to a citable anchor.
 - **1k. Anchor-link target resolution** — fails when cross-rule `[text](other.md#anchor-id)` link in `rules/*.md` targets an undefined anchor. Generalized from planning.md-only to all rule-to-rule refs: PR #282 (issue #276). Regression coverage: `tests/validate-phase-1k.test.ts`.
 - **1l. Delegate-link presence** — fails if a rule registered as
-  delegating to a `planning.md` anchor loses the `planning.md#<id>`
-  link. Currently guards 15 (rule, anchor) pairs covering
-  `#pressure-framing-floor`, `#emission-contract`,
-  `#emergency-bypass-sentinel`, and `#trivial-tier-criteria` across
+  delegating to a floor-trio anchor loses the
+  `<basename>.md#<id>` link, where `<basename>` is one of
+  `planning-pipeline.md`, `skip-contract.md`, or
+  `pressure-framing-floor.md`. Currently guards (rule, target#anchor)
+  triples covering `#pressure-framing-floor`, `#emission-contract`,
+  `#emergency-bypass-sentinel`, `#override-skip-contract`,
+  `#emission-contract-per-gate`, and `#trivial-tier-criteria` across
   the five dependent rules. Phase 1g only fires on canonical-string
   RESTATEMENT and Phase 1k only fires on DANGLING anchor links —
   neither catches a contributor DELETING the entire delegate
   paragraph from a dependent rule, which silently weakens the
-  HARD-GATE (issue #200). Add `(rule, anchors)` pairs to the
-  registry when promoting a new floor delegation. Regression
+  HARD-GATE (issue #200). Add `(rule, target.md#anchor)` triples to
+  the registry when promoting a new floor delegation. Regression
   coverage: `tests/validate-phase-1l.test.ts` (migrated from fish
-  per ADR #0012).
+  per ADR #0012; updated for split issue #375).
 - **1m. evals.json shape** — fails if any `evals.json` under
   `skills/*/evals/` or `rules-evals/*/evals/` violates the
   `loadEvalFile` contract from `tests/evals-lib.ts`: top-level
@@ -185,7 +192,9 @@ time.
 
 | File | Type | Purpose |
 |---|---|---|
-| `planning.md` | HARD-GATE | DTP / Systems Analysis / Solution Design pipeline; pressure-framing floor; named-cost skip emission contract |
+| `planning-pipeline.md` | HARD-GATE | DTP / Systems Analysis / Solution Design pipeline; stage visibility; scope calibration (incl. Trivial/Mechanical tier); decision framework; sequential-thinking opt-in; multi-session continuity |
+| `skip-contract.md` | HARD-GATE | Named-cost skip mechanics, emission contract, and per-gate skip-honor table |
+| `pressure-framing-floor.md` | HARD-GATE | Pressure-framing routing, scope-tier memory check, fast-track validation emission, architectural invariant, emergency-bypass sentinel |
 | `fat-marker-sketch.md` | HARD-GATE | Mandatory shape sketch after approach selection, before detailed design |
 | `think-before-coding.md` | HARD-GATE | Three-part preamble (Assumptions / Interpretations / Simpler-Path) at Solution Design |
 | `goal-driven.md` | HARD-GATE | Per-step verify checks defined before code, loop-until-verified semantics |

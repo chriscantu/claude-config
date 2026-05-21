@@ -73,55 +73,58 @@ const extractPhase1j = (r: RunResult): string => {
 const fixtures: string[] = [];
 const TMP_PREFIX = tmpdir();
 
-// Build a minimal fixture with the four rule files Phase 1j needs:
-//   rules/planning.md    — home for 8 anchors including scope-tier-memory-check
-//   rules/execution-mode.md — home for single-implementer-mode anchor
-//   rules/goal-driven.md — home for verify-checks anchor
-//   rules/verification.md — home for goal-verification anchor
-//   rules/GOVERNANCE.md — home for hard-gate-cap anchor
+// Build a minimal fixture with the rule files Phase 1j needs. Per issue #375
+// the former rules/planning.md was split into a three-file floor trio:
+//   rules/planning-pipeline.md     — home for trivial-tier-criteria
+//   rules/skip-contract.md          — home for skip-contract, emission-contract,
+//                                      override-skip-contract, emission-contract-per-gate
+//   rules/pressure-framing-floor.md — home for pressure-framing-floor,
+//                                      architectural-invariant, emergency-bypass-sentinel,
+//                                      fast-track-validation-emission, scope-tier-memory-check
+//   rules/execution-mode.md         — home for single-implementer-mode anchor
+//   rules/goal-driven.md            — home for verify-checks anchor
+//   rules/verification.md           — home for goal-verification anchor
+//   rules/GOVERNANCE.md             — home for hard-gate-cap anchor
 //
-// Seeding all five prevents Phase 1j from failing on "anchor home missing"
+// Seeding all of these prevents Phase 1j from failing on "anchor home missing"
 // for sibling entries — keeping the extracted slice clean for assertions.
-const makeFixture = (planningMdContent?: string): string => {
+const makeFixture = (
+  pressureFramingFloorOverride?: string,
+): string => {
   const dir = mkdtempSync(join(tmpdir(), "validate-phase-1j-"));
   for (const sub of ["rules", "skills", "agents", "commands", "adrs"]) {
     mkdirSync(join(dir, sub), { recursive: true });
   }
   fixtures.push(dir);
 
-  // Seed planning.md: use provided content or copy the real file.
-  const planningContent =
-    planningMdContent ??
-    readFileSync(join(REPO, "rules", "planning.md"), "utf8");
-  writeFileSync(join(dir, "rules", "planning.md"), planningContent);
+  // Seed the floor trio. pressure-framing-floor.md may be overridden to
+  // simulate anchor removal (used by Test B).
+  const trioFiles = [
+    "planning-pipeline.md",
+    "skip-contract.md",
+    "pressure-framing-floor.md",
+  ];
+  for (const name of trioFiles) {
+    const content =
+      name === "pressure-framing-floor.md" && pressureFramingFloorOverride
+        ? pressureFramingFloorOverride
+        : readFileSync(join(REPO, "rules", name), "utf8");
+    writeFileSync(join(dir, "rules", name), content);
+  }
 
-  // Seed execution-mode.md: needs the single-implementer-mode anchor.
-  const emContent = readFileSync(
-    join(REPO, "rules", "execution-mode.md"),
-    "utf8",
-  );
-  writeFileSync(join(dir, "rules", "execution-mode.md"), emContent);
-
-  // Seed goal-driven.md: needs the verify-checks anchor.
-  const gdContent = readFileSync(
-    join(REPO, "rules", "goal-driven.md"),
-    "utf8",
-  );
-  writeFileSync(join(dir, "rules", "goal-driven.md"), gdContent);
-
-  // Seed verification.md: needs the goal-verification anchor.
-  const vmContent = readFileSync(
-    join(REPO, "rules", "verification.md"),
-    "utf8",
-  );
-  writeFileSync(join(dir, "rules", "verification.md"), vmContent);
-
-  // Seed GOVERNANCE.md: needs the hard-gate-cap anchor (moved here per ADR #0015).
-  const governanceContent = readFileSync(
-    join(REPO, "rules", "GOVERNANCE.md"),
-    "utf8",
-  );
-  writeFileSync(join(dir, "rules", "GOVERNANCE.md"), governanceContent);
+  // Seed sibling anchor homes referenced by Phase 1j registry.
+  const siblings = [
+    "execution-mode.md",
+    "goal-driven.md",
+    "verification.md",
+    "GOVERNANCE.md",
+  ];
+  for (const name of siblings) {
+    writeFileSync(
+      join(dir, "rules", name),
+      readFileSync(join(REPO, "rules", name), "utf8"),
+    );
+  }
 
   return dir;
 };
@@ -157,16 +160,17 @@ afterEach(() => {
 
 describe("validate.fish Phase 1j (stable anchor presence)", () => {
   test(
-    "A: real planning.md with scope-tier-memory-check anchor → Phase 1j passes",
+    "A: real pressure-framing-floor.md with scope-tier-memory-check anchor → Phase 1j passes",
     () => {
-      // Seed the real rules/planning.md — the scope-tier-memory-check anchor
-      // was added by Task 10 and must be present in the real file.
+      // Seed the real rules/pressure-framing-floor.md — the
+      // scope-tier-memory-check anchor moved here from planning.md per
+      // issue #375 split and must be present in the real file.
       const fixture = makeFixture();
       const out = extractPhase1j(runValidate(fixture));
 
       // The scope-tier-memory-check entry must pass
       expect(out).toContain(
-        "Scope-tier memory check: anchor #scope-tier-memory-check present in rules/planning.md",
+        "Scope-tier memory check: anchor #scope-tier-memory-check present in rules/pressure-framing-floor.md",
       );
       // No failures in the extracted slice
       expect(out).not.toContain("✗");
@@ -174,31 +178,34 @@ describe("validate.fish Phase 1j (stable anchor presence)", () => {
   );
 
   test(
-    "B: planning.md with scope-tier-memory-check anchor removed → Phase 1j fails",
+    "B: pressure-framing-floor.md with scope-tier-memory-check anchor removed → Phase 1j fails",
     () => {
-      // Copy real planning.md but strip the scope-tier-memory-check anchor line.
-      const realPlanning = readFileSync(
-        join(REPO, "rules", "planning.md"),
+      // Copy real pressure-framing-floor.md but strip the
+      // scope-tier-memory-check anchor line.
+      const realFloor = readFileSync(
+        join(REPO, "rules", "pressure-framing-floor.md"),
         "utf8",
       );
-      const stripped = realPlanning.replace(
+      const stripped = realFloor.replace(
         /<a id="scope-tier-memory-check"><\/a>\n?/g,
         "",
       );
       // Guard: patch must have removed something — if the anchor line changes
       // format, this test fails loudly rather than silently passing on an
       // unchanged file (which would make Test B a false-pass).
-      expect(stripped).not.toBe(realPlanning);
+      expect(stripped).not.toBe(realFloor);
 
       const fixture = makeFixture(stripped);
       const out = extractPhase1j(runValidate(fixture));
 
       // Phase 1j must emit a failure naming the missing anchor and the file
       expect(out).toContain("scope-tier-memory-check");
-      expect(out).toContain("planning.md");
+      expect(out).toContain("pressure-framing-floor.md");
       expect(out).toContain("✗");
       // The fail line names the missing <a id> marker
-      expect(out).toMatch(/missing.*scope-tier-memory-check.*planning\.md/);
+      expect(out).toMatch(
+        /missing.*scope-tier-memory-check.*pressure-framing-floor\.md/,
+      );
     },
   );
 });

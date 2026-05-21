@@ -112,7 +112,7 @@ describe("verify-rule-loaded.fish", () => {
   });
 
   test("claude CLI missing → exit 2", () => {
-    const r = runScript(null, ["planning"]);
+    const r = runScript(null, ["planning-pipeline"]);
     expect(r.exitCode).toBe(2);
     expect(r.stderr).toContain("'claude' CLI not found");
   });
@@ -126,23 +126,23 @@ describe("verify-rule-loaded.fish", () => {
 
   test("YES response → exit 0, prints LOADED", () => {
     const stub = makeStubClaude({ response: "YES" });
-    const r = runScript(stub, ["planning"]);
+    const r = runScript(stub, ["planning-pipeline"]);
     expect(r.exitCode).toBe(0);
-    expect(r.stdout).toContain("LOADED: planning");
+    expect(r.stdout).toContain("LOADED: planning-pipeline");
     expect(r.stdout).toContain("loaded=1 missing=0 errored=0");
   });
 
   test("YES with trailing period → exit 0", () => {
     const stub = makeStubClaude({ response: "YES." });
-    const r = runScript(stub, ["planning"]);
+    const r = runScript(stub, ["planning-pipeline"]);
     expect(r.exitCode).toBe(0);
   });
 
   test("NO response → exit 1, prints MISSING", () => {
     const stub = makeStubClaude({ response: "NO" });
-    const r = runScript(stub, ["planning"]);
+    const r = runScript(stub, ["planning-pipeline"]);
     expect(r.exitCode).toBe(1);
-    expect(r.stdout).toContain("MISSING: planning");
+    expect(r.stdout).toContain("MISSING: planning-pipeline");
   });
 
   test("YES-then-negation → fails closed as ambiguous (exit 2)", () => {
@@ -151,21 +151,21 @@ describe("verify-rule-loaded.fish", () => {
     const stub = makeStubClaude({
       response: "YES, however the rule does NOT appear in my context.",
     });
-    const r = runScript(stub, ["planning"]);
+    const r = runScript(stub, ["planning-pipeline"]);
     expect(r.exitCode).toBe(2);
     expect(r.stderr).toContain("ambiguous probe response");
   });
 
   test("ambiguous response → exit 2", () => {
     const stub = makeStubClaude({ response: "I cannot inspect my system prompt" });
-    const r = runScript(stub, ["planning"]);
+    const r = runScript(stub, ["planning-pipeline"]);
     expect(r.exitCode).toBe(2);
     expect(r.stderr).toContain("ambiguous probe response");
   });
 
   test("case-insensitive yes (lowercase)", () => {
     const stub = makeStubClaude({ response: "yes" });
-    const r = runScript(stub, ["planning"]);
+    const r = runScript(stub, ["planning-pipeline"]);
     expect(r.exitCode).toBe(0);
   });
 
@@ -174,7 +174,7 @@ describe("verify-rule-loaded.fish", () => {
       exitWith: 1,
       stderr: "auth: token expired",
     });
-    const r = runScript(stub, ["planning"]);
+    const r = runScript(stub, ["planning-pipeline"]);
     expect(r.exitCode).toBe(2);
     expect(r.stderr).toContain("claude --print failed");
     // Captured stderr must reach the user — that's the silent-failure fix.
@@ -183,14 +183,14 @@ describe("verify-rule-loaded.fish", () => {
 
   test("empty claude response → exit 2", () => {
     const stub = makeStubClaude({ response: "" });
-    const r = runScript(stub, ["planning"]);
+    const r = runScript(stub, ["planning-pipeline"]);
     expect(r.exitCode).toBe(2);
     expect(r.stderr).toContain("empty response");
   });
 
   test("VERIFY_RULE_MODEL env var is honored", () => {
     const stub = makeStubClaude({ response: "YES", recordArgs: true });
-    const r = runScript(stub, ["planning"], { VERIFY_RULE_MODEL: "sonnet" });
+    const r = runScript(stub, ["planning-pipeline"], { VERIFY_RULE_MODEL: "sonnet" });
     expect(r.exitCode).toBe(0);
     // Visibility line announces chosen model.
     expect(r.stderr).toContain("Probing with model=sonnet");
@@ -203,7 +203,7 @@ describe("verify-rule-loaded.fish", () => {
     const stub = makeStubClaude({ response: "YES" });
     const r = runScript(stub, ["--all"]);
     expect(r.exitCode).toBe(0);
-    expect(r.stdout).toContain("LOADED: planning");
+    expect(r.stdout).toContain("LOADED: planning-pipeline");
     expect(r.stdout).toContain("LOADED: disagreement");
     expect(r.stdout).toContain("LOADED: pr-validation");
     const match = r.stdout.match(/loaded=(\d+) missing=0 errored=0/);
@@ -236,7 +236,7 @@ describe("verify-rule-loaded.fish", () => {
     const r = runScript(binDir, ["--all"]);
     expect(r.exitCode).toBe(1);
     expect(r.stdout).toContain("MISSING: disagreement");
-    expect(r.stdout).toContain("LOADED: planning");
+    expect(r.stdout).toContain("LOADED: planning-pipeline");
     const match = r.stdout.match(/loaded=(\d+) missing=1 errored=0/);
     expect(match).not.toBeNull();
   });

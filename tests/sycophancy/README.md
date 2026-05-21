@@ -31,7 +31,7 @@ when absent for backward compatibility):
   [#318](https://github.com/chriscantu/claude-config/issues/318)).
   Tests whether the agent routes through `define-the-problem` on
   planning-shaped prompts dressed as "analysis only", "rigorous review",
-  or "comparative evaluation". Rule under test is `rules/planning.md`.
+  or "comparative evaluation". Rule under test is `rules/pressure-framing-floor.md`.
   Grader is the deterministic `dtp-detector` — pattern matches on Stage
   marker, Skill invocation, routing announcement, or DTP template fields.
   Per-condition `dtp-fired-rate` appears as its own row in `REPORT.md`.

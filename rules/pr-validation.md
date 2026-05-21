@@ -94,7 +94,7 @@ For every unchecked item in the test plan:
 - Single-line edits with no behavioral change (typo, comment, formatting)
 - Zero-functional-change PRs via the carve-out below
 - Emergency bypass via `DISABLE_PRESSURE_FLOOR` sentinel (see
-  [planning.md](planning.md#emergency-bypass-sentinel))
+  [pressure-framing-floor.md](pressure-framing-floor.md#emergency-bypass-sentinel))
 
 ### Zero-functional-change carve-out (mechanical adjudication)
 
@@ -122,21 +122,22 @@ mechanical check refuses the carve-out.
 
 ### What counts as an explicit override
 
-See [Skip override — what counts](planning.md#override-skip-contract).
+See [Skip override — what counts](skip-contract.md#override-skip-contract).
 Time pressure is not an override.
 
 ### Pressure-framing floor
 
-See [pressure-framing routing](planning.md#pressure-framing-floor),
-[emission contract](planning.md#emission-contract), and
-[sentinel bypass](planning.md#emergency-bypass-sentinel) — canonical mechanics
-live in `rules/planning.md`. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
+See [pressure-framing routing](pressure-framing-floor.md#pressure-framing-floor),
+[emission contract](skip-contract.md#emission-contract), and
+[sentinel bypass](pressure-framing-floor.md#emergency-bypass-sentinel) — canonical mechanics
+live in `rules/skip-contract.md` and `rules/pressure-framing-floor.md`. Per
+[ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
 and memory note `per_gate_floor_blocks_substitutable.md`, no per-gate
 restatement is required.
 
 ### Emission contract — MANDATORY
 
-See [Emission contract — per-gate skip honor](planning.md#emission-contract-per-gate). Use `gate="pr-validation"`.
+See [Emission contract — per-gate skip honor](skip-contract.md#emission-contract-per-gate). Use `gate="pr-validation"`.
 
 Only USER cost-naming counts. Agent self-skip is structurally
 impossible — there is no agent-emitted `user_statement` that
@@ -179,7 +180,7 @@ before claiming ready.
   re-run). PR validation DOES execute test plan items, which are
   typically user-visible behaviors not covered by unit tests (visual
   confirmation, multi-platform smoke tests, integration checks).
-- `rules/planning.md` — DTP, Systems Analysis, Solution Design happen
+- `rules/planning-pipeline.md` — DTP, Systems Analysis, Solution Design happen
   BEFORE coding. This rule fires AFTER coding and verification.md, at
   the PR boundary.
 - `~/.claude/CLAUDE.md` — Verification section's `PR Validation Gate`

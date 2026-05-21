@@ -10,7 +10,7 @@ labels: regression, behavioral
 
 ## Which rule or skill should have enforced it?
 
-[e.g., `rules/planning.md` HARD-GATE, `rules/verification.md`]
+[e.g., `rules/planning-pipeline.md` HARD-GATE, `rules/pressure-framing-floor.md`, `rules/verification.md`]
 
 ## Prompt that triggered the regression
 

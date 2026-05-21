@@ -89,30 +89,30 @@ blocker.
 
 - Bug fixes where the cause is diagnosed and the fix is mechanical
 - Trivial single-line edits (typo, comment, formatting)
-- [Trivial / Mechanical tier](planning.md#trivial-tier-criteria) per
-  `planning.md` Scope Calibration — canonical criteria live at the
+- [Trivial / Mechanical tier](planning-pipeline.md#trivial-tier-criteria) per
+  `planning-pipeline.md` Scope Calibration — canonical criteria live at the
   anchor; do not restate to avoid drift. The Interpretations and
   Simpler-Path slots are resolved by the tier's unambiguous-approach
   criterion (no viable alternatives to weigh). Assumptions section
   still applies — state them.
 - Explicitly-scoped exploration ("just poke around the file")
-- Expert Fast-Track per `planning.md` — if the user has already named the
+- Expert Fast-Track per `planning-pipeline.md` — if the user has already named the
   problem, stakes, evidence, AND chosen an approach, the preamble condenses
   to a one-line "Proceeding on the stated path. Assumptions: <...>" since
   the Interpretations and Simpler-Path slots are already resolved
 
 ### What counts as an explicit override
 
-See [Skip override — what counts](planning.md#override-skip-contract).
+See [Skip override — what counts](skip-contract.md#override-skip-contract).
 Time pressure is not an override.
 
 ### Emission contract — MANDATORY
 
-See [Emission contract — per-gate skip honor](planning.md#emission-contract-per-gate). Use `gate="think-before-coding"`. Fires on Expert Fast-Track condensed form OR explicit override. See [Trivial/Mechanical tier criteria](planning.md#trivial-tier-criteria) for the auto-skip carve-out.
+See [Emission contract — per-gate skip honor](skip-contract.md#emission-contract-per-gate). Use `gate="think-before-coding"`. Fires on Expert Fast-Track condensed form OR explicit override. See [Trivial/Mechanical tier criteria](planning-pipeline.md#trivial-tier-criteria) for the auto-skip carve-out.
 
 ## Relationship to Other Rules
 
-- `planning.md` — DTP and Systems Analysis happen BEFORE this rule fires.
+- `planning-pipeline.md` — DTP and Systems Analysis happen BEFORE this rule fires.
   This rule governs the Solution Design stage specifically.
 - `superpowers:brainstorming` (plugin skill) — already requires "propose
   2-3 approaches with trade-offs." This rule COMPOSES with that: the
@@ -129,7 +129,7 @@ See [Emission contract — per-gate skip honor](planning.md#emission-contract-pe
 
 ## Order of Operations Across the Pipeline
 
-Matches the five numbered stages in `planning.md`, with Implementation and
+Matches the five numbered stages in `planning-pipeline.md`, with Implementation and
 Verification as the execution phase that follows:
 
 ```
