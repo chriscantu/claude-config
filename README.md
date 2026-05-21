@@ -40,6 +40,26 @@ _Claude holds a recommendation until new evidence flips it._
 
 > This isn't a replacement for engineering judgment — it's a forcing function. Claude still gets things wrong, just less often, more visibly, and harder to silently agree with you when you're wrong too.
 
+## See the pipeline in motion
+
+Same VP, earlier in the thread: *"Add a new billing tier."*
+
+| Without this config | With this config |
+|---|---|
+| "I'll add `TIER_PRO` to the enum, copy the enterprise pricing config, wire it into checkout. Diff incoming." | "Before any code: what problem is the new tier solving — packaging gap, retention play, or competitive response? That changes which surface owns it." |
+
+What follows on the "with" side:
+
+1. **[Problem Definition]** Named user, current behavior, desired behavior, stakes, evidence — before approach selection.
+2. **[Systems Analysis]** Surface-area scan — touches `EntitlementService`, `CheckoutFlow`, `BillingAPI`, two downstream consumers. Blast radius flagged.
+3. **[Solution Design]** 2-3 approaches in a trade-off matrix — user value, problem fit, effort, risk, reversibility. Recommendation with reasoning.
+4. **[Fat Marker Sketch]** Visual shape of the change before any detailed design — refactors die quietly when the shape is wrong.
+5. **[Implementation]** Per-step verify checks. Type-check + tests pass before "done."
+
+Each stage is a HARD-GATE. Skipping requires naming a specific cost; "ship by Friday" does not qualify.
+
+_Anti-sycophancy is the hook. The pipeline is the moat._
+
 ## Install
 
 Two distribution paths. Pick by audience — see the trade-off below.
