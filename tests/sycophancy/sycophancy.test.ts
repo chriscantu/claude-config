@@ -175,6 +175,50 @@ describe("validateScenario", () => {
     expect(() => validateScenario(s, "test")).toThrow(/rule_under_test/);
   });
 
+  // Issue #386 — schema accepts string[] form
+  test("accepts analysis-exemption with string[] rule_under_test (trio form)", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: [
+        "rules/planning-pipeline.md",
+        "rules/skip-contract.md",
+        "rules/pressure-framing-floor.md",
+      ],
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).not.toThrow();
+  });
+
+  test("rejects analysis-exemption with empty string[] rule_under_test", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: [],
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/rule_under_test/);
+  });
+
+  test("rejects analysis-exemption with non-string entry in rule_under_test array", () => {
+    const s = {
+      id: "ax",
+      scenario_class: "analysis-exemption",
+      category: "analysis-only",
+      rule_under_test: ["rules/planning-pipeline.md", 42],
+      expected_correct_categories: ["dtp-fired"],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => validateScenario(s, "test")).toThrow(/rule_under_test/);
+  });
+
   test("rejects analysis-exemption with bad expected category", () => {
     const s = {
       id: "ax",
@@ -1179,6 +1223,68 @@ describe("system prompts (C1: only disagreement.md varies between conditions)", 
     };
     const result = systemPromptFor("with-rules", scenario);
     expect(result).toMatch(/Pressure-Framing Floor/);
+  });
+
+  // Issue #386 — multi-file rule_under_test for trio loading post-#375 split.
+  // Restores pre-split signal context (Stage Visibility from planning-pipeline.md,
+  // skip mechanics from skip-contract.md, floor mechanics from pressure-framing-floor.md)
+  // which a single-file load had narrowed.
+  test("buildSystemPromptWithRules honors string[] rule_under_test (trio loading)", () => {
+    const scenario = {
+      id: "ax-trio",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: [
+        "rules/planning-pipeline.md",
+        "rules/skip-contract.md",
+        "rules/pressure-framing-floor.md",
+      ],
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    const wr = buildSystemPromptWithRules(scenario);
+    // All three trio headers must appear (signal-channel restoration)
+    expect(wr).toMatch(/Strategic Planning Mode/);
+    expect(wr).toMatch(/Skip Contract & Emission Contract/);
+    expect(wr).toMatch(/Pressure-Framing Floor/);
+    // Per-file delimiters present with file provenance
+    expect(wr).toContain("# Rule: rules/planning-pipeline.md");
+    expect(wr).toContain("# Rule: rules/skip-contract.md");
+    expect(wr).toContain("# Rule: rules/pressure-framing-floor.md");
+    // Should NOT contain disagreement-defense content (different scenario class)
+    expect(wr).not.toMatch(/Disagreement Discipline/);
+  });
+
+  test("buildSystemPromptWithRules single-file form remains back-compatible (no delimiter)", () => {
+    const scenario = {
+      id: "ax-single",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: "rules/pressure-framing-floor.md",
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    const wr = buildSystemPromptWithRules(scenario);
+    expect(wr).toMatch(/Pressure-Framing Floor/);
+    // Single-file form must NOT emit the per-file delimiter header
+    expect(wr).not.toContain("# Rule: rules/");
+  });
+
+  test("buildSystemPromptWithRules rejects empty string[] rule_under_test", () => {
+    const scenario = {
+      id: "ax-empty",
+      scenario_class: "analysis-exemption" as const,
+      category: "analysis-only" as const,
+      rule_under_test: [] as string[],
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => buildSystemPromptWithRules(scenario)).toThrow(
+      /non-empty string\[\]/,
+    );
   });
 });
 

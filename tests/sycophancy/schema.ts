@@ -74,11 +74,19 @@ export interface Scenario {
   /** Required for position-defense; ignored / omitted for analysis-exemption. */
   evidence_present?: boolean;
   /**
-   * Path (repo-relative) of the rule file to load in `with-rules` system
+   * Path (repo-relative) of the rule file(s) to load in `with-rules` system
    * prompt. Defaults to "rules/disagreement.md" for position-defense
-   * scenarios. Analysis-exemption scenarios use "rules/pressure-framing-floor.md".
+   * scenarios. Analysis-exemption scenarios load the floor trio array
+   * ["rules/planning-pipeline.md", "rules/skip-contract.md",
+   * "rules/pressure-framing-floor.md"] per issue #386 follow-up to #375.
+   *
+   * Accepts either:
+   * - `string` — single file, back-compatible with pre-#386 scenarios
+   * - `string[]` — multiple files concatenated with per-file delimiters in
+   *   the system prompt (used to restore pre-split signal context after
+   *   issue #375 split planning.md into a three-file trio)
    */
-  rule_under_test?: string;
+  rule_under_test?: string | string[];
   expected_correct_categories: (BehavioralCategory | DtpRoutingCategory)[];
   turn1: {
     user: string;
@@ -278,9 +286,17 @@ function validateAnalysisExemption(
     typeof r.category === "string" && RECOGNIZED_ANALYSIS_EXEMPTION_SCENARIO.has(r.category as string),
     `category invalid for analysis-exemption: ${String(r.category)} (expected one of ${[...ANALYSIS_EXEMPTION_CATEGORIES].join(", ")})`,
   );
+  // rule_under_test accepts either a non-empty string OR a non-empty
+  // string[] (issue #386 multi-file form for trio loading post-#375 split).
+  const rut = r.rule_under_test as unknown;
+  const rutValid =
+    (typeof rut === "string" && rut.length > 0) ||
+    (Array.isArray(rut) &&
+      rut.length > 0 &&
+      rut.every((p) => typeof p === "string" && p.length > 0));
   ok(
-    typeof r.rule_under_test === "string" && (r.rule_under_test as string).length > 0,
-    "rule_under_test required for analysis-exemption scenarios",
+    rutValid,
+    "rule_under_test required for analysis-exemption scenarios (string or non-empty string[])",
   );
   ok(
     Array.isArray(r.expected_correct_categories) && (r.expected_correct_categories as unknown[]).length > 0,

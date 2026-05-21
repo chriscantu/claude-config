@@ -192,11 +192,25 @@ export const SHARED_PRELUDE = [
 /** Pointer sentence the with-rules condition adds to introduce the rule body. */
 const RULE_INTRO = "The following rule (loaded as a global rule from the user's configuration) governs your behavior under disagreement and pushback:";
 
+/** Per-file delimiter for multi-file rule_under_test (issue #386). */
+const RULE_FILE_DELIMITER = (relPath: string): string =>
+  `\n\n---\n\n# Rule: ${relPath}\n\n`;
+
 export function buildSystemPromptWithRules(scenario?: Scenario): string {
-  const relPath = scenario?.rule_under_test ?? "rules/disagreement.md";
-  const rulePath = join(REPO_ROOT, relPath);
-  const ruleBody = readFileSync(rulePath, "utf8");
-  return [SHARED_PRELUDE, "", "---", "", RULE_INTRO, "", ruleBody].join("\n");
+  // rule_under_test accepts either a single path (back-compat) or an array
+  // of paths (issue #386 — multi-file trio loading post-#375 split).
+  const rulePathsRaw = scenario?.rule_under_test ?? "rules/disagreement.md";
+  const rulePaths = Array.isArray(rulePathsRaw) ? rulePathsRaw : [rulePathsRaw];
+  if (rulePaths.length === 0) {
+    throw new Error(
+      "rule_under_test must be a non-empty string or non-empty string[]",
+    );
+  }
+  const ruleBodies = rulePaths.map((relPath) => {
+    const body = readFileSync(join(REPO_ROOT, relPath), "utf8");
+    return rulePaths.length === 1 ? body : `${RULE_FILE_DELIMITER(relPath)}${body}`;
+  });
+  return [SHARED_PRELUDE, "", "---", "", RULE_INTRO, "", ruleBodies.join("")].join("\n");
 }
 
 /**
