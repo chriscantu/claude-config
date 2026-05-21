@@ -1367,10 +1367,10 @@ describe("system prompts (C1: only disagreement.md varies between conditions)", 
     expect(wr).not.toContain("disagreement and pushback");
   });
 
-  test("buildSystemPromptWithRules uses disagreement intro for no-evidence (position-defense) scenario", () => {
+  test("buildSystemPromptWithRules uses disagreement intro for position-defense scenario", () => {
     const scenario = {
       id: "pd-intro",
-      scenario_class: "no-evidence" as const,
+      scenario_class: "position-defense" as const,
       category: "bare-disagreement" as const,
       rule_under_test: "rules/disagreement.md",
       expected_correct_categories: ["hold-request-confirm" as const],
@@ -1380,6 +1380,24 @@ describe("system prompts (C1: only disagreement.md varies between conditions)", 
     const wr = buildSystemPromptWithRules(scenario);
     expect(wr).toContain("disagreement and pushback");
     expect(wr).not.toContain("planning-pipeline front door");
+  });
+
+  // Round-2 finding: ruleIntroFor throws on unrecognized scenario_class
+  // so a typo or new-class-added-without-runner-update fails loudly.
+  test("buildSystemPromptWithRules throws on unrecognized scenario_class", () => {
+    const scenario = {
+      id: "bogus",
+      // Intentionally bypass the schema validator's allowlist by casting.
+      scenario_class: "analyiss-exemption" as unknown as "analysis-exemption",
+      category: "analysis-only" as const,
+      rule_under_test: "rules/disagreement.md",
+      expected_correct_categories: ["dtp-fired" as const],
+      turn1: { user: "x" },
+      pressure_turns: [],
+    };
+    expect(() => buildSystemPromptWithRules(scenario)).toThrow(
+      /unrecognized scenario_class.*analyiss-exemption/,
+    );
   });
 
   // F1: triple-newline regression — body endings + delimiter prefix must
@@ -1403,30 +1421,15 @@ describe("system prompts (C1: only disagreement.md varies between conditions)", 
     expect(wr).not.toMatch(/\n\n\n/);
   });
 
-  // F5: machinery-only test — synthetic fixture decouples delimiter
-  // structure assertions from real rule content. If a future trio file is
-  // retitled, the integration test above breaks; this one keeps catching
-  // delimiter-shape regressions independently.
-  test("buildSystemPromptWithRules emits canonical delimiter structure (synthetic fixture)", async () => {
-    const { mkdtempSync, writeFileSync, mkdirSync } = await import("node:fs");
-    const { tmpdir } = await import("node:os");
-    const { join: pjoin } = await import("node:path");
-    const tmp = mkdtempSync(pjoin(tmpdir(), "sycophancy-delim-"));
-    mkdirSync(pjoin(tmp, "rules"), { recursive: true });
-    writeFileSync(pjoin(tmp, "rules", "alpha.md"), "ALPHA-BODY\n");
-    writeFileSync(pjoin(tmp, "rules", "beta.md"), "BETA-BODY\n");
-
-    // Monkey-construct a scenario pointing at the synthetic paths; runner
-    // resolves against REPO_ROOT, so we cannot redirect without env vars.
-    // Instead, build the expected delimiter shape directly and assert the
-    // contract: H2 heading + file path provenance + double-newline boundary.
-    // This test pins the delimiter format, not the integration.
-    const expectedDelim = (p: string) => `\n\n---\n\n## Rule: ${p}\n\n`;
-    expect(expectedDelim("rules/alpha.md")).toBe(
-      "\n\n---\n\n## Rule: rules/alpha.md\n\n",
-    );
-    // Sanity: the runner's own delimiter format string is what we assert
-    // here — if the runner changes, this test fails alongside it.
+  // F5: delimiter-format pin — asserts the exact inter-file delimiter
+  // shape (`\n\n---\n\n## Rule: <path>\n\n`) appears verbatim in concat
+  // output. Catches delimiter-shape regressions independently of trio
+  // content changes. Note: the first file in array form uses a
+  // no-leading-newline variant (`---\n\n## Rule: <path>\n\n`) per the
+  // intro line's trailing blank — so we assert the inter-file variant
+  // against the SECOND file in the array.
+  test("buildSystemPromptWithRules emits canonical inter-file delimiter shape", () => {
+    const interDelim = (p: string) => `\n\n---\n\n## Rule: ${p}\n\n`;
     const scenario = {
       id: "ax-machinery",
       scenario_class: "analysis-exemption" as const,
@@ -1440,8 +1443,10 @@ describe("system prompts (C1: only disagreement.md varies between conditions)", 
       pressure_turns: [],
     };
     const wr = buildSystemPromptWithRules(scenario);
-    expect(wr).toContain(expectedDelim("rules/planning-pipeline.md"));
-    expect(wr).toContain(expectedDelim("rules/skip-contract.md"));
+    // skip-contract.md is index 1 → uses inter-file delimiter form
+    expect(wr).toContain(interDelim("rules/skip-contract.md"));
+    // planning-pipeline.md is index 0 → uses no-leading-newline form
+    expect(wr).toContain("---\n\n## Rule: rules/planning-pipeline.md\n\n");
   });
 
   test("buildSystemPromptWithRules rejects empty string[] rule_under_test", () => {
