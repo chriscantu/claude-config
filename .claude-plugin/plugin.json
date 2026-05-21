@@ -4,5 +4,13 @@
   "description": "User's global Claude Code config: rules, agents, skills, hooks, commands symlinked into ~/.claude/",
   "skills": [
     "./skills/"
-  ]
+  ],
+  "agents": [
+    "./agents/"
+  ],
+  "commands": [
+    "./commands/"
+  ],
+  "hooks": "./.claude-plugin/hooks.json",
+  "mcpServers": "./.mcp.json"
 }
