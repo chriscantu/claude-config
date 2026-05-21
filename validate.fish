@@ -110,11 +110,21 @@ set -g _current_phase_failed 0
 
 set -g _phase_log_write_warned 0
 
+# Cache HEAD SHA once — _emit_phase_log fires per phase (17+ active phases)
+# and the value never changes mid-run. On git error, fall back to "unknown"
+# AND surface a one-time warn when telemetry is active — a `"commit":"unknown"`
+# row would silently corrupt Phase 1q retirement-signal aggregation (per
+# rules/README.md "0 firings in last 100 entries" warn signal).
+set -g _validate_commit (git -C $repo_dir rev-parse HEAD 2>/dev/null)
+if test -z "$_validate_commit"
+    set -g _validate_commit "unknown"
+    test -n "$log_path"; and warn "git rev-parse HEAD failed — phase-log commit field will be \"unknown\" this run"
+end
+
 function _emit_phase_log --argument-names phase ph_status duration_ms
     test -z "$log_path"; and return 0
     set -l ts (date -u +"%Y-%m-%dT%H:%M:%SZ")
-    set -l commit (git -C $repo_dir rev-parse HEAD 2>/dev/null; or echo "unknown")
-    set -l line "{\"ts\":\"$ts\",\"commit\":\"$commit\",\"phase\":\"$phase\",\"status\":\"$ph_status\",\"duration_ms\":$duration_ms}"
+    set -l line "{\"ts\":\"$ts\",\"commit\":\"$_validate_commit\",\"phase\":\"$phase\",\"status\":\"$ph_status\",\"duration_ms\":$duration_ms}"
     if not mkdir -p (dirname $log_path) 2>/dev/null
         if test $_phase_log_write_warned -eq 0
             echo "  ⚠ phase-log write failed (mkdir): $log_path — telemetry disabled this run" >&2
