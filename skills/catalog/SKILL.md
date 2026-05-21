@@ -17,6 +17,8 @@ The model does not auto-invoke this skill. It runs only when the user explicitly
 - `agents` — Agents only.
 - `rules` — Rules only.
 - `leader` — Senior eng leader toolkit only (`/onboard`, `/strategy-doc`, `/swot`, `/stakeholder-map`, `/1on1-prep`, `/present`).
+- `templates` — Templates only (drop-in scaffolds shipped by the repo).
+- `ecosystem` — Third-party plugins this config plays well with.
 - `--mine` — List skills present under `~/.claude/skills/` that are NOT documented in the canonical `docs/catalog.md`. Useful for finding plugin skills (caveman, superpowers, harness) and user-added skills outside the claude-config repo.
 
 Arguments are mutually exclusive except `--mine`, which combines with any group filter.
@@ -44,6 +46,8 @@ The catalog file is the single source of truth. Do not re-derive tables from dis
 | `skills` | `### Pipeline + design-thinking`, `### Senior eng leader toolkit`, `### Other operational skills` |
 | `agents` | `## Agents (specialized reviewers)` |
 | `leader` | `### Senior eng leader toolkit` |
+| `templates` | `## Templates` |
+| `ecosystem` | `## Ecosystem (third-party plugins this config plays well with)` |
 
 Render the matching tables verbatim. Do not paraphrase rows — the catalog file owns the descriptions.
 
