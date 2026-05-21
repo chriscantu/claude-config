@@ -163,22 +163,8 @@ Use these in pre-push hooks or CI to catch the silent-failure modes
 (rule not loaded; rule restated and drifted; anchor structurally broken;
 stable deep-link target removed; delegate link deleted from dependent).
 
-## Stable anchor pattern
-
-When a rule construct (criteria block, decision table, definition list)
-is referenced from other rules, promote it to a citable anchor:
-
-1. Place an explicit `<a id="kebab-name"></a>` line directly above the
-   heading. Auto-generated GitHub heading IDs are fragile — punctuation,
-   em dashes, and renames silently break links.
-2. Dependent rules deep-link via
-   `[Display Text](planning.md#kebab-name)`.
-3. Add the anchor ID to `validate.fish` Phase 1j's registry so future
-   removal fails CI.
-
-The anchor is the contract; the heading is presentation. Treat the
-anchor ID as load-bearing — never rename without updating every
-dependent.
+Anchor-pattern guidance (when to promote a rule construct to a citable
+anchor) is canonically housed in [`GOVERNANCE.md`](GOVERNANCE.md#stable-anchor-pattern).
 
 ## Why the silent-failure mode matters
 
@@ -235,6 +221,8 @@ Delegate rules link to these anchors with a one-line `See [...]` and
 their own `gate=` value. Do not restate the canonical text in a
 delegate rule — Phase 1l + Phase 1g guard against drift.
 
+<a id="what-lives-here"></a>
+
 ## What lives here
 
 | File | Type | Purpose |
@@ -252,58 +240,6 @@ delegate rule — Phase 1l + Phase 1g guard against drift.
 
 The `bin/link-config.fish` script will skip `README.md` files automatically.
 
-<a id="hard-gate-cap"></a>
-
-## Policy: HARD-GATE cap
-
-**Cap: 8 HARD-GATE rules.** The current set listed above is the ceiling. New
-behavioral concerns shaped as "we need a gate for X" must extend an existing
-rule, not add a 9th.
-
-Background: every HARD-GATE rule carries Skip contract + named-cost emission
-+ pressure-framing-floor delegate + sentinel bypass inheritance. Each loads
-per prompt. Accretion at the rules layer compounds cognitive load and
-substrate cost. The cap is a prevention policy; per-prompt fixes (scope-tier
-hooks, conditional loaders) are downstream remediation, not substitutes. The
-originating issue referenced 6 gates — `disagreement.md` and `memory-discipline.md` shipped after that
-count, bringing the live set to 8. The cap freezes the current set; it does
-not retroactively prune.
-
-### Adding a 9th HARD-GATE rule requires:
-
-1. **Extension-first audit.** Name the specific existing rule the concern
-   could extend (which one, why it doesn't fit). "None fit" must be argued,
-   not assumed.
-2. **Discriminating eval signal per [ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md).**
-   A regression eval whose required-tier assertion is RED on a broken
-   implementation and GREEN on a passing one — at the new rule's specific
-   boundary, not just "somewhere in the rules layer." Per-gate behavioral claims that cannot
-   demonstrate discrimination at their own boundary are rejected per
-   Karpathy #2 — speculative duplication adding no eval-measurable load.
-3. **Substrate cost accounting.** Estimate per-prompt token load added and
-   any new sentinel/hook surface. Cap intent is to make the trade-off
-   visible, not to forbid additions.
-
-PRs that add a HARD-GATE rule without these three are rejected at review.
-
-### Retroactive audit pass
-
-Survey of overlap candidates among the current 8. None forced to merge —
-this is a discriminating-signal audit, not a deduplication pass.
-
-Discriminating-signal claims below reference evals under `rules-evals/<name>/evals/evals.json`.
-
-| Candidate pair | Overlap surface | Verdict |
-|---|---|---|
-| `think-before-coding` <-> `goal-driven` | Both fire at the Solution Design -> Implementation seam; both prescribe pre-code structure | **Keep separate.** TBC governs *what to surface* (assumptions/interpretations/simpler-path) at design; goal-driven governs *what success looks like* (verify criteria, loop semantics) at implementation. Distinct discriminating signals: TBC RED on missing preamble; goal-driven RED on missing verify check. Merging collapses two channels. (evals: `rules-evals/think-before-coding/`, `rules-evals/goal-driven/`) |
-| `planning` (DTP/SA/SD) <-> `fat-marker-sketch` | FMS sits inside the planning pipeline between approach-selection and detailed-design | **Keep separate but watch.** FMS is a *gate within* planning, not a parallel gate. Per the per-gate-boundary discrimination rule (see condition 2 above) and a four-cell inverse-RED audit, FMS per-gate blocks failed discrimination at their own boundary. FMS retained as a discrete file for substrate cost (its sketch artifact is a distinct deliverable), but flagged for re-evaluation if a discriminating signal at the FMS boundary cannot be authored. (evals: `skills/fat-marker-sketch/evals/`, `skills/{define-the-problem,systems-analysis,sdr}/evals/` — no `rules-evals/` home yet for FMS or planning rule) |
-| `disagreement` <-> `memory-discipline` | Both handle anti-sycophancy / pressure framing; both yield to "new evidence" semantics | **Keep separate.** Disagreement governs *live pushback in-turn*; memory-discipline governs *stored auto-memory defaults across turns*. Different trigger surfaces, different escape clauses (evidence vs. surfaced trade-off). Discriminating signals differ: disagreement RED on capitulation-without-evidence; memory-discipline RED on uncited stored-claim execution. (evals: `rules-evals/disagreement/`, `rules-evals/memory-discipline/`) |
-
-No merges proposed. Audit conclusion: the 8 are individually discriminable;
-the cap prevents a 9th from accreting without the same scrutiny.
-
-### Pointer
-
-Policy preamble in `global/CLAUDE.md` Coding Principles section links here
-as the canonical home. Do not restate the cap or the three-condition gate
-elsewhere.
+Adding a HARD-GATE rule? The 8-rule cap policy, three-condition gate, and
+retroactive audit table live in [`GOVERNANCE.md`](GOVERNANCE.md#hard-gate-cap)
+— not auto-loaded; consulted only at rule-promotion review time.

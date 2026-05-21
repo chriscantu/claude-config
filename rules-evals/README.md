@@ -23,6 +23,8 @@ Current suites:
   vs. single-implementer) from [`rules/execution-mode.md`](../rules/execution-mode.md)
 - `goal-driven/` — covers the per-step verify checks + named-cost skip
   contract from [`rules/goal-driven.md`](../rules/goal-driven.md)
+- `hard-gate-cap/` — covers the 8-rule HARD-GATE cap + three-condition
+  gate from [`rules/GOVERNANCE.md`](../rules/GOVERNANCE.md#hard-gate-cap) (ADR #0015)
 - `memory-discipline/` — covers the re-challenge contract on material
   context shift from [`rules/memory-discipline.md`](../rules/memory-discipline.md)
 - `pr-validation/` — covers the trigger surface (speech-act + action-bound),
@@ -38,7 +40,7 @@ Current suites:
 
 ## Coverage map vs HARD-GATE set
 
-The [HARD-GATE cap policy](../rules/README.md#hard-gate-cap) freezes the
+The [HARD-GATE cap policy](../rules/GOVERNANCE.md#hard-gate-cap) freezes the
 set listed in [`rules/README.md`](../rules/README.md)'s "What lives here"
 table at 8 rules.
 Eval coverage lives in two roots — `skills/<name>/evals/` for gates that

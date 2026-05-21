@@ -50,6 +50,12 @@ function each_symlink_target --argument-names repo home_claude
             if test "$name" = README.md
                 continue
             end
+            # rules/GOVERNANCE.md is governance policy, NOT a loadable rule
+            # (per ADR #0015). Symlinking it would defeat the split's purpose
+            # — the cap policy is consulted only at rule-promotion review time.
+            if test "$dir" = rules; and test "$name" = GOVERNANCE.md
+                continue
+            end
             printf 'file|%s|%s|%s\n' $src $home_claude/$dir/$name "$dir/$name"
         end
     end

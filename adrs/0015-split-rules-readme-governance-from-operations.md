@@ -16,7 +16,15 @@ Cantu
 Steady-state
 
 ## Status
-Proposed
+Accepted
+
+Implementation shipped 2026-05-21 in commit/PR closing this ADR.
+`rules-evals/hard-gate-cap/` suite exists with 4 discriminating evals
+(rejection-no-conditions, rejection-partial-conditions, acceptance-all-three,
+extension-first-honored). Live RED/GREEN demonstration deferred per #369
+precedent — cost-gated follow-up issue tracks the demonstration loop;
+suite presence closes the gate per ADR §Implementation gate, demo run
+closes ADR §0005 §4 demonstration requirement.
 
 ## Context
 
