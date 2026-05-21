@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
+  chmodSync,
   mkdirSync,
   mkdtempSync,
   rmSync,
@@ -122,6 +123,12 @@ afterEach(() => {
       console.error(`afterEach: refusing to clean non-tmp path ${dir}`);
       continue;
     }
+    // Test H chmods the fixture's validate.fish to 000 to force a grep
+    // I/O error; restore perms before rmSync so cleanup doesn't fail.
+    const restore = spawnSync("chmod", ["-R", "u+rw", dir], { encoding: "utf8" });
+    if (restore.error) {
+      console.error(`afterEach: chmod failed for ${dir}: ${restore.error.message}`);
+    }
     try {
       rmSync(dir, { recursive: true, force: true });
     } catch (e) {
@@ -146,8 +153,15 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
   });
 
   test("B: tombstoned phase ≥12mo old emits hard-delete WARN", () => {
+    // Compute date 13 months back at test-runtime instead of hard-coding —
+    // a hard-coded date eventually stops being ≥12mo old in the past or
+    // becomes confusing in commit archaeology. ~395 days = safely past
+    // the 31536000s (≈365d) threshold Phase 1q uses.
+    const staleDate = new Date(Date.now() - 395 * 86400 * 1000)
+      .toISOString()
+      .slice(0, 10);
     const oldTombstone = [
-      "# RETIRED 2024-01-01 — synthetic stale tombstone for Phase 1q test",
+      `# RETIRED ${staleDate} — synthetic stale tombstone for Phase 1q test`,
       "# Restore: uncomment block + drop .skip on tests/validate-phase-1y.test.ts",
       "# function _phase_1y",
       "# end",
@@ -156,24 +170,36 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
     // on the tombstone-age signal alone.
     const fixture = makeFixture(synthValidate(["1a"], oldTombstone), "");
     const out = extractPhase1q(runValidate(fixture));
-    expect(out).toMatch(/tombstone 2024-01-01 is ≥12mo old/);
+    expect(out).toMatch(
+      new RegExp(`tombstone ${staleDate} is ≥12mo old`),
+    );
     expect(out).toMatch(/hard-delete eligible/);
   });
 
   test("C: commented `# function _phase_` without tombstone HARD-FAILs", () => {
-    // No `# RETIRED YYYY-MM-DD` line preceding the commented function —
-    // means a soft-retire shipped without an audit trail. Phase 1q must
-    // fail and exit non-zero.
-    const orphanFunc = [
+    // Three orphan funcs verify the loop emits one fail per missing
+    // tombstone — catches a future refactor that early-exits after the
+    // first fail. Mirrors Phase 1p Test B / C pattern.
+    const orphanFuncs = [
       "# accidentally-commented function with no tombstone",
       "# function _phase_1z",
       "# end",
+      "",
+      "# another orphan",
+      "# function _phase_2a",
+      "# end",
+      "",
+      "# third orphan",
+      "# function _phase_2b",
+      "# end",
     ].join("\n");
-    const fixture = makeFixture(synthValidate(["1a"], orphanFunc), null);
+    const fixture = makeFixture(synthValidate(["1a"], orphanFuncs), null);
     const r = runValidate(fixture);
     const out = extractPhase1q(r);
     expect(out).toContain("✗");
-    expect(out).toMatch(/missing tombstone|RETIRED YYYY-MM-DD/);
+    // Count fail lines for missing-tombstone — must be ≥3.
+    const failMatches = out.match(/missing tombstone/g) ?? [];
+    expect(failMatches.length).toBeGreaterThanOrEqual(3);
     expect(r.exitCode).not.toBe(0);
   });
 
@@ -248,5 +274,129 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
     const out = extractPhase1q(r);
     expect(out).toMatch(/phase beta has 0 firings/);
     expect(out).not.toMatch(/phase alpha has 0 firings/);
+  });
+
+  // H: chmod restrictions don't apply to root. spawnSync as root would
+  // still read the file regardless of mode bits — skip the test there.
+  const skipIfRoot =
+    typeof process.getuid === "function" && process.getuid() === 0;
+  (skipIfRoot ? test.skip : test)(
+    "H: grep I/O error on unreadable validate.fish HARD-FAILs Check 1",
+    () => {
+      // chmod 000 forces grep to return status 2 (open error). Phase 1q's
+      // grep-status guard must catch this rather than silently treating
+      // the file as having zero tombstones (false-negative).
+      const fixture = makeFixture(synthValidate(["1a"]));
+      chmodSync(join(fixture, "validate.fish"), 0o000);
+      const r = runValidate(fixture);
+      const out = extractPhase1q(r);
+      expect(out).toContain("✗");
+      expect(out).toMatch(/grep returned error status/);
+      expect(r.exitCode).not.toBe(0);
+    },
+  );
+
+  test("I: --log-path=value form is equivalent to space-separated form", () => {
+    // Most CLIs accept both `--flag value` and `--flag=value`; supporting
+    // only one is a footgun. Same fixture as Test G but invoked with the
+    // `=` form.
+    const fixture = makeFixture(synthValidate(["alpha", "beta"]));
+    const customLog = join(fixture, "custom-phase-log.jsonl");
+    writeFileSync(customLog, synthLog(100, "alpha"));
+    const result = spawnSync("fish", [VALIDATE, `--log-path=${customLog}`], {
+      env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
+      encoding: "utf8",
+    });
+    if (result.error) throw result.error;
+    const r: RunResult = {
+      exitCode: result.status ?? -1,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    };
+    const out = extractPhase1q(r);
+    expect(out).toMatch(/phase beta has 0 firings/);
+  });
+
+  test("J: multiple stale tombstones each fire their own hard-delete WARN", () => {
+    // Three stale tombstones verify Check 3 loop emits one WARN per
+    // tombstone — catches a break-after-first refactor on Check 3 mirror
+    // to Test C on Check 1.
+    const staleDate = new Date(Date.now() - 395 * 86400 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const otherStale = new Date(Date.now() - 500 * 86400 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const thirdStale = new Date(Date.now() - 700 * 86400 * 1000)
+      .toISOString()
+      .slice(0, 10);
+    const tombstones = [
+      `# RETIRED ${staleDate} — first stale`,
+      "# Restore: uncomment",
+      "# function _phase_1y",
+      "# end",
+      "",
+      `# RETIRED ${otherStale} — second stale`,
+      "# Restore: uncomment",
+      "# function _phase_2a",
+      "# end",
+      "",
+      `# RETIRED ${thirdStale} — third stale`,
+      "# Restore: uncomment",
+      "# function _phase_2b",
+      "# end",
+    ].join("\n");
+    const fixture = makeFixture(synthValidate(["1a"], tombstones), "");
+    const out = extractPhase1q(runValidate(fixture));
+    const warnMatches = out.match(/hard-delete eligible/g) ?? [];
+    expect(warnMatches.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("K: regex-special-char in active phase ID is treated as literal", () => {
+    // `1.q` is a legal `_phase_begin` ID (matches `[^"]+`) but its `.` is
+    // a regex wildcard. Without grep -F, the recent-window check would
+    // match log entries firing phase `1xq` (or any other `1<char>q`) as
+    // if they were `1.q` firings → false-negative on the WARN. Test pins
+    // grep -F (or equivalent literal-match) behavior.
+    const activeIds = ["1.q", "1xq"];
+    // Log fires only `1xq`, never the literal `1.q`. With proper literal
+    // matching, `1.q` should be flagged as 0-firings.
+    const log = synthLog(100, "1xq");
+    const fixture = makeFixture(synthValidate(activeIds));
+    const customLog = join(fixture, "custom-phase-log.jsonl");
+    writeFileSync(customLog, log);
+    const result = spawnSync("fish", [VALIDATE, "--log-path", customLog], {
+      env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
+      encoding: "utf8",
+    });
+    if (result.error) throw result.error;
+    const r: RunResult = {
+      exitCode: result.status ?? -1,
+      stdout: result.stdout,
+      stderr: result.stderr,
+    };
+    const out = extractPhase1q(r);
+    expect(out).toMatch(/phase 1\.q has 0 firings/);
+    expect(out).not.toMatch(/phase 1xq has 0 firings/);
+  });
+
+  test("L: corrupt log line containing literal `\"phase\":\"X\"` substring counts as firing", () => {
+    // Phase 1q Check 2 uses literal-substring grep (-qF). A non-JSONL
+    // line that happens to contain the bytes `"phase":"1b"` is treated
+    // as a 1b firing. This is the known trade-off vs. proper JSON
+    // parsing (jq dependency). Test PINS the behavior so a future
+    // refactor doesn't silently change it without acknowledging the
+    // change.
+    const goodLines = Array.from({ length: 99 }, () =>
+      `{"ts":"2026-05-10T00:00:00Z","commit":"abc","phase":"1a","status":"pass","duration_ms":0}`,
+    );
+    const corruptLine = `# this is not JSONL but contains "phase":"1b" in a comment`;
+    const log = [...goodLines, corruptLine].join("\n") + "\n";
+    const fixture = makeFixture(synthValidate(["1a", "1b"]), log);
+    const out = extractPhase1q(runValidate(fixture));
+    // 1b appears in the corrupt line's literal substring → counts as
+    // a firing → no WARN. Documents the current substring-grep
+    // approximation.
+    expect(out).not.toMatch(/phase 1b has 0 firings/);
   });
 });

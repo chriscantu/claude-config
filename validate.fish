@@ -61,6 +61,12 @@ while test $i -le (count $argv)
                 exit 2
             end
             set log_path $argv[$i]
+        case '--log-path=*'
+            set log_path (string replace -r '^--log-path=' '' -- $arg)
+            if test -z "$log_path"
+                echo "ERROR: --log-path= requires a non-empty value" >&2
+                exit 2
+            end
         case '*'
             echo "ERROR: unknown argument: $arg" >&2
             echo "Usage: fish validate.fish [--skill <slug>] [--log-path <path>]" >&2
@@ -1213,10 +1219,18 @@ else
         end
         if test $_line_count -ge 10
             set -l _active_ids (grep -oE '_phase_begin "[^"]+"' "$_p1q_target" | sed -E 's/_phase_begin "(.+)"/\1/' | sort -u)
-            set -l _recent (tail -100 "$_p1q_log")
-            for pid in $_active_ids
-                if not echo $_recent | grep -q "\"phase\":\"$pid\""
-                    warn "Phase 1q: phase $pid has 0 firings in last $_line_count log entries (retirement candidate)"
+            set -l _grep2_status $status
+            if test $_grep2_status -ge 2
+                fail "Phase 1q: grep returned error status $_grep2_status while extracting active phase IDs from $_p1q_target"
+            else
+                set -l _recent (tail -100 "$_p1q_log")
+                for pid in $_active_ids
+                    # grep -F treats $pid as literal — phase IDs with regex
+                    # metacharacters (e.g., `1.q`) would otherwise match
+                    # unrelated lines (e.g., `1xq`).
+                    if not echo $_recent | grep -qF "\"phase\":\"$pid\""
+                        warn "Phase 1q: phase $pid has 0 firings in last $_line_count log entries (retirement candidate)"
+                    end
                 end
             end
         end
@@ -1230,6 +1244,11 @@ else
     set -l _now (date +%s)
     set -l _12mo_ago (math $_now - 31536000)
     set -l _tombstones (grep -E '^# RETIRED [0-9]{4}-[0-9]{2}-[0-9]{2}' "$_p1q_target")
+    set -l _grep3_status $status
+    if test $_grep3_status -ge 2
+        fail "Phase 1q: grep returned error status $_grep3_status while scanning for tombstones in $_p1q_target"
+        set _tombstones
+    end
     for ts in $_tombstones
         set -l _d (echo $ts | grep -oE '[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
         set -l _e (date -j -f "%Y-%m-%d" $_d +%s 2>/dev/null)
