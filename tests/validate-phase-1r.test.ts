@@ -234,7 +234,11 @@ describe("validate.fish Phase 1r (skill-eval discriminating-signal presence, ADR
 
   test("D: zero-state — no skills/*/evals/evals.json → documented pass, no fail", () => {
     const repo = makeRepoFixture();
-    // Deliberately no skill eval files seeded.
+    // Deliberately no skill eval files seeded. Sibling phases (e.g. Phase 1a
+    // "No skill directories found") fire on this fixture but are isolated by
+    // extractPhase1r's header-to-blank-line slice — assertions below only
+    // inspect Phase 1r output. The `not.toMatch(/✗/)` guard is scoped to that
+    // slice, not the whole transcript.
     const out = extractPhase1r(runValidate(repo));
     expect(out).toContain(
       "no skills/*/evals/evals.json files — Phase 1r has nothing to validate",

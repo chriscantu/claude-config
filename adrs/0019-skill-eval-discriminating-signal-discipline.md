@@ -68,12 +68,23 @@ Three concrete pieces:
 
 1. **Skill-layer evals carry the same discriminating-signal discipline as
    rule-layer evals.** Every `skills/<name>/evals/evals.json` MUST contain
-   at least one `"tier": "required"` assertion across its evals[] array. The
-   required assertion(s) must discriminate at the skill's behavioral boundary
-   per ADR #0005's
+   at least one assertion with `"tier": "required"` inside its `evals[]`
+   entries. The required assertion(s) must discriminate at the skill's
+   behavioral boundary per ADR #0005's
    [2026-04-23 clarification](./0005-behavioral-adr-promotion-requires-discriminating-signal.md#clarification-2026-04-23-discrimination-must-be-at-the-adrs-specific-boundary)
    — removing the skill's load-bearing state must turn the required-tier
    assertion red.
+
+   **Containment guarantee.** Phase 1r's mechanical check counts
+   `"tier": "required"` substring occurrences anywhere in the file rather
+   than walking the JSON tree. The check stays sound because Phase 1m
+   already enforces JSON shape against the `loadEvalFile` contract — the
+   only place the substring can legally appear is inside an assertion
+   object under `evals[].assertions[]`. If a future schema expansion adds
+   a `tier` field at any other position (a top-level field, a per-eval
+   field outside `assertions[]`, or free-form prose where the literal
+   could naturally appear), Phase 1r must be tightened to a JSON-aware
+   predicate at that time.
 
 2. **Skill evals stay colocated under `skills/<name>/evals/`.** Issue #379's
    literal proposal — a new top-level `skills-evals/` root mirroring
@@ -146,6 +157,14 @@ We will **not** build:
 
 - **No change to `eval-runner-v2.ts`.** Both roots already discovered at
   startup; no new wiring needed.
+- **Skills without `evals/evals.json` are not in scope.** Phase 1r fires
+  only against suites that exist; it does NOT force every skill to ship an
+  eval suite. The discipline is "if you have a suite, it must
+  discriminate" — not "if you're a skill, you must have a suite." Decision
+  to require an eval suite for a given skill lives outside ADR #0019.
+  Concrete example at the time of writing: the re-scoped `/onboard` skill
+  has no `evals/` directory yet and is correctly exempt from Phase 1r;
+  Phase 1r will engage once an eval suite is added.
 - **No change to skill structure.** `skills/<name>/evals/evals.json` continues
   to be the canonical home; this ADR adds policy, not files.
 
