@@ -2,6 +2,8 @@
 
 How to extend `claude-config` with new rules, skills, or agents. For the install contract these symlink into, see [`rules/README.md`](../rules/README.md).
 
+Before extending, read [`docs/mental-model.md`](mental-model.md) — it names the eight load-bearing concepts (pipeline, skip contracts, pressure framing, emission contract, discriminating signals, anchor pattern, HARD-GATE cap, scope-tier routing) the rest of this guide assumes you've internalized.
+
 ## Add a Rule
 
 Create a `.md` file in `rules/`. It loads in every session automatically.
