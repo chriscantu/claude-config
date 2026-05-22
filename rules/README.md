@@ -175,6 +175,15 @@ validator. Phases relevant to rules:
   (issue #379). Counts via grep; zero-state (no skill eval files)
   emits a documented pass. Regression coverage:
   `tests/validate-phase-1r.test.ts`.
+- **1s. Skill persistence destinations — no plugin-internal consumers**
+  — for each `skills/<name>/SKILL.md`, fails if `decisions.md` or
+  `patterns.md` appears as a positive write target. Exclusion
+  declarations (lines containing `NOT`, `Not used`, `non-addressable`,
+  `plugin-internal`, `claude-code-harness:memory`) are allowed.
+  Enforces the plugin-internal scoping rule from
+  [ADR #0020](../adrs/0020-memory-layer-primary-and-delegations.md)
+  (issue #381). Regression coverage:
+  `tests/validate-phase-1s.test.ts`.
 
 Use these in pre-push hooks or CI to catch the silent-failure modes
 (rule not loaded; rule restated and drifted; anchor structurally broken;

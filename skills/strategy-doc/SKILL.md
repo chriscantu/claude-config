@@ -101,6 +101,22 @@ Auto-populated content lives inside `<!-- strategy-doc:auto -->` ... `<!-- /stra
 
 **Fence pre-check (--mode=draft only):** When an existing doc is found, validate fences IMMEDIATELY — before loading memory MCP, arch, or notes. If any fence is malformed (unclosed, nested, or mismatched), emit the damage report and stop. Do NOT proceed to upstream-input loading. Fence validation is a 2-second read of the existing file; doing it first avoids 3–4 minutes of unnecessary upstream-input work.
 
+## Where this skill persists state
+
+Per-leaf data class assignment against the six-leaf decision tree:
+
+**User working repo** (`~/repos/onboard-<org>/`):
+
+- 90-day-plan artifact (`decisions/<creation-date>-90-day-plan.md`) — project deliverable, committed alongside ramp notes.
+
+**memory MCP knowledge graph** (`mcp__memory__*`):
+
+- Reads only — `<Org> SWOT` and `<Org> Stakeholders` entities pulled for synthesis (graceful-degradation on miss). No writes from this skill; `/swot` and `/stakeholder-map` own those entities respectively.
+
+**Not used by this skill:** auto-memory MD (read-only via system-prompt injection of stable facts; never written), ruflo MCP, scheduled-tasks MCP, plugin-internal memory (`decisions.md` / `patterns.md`).
+
+If a future Phase 2 mode (cross-org RFC, dedicated strategy entity) introduces a new save target, it must route through the ADR's decision tree before landing.
+
 ## Out of scope (Phase 1)
 
 - `--mode=rfc` cross-org strategy / RFC authoring (Phase 2).

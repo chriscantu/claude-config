@@ -105,6 +105,7 @@ See [ADR #0018](adrs/0018-distribution-shape-hybrid-plugin-and-git-clone.md) for
 - **[docs/operations.md](docs/operations.md)** — runtime bypass flags, git guardrails hook
 - **[docs/contributing.md](docs/contributing.md)** — add your own rules, skills, agents
 - **[docs/superpowers/README.md](docs/superpowers/README.md)** — retention rubric for design specs and plans
+- **[ADR #0020](adrs/0020-memory-layer-primary-and-delegations.md)** — where each kind of saved data goes: auto-memory MD for stable facts, ruflo MCP memory for session resume and vector search
 
 ## References
 

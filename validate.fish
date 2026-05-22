@@ -1367,6 +1367,51 @@ end
 
 echo ""
 
+_phase_begin "1s"
+echo "── Phase 1s: skill persistence destinations — no plugin-internal consumers (ADR #0020)"
+
+# Per ADR #0020, claude-config skills MUST NOT read or write
+# `decisions.md` / `patterns.md` (the plugin-internal
+# `claude-code-harness:memory` layer). The lint scans skills/*/SKILL.md
+# for those filenames; any occurrence MUST sit on a line that also names
+# the exclusion explicitly (NOT, non-addressable, plugin-internal, Not used).
+# Bare positive references trip the gate.
+
+set -l skill_md_files $repo_dir/skills/*/SKILL.md
+set -l p1s_found 0
+for skill_md in $skill_md_files
+    if not test -f $skill_md
+        continue
+    end
+    set p1s_found 1
+    set -l rel (string replace "$repo_dir/" "" $skill_md)
+    # Match lines that name decisions.md/patterns.md but do NOT also carry an
+    # exclusion marker (NOT, Not used, non-addressable, plugin-internal,
+    # claude-code-harness:memory). The negation markers identify lines that
+    # are declaring the skill does NOT use the plugin layer; those are safe.
+    set -l bare_hits (grep -nE 'decisions\.md|patterns\.md' $skill_md | grep -vE 'NOT|Not used|non-addressable|plugin-internal|claude-code-harness:memory')
+    if test -z "$bare_hits"
+        set -l total_hits (grep -cE 'decisions\.md|patterns\.md' $skill_md)
+        if test "$total_hits" -eq 0
+            pass "$rel: no decisions.md/patterns.md references"
+        else
+            pass "$rel: all $total_hits decisions.md/patterns.md mention(s) are exclusion declarations"
+        end
+    else
+        for bh in (string split \n -- "$bare_hits")
+            if test -z "$bh"
+                continue
+            end
+            fail "$rel: bare reference to decisions.md/patterns.md (plugin-internal layer per ADR #0020) — $bh"
+        end
+    end
+end
+if test $p1s_found -eq 0
+    pass "no skills/*/SKILL.md files — Phase 1s has nothing to validate"
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────

@@ -97,6 +97,22 @@ If a user passes `--from`, return:
 > "The /<skill-name> skill isn't built yet. You can manually add insights using
 > the conversational capture."
 
+## Where this skill persists state
+
+Per-leaf data class assignment against the six-leaf decision tree:
+
+**memory MCP knowledge graph** (`mcp__memory__*` from `@modelcontextprotocol/server-memory`):
+
+- SWOT entities, relations, observations keyed on `<Org Name> SWOT` — cross-session structured graph state.
+
+**User working repo** (ramp workspace):
+
+- `docs/swot/` markdown exports — committed deliverables.
+
+**Not used by this skill:** auto-memory MD, ruflo MCP, scheduled-tasks MCP, plugin-internal memory (`decisions.md` / `patterns.md`).
+
+Out-of-scope local files (not memory layers): `pending-sync/` (transient fallback drained by `--sync`), Excalidraw / Slidev exports (rendering sinks, not persistence).
+
 ## Common Mistakes
 
 - **Writing observations without provenance** — every observation should carry its source (conversation, artifact, meeting); unattributed entries can't be audited or challenged later.
