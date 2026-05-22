@@ -209,10 +209,7 @@ files (clobber-refusal); ask the user whether to choose a different path.
 
 ## Where this skill persists state
 
-Per [ADR #0020](../../adrs/0020-memory-layer-primary-and-delegations.md),
-every data class this skill writes is named against the decision tree.
-
-Per-leaf data class assignment against the six-leaf decision tree:
+Per [ADR #0020](../../adrs/0020-memory-layer-primary-and-delegations.md), per-leaf data class assignment against the six-leaf decision tree:
 
 **User working repo** (`~/repos/onboard-<slug>/`, its own git repo, user-reviewable on disk):
 

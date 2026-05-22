@@ -103,7 +103,7 @@ Auto-populated content lives inside `<!-- strategy-doc:auto -->` ... `<!-- /stra
 
 ## Where this skill persists state
 
-Per-leaf data class assignment against the six-leaf decision tree:
+Per [ADR #0020](../../adrs/0020-memory-layer-primary-and-delegations.md), per-leaf data class assignment against the six-leaf decision tree:
 
 **User working repo** (`~/repos/onboard-<org>/`):
 
@@ -113,7 +113,7 @@ Per-leaf data class assignment against the six-leaf decision tree:
 
 - Reads only — `<Org> SWOT` and `<Org> Stakeholders` entities pulled for synthesis (graceful-degradation on miss). No writes from this skill; `/swot` and `/stakeholder-map` own those entities respectively.
 
-**Not used by this skill:** auto-memory MD (read-only via system-prompt injection of stable facts; never written), ruflo MCP, scheduled-tasks MCP, plugin-internal memory (`decisions.md` / `patterns.md`).
+**Not used by this skill:** auto-memory MD, ruflo MCP, scheduled-tasks MCP, plugin-internal memory (`decisions.md` / `patterns.md`).
 
 If a future Phase 2 mode (cross-org RFC, dedicated strategy entity) introduces a new save target, it must route through the ADR's decision tree before landing.
 

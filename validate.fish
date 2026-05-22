@@ -1386,10 +1386,10 @@ for skill_md in $skill_md_files
     set p1s_found 1
     set -l rel (string replace "$repo_dir/" "" $skill_md)
     # Match lines that name decisions.md/patterns.md but do NOT also carry an
-    # exclusion marker (NOT, Not used, non-addressable, plugin-internal,
-    # claude-code-harness:memory). The negation markers identify lines that
-    # are declaring the skill does NOT use the plugin layer; those are safe.
-    set -l bare_hits (grep -nE 'decisions\.md|patterns\.md' $skill_md | grep -vE 'NOT|Not used|non-addressable|plugin-internal|claude-code-harness:memory')
+    # exclusion marker (`\bNOT\b`, Not used, non-addressable, plugin-internal,
+    # claude-code-harness:memory). Word-boundary on NOT prevents `NOTE:` or
+    # `CANNOT` from suppressing a real positive write.
+    set -l bare_hits (grep -nE 'decisions\.md|patterns\.md' $skill_md | grep -vE '\bNOT\b|Not used|non-addressable|plugin-internal|claude-code-harness:memory')
     if test -z "$bare_hits"
         set -l total_hits (grep -cE 'decisions\.md|patterns\.md' $skill_md)
         if test "$total_hits" -eq 0

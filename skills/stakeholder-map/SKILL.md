@@ -118,7 +118,7 @@ stakeholder-map's bootstrap offers an upgrade path for entities created by
 
 ## Where this skill persists state
 
-Per-leaf data class assignment against the six-leaf decision tree:
+Per [ADR #0020](../../adrs/0020-memory-layer-primary-and-delegations.md), per-leaf data class assignment against the six-leaf decision tree:
 
 **memory MCP knowledge graph** (`mcp__memory__*` from `@modelcontextprotocol/server-memory`):
 
