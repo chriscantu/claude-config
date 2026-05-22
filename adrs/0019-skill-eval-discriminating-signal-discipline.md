@@ -86,6 +86,16 @@ Three concrete pieces:
    could naturally appear), Phase 1r must be tightened to a JSON-aware
    predicate at that time.
 
+   **Substrate ↔ validator coupling (issue #399).** The canonical literal
+   (`REQUIRED_TIER_LITERAL`) and the grep regex (`REQUIRED_TIER_GREP_REGEX`)
+   live in `tests/evals-lib.ts`. `tests/validate-phase-1r-coupling.test.ts`
+   asserts the regex Phase 1r greps for matches the substrate constant
+   verbatim — a rename of the `tier` field or its accepted values trips
+   the coupling test before Phase 1r silently passes every suite as "0
+   required-tier assertions found." Without this coupling, the containment
+   guarantee above held against current behavior but evaporated on any
+   substrate refactor without a validator signal.
+
 2. **Skill evals stay colocated under `skills/<name>/evals/`.** Issue #379's
    literal proposal — a new top-level `skills-evals/` root mirroring
    `rules-evals/` — is rejected. The sibling-root layout for `rules-evals/` was

@@ -1340,6 +1340,15 @@ echo ""
 # narrow enough that false positives in surrounding string literals
 # are negligible — evals.json has no free-form prose where the
 # phrase would naturally appear.
+#
+# Coupling (issue #399): the canonical encoding of the literal and the
+# grep regex below live in `tests/evals-lib.ts` as
+# `REQUIRED_TIER_LITERAL` / `REQUIRED_TIER_GREP_REGEX`.
+# `tests/validate-phase-1r-coupling.test.ts` asserts the regex below
+# matches the substrate constant verbatim — a rename of the `tier`
+# field or its accepted values trips the coupling test before Phase 1r
+# silently degrades to "0 required-tier assertions found" against
+# every suite.
 _phase_begin "1r"
 echo "── Phase 1r: skill-eval discriminating-signal presence (ADR #0019)"
 

@@ -10,6 +10,19 @@ import { dirname, join } from "node:path";
 export type AssertionTier = "required" | "diagnostic";
 
 /**
+ * Canonical encoding of the required-tier marker as it appears in
+ * evals.json on disk. validate.fish Phase 1r (ADR #0019) greps for
+ * this exact substring; the constant exists so a rename of the
+ * `tier` field name or its accepted values trips a coupling test
+ * (`tests/validate-phase-1r-coupling.test.ts`) before Phase 1r
+ * silently passes every suite as "0 required-tier assertions found"
+ * (issue #399). Keep the literal and the regex in lockstep with the
+ * grep pattern at `validate.fish:1354`.
+ */
+export const REQUIRED_TIER_LITERAL = '"tier": "required"';
+export const REQUIRED_TIER_GREP_REGEX = '"tier"[[:space:]]*:[[:space:]]*"required"';
+
+/**
  * Reliability axis (orthogonal to AssertionTier).
  *
  *   - "structural" — assertion fires against parsed stream-json signals
