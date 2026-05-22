@@ -342,6 +342,92 @@
       ]
     },
     {
+      "name": "challenger-write-offer-fires-on-inferred-term",
+      "summary": "Phase C (#323) decision-challenger end-of-challenge write-offer hook fires when the challenge text inferred a term (e.g., 'PaymentGateway') not explicit in the source ADR and not in ./CONTEXT.md. Required-tier regex pins the /glossary invocation OR the inferred term being surfaced as a candidate. Per memory feedback_eval_silent_path_prompts.md, prompt forces adjacent verbal output (the offer itself) so the required-tier regex can fire on a correctly-engaged path.",
+      "prompt": "I just ran the decision-challenger agent against ADR 0042 (chooses between Stripe and Adyen for payments). The challenger raised a Critical finding using the term 'PaymentGateway' twice — but PaymentGateway is not defined in the ADR text and not in ./CONTEXT.md. Per agents/decision-challenger.md § Glossary Hook (end-of-challenge), run the end-of-challenge write-offer hook now. Report what the hook offered.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "/glossary.{0,80}offer-from-caller=decision-challenger",
+          "flags": "is",
+          "tier": "required",
+          "description": "required: write-offer hook invokes /glossary with the decision-challenger caller flag — pinned strictly to the contract invocation shape per agents/decision-challenger.md § Glossary Hook (Invoke block) and memory feedback_advisory_bold_pair_regex.md. Loose prose surfacing of the candidate term without the invocation does NOT honor the contract — agent file says 'Invoke:' not 'mention'."
+        },
+        {
+          "type": "regex",
+          "pattern": "PaymentGateway",
+          "flags": "is",
+          "tier": "required",
+          "description": "required: the inferred term PaymentGateway appears in the hook output — paired with the contract-invocation regex above so the model must BOTH invoke /glossary AND surface PaymentGateway as the candidate. Catches false-pass where the model invokes /glossary with a different/no candidate term."
+        },
+        {
+          "type": "regex",
+          "pattern": "(inferred|not.{0,20}explicit|appeared in the challenge|challenger.{0,20}introduced)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "diagnostic: response uses hook-contract vocabulary describing why the term qualifies (inferred / not explicit in source / introduced by challenger)"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(silently substitut|automatic.{0,10}(replac|rewrit)|edit.{0,10}(ADR|artifact))",
+          "flags": "i",
+          "tier": "required",
+          "description": "required negative: skill does NOT propose silent substitution or auto-edit of the source ADR — memory-discipline echo (advisory, never override)"
+        }
+      ],
+      "scratch_decoy": {
+        "CONTEXT.md": "# payments-platform\n\nProject canonical terminology.\n\n## Language\n\n**Merchant**\nThe business accepting payments.\n_Avoid_: Vendor, Seller\n"
+      }
+    },
+    {
+      "name": "challenger-write-offer-silent-on-canonical",
+      "summary": "Phase C (#323) decision-challenger hook is silent when every term the challenger inferred is already canonical in ./CONTEXT.md. Required negative proves the /glossary invocation does NOT fire when nothing needs canonicalizing. Per memory feedback_eval_silent_path_prompts.md, prompt forces verbal report so the not_regex can discriminate the silent-correct path from a model that simply produced nothing.",
+      "prompt": "I just ran the decision-challenger agent against ADR 0042. The challenger raised a Warning finding using the term 'Merchant' twice. ./CONTEXT.md already defines Merchant as canonical. Per agents/decision-challenger.md § Glossary Hook (end-of-challenge), run the end-of-challenge write-offer hook now. Report what the hook decided.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(already.{0,20}canonical|skip|silent|no.{0,20}offer|nothing to canonicaliz|already in CONTEXT)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: skill reports the silent-skip path (already canonical / nothing to canonicalize / skip / no offer) — load-bearing positive signal that the skip branch engaged"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "/glossary.{0,80}offer-from-caller=decision-challenger",
+          "flags": "is",
+          "tier": "required",
+          "description": "required negative: hook does NOT invoke /glossary at all when every inferred term is already canonical — pinned to the contract invocation shape with no term constraint so a regression firing for ANY candidate (not just Merchant) fails this assertion. Per memory feedback_advisory_bold_pair_regex.md."
+        }
+      ],
+      "scratch_decoy": {
+        "CONTEXT.md": "# payments-platform\n\nProject canonical terminology.\n\n## Language\n\n**Merchant**\nThe business accepting payments.\n_Avoid_: Vendor, Seller\n"
+      }
+    },
+    {
+      "name": "challenger-write-offer-silent-on-quoted-only",
+      "summary": "Phase C (#323) decision-challenger hook is silent when the challenger only quoted terms verbatim from the source artifact (no inferred terms). Required-tier positive on skip signal; required negative proves /glossary not invoked. Closes the false-fire failure mode where the hook offers canonicalization for nouns the author already used.",
+      "prompt": "I just ran the decision-challenger agent against ADR 0042 (Stripe vs Adyen). The challenger only quoted 'Stripe' and 'Adyen' verbatim from the ADR Decision section — no inferred nouns. ./CONTEXT.md does not contain Stripe or Adyen, but those are vendor names already explicit in the source artifact. Per agents/decision-challenger.md § Glossary Hook (end-of-challenge), run the end-of-challenge write-offer hook now. Report what the hook decided.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(quoted.{0,30}verbatim|only.{0,20}quoted|no inferred|not inferred|explicit in.{0,20}(source|artifact|ADR)|skip|no.{0,20}offer)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: skill reports the silent-skip path on quoted-only — names the no-inference / quoted-verbatim / explicit-in-source reason or the skip itself"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "/glossary.{0,80}offer-from-caller=decision-challenger",
+          "flags": "is",
+          "tier": "required",
+          "description": "required negative: hook does NOT invoke /glossary at all when challenger only quoted source-artifact terms verbatim — no candidate term constraint so a regression firing for ANY term (Stripe, Adyen, or otherwise) fails. Pinned to contract invocation shape per memory feedback_advisory_bold_pair_regex.md."
+        }
+      ],
+      "scratch_decoy": {
+        "CONTEXT.md": "# payments-platform\n\nProject canonical terminology.\n\n## Language\n\n**Merchant**\nThe business accepting payments.\n_Avoid_: Vendor, Seller\n"
+      }
+    },
+    {
       "name": "no-conflict-no-flagged-ambiguities-section",
       "summary": "Negative twin to flagged-ambiguity-on-conflict: when --alias-of targets a never-defined alias (no conflict), Flagged ambiguities entry must NOT appear. Closes silent-fire risk that the writer always emits the section.",
       "prompt": "Project ./CONTEXT.md content:\n\n```\n# Reflex Ordering\n\nOrder intake and fulfillment.\n\n## Language\n\n**Customer**:\nA person or organization that places orders.\n_Avoid_:\n```\n\nNow run: /glossary buyer --alias-of Customer\n\n(buyer is a brand-new alias; no prior canonical entry for buyer exists. No conflict.)",

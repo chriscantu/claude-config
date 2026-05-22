@@ -169,7 +169,67 @@ Invoke:
 /glossary --offer-from-caller=adr --candidate-terms=<term1,term2,...>
 ```
 
+## decision-challenger (post-challenge-pass, pre-handoff)
+
+Decision-challenger is an **agent** (`agents/decision-challenger.md`),
+not a skill — issue #323 carve-out: "(if/when decision-challenger
+SKILL.md exists; otherwise the closest existing reviewer skill)."
+The agent file owns the hook block; this section owns the contract.
+
+After producing the Decision Challenge output (Document / Summary /
+Challenges / Strengths / Verdict), run one **write-offer hook**
+against `./CONTEXT.md`. No read hook in v2 — challenger consumes an
+existing artifact rather than producing one, so the asymmetric
+read-discipline of `sdr` / `adr` does not apply. Promote to
+read+write parity only if Phase D eval signal shows challenger-author
+drift.
+
+### Write-offer hook — end-of-challenge, advisory
+
+Scan the Challenges section for nouns the challenge text introduced
+or used in a way not explicit in the source artifact — i.e., the
+challenger inferred a meaning the author had not defined. Term
+confusion between challenger and decision author is the exact
+failure mode `./CONTEXT.md` exists to prevent.
+
+Pass as candidates only nouns that:
+
+- Recurred ≥2× across challenges, OR
+- Were used in a **Critical** or **Warning** finding (high stakes
+  if author misinterprets), AND
+- Lack a `./CONTEXT.md` entry (canonical or `_Avoid_` alias).
+
+Skip the call entirely if:
+
+- `./CONTEXT.md` is absent → silent no-op (no scan, no offer)
+- Every inferred term is already canonical in `./CONTEXT.md` →
+  silent no-op
+- Challenger only quoted the source artifact verbatim (no inferred
+  terms) → silent no-op
+
+Offer format:
+
+> "These terms appeared in the challenge but not the source
+> artifact: [list]. Want to canonicalize any in `./CONTEXT.md`
+> before the author addresses the challenges?"
+
+Invoke:
+
+```
+/glossary --offer-from-caller=decision-challenger --candidate-terms=<term1,term2,...>
+```
+
+Enforcement is **advisory**, not blocking. Echoes
+`rules/memory-discipline.md` — surface candidates for user
+judgment, never substitute silently.
+
 ## v2 follow-ups
 
-- `decision-challenger` — issue #323 (Phase C — agent-vs-skill
-  scope resolution pending)
+_All v2 caller-hook follow-ups resolved as of 2026-05-22:_
+- `sdr` — PR #406 (closes #321)
+- `adr` — PR #406 (closes #322)
+- `decision-challenger` — this PR (closes #323)
+
+Phase D candidates (deferred, gated on eval signal):
+- Read hook for `decision-challenger` if challenger-author drift
+  surfaces in production use
