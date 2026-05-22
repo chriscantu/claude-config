@@ -1,14 +1,14 @@
 # Mental Model
 
-Claude Code defaults to a particular failure mode. It skips to implementation, picks an approach without surfacing trade-offs, codes without verifying, and tends to agree with you when you push back — even when you're wrong. This repo's job is to make those failures structurally hard.
+When you first install Claude Code, it has some bad habits. It jumps straight to writing code. It picks an approach without showing other options. It says "this should work" without checking. And it tends to agree with you — even when you are wrong.
 
-The fix is not a longer system prompt or a smarter model; both are bypassable. It's a workflow with checkpoints that produce auditable artifacts, paired with a discipline for when checkpoints can legitimately be skipped. Eight concepts make that workflow work. Once you've internalized them, the rules layer stops looking like ceremony and starts looking like the shape of the discipline.
+This repo fixes those habits. The fix is a workflow that makes Claude pause at the right moments. It also adds rules that make those pauses hard to skip by accident.
 
-Read this once before touching rules, skills, or evals. After it, you should be able to open any rule file and predict which of the eight concepts it implements.
+Eight ideas make the fix work. This doc walks through all eight. Read it once before you change any rule, skill, or eval file. After you finish, you should be able to open any rule file and tell which idea it belongs to.
 
-## How a prompt actually moves through the system
+## How a prompt moves through the system
 
-The diagram below is the shape of every Claude interaction in this config. The rest of the doc is a guided tour of the boxes:
+The diagram below shows the path every prompt takes. The rest of the doc is a tour of the boxes:
 
 ```mermaid
 flowchart LR
@@ -28,39 +28,41 @@ flowchart LR
     style I fill:#5ba85a,color:#fff,stroke:none
 ```
 
-The tour walks from the most operational concepts (what a contributor uses every day) to the governance concepts that keep the operational ones from rotting.
+The tour starts with the parts you use every day. It ends with the parts that keep the daily parts from breaking over time.
 
-## 1. The pipeline — the default path
+## 1. The pipeline — the path most prompts take
 
-*This is what you'll see whenever you ask Claude to build, refactor, or design something non-trivial.*
+*You will see this when you ask Claude to build, change, or design something real.*
 
-The default path for any non-trivial prompt runs through seven sequential stages:
+When a prompt asks for real work, Claude walks through seven steps in order:
 
 **DTP** (Define The Problem) → **SA** (Systems Analysis) → **Brainstorming** → **FMS** (Fat Marker Sketch) → **Detailed Design** → **TDD** → **Verification**
 
-Each stage exists because Claude — left alone — tends to skip it. DTP forces a named user and concrete stakes before any solution. Systems Analysis forces a blast-radius scan before a design. Brainstorming forces 2-3 approaches with trade-offs instead of a silent pick. The Fat Marker Sketch forces a visual shape before pixel detail (refactors die quietly when the shape is wrong). TDD writes a failing test before the implementation. Verification runs tests, type-check, and a goal-direction sanity check before claiming done.
+Each step exists because Claude tends to skip it. DTP makes Claude name who has the problem and what is at stake. SA makes Claude check what else the change will touch. Brainstorming makes Claude show two or three options with the trade-offs. FMS makes Claude sketch the shape of the change before doing the detail work. (Refactors die quiet deaths when the shape is wrong.) TDD makes Claude write a test that fails first. Verification makes Claude run tests and a type-check before saying "done."
 
-Stages are HARD-GATEs — Claude cannot proceed past one without producing the artifact that stage owns (a problem statement, a surface scan, a trade-off matrix, a sketch, a verify command output). Transitions are announced visibly so the user can audit the path Claude is taking.
+These steps are HARD-GATEs. That means Claude cannot move past one until it makes the artifact that step asks for: a problem statement, a list of things the change will touch, a table of options, a sketch, or a test output. Claude also says out loud which step it is on, so you can see the path it took.
 
 Canonical source: [`rules/planning-pipeline.md`](../rules/planning-pipeline.md).
 
 ## 2. Scope-tier routing — the fast lane
 
-*You'll see this on small mechanical work: typo fixes, single-file edits, docs-only changes.*
+*You will see this on small jobs: typo fixes, single-file edits, docs-only changes.*
 
-Most prompts aren't non-trivial, and forcing every typo fix through DTP would be a tax. A hook (`hooks/scope-tier-memory-check.sh`) checks every `UserPromptSubmit` against stored `feedback` memories. When one matches — e.g., a memory saying "trivial mechanical changes skip DTP/SA/brainstorm/FMS" — it injects a `SCOPE-TIER MATCH:` system-reminder. The agent acknowledges in one visible line, then routes straight to single-implementer implementation.
+Most prompts are small. Forcing every typo fix through DTP would be a waste. So there is a fast lane.
 
-This is the fast lane around the pipeline, but it's deliberately layered. The hook fires first (Layer 1, structural). If it doesn't match, the pressure-framing floor (Layer 2, rule text) evaluates. If neither fires, the prompt gets the full pipeline. Both layers share the `DISABLE_PRESSURE_FLOOR` sentinel file — one off-switch for emergency rollback if a hook misfires badly.
+A hook (`hooks/scope-tier-memory-check.sh`) runs on every prompt. It checks the prompt against saved memories like "trivial mechanical changes skip DTP/SA/brainstorm/FMS." If it finds a match, it adds a `SCOPE-TIER MATCH:` note to the prompt. Claude reads the note, says one line about it, and jumps to implementation.
 
-When the hook misses, the rules layer still has a fallback: the Trivial-tier four-criteria carve-out (≤200 LOC, single component, unambiguous approach, low blast radius). Both routes converge on the same destination — skip DTP/SA/brainstorm/FMS, but keep per-step verify checks and the end-of-work verification gate. The discipline relaxes; it doesn't disappear.
+The fast lane has two layers. The hook runs first (Layer 1). If the hook misses, the pressure-framing floor (Layer 2, see §3 and §4) takes over. If both miss, Claude uses the full pipeline. There is also one off-switch for both layers: the `DISABLE_PRESSURE_FLOOR` file. Drop it in the right folder and both layers stop firing. Use it only if a hook misfires badly.
+
+Even on the fast lane, two things still apply: per-step verify checks and the end-of-work verification gate. The discipline gets shorter. It does not go away.
 
 Canonical source: [`rules/pressure-framing-floor.md#scope-tier-memory-check`](../rules/pressure-framing-floor.md#scope-tier-memory-check).
 
-## 3. Skip contracts — bypassing a stage on purpose
+## 3. Skip contracts — when you really want to skip a step
 
-*You'll see this when you genuinely want to skip a gate the pipeline is enforcing.*
+*You will see this when you want to bypass a gate the pipeline is enforcing.*
 
-Sometimes the hook misses and a stage really is overhead — you've done the work in your head, or the situation is special. The skip contract names what counts as a legitimate bypass:
+Sometimes the hook misses and a step really is in the way. Maybe you have already done the work in your head. The skip contract sets the rules for when a bypass counts:
 
 ```mermaid
 flowchart TD
@@ -76,15 +78,17 @@ flowchart TD
     style R fill:#e67e22,color:#fff,stroke:none
 ```
 
-A valid skip cites the gate AND the specific risk being accepted. Generic acknowledgements — "trust me," "I accept the trade-off," "ship it" — fall through to the floor; they don't name what's being given up. Time pressure isn't an override either. "Demo in 10 minutes" and "ship by Friday" make the gate more important, not less, because a rushed unverified output is the most expensive thing to land.
+A real skip names two things: the gate by name AND the risk you accept. For example: "skip DTP, I accept the risk of building on a problem we have not named." Vague phrases like "trust me," "I accept the trade-off," or "ship it" do not count. They fall through to the floor.
+
+Time pressure does not count either. "Demo in ten minutes" or "ship by Friday" make the gate more important, not less. A rushed answer that nobody checks is the most expensive answer to land.
 
 Canonical source: [`rules/skip-contract.md`](../rules/skip-contract.md).
 
 ## 4. Pressure framing — what the floor catches
 
-*You'll see this when a generic skip falls through and Claude routes you back to the pipeline.*
+*You will see this when a vague skip gets caught and routed back to the pipeline.*
 
-When a skip doesn't name a cost, the floor classifies the framing into one of five semantic categories. The categories match the underlying mechanism, not literal wording — "leadership signed off" and "CTO approved" are both Authority:
+When a skip does not name a cost, the floor reads the phrasing and sorts it into one of five buckets. The buckets match the idea behind the words, not the exact words:
 
 - **Authority** — "CTO approved," "legal signed off"
 - **Sunk cost** — "already committed," "decision is made"
@@ -92,27 +96,31 @@ When a skip doesn't name a cost, the floor classifies the framing into one of fi
 - **Deadline** — "ship by Friday"
 - **Stated-next-step** — "skip DTP and brainstorm X"
 
-Each strengthens the case for Expert Fast-Track (a condensed DTP that takes 30 seconds instead of five minutes), but none alone is a full skip. The floor is non-bypassable except via the `DISABLE_PRESSURE_FLOOR` sentinel — an intentionally visible emergency rollback that emits a banner the first time it fires in a session.
+Each one is a sign that the user wants to move faster. None of them is enough to skip a gate on its own. At most they let Claude use a shorter version of DTP (Expert Fast-Track) that takes thirty seconds instead of five minutes.
 
-One architectural detail is worth noting: floor enforcement lives in the rules layer, not inside DTP itself. A skill cannot catch its own failure-to-load, so the front door has to sit upstream of any skill invocation.
+The floor itself is hard to bypass. The only off-switch is the `DISABLE_PRESSURE_FLOOR` file. When that file is in place, Claude prints a banner the first time the bypass fires in a session, so you can see it is on.
+
+One detail worth knowing: the floor lives in the rules layer, not inside DTP. A skill cannot catch the moment when it fails to load. So the front door has to sit one layer up.
 
 Canonical source: [`rules/pressure-framing-floor.md`](../rules/pressure-framing-floor.md).
 
-## 5. Emission contract — naming the cost isn't enough
+## 5. Emission contract — naming the cost is not enough
 
-*You'll see this anytime a skip is honored: the agent's next action must be a specific tool-use.*
+*You will see this any time a skip is honored. Claude's next move must be a specific tool call.*
 
-Naming the cost is necessary but not sufficient. Words drift — they get rephrased, summarized, abbreviated, lost in compression. So when a skip is valid, the agent MUST invoke the `acknowledge_named_cost_skip` MCP tool, passing the gate name and the verbatim user clause, BEFORE proceeding. The tool-use *is* the honor.
+Naming the cost is the first step. It is not the last. Words drift. They get reworded, shortened, or lost. So when a skip is good, Claude MUST call an MCP tool (`acknowledge_named_cost_skip`) before moving on. The call carries the gate name and the exact words you used. The tool call IS how Claude honors the skip.
 
-This sounds bureaucratic until you realize what it buys. A tool invocation is a structural artifact: it appears in the transcript exactly once, with exact parameters, auditable by the substrate without LLM judgment. The substrate enforces the contract; the LLM can't talk its way around it. In autonomous loops the gate has exactly four exits — pass, mechanical carve-out, sentinel bypass, or hard-block-and-surface. Silent skip is structurally impossible.
+This sounds like extra work, but it solves a real problem. A tool call shows up in the record exactly once. It has exact data. Anyone — or any system — can check it later without asking Claude what happened. The system enforces the rule. Claude cannot talk around it. In a long-running loop there are only four ways out of a gate: pass, mechanical carve-out, sentinel bypass, or hard-block-and-ask. There is no fifth way.
 
 Canonical source: [`rules/skip-contract.md#emission-contract`](../rules/skip-contract.md#emission-contract).
 
-## 6. HARD-GATE cap — keeping the rules layer lean
+## 6. HARD-GATE cap — keeping the rules layer small
 
-*You'll see this if you ever propose adding a 9th HARD-GATE rule.*
+*You will see this if you ever try to add a ninth HARD-GATE rule.*
 
-The triad above (skip + floor + emission) only works if the rules layer stays small. Each rule runs on every prompt; the cumulative context becomes the bottleneck before any specific rule fires. Worse, behavioral concerns tend to overlap, so a new rule often duplicates discrimination an existing gate already owns — burning context budget without adding signal. To keep that from happening, the repo caps HARD-GATE rules at eight, and adding a ninth has to clear a three-condition gate:
+All the pieces above only work if there are not too many rules. Every rule runs on every prompt. Each one adds to the context Claude has to read first. Over time the rules themselves become the slowdown. Worse, new rules often cover the same ground as old ones. They burn budget without adding anything new.
+
+To stop that, the repo caps HARD-GATE rules at eight. A ninth rule has to pass three checks:
 
 ```mermaid
 flowchart TD
@@ -129,27 +137,29 @@ flowchart TD
     style R fill:#c0392b,color:#fff,stroke:none
 ```
 
-The current eight: planning-pipeline, think-before-coding, fat-marker-sketch, goal-driven, verification, pr-validation, disagreement, memory-discipline, execution-mode. (`tdd-pragmatic` is soft guidance, not a HARD-GATE.)
+The current eight: planning-pipeline, think-before-coding, fat-marker-sketch, goal-driven, verification, pr-validation, disagreement, memory-discipline, execution-mode. (`tdd-pragmatic` is soft guidance. It is not a HARD-GATE.)
 
 Canonical source: [`rules/GOVERNANCE.md#hard-gate-cap`](../rules/GOVERNANCE.md#hard-gate-cap).
 
-## 7. Discriminating signals — how a rule earns its slot
+## 7. Discriminating signals — how a rule earns its spot
 
-*You'll see this when authoring or editing a rule's eval suite.*
+*You will see this when you write or change a rule's eval suite.*
 
-The "discriminating signal" condition in the cap above is the heart of how rules earn their slot. A rule passes only if its eval produces a behavioral signal that's RED when the rule is absent AND GREEN when it's present — measured at the rule's own boundary, not "somewhere in the rules layer." Without that, adding a rule is theater: two rules with overlapping concerns can both pass when only one is loaded, and the eval can't tell them apart.
+The "discriminating signal" check in §6 is the heart of how rules earn their spot. A rule passes only if its eval can show two things: the bad behavior shows up when the rule is OFF, and the good behavior shows up when the rule is ON. The test has to happen at THIS rule's edge, not somewhere else in the rules layer.
 
-The same discipline now applies one level down, at the skill layer ([ADR #0019](../adrs/0019-skill-eval-discriminating-signal-discipline.md), enforced by validate Phase 1r). Every `skills/<name>/evals/evals.json` needs at least one `"tier": "required"` assertion — the skill's own discriminating signal.
+Without that, adding a rule is theater. Two rules with the same job can both pass when only one of them is loaded. The eval cannot tell which one did the work.
+
+The same idea now applies one level down, at the skill layer ([ADR #0019](../adrs/0019-skill-eval-discriminating-signal-discipline.md), checked by validate Phase 1r). Every `skills/<name>/evals/evals.json` needs at least one `"tier": "required"` assertion. That is the skill's own discriminating signal.
 
 Canonical sources: [ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md), [ADR #0019](../adrs/0019-skill-eval-discriminating-signal-discipline.md).
 
-## 8. Anchor pattern — keeping the citation graph from rotting
+## 8. Anchor pattern — keeping links between rules from breaking
 
-*You'll see this when restructuring a rule file or following a cross-rule deep-link.*
+*You will see this when you change the headings in a rule file or follow a deep link between rules.*
 
-Rules cite each other constantly — `pr-validation.md` deep-links into `skip-contract.md#emission-contract`, and so on. GitHub's auto-generated heading IDs make that fragile: rename `## Emission contract — MANDATORY` to `## Emission contract` and every existing deep-link silently 404s. Anchor-text drift becomes the failure mode, and nothing catches it.
+Rules quote each other often. For example, `pr-validation.md` deep-links into `skip-contract.md#emission-contract`. GitHub builds the link target from the heading text. So if someone renames `## Emission contract — MANDATORY` to `## Emission contract`, every deep link to the old name silently breaks. Nothing yells at you when it happens.
 
-The fix is to put an explicit `<a id="emission-contract"></a>` HTML anchor above each cited section. The id is stable across heading rewrites. Three validate phases enforce the citation graph: **Phase 1j** (anchors must exist), **Phase 1k** (cross-rule links must resolve), and **Phase 1l** (delegate paragraphs cannot be silently deleted). Together they catch the silent breakage that motivates the pattern in the first place.
+The fix is to add an HTML anchor like `<a id="emission-contract"></a>` above each cited section. That id does not change when the heading text does. Three validate phases watch the graph: **Phase 1j** (every promised anchor is still there), **Phase 1k** (every link points to a real anchor), and **Phase 1l** (no one quietly deleted a delegate paragraph). Together they catch the silent breaks.
 
 Canonical source: [`rules/GOVERNANCE.md#stable-anchor-pattern`](../rules/GOVERNANCE.md).
 
@@ -157,9 +167,9 @@ Canonical source: [`rules/GOVERNANCE.md#stable-anchor-pattern`](../rules/GOVERNA
 
 ## Where to go next
 
-Pick by what you're about to do:
+Pick by what you are about to do:
 
-- **Editing a rule file** → [`rules/GOVERNANCE.md`](../rules/GOVERNANCE.md) for the cap policy and retirement procedure, plus [`docs/contributing.md`](contributing.md) for the contributor workflow.
+- **Editing a rule file** → [`rules/GOVERNANCE.md`](../rules/GOVERNANCE.md) for the cap policy and how to retire a rule, plus [`docs/contributing.md`](contributing.md) for the contributor workflow.
 - **Adding a skill or rule eval** → §7 above, then [ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md) and [ADR #0019](../adrs/0019-skill-eval-discriminating-signal-discipline.md).
 - **Touching hooks or runtime ops** → [`docs/operations.md`](operations.md) for bypass flags and hook setup.
 - **Just browsing the inventory** → [`docs/catalog.md`](catalog.md).
