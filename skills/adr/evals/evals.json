@@ -1,0 +1,137 @@
+{
+  "skill": "adr",
+  "description": "Executable evals for the adr skill. Verifies (a) base trigger fires on plain-English request, and (b) Phase B end-of-skill glossary read hook surfaces conflicts vs ./CONTEXT.md _Avoid_ aliases (only-on-conflict, advisory, never substitute). Phase B scenarios closed by 2026-05-22 decision doc.",
+  "_contract_note": "Phase B Read-Hook evals (read-hook-*) prompt the model to run skills/adr/SKILL.md step 6 against an inline scratch_decoy ./CONTEXT.md. Required-tier regex captures the load-bearing positive signal per scenario (conflict pair surface, silent-OK proceed, absent/malformed handling). Diagnostic-tier negatives catch silent-substitution regressions per memory-discipline.md echo. Base fires-on-create-adr-trigger uses required-tier regex (ADR vocabulary engagement) rather than required-tier skill_invoked because slash-prefix Skill re-emit is unreliable per the sdr evals' _contract_note rationale.",
+  "evals": [
+    {
+      "name": "fires-on-create-adr-trigger",
+      "summary": "Plain-English ADR request fires the skill and engages with ADR vocabulary. Required-tier regex on ADR-specific terminology proves engagement; skill_invoked stays diagnostic for slash-prefix re-emit parity with sdr suite.",
+      "prompt": "I want to record an architectural decision: we're choosing Postgres over MySQL for our user service. Help me create the ADR.",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "adr",
+          "tier": "diagnostic",
+          "description": "diagnostic: skill_invoked channel — re-emit reliability follows the slash-prefix pattern documented in the sdr suite; informational"
+        },
+        {
+          "type": "regex",
+          "pattern": "(architectural decision|ADR|Context|Decision|Consequences|Lifecycle)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response engages with ADR-specific vocabulary — load-bearing positive signal per ADR #0005 channel-reliability framing"
+        },
+        {
+          "type": "regex",
+          "pattern": "(NNNN|number|next.{0,10}number|0001)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "diagnostic: response references ADR numbering procedure"
+        }
+      ]
+    },
+    {
+      "name": "read-hook-fires-on-conflict",
+      "summary": "Phase B read-on-end-of-skill hook fires when an ADR term hits an _Avoid_ alias of a CONTEXT.md canonical. Surfaces advisory line; NEVER substitutes silently. Required-tier regex on the conflict pair signal per ADR #0019. Closes #322 read-hook scenario coverage.",
+      "prompt": "I just finished drafting an ADR for our payments service. The Decision section refers to 'Account' throughout. Run the end-of-skill glossary hooks per skills/adr/SKILL.md step 6 — check ./CONTEXT.md and surface any conflicts before I hand off.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(account.{0,80}customer|customer.{0,80}account)",
+          "flags": "is",
+          "tier": "required",
+          "description": "required: read hook surfaces conflict pair 'Account' (ADR, _Avoid_ alias) vs 'Customer' (CONTEXT.md canonical) — load-bearing positive proving the hook reads CONTEXT.md and pairs the terms"
+        },
+        {
+          "type": "regex",
+          "pattern": "(advisory|conflict|canonical|_Avoid_)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "diagnostic: response uses hook-contract vocabulary (advisory / conflict / canonical / _Avoid_)"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(silently substitut|automatic(ally)? replac|rewrit.{0,20}ADR)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required negative: skill does NOT propose silent substitution — memory-discipline echo (surface candidates, never override)"
+        }
+      ],
+      "scratch_decoy": {
+        "CONTEXT.md": "# payments-service\n\nProject canonical terminology.\n\n## Language\n\n**Customer**\nThe end user of the payments service.\n_Avoid_: Account, User\n"
+      }
+    },
+    {
+      "name": "read-hook-silent-on-match",
+      "summary": "Phase B read hook is silent when all ADR terms are canonical (no _Avoid_ matches). Skill proceeds to write-offer stage. Required-tier positive on proceed-past-read signal.",
+      "prompt": "I just finished drafting an ADR for our pricing service. The Decision section uses 'Customer' throughout. Run the end-of-skill glossary hooks per skills/adr/SKILL.md step 6.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no conflict|no.{0,20}aliases hit|all (terms|canonical)|write.offer|proceed)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: skill explicitly proceeds past read hook (silent OK) — positive anchor proves the hook ran rather than being skipped"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(canonical is.{0,40}_Avoid_|conflict surfaced)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "diagnostic: skill does not surface conflict when terms match canonical"
+        }
+      ],
+      "scratch_decoy": {
+        "CONTEXT.md": "# pricing-service\n\nProject canonical terminology.\n\n## Language\n\n**Customer**\nThe end user of pricing flows.\n_Avoid_: Account\n"
+      }
+    },
+    {
+      "name": "read-hook-silent-on-absent-context",
+      "summary": "Phase B read hook silent no-op when ./CONTEXT.md is absent. Skill proceeds to write-offer regardless. Required-tier positive on absent-or-proceed signal.",
+      "prompt": "I just finished drafting an ADR for our order service. There is no ./CONTEXT.md in this project. Run the end-of-skill glossary hooks per skills/adr/SKILL.md step 6.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no CONTEXT|absent|skip.{0,30}read|no.{0,20}canonical|write.offer)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: skill notes CONTEXT.md absent OR proceeds to write-offer stage. Load-bearing positive signal."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(advisory line|_Avoid_ alias hit|canonical is)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "diagnostic: skill does not fabricate conflict from absent file"
+        }
+      ],
+      "scratch_decoy": {
+        "README.md": "# order-service\n\nNo CONTEXT.md present in this project.\n"
+      }
+    },
+    {
+      "name": "read-hook-silent-on-malformed-context",
+      "summary": "Phase B read hook silent no-op + one-line diagnostic when CONTEXT.md is malformed (no Language section). NEVER substitutes. Required-tier positive on diagnostic-or-skip signal.",
+      "prompt": "I just finished drafting an ADR for our microservice scaffold. ./CONTEXT.md exists in this project but has no `## Language` section. Run the end-of-skill glossary hooks per skills/adr/SKILL.md step 6.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(malformed|cannot parse|no.{0,20}Language|diagnostic|skip.{0,30}read)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: skill emits diagnostic for malformed CONTEXT.md OR explicitly skips read hook. Load-bearing positive."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(silently substitut|automatic.{0,10}replac)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "diagnostic: skill does not substitute on malformed input"
+        }
+      ],
+      "scratch_decoy": {
+        "CONTEXT.md": "# project-notes\n\nRandom prose, no Language section.\n\n## Architecture\n\nServices talk to a queue.\n"
+      }
+    }
+  ]
+}
