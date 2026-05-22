@@ -13,6 +13,8 @@ import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
+// Workspace-touching modes only. The --env-probe surface is intercepted
+// before parseArgs (see main()) so it does not weaken ws non-nullability.
 type Mode = "status" | "mute" | "unmute";
 
 const CATEGORIES = ["milestone", "velocity", "calendar"] as const;
@@ -164,9 +166,17 @@ const printEnvProbe = (): number => {
   const bunLine = bunVersion ? `present (${bunVersion})` : "MISSING";
 
   const fishProbe = spawnSync("which", ["fish"], { encoding: "utf8" });
-  const fishLine = fishProbe.status === 0 && fishProbe.stdout.trim().length > 0
-    ? "present"
-    : "MISSING";
+  let fishLine: string;
+  if (fishProbe.error) {
+    // spawn-level failure (e.g. `which` itself missing, EACCES, sandboxed
+    // PATH). Distinguish from a genuine fish absence so the user knows to
+    // inspect the host environment, not install fish.
+    fishLine = `MISSING (probe error: ${fishProbe.error.message})`;
+  } else if (fishProbe.status === 0 && fishProbe.stdout.trim().length > 0) {
+    fishLine = "present";
+  } else {
+    fishLine = "MISSING";
+  }
 
   // scheduled-tasks MCP: this Bun process has no in-band view of the
   // model's MCP roster, so we cannot affirm presence. Emit "unknown"
@@ -208,9 +218,7 @@ const printGraduated = (ws: string, gradPath: string): number => {
 };
 
 const main = (): number => {
-  // --env-probe is host-introspection only; intercept before workspace
-  // parsing (it takes no workspace arg) and skip the readiness banner
-  // (the probe output IS the readiness signal).
+  // Intercept before parseArgs — --env-probe takes no workspace arg and emits no banner.
   if (process.argv.slice(2).includes("--env-probe")) {
     return printEnvProbe();
   }
