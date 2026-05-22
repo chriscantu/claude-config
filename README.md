@@ -100,6 +100,7 @@ See [ADR #0018](adrs/0018-distribution-shape-hybrid-plugin-and-git-clone.md) for
 
 ## Documentation
 
+- **[docs/mental-model.md](docs/mental-model.md)** — start here: the eight load-bearing concepts (pipeline, skip contracts, pressure framing, emission contract, discriminating signals, anchor pattern, HARD-GATE cap, scope-tier routing)
 - **[docs/catalog.md](docs/catalog.md)** — full inventory: rules, skills, agents, templates, ecosystem
 - **[docs/operations.md](docs/operations.md)** — runtime bypass flags, git guardrails hook
 - **[docs/contributing.md](docs/contributing.md)** — add your own rules, skills, agents
