@@ -20,6 +20,39 @@ optionally created private GitHub remote (user-confirmed at scaffold time).
 
 **Announce at start:** "I'm using the onboard skill to scaffold your <org> ramp workspace."
 
+## Status surface
+
+Phase-readiness for each subcommand. The `/onboard --help` model surface
+renders this table; per-subcommand runtime banner emits to stderr on entry.
+
+| Subcommand                            | Phase | Status                                            |
+|---------------------------------------|-------|---------------------------------------------------|
+| `/onboard <org>`                      | 1     | ready                                             |
+| `/onboard --status <org>`             | 2     | ready (no MCP dependency)                         |
+| `/onboard --mute <category>`          | 2     | ready                                             |
+| `/onboard --unmute <category>`        | 2     | ready                                             |
+| `/onboard --capture <person>`         | 3     | ready                                             |
+| `/onboard --sanitize <workspace>`     | 3     | ready                                             |
+| `/onboard --calendar-paste <ws>`      | 4     | degraded (manual paste; live scan deferred)       |
+| `/onboard --graduate <workspace>`     | 5     | ready                                             |
+| `/onboard --calendar-scan`            | 6     | deferred (Calendar MCP)                           |
+
+**Runtime banner.** Each user-facing helper script emits one of:
+
+```
+Status: ready (Phase <N>[, <note>])
+Status: degraded (<reason>)
+```
+
+to stderr as its first observable action — so a casual invocation tells
+the user up front whether the path is fully wired or gracefully degraded.
+
+**Environment probe.** Run `bun run skills/onboard/scripts/onboard-status.ts --env-probe`
+to print which prerequisites the current host has: `bun`, `fish`, the
+`scheduled-tasks` MCP (Phase 2 cadence-nag registration), and the
+cron-daemon equivalent (`n/a` — handled by the MCP). The probe is
+host-local; it does NOT mutate any workspace.
+
 ## When to Use
 
 - `/onboard <org-name>` — day-0 scaffold for a new senior leadership role

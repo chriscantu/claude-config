@@ -5,12 +5,16 @@
 //   skills/onboard/scripts/onboard-status.ts --status   <workspace-path>
 //   skills/onboard/scripts/onboard-status.ts --mute     <category> <workspace-path>
 //   skills/onboard/scripts/onboard-status.ts --unmute   <category> <workspace-path>
+//   skills/onboard/scripts/onboard-status.ts --env-probe
 //
 // Categories: milestone | velocity | calendar
 
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
+// Workspace-touching modes only. The --env-probe surface is intercepted
+// before parseArgs (see main()) so it does not weaken ws non-nullability.
 type Mode = "status" | "mute" | "unmute";
 
 const CATEGORIES = ["milestone", "velocity", "calendar"] as const;
@@ -154,6 +158,42 @@ const printStatus = (ws: string, original: string): number => {
   return 0;
 };
 
+// --env-probe handler. Pure host introspection — no workspace state read
+// or written. Output goes to stdout (the probe IS the result); no banner
+// is emitted because env-probe is not a "subcommand on a workspace" mode.
+const printEnvProbe = (): number => {
+  const bunVersion = process.versions.bun;
+  const bunLine = bunVersion ? `present (${bunVersion})` : "MISSING";
+
+  const fishProbe = spawnSync("which", ["fish"], { encoding: "utf8" });
+  let fishLine: string;
+  if (fishProbe.error) {
+    // spawn-level failure (e.g. `which` itself missing, EACCES, sandboxed
+    // PATH). Distinguish from a genuine fish absence so the user knows to
+    // inspect the host environment, not install fish.
+    fishLine = `MISSING (probe error: ${fishProbe.error.message})`;
+  } else if (fishProbe.status === 0 && fishProbe.stdout.trim().length > 0) {
+    fishLine = "present";
+  } else {
+    fishLine = "MISSING";
+  }
+
+  // scheduled-tasks MCP: this Bun process has no in-band view of the
+  // model's MCP roster, so we cannot affirm presence. Emit "unknown"
+  // rather than fake a probe — the skill scaffolds with a real MCP
+  // call and surfaces failure to .scaffold-warnings.log if absent.
+  const mcpLine = "unknown (verified by skill at scaffold time via mcp__scheduled-tasks__create_scheduled_task)";
+
+  process.stdout.write(
+    `ENV PROBE\n` +
+    `  bun:              ${bunLine}\n` +
+    `  fish:             ${fishLine}\n` +
+    `  scheduled-tasks:  ${mcpLine}\n` +
+    `  cron daemon:      n/a (uses scheduled-tasks MCP)\n`,
+  );
+  return 0;
+};
+
 const printGraduated = (ws: string, gradPath: string): number => {
   const raw = readFileSync(gradPath, "utf8").trim();
   const date = raw.split("\n")[0] ?? "";
@@ -178,7 +218,14 @@ const printGraduated = (ws: string, gradPath: string): number => {
 };
 
 const main = (): number => {
+  // Intercept before parseArgs — --env-probe takes no workspace arg and emits no banner.
+  if (process.argv.slice(2).includes("--env-probe")) {
+    return printEnvProbe();
+  }
+
   const { mode, category, ws } = parseArgs(process.argv.slice(2));
+
+  process.stderr.write("Status: ready (Phase 2, no MCP dependency)\n");
 
   // Phase 5: graduated short-circuit. The .graduated sentinel marks a
   // ramp as closed; --status surfaces the graduation date and skips the
