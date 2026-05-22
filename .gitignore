@@ -2,6 +2,7 @@ default.profraw
 .vscode/
 .DS_Store
 excalidraw.log
+excalidraw.log.*
 .claude/worktrees/
 .claude/scheduled_tasks.lock
 .claude/state/
