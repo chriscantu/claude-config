@@ -13,7 +13,13 @@ Source of truth: GitHub issues on [chriscantu/claude-config](https://github.com/
 
 ## Active
 
-<!-- cc:WIP / cc:TODO / cc:完了 markers go here. Reference issues as #NNN. -->
+<!-- This repo uses GitHub issues as the SSOT (see preamble). Per-issue
+in-file status markers are intentionally disabled here — reference
+issues by GH number (e.g. #NNN) when noting truly in-flight session
+work. The harness-progress drift detector should treat this Plans.md
+as drift-suppressed; see docs/operations.md "Plans.md drift" for the
+rationale. -->
+
 
 ## Backlog
 

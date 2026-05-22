@@ -143,3 +143,60 @@ bash tests/hooks/scope-tier-memory-check.test.sh
 ```sh
 fish bin/install-scope-tier-hook.fish --remove
 ```
+
+## Log Hygiene
+
+### `excalidraw.log` rotation
+
+The excalidraw MCP server writes to `excalidraw.log` in the repo root and
+does not rotate the file itself. It is `.gitignore`d so it never lands in
+commits, but it can grow indefinitely on disk (observed at 8.6MB after a
+few weeks of canvas use). [`bin/rotate-excalidraw-log.fish`](../bin/rotate-excalidraw-log.fish)
+rotates the file when it crosses a size threshold:
+
+```sh
+fish bin/rotate-excalidraw-log.fish              # default: 10MB cap, 1MB tail kept
+fish bin/rotate-excalidraw-log.fish --threshold-mb 25 --keep-tail-mb 5
+```
+
+When the log exceeds the threshold, the script keeps a tail of recent
+entries at `excalidraw.log.1` (also `.gitignore`d via the same wildcard)
+and truncates the active log. Idempotent — safe to invoke from a
+SessionStart hook, cron, or manually. Exits 0 silently when the log
+doesn't exist or is under the threshold.
+
+To run on every session start, add to `~/.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume",
+        "hooks": [
+          { "type": "command", "command": "fish /Users/<you>/repos/claude-config/bin/rotate-excalidraw-log.fish", "timeout": 5 }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### Plans.md drift
+
+The `claude-code-harness:harness-progress` skill scans `Plans.md` for
+per-issue `cc:WIP` / `cc:TODO` / `cc:完了` status markers and flags
+"drift" when markers go stale relative to GitHub issue state. This repo
+declares GH issues as SSOT (see `Plans.md` preamble) and intentionally
+does NOT carry per-issue markers — so the drift detector's heuristic
+produces a false positive every session start.
+
+Resolution: `Plans.md` line 16 is worded so the harness regex does not
+match (no literal `cc:WIP` / `cc:TODO` / `cc:完了` tokens). The detector
+reports zero WIP and zero stale items. If the harness regex changes in a
+future plugin version, the comment may need adjusting; the contract is
+"keep the literal marker tokens out of this file."
+
+If you genuinely want per-session tracking for a long-running task, add
+markers to a scratch file under `.claude/state/` (gitignored) rather
+than `Plans.md` — keeps the harness contract clean.
