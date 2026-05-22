@@ -17,6 +17,11 @@ rules-evals/
      chars in the slug are rejected by the strict filter regex. -->
 Current suites:
 
+- `agency-preservation/` — measurement-only suite (issue #329, no host HARD-GATE
+  rule yet) covering three user-side agency-erosion failure modes: anti-laundering
+  on leading questions, criteria-before-options on bare comparisons, and
+  refuse-on-irreversible on high-blast decisions. Baseline gates whether proposals
+  #2/#3/#4 in #329 ship as rule edits per the issue's "measure first" directive
 - `disagreement/` — covers the new-evidence requirement + Hedge-then-Comply
   prohibition from [`rules/disagreement.md`](../rules/disagreement.md)
 - `execution-mode/` — covers the sizing-guard mode announcement (subagent-driven
