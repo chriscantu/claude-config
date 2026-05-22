@@ -115,20 +115,22 @@ If the user is unsure which type fits, ask:
    effects, and stakeholder coverage.
 
 7. **Glossary hooks (end-of-skill).** After the artifact body is filled,
-   fire two hooks against `./CONTEXT.md`, in order. Both fire **once at
+   fire two hooks against `./CONTEXT.md`. Both fire **once at
    end-of-skill** (not per-section) per the
    [2026-05-22 decision](../../docs/superpowers/decisions/2026-05-22-glossary-v2-read-discipline.md)
    and the contract in
    [references/CALLER-HOOKS.md § sdr](../glossary/references/CALLER-HOOKS.md).
+   Read hook runs first so its findings can inform what the write-offer
+   surfaces as new terms.
 
    a. **Read hook (advisory).** If `./CONTEXT.md` exists and parses
       cleanly, parse the `## Language` section, build the `_Avoid_:`
       alias set, scan the artifact body, and surface one advisory line
       per match — only when an artifact term hits an `_Avoid_` alias
-      (only-on-conflict). NEVER substitute silently — surface
-      candidates for user judgment, echoing `rules/memory-discipline.md`
-      (verify before assert). Silent no-op if `./CONTEXT.md` is absent
-      or malformed.
+      (only-on-conflict). NEVER substitute silently in either direction
+      — CONTEXT.md is a candidate, not authority. Surface candidates
+      for user judgment per `rules/memory-discipline.md` (verify before
+      assert). Silent no-op if `./CONTEXT.md` is absent or malformed.
    b. **Write-offer hook.** Scan the artifact for component / system /
       data-source names that recurred ≥2× and lack a `./CONTEXT.md`
       entry. Invoke

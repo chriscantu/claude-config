@@ -37,10 +37,10 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(account.{0,80}customer|customer.{0,80}account)",
+          "pattern": "(\\*\\*Account\\*\\*.{0,80}\\*\\*Customer\\*\\*|\\*\\*Customer\\*\\*.{0,80}\\*\\*Account\\*\\*)",
           "flags": "is",
           "tier": "required",
-          "description": "required: read hook surfaces conflict pair 'Account' (ADR, _Avoid_ alias) vs 'Customer' (CONTEXT.md canonical) — load-bearing positive proving the hook reads CONTEXT.md and pairs the terms"
+          "description": "required: read hook emits the bolded advisory pair per CALLER-HOOKS.md format — Account (ADR, _Avoid_) and Customer (canonical) in **bold** markdown within close proximity. Pinned to the contract advisory shape rather than loose prose co-occurrence (issue raised in PR #406 ruflo review)."
         },
         {
           "type": "regex",
@@ -63,22 +63,22 @@
     },
     {
       "name": "read-hook-silent-on-match",
-      "summary": "Phase B read hook is silent when all ADR terms are canonical (no _Avoid_ matches). Skill proceeds to write-offer stage. Required-tier positive on proceed-past-read signal.",
-      "prompt": "I just finished drafting an ADR for our pricing service. The Decision section uses 'Customer' throughout. Run the end-of-skill glossary hooks per skills/adr/SKILL.md step 6.",
+      "summary": "Phase B read hook is silent when all ADR terms are canonical (no _Avoid_ matches), but write-offer still engages on a new term not in CONTEXT.md. Required-tier proves write-offer engages on the new term (DiscountEvaluator); required negative proves read hook does NOT surface a false advisory pair. Updated post-PR-review (PR #406 ruflo): prior version required verbal read-hook signal SKILL.md doesn't mandate, false-failing on truly-silent-correct paths.",
+      "prompt": "I just finished drafting an ADR for our pricing service. The Decision section uses 'Customer' throughout (canonical per ./CONTEXT.md) and introduces a new option called DiscountEvaluator that is NOT yet in ./CONTEXT.md. Run the end-of-skill glossary hooks per skills/adr/SKILL.md step 6 and report what each hook found.",
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(no conflict|no.{0,20}aliases hit|all (terms|canonical)|write.offer|proceed)",
+          "pattern": "(DiscountEvaluator|offer.from.caller=adr|/glossary)",
           "flags": "i",
           "tier": "required",
-          "description": "required: skill explicitly proceeds past read hook (silent OK) — positive anchor proves the hook ran rather than being skipped"
+          "description": "required: write-offer engages on the new term DiscountEvaluator (names the term, invokes /glossary, or names the hook flag) — proves the skill reached the write-offer stage after the silent read hook"
         },
         {
           "type": "not_regex",
-          "pattern": "(canonical is.{0,40}_Avoid_|conflict surfaced)",
-          "flags": "i",
-          "tier": "diagnostic",
-          "description": "diagnostic: skill does not surface conflict when terms match canonical"
+          "pattern": "(\\*\\*Customer\\*\\*.{0,80}\\*\\*Account\\*\\*|\\*\\*Account\\*\\*.{0,80}\\*\\*Customer\\*\\*)",
+          "flags": "is",
+          "tier": "required",
+          "description": "required negative: read hook does NOT emit the bolded advisory pair when all ADR terms are canonical — pinned to the same advisory shape as the conflict eval so absence is structurally discriminable"
         }
       ],
       "scratch_decoy": {

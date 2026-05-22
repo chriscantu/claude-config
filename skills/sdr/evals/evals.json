@@ -504,15 +504,15 @@
     },
     {
       "name": "read-hook-fires-on-conflict",
-      "summary": "Phase B read-on-end-of-skill hook fires when an artifact term hits an _Avoid_ alias of a CONTEXT.md canonical. Surfaces advisory line; NEVER substitutes silently. Required-tier regex on the advisory shape per ADR #0019 (discriminating-signal discipline). Closes #321 read-hook scenario coverage.",
+      "summary": "Phase B read-on-end-of-skill hook fires when an artifact term hits an _Avoid_ alias of a CONTEXT.md canonical. Surfaces advisory line; NEVER substitutes silently. Required-tier regex pinned to the bolded advisory-pair shape (per CALLER-HOOKS.md § sdr advisory format) per ADR #0019 (discriminating-signal). Tightened post-PR-review: prior loose regex matched any prose containing both terms within 80 chars (false-positive risk).",
       "prompt": "I just finished drafting the System Overview SDR body for our payments platform. The draft refers to 'Account' throughout. Run the end-of-skill glossary hooks per skills/sdr/SKILL.md step 7 — check ./CONTEXT.md and surface any conflicts before I hand off.",
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(account.{0,80}customer|customer.{0,80}account)",
+          "pattern": "(\\*\\*Account\\*\\*.{0,80}\\*\\*Customer\\*\\*|\\*\\*Customer\\*\\*.{0,80}\\*\\*Account\\*\\*)",
           "flags": "is",
           "tier": "required",
-          "description": "required: read hook surfaces conflict pair 'Account' (artifact, _Avoid_ alias) vs 'Customer' (CONTEXT.md canonical) — load-bearing positive signal proving the hook reads CONTEXT.md and pairs the terms"
+          "description": "required: read hook emits the bolded advisory pair per CALLER-HOOKS.md format — Account (artifact, _Avoid_) and Customer (canonical) in **bold** markdown within close proximity. Pinned to the contract advisory shape rather than loose prose co-occurrence (issue raised in PR #406 ruflo review)."
         },
         {
           "type": "regex",
@@ -526,7 +526,7 @@
           "pattern": "(silently substitut|automatic(ally)? replac|rewrit.{0,20}artifact)",
           "flags": "i",
           "tier": "required",
-          "description": "required negative: skill does NOT propose silent substitution — memory-discipline echo (surface candidates, never override)"
+          "description": "required negative: skill does NOT propose silent substitution — memory-discipline echo (CONTEXT.md is candidate, not authority; surface, never override)"
         }
       ],
       "scratch_decoy": {
@@ -535,22 +535,22 @@
     },
     {
       "name": "read-hook-silent-on-match",
-      "summary": "Phase B read hook is silent when all artifact terms are canonical (no _Avoid_ matches). Skill proceeds to write-offer stage. Required-tier positive on proceed-past-read signal closes silent-fire-on-empty.",
-      "prompt": "I just finished drafting the Service/Component SDR body for the pricing service. The draft uses 'Customer' throughout. Run the end-of-skill glossary hooks per skills/sdr/SKILL.md step 7.",
+      "summary": "Phase B read hook is silent when all artifact terms are canonical (no _Avoid_ matches), but write-offer still engages on a new term not in CONTEXT.md. Required-tier proves write-offer engages on the new term (PriceQuoteWorker); required negative proves read hook does NOT surface a false advisory pair. Updated post-PR-review (PR #406 ruflo): prior version required verbal read-hook signal SKILL.md doesn't mandate, false-failing on truly-silent-correct paths.",
+      "prompt": "I just finished drafting the Service/Component SDR body for the pricing service. The draft uses 'Customer' throughout (canonical per ./CONTEXT.md) and also introduces a new component called PriceQuoteWorker that is NOT yet in ./CONTEXT.md. Run the end-of-skill glossary hooks per skills/sdr/SKILL.md step 7 and report what each hook found.",
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(no conflict|no.{0,20}aliases hit|all (terms|canonical)|write.offer|proceed)",
+          "pattern": "(PriceQuoteWorker|offer.from.caller=sdr|/glossary)",
           "flags": "i",
           "tier": "required",
-          "description": "required: skill explicitly proceeds past read hook (silent OK) — positive anchor proves the hook ran rather than being skipped"
+          "description": "required: write-offer engages on the new term PriceQuoteWorker (names the term, invokes /glossary, or names the hook flag) — proves the skill reached the write-offer stage after the silent read hook"
         },
         {
           "type": "not_regex",
-          "pattern": "(canonical is.{0,40}_Avoid_|conflict surfaced)",
-          "flags": "i",
-          "tier": "diagnostic",
-          "description": "diagnostic: skill does not surface conflict when terms match canonical"
+          "pattern": "(\\*\\*Customer\\*\\*.{0,80}\\*\\*Account\\*\\*|\\*\\*Account\\*\\*.{0,80}\\*\\*Customer\\*\\*)",
+          "flags": "is",
+          "tier": "required",
+          "description": "required negative: read hook does NOT emit the bolded advisory pair when all artifact terms are canonical — pinned to the same advisory shape as the conflict eval so absence is structurally discriminable"
         }
       ],
       "scratch_decoy": {

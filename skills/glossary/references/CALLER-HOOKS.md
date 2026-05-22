@@ -70,9 +70,11 @@ exists and parses cleanly:
 3. For each match, surface one advisory line:
 
    > "Artifact uses **<alias>**; CONTEXT.md canonical is
-   > **<canonical>**. Fix the artifact before handoff?"
+   > **<canonical>**. Reconcile before handoff — update which?"
 
-NEVER substitute silently. Surface candidates for user judgment —
+NEVER substitute silently, in either direction. CONTEXT.md is a
+**candidate canonical**, not authority — the artifact may be right
+and CONTEXT.md may be stale. Surface candidates for user judgment;
 echoes `rules/memory-discipline.md` (verify before assert; file
 claims surface, never override).
 
@@ -125,14 +127,17 @@ and parses cleanly:
 
 1. Parse the `## Language` section; build the `_Avoid_:` alias
    set.
-2. Scan ADR Decision and Alternatives sections for terms matching
-   an `_Avoid_` alias.
+2. Scan the ADR Context, Decision, and Consequences sections for
+   terms matching an `_Avoid_` alias. (If a project's ADR template
+   adds an Alternatives subsection under Decision, include it.)
 3. For each match, surface one advisory line:
 
    > "ADR uses **<alias>**; CONTEXT.md canonical is **<canonical>**.
-   > Fix the ADR before handoff?"
+   > Reconcile before handoff — update which?"
 
-NEVER substitute silently. Same memory-discipline echo as sdr.
+NEVER substitute silently, in either direction. Same
+memory-discipline echo as sdr (CONTEXT.md is candidate, not
+authority).
 
 Skip the read entirely if:
 
@@ -144,10 +149,11 @@ Enforcement is **advisory**. Same promotion trigger as sdr.
 
 ### Write-offer hook
 
-After the read hook completes, scan ADR Decision and Alternatives
-sections for project-specific nouns that recurred ≥2× and lack a
-`./CONTEXT.md` entry (option names, system names, decision-context
-vocabulary).
+After the read hook completes, scan the ADR Context, Decision, and
+Consequences sections for project-specific nouns that recurred ≥2×
+and lack a `./CONTEXT.md` entry (option names, system names,
+decision-context vocabulary). Include an Alternatives subsection if
+the project's ADR template adds one.
 
 Skip the call entirely if every candidate already exists in
 `./CONTEXT.md`.
