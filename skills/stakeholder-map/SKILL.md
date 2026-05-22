@@ -115,3 +115,15 @@ Stakeholder-map's tag schema is documented in [graph-schema.md](graph-schema.md)
 is cross-referenced from 1on1-prep's schema. Running either skill first is valid;
 stakeholder-map's bootstrap offers an upgrade path for entities created by
 1on1-prep.
+
+## Where this skill persists state
+
+Per [ADR #0020](../../adrs/0020-memory-layer-primary-and-delegations.md), per-leaf data class assignment against the six-leaf decision tree:
+
+**memory MCP knowledge graph** (`mcp__memory__*` from `@modelcontextprotocol/server-memory`):
+
+- Stakeholder graph: person/team entities, observations, relations, power / category / function tags. Confidentiality contract per the Privacy section above: never export raw graph contents to repo or share verbatim — honors the local-only-sensitive contract ADR #0020 names for this destination.
+
+**Not used by this skill:** auto-memory MD, ruflo MCP, user working repo (no committed exports — Privacy forbids them), scheduled-tasks MCP, plugin-internal memory (`decisions.md` / `patterns.md`).
+
+Out-of-scope local files (not memory layers): `pending-sync/` (transient buffer when MCP unavailable, drained by `--sync`), excalidraw canvas (rendering sink, not state).

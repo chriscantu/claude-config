@@ -207,6 +207,27 @@ files (clobber-refusal); ask the user whether to choose a different path.
   evidence that the manual paste path + attribution checklist are
   insufficient.
 
+## Where this skill persists state
+
+Per [ADR #0020](../../adrs/0020-memory-layer-primary-and-delegations.md), per-leaf data class assignment against the six-leaf decision tree:
+
+**User working repo** (`~/repos/onboard-<slug>/`, its own git repo, user-reviewable on disk):
+
+- Stakeholder map (`stakeholders/map.md`)
+- Raw + sanitized interview notes (`interviews/raw/`, `interviews/sanitized/`)
+- SWOT artifacts (`swot/`)
+- Slidev decks (`decks/slidev/`)
+- Ramp decisions (`decisions/`)
+- Cadence + mute state (`RAMP.md`, including `## Cadence Mutes`)
+- Scaffold warnings (`.scaffold-warnings.log`)
+- Graduation sentinel (`.graduated`)
+
+**scheduled-tasks MCP**:
+
+- Cadence-nag scheduled task registration (see `cadence-nags.md` § Step B) — time-triggered fire surface.
+
+**Not used by this skill:** auto-memory MD, ruflo MCP, memory MCP, plugin-internal memory (`decisions.md` / `patterns.md`).
+
 ## References
 
 Read on demand, not upfront:
