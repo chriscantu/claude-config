@@ -1,121 +1,164 @@
 # Mental Model
 
-The conceptual model behind `claude-config`. Read this once before touching rules, skills, or evals — it names the eight load-bearing concepts the rest of the repo assumes you've internalized.
+The pipeline is what you see. The skip + pressure + emission triad is what makes it non-bypassable. Discriminating signals + anchor pattern + HARD-GATE cap are what keep it from rotting. Scope-tier routing is what keeps it from being theater on trivial work.
 
-The model is the moat. Anti-sycophancy is the hook; the pipeline + skip discipline + discriminating-signal evals are what make the hook stick. If you change a rule without understanding which concept it owns, you will silently weaken the gate it belongs to.
+This doc names the eight load-bearing concepts that make the rest of the repo work. Read once before touching rules, skills, or evals.
 
-Audience: a new contributor (external, no prior context) who needs to land a non-trivial PR. After reading, you should be able to read any rule file and predict which concept it implements.
+## How a prompt flows through the system
+
+Before the concepts, the shape:
+
+```mermaid
+flowchart LR
+    P[User prompt] --> H{Scope-tier<br/>hook match?}
+    H -->|yes| I[Direct implementation]
+    H -->|no| F{Pressure<br/>framing?}
+    F -->|named-cost skip| E["acknowledge_named_cost_skip<br/>tool-use"] --> I
+    F -->|generic skip| FL[Floor: route to pipeline]
+    F -->|none| PL["Pipeline:<br/>DTP → SA → brainstorm<br/>→ FMS → design → TDD"]
+    FL --> PL
+    PL --> V[Verification]
+    I --> V
+
+    style P fill:#4a90d9,color:#fff,stroke:none
+    style PL fill:#7b68ee,color:#fff,stroke:none
+    style V fill:#e67e22,color:#fff,stroke:none
+    style I fill:#5ba85a,color:#fff,stroke:none
+```
+
+The numbered sections below trace this diagram top-to-bottom: pipeline (the default path), scope-tier routing (the fast lane), skip + floor + emission (the discipline that keeps both honest), then the governance concepts that keep the whole thing from rotting.
 
 ## 1. The pipeline
 
-Out of the box, Claude jumps to implementation. It picks an approach without surfacing trade-offs, codes without verifying, and agrees with you when you push back. The pipeline is the structural counter:
+*You'll meet this every time you ask Claude to build, refactor, or design anything non-trivial.*
 
-```
-DTP → Systems Analysis → Brainstorming → Fat Marker Sketch → Detailed Design → TDD → Verification
-```
+Out of the box, Claude jumps to implementation, picks an approach without surfacing trade-offs, codes without verifying, and agrees when you push back. The pipeline is the structural counter:
 
-Each stage owns one discriminating signal. DTP surfaces the *problem* (named user, current behavior, stakes). Systems Analysis surfaces the *blast radius*. Brainstorming surfaces *trade-offs* (2-3 approaches, recommendation with reasoning). Fat Marker Sketch surfaces *shape* (visual structure before pixel detail). TDD writes a failing test first. Verification runs tests, type-check, and goal-direction sanity check before claiming done.
+**DTP** (Define The Problem) → **SA** (Systems Analysis) → **Brainstorming** → **FMS** (Fat Marker Sketch) → **Detailed Design** → **TDD** → **Verification**
 
-The stages are HARD-GATEs — Claude cannot proceed past one without producing its artifact (problem statement, surface scan, trade-off matrix, sketch, verify output). Stage transitions are announced visibly so the user can audit the path.
+Each stage owns one discriminating signal. DTP surfaces the *problem* (named user, current behavior, stakes). SA surfaces the *blast radius*. Brainstorming surfaces *trade-offs* (2-3 approaches with reasoning). FMS surfaces *shape* (visual structure before pixel detail). TDD writes a failing test first. Verification runs tests, type-check, and a goal-direction sanity check before claiming done.
+
+Stages are HARD-GATEs — Claude cannot proceed past one without producing its artifact. Stage transitions are announced visibly so the user can audit the path.
 
 Canonical source: [`rules/planning-pipeline.md`](../rules/planning-pipeline.md).
 
-## 2. Skip contracts
+## 2. Scope-tier routing
 
-Sometimes a stage is overhead — a typo fix doesn't need DTP. The skip contract names what counts as a valid skip and what doesn't.
+*You'll meet this on small mechanical work — typo fixes, docs-only edits, single-file tweaks.*
 
-Valid skip: the user **names the specific cost** being accepted. *"Skip DTP, I accept the risk of building on an unstated problem."* The clause cites the gate AND the risk. Generic acknowledgements — "trust me," "I accept the trade-off," "ship it," "you know what I want" — do NOT qualify. They run the gate.
+Not every prompt needs the full pipeline. A hook (`hooks/scope-tier-memory-check.sh`) fires on every `UserPromptSubmit`. When it matches a stored `feedback` memory (e.g., "trivial mechanical changes skip DTP/SA/brainstorm/FMS"), it injects a `SCOPE-TIER MATCH:` system-reminder. The agent acknowledges in one visible line and routes directly to single-implementer implementation.
 
-Time pressure is not an override. *"Quick fix," "demo in 10 minutes," "ship by Friday"* make the gate more important, not less. A rushed unverified output is the most expensive thing to land.
+Compose order: hook (Layer 1, structural) fires first. If no match, pressure-framing floor (Layer 2, rule text) evaluates. If neither fires, full pipeline. Both layers share the `DISABLE_PRESSURE_FLOOR` sentinel — single off-switch for emergency rollback.
 
-Generic skip framings fall through to the pressure-framing floor (see §3), which routes them back to the pipeline with an example of valid skip phrasing. The user can exit cleanly if they genuinely want to bypass — they just have to name the cost.
+Fallback: the Trivial-tier four-criteria carve-out (≤200 LOC, single component, unambiguous approach, low blast radius) handles prompts without a hook match. Both routes converge: skip DTP/SA/brainstorm/FMS; keep goal-driven verify checks + verification end-gate.
+
+Canonical source: [`rules/pressure-framing-floor.md#scope-tier-memory-check`](../rules/pressure-framing-floor.md#scope-tier-memory-check).
+
+## 3. Skip contracts
+
+*You'll meet this when you want to bypass a stage.*
+
+```mermaid
+flowchart TD
+    U["User says:<br/>skip stage X"] --> N{Names<br/>specific cost?}
+    N -->|"yes — cites gate + risk<br/>'skip DTP, I accept the risk of<br/>building on unstated problem'"| T["Emit<br/>acknowledge_named_cost_skip"]
+    N -->|"no — generic<br/>'trust me' / 'ship it' / 'CTO approved'"| F[Pressure-framing floor §4]
+    T --> P[Proceed past gate]
+    F --> R[Route back to pipeline<br/>with skip-example shown]
+
+    style T fill:#5ba85a,color:#fff,stroke:none
+    style P fill:#5ba85a,color:#fff,stroke:none
+    style F fill:#e67e22,color:#fff,stroke:none
+    style R fill:#e67e22,color:#fff,stroke:none
+```
+
+Valid skip cites BOTH the gate AND the risk. Time pressure is not an override — *"demo in 10 minutes," "ship by Friday"* make the gate more important, not less. A rushed unverified output is the most expensive thing to land.
 
 Canonical source: [`rules/skip-contract.md`](../rules/skip-contract.md).
 
-## 3. Pressure framing
+## 4. Pressure framing
 
-When a skip framing is generic, the floor classifies it into one of five categories and routes accordingly:
+*You'll meet this when a generic skip falls through to the floor.*
 
-- **Authority** — "CTO approved," "legal signed off," "the board voted"
-- **Sunk cost** — "already committed," "decision is made," "we've already chosen"
-- **Exhaustion** — "I'm tired," "just give me code," "stop asking questions"
-- **Deadline** — "ship by Friday," "meeting in 10 minutes"
-- **Stated-next-step** — "skip DTP and brainstorm X," "bypass the pipeline"
+The floor classifies generic skip framings into five semantic categories — match the underlying mechanism, not literal wording:
 
-Categories are semantic — match the underlying mechanism, not the literal wording. Each strengthens the case for Expert Fast-Track (condensed DTP) rather than full skip. None alone is a named-cost skip.
+- **Authority** — "CTO approved," "legal signed off"
+- **Sunk cost** — "already committed," "decision is made"
+- **Exhaustion** — "I'm tired," "just give me code"
+- **Deadline** — "ship by Friday"
+- **Stated-next-step** — "skip DTP and brainstorm X"
 
-The floor is non-bypassable except via the `DISABLE_PRESSURE_FLOOR` sentinel file — an intentionally visible emergency rollback (banner emitted on first pressure-framed prompt of the session). The floor's architectural invariant: enforcement lives in the rules layer, NOT in DTP itself, because a skill cannot catch its own failure-to-load.
+Each strengthens the case for Expert Fast-Track (condensed DTP), not full skip. None alone is a named-cost skip. The floor is non-bypassable except via the `DISABLE_PRESSURE_FLOOR` sentinel file — an intentionally visible emergency rollback.
+
+Architectural invariant: floor enforcement lives in the rules layer, NOT in DTP itself, because a skill cannot catch its own failure-to-load.
 
 Canonical source: [`rules/pressure-framing-floor.md`](../rules/pressure-framing-floor.md).
 
-## 4. Emission contract
+## 5. Emission contract
 
-Naming the cost is necessary but not sufficient. When a named-cost skip is valid, the agent MUST invoke the `acknowledge_named_cost_skip` MCP tool, passing the gate name and the verbatim user clause, BEFORE proceeding past the gate. The tool-use IS the honor.
+*You'll meet this anytime a named-cost skip is valid — the agent's next action must be a specific tool-use.*
 
-Why a tool call and not a text token? Text tokens drift — they get rephrased, summarized, abbreviated. A tool invocation is a structural artifact: it appears in the transcript exactly once, with exact parameters, auditable by the substrate without LLM judgment. The substrate enforces the contract; the LLM can't talk its way around it.
+Naming the cost is necessary but not sufficient. When a skip is valid, the agent MUST invoke the `acknowledge_named_cost_skip` MCP tool, passing the gate name and the verbatim user clause, BEFORE proceeding. The tool-use IS the honor.
 
-Per-gate values live in the [emission-contract table](../rules/skip-contract.md#emission-contract-per-gate): `DTP`, `goal-driven`, `fat-marker-sketch`, `pr-validation`, `think-before-coding`. In autonomous loops, the gate has four exits: pass, mechanical carve-out, sentinel bypass, or hard-block-and-surface. Silent skip is structurally impossible.
+Why a tool call, not a text token? Text tokens drift — they get rephrased, summarized, abbreviated. A tool invocation is a structural artifact: appears in the transcript exactly once, with exact parameters, auditable by the substrate without LLM judgment. The substrate enforces the contract; the LLM can't talk its way around it.
+
+In autonomous loops the gate has exactly four exits: pass, mechanical carve-out, sentinel bypass, hard-block-and-surface. Silent skip is structurally impossible.
 
 Canonical source: [`rules/skip-contract.md#emission-contract`](../rules/skip-contract.md#emission-contract).
 
-## 5. Discriminating signals (ADR #0005)
+## 6. HARD-GATE cap (8 rules)
 
-A rule earns HARD-GATE status only by producing a behavioral signal that's RED (failure observable) when the rule is absent AND GREEN (success observable) when the rule is present — measured at the rule's own boundary, not "somewhere in the rules layer."
+*You'll meet this if you propose adding a 9th HARD-GATE rule.*
 
-Why this matters: without a discriminating signal, adding a rule is theater. Two rules with overlapping concerns can both pass when only one is loaded — the eval can't tell them apart. The fix is named coverage: each rule's eval suite must include at least one assertion that fails when this specific rule is removed but every other rule is present.
+```mermaid
+flowchart TD
+    A[Propose 9th rule] --> B{Can existing<br/>rule absorb?}
+    B -->|yes| X[Extend existing rule]
+    B -->|no| C{Discriminating signal<br/>at NEW boundary?}
+    C -->|no| R[Reject]
+    C -->|yes| D{Substrate cost<br/>quantified + acceptable?}
+    D -->|no| R
+    D -->|yes| P[Promote to HARD-GATE]
 
-The same discipline now applies at the skill layer ([ADR #0019](../adrs/0019-skill-eval-discriminating-signal-discipline.md), enforced by validate Phase 1r) — every `skills/<name>/evals/evals.json` needs at least one `"tier": "required"` assertion.
+    style X fill:#5ba85a,color:#fff,stroke:none
+    style P fill:#5ba85a,color:#fff,stroke:none
+    style R fill:#c0392b,color:#fff,stroke:none
+```
 
-Canonical sources: [ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md), [ADR #0019](../adrs/0019-skill-eval-discriminating-signal-discipline.md).
+Rules compound. Each runs on every prompt; cumulative context becomes the bottleneck before any specific rule fires. Worse, behavioral concerns tend to overlap — a 9th rule often duplicates discrimination an existing gate already owns, so it eats budget without adding signal.
 
-## 6. Anchor pattern
-
-Rules deep-link each other (e.g., `pr-validation.md` cites `skip-contract.md#emission-contract`). GitHub's auto-generated heading IDs are fragile: rename a section from "## Emission contract — MANDATORY" to "## Emission contract" and every existing deep-link silently 404s. Anchor text drift is the failure mode.
-
-The fix: explicit `<a id="emission-contract"></a>` HTML anchors above sections that other rules cite. The id is stable across heading rewrites. Three validate phases enforce the contract:
-
-- **Phase 1j** — fails if the floor-trio files lose a registered anchor
-- **Phase 1k** — fails when a cross-rule anchor link targets an undefined id
-- **Phase 1l** — fails if a rule registered as delegating to a floor anchor loses the delegate link
-
-Together: anchors must exist, links must resolve, and the delegation graph stays intact. A reviewer who renames a section silently is caught by Phase 1j; one who deletes a delegate paragraph entirely is caught by Phase 1l.
-
-Canonical source: [`rules/GOVERNANCE.md#stable-anchor-pattern`](../rules/GOVERNANCE.md).
-
-## 7. HARD-GATE cap (8 rules)
-
-The repo caps HARD-GATE rules at 8. Adding a 9th requires satisfying a three-condition gate:
-
-1. **Extension-first audit** — can the concern be expressed by extending an existing rule? If yes, extend.
-2. **Discriminating signal per ADR #0005** — RED/GREEN at the new rule's specific boundary, not borrowed from an adjacent gate.
-3. **Substrate cost accounting** — every rule adds context-load and inference latency to every session. Quantify the cost.
-
-Why a cap? Rules compound. Each one runs on every prompt; the cumulative context becomes the bottleneck before any specific rule fires. Worse, behavioral concerns tend to overlap — a 9th rule often duplicates discrimination an existing gate already owns, so the new rule eats budget without adding signal.
-
-The current 8: planning-pipeline, think-before-coding, fat-marker-sketch, goal-driven, verification, pr-validation, disagreement, memory-discipline, execution-mode. (Plus `tdd-pragmatic` as soft guidance — not a HARD-GATE.)
+Current 8: planning-pipeline, think-before-coding, fat-marker-sketch, goal-driven, verification, pr-validation, disagreement, memory-discipline, execution-mode. (`tdd-pragmatic` is soft guidance, not a HARD-GATE.)
 
 Canonical source: [`rules/GOVERNANCE.md#hard-gate-cap`](../rules/GOVERNANCE.md#hard-gate-cap).
 
-## 8. Scope-tier routing
+## 7. Discriminating signals
 
-Not every prompt needs the full pipeline. A scope-tier hook (`hooks/scope-tier-memory-check.sh`) fires before the pressure-framing floor on every `UserPromptSubmit`. When it matches a stored `feedback` memory (e.g., "trivial mechanical changes skip DTP/SA/brainstorm/FMS"), it injects a `SCOPE-TIER MATCH:` system-reminder. The agent acknowledges in one visible line and routes directly to single-implementer implementation.
+*You'll meet this when authoring or editing a rule's eval suite.*
 
-Compose order: scope-tier hook (Layer 1, structural) fires first. If no match, pressure-framing floor (Layer 2, rule text) evaluates. If neither fires, full pipeline. Both layers share the `DISABLE_PRESSURE_FLOOR` sentinel — a single off-switch for emergency rollback.
+A rule earns HARD-GATE status only by producing a behavioral signal that's RED (failure observable) when absent AND GREEN (success observable) when present — measured at the rule's own boundary, not "somewhere in the rules layer." Without a discriminating signal, adding a rule is theater: overlapping rules can both pass when only one is loaded.
 
-The hook is graceful degradation: if not installed, Layer 2 alone still works as a soft check, but the structural guarantee comes from Layer 1. Install via `fish bin/install-scope-tier-hook.fish`.
+The same discipline applies at the skill layer (ADR #0019, validate Phase 1r) — every `skills/<name>/evals/evals.json` needs at least one `"tier": "required"` assertion.
 
-Trivial-tier carve-out (four criteria: ≤200 LOC, single component, unambiguous approach, low blast radius) is the fallback for prompts WITHOUT a hook match but WITH all four criteria satisfiable. Both routes converge on the same destination: skip DTP/SA/brainstorm/FMS, keep goal-driven verify checks + verification end-gate.
+Canonical sources: [ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md), [ADR #0019](../adrs/0019-skill-eval-discriminating-signal-discipline.md).
 
-Canonical source: [`rules/pressure-framing-floor.md#scope-tier-memory-check`](../rules/pressure-framing-floor.md#scope-tier-memory-check).
+## 8. Anchor pattern
+
+*You'll meet this when restructuring a rule file or following a cross-rule deep-link.*
+
+Rules deep-link each other. GitHub's auto-generated heading IDs are fragile: rename `## Emission contract — MANDATORY` to `## Emission contract` and every existing deep-link silently 404s. The fix: explicit `<a id="emission-contract"></a>` HTML anchors above cited sections.
+
+Three validate phases enforce the graph: **1j** (anchors must exist), **1k** (links must resolve), **1l** (delegate paragraphs cannot be silently deleted).
+
+Canonical source: [`rules/GOVERNANCE.md#stable-anchor-pattern`](../rules/GOVERNANCE.md).
 
 ---
 
 ## Where to go next
 
-- [`docs/catalog.md`](catalog.md) — full inventory of rules, skills, agents, templates
-- [`docs/contributing.md`](contributing.md) — how to add a rule, skill, or agent
-- [`docs/operations.md`](operations.md) — runtime bypass flags, hook setup, validate phases
-- [`rules/GOVERNANCE.md`](../rules/GOVERNANCE.md) — full HARD-GATE cap policy, anchor pattern, retirement procedure
-- [`adrs/`](../adrs/) — every concept above traces to one or more ADRs
+Pick by what you're doing:
 
-The pipeline is what you see. The skip + pressure + emission triad is what makes it non-bypassable. Discriminating signals + anchor pattern + HARD-GATE cap are what keep it from rotting. Scope-tier routing is what keeps it from being theater on trivial work.
+- **Editing a rule file** → [`rules/GOVERNANCE.md`](../rules/GOVERNANCE.md) (cap policy, retirement procedure) + [`docs/contributing.md`](contributing.md)
+- **Adding a skill or rule eval** → §7 above + [`adrs/0005`](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md) + [`adrs/0019`](../adrs/0019-skill-eval-discriminating-signal-discipline.md)
+- **Touching hooks or runtime ops** → [`docs/operations.md`](operations.md)
+- **Just browsing the inventory** → [`docs/catalog.md`](catalog.md)
+- **Want the decision history** → [`adrs/`](../adrs/) — every concept above traces to one or more ADRs
