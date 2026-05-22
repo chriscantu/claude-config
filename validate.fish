@@ -1323,6 +1323,50 @@ end
 
 echo ""
 
+# 1r. Skill-eval discriminating-signal presence (ADR #0019)
+#
+# Every skills/<name>/evals/evals.json must contain at least one
+# `"tier": "required"` assertion across its evals[] array. This is the
+# skill-layer mirror of the discipline rules-evals/ inherits from
+# ADR #0005: required-tier signals discriminate at the artifact's
+# behavioral boundary; their absence means the suite carries no
+# spoof-resistant pass criterion.
+#
+# Hard-fail (consistent with 1m/1n/1p — discovery-time silent-skip
+# prevention). Phase 1m already validates JSON shape; 1r layers the
+# discriminating-signal-presence check on top.
+#
+# Counts `"tier": "required"` occurrences via grep. The substring is
+# narrow enough that false positives in surrounding string literals
+# are negligible — evals.json has no free-form prose where the
+# phrase would naturally appear.
+_phase_begin "1r"
+echo "── Phase 1r: skill-eval discriminating-signal presence (ADR #0019)"
+
+set -l skill_evals_files $repo_dir/skills/*/evals/evals.json
+set -l skill_evals_found 0
+for skill_evals_file in $skill_evals_files
+    if not test -f $skill_evals_file
+        continue
+    end
+    set skill_evals_found 1
+    set -l rel (string replace "$repo_dir/" "" $skill_evals_file)
+    set -l required_count (grep -cE '"tier"[[:space:]]*:[[:space:]]*"required"' $skill_evals_file)
+    set -l grep_status $status
+    if test $grep_status -ge 2
+        fail "Phase 1r: grep returned error status $grep_status while scanning $rel"
+    else if test "$required_count" -eq 0
+        fail "$rel: no required-tier assertions found (ADR #0019 requires ≥1 `\"tier\": \"required\"` per skill-eval suite)"
+    else
+        pass "$rel: $required_count required-tier assertion(s)"
+    end
+end
+if test $skill_evals_found -eq 0
+    pass "no skills/*/evals/evals.json files — Phase 1r has nothing to validate"
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────

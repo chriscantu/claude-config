@@ -365,6 +365,52 @@ prompts and behavioral signals from each skill's `tests.md` and from
 systems-analysis portions). Verification scenarios remain in `tests/scenarios/` for
 now — they cross multiple rules rather than a single skill.
 
+## Skill-layer suite inventory
+
+Skill-layer eval suites live at `skills/<name>/evals/evals.json` — colocated with
+the skill they exercise. Layout mirrors the rule-layer pattern except for the
+nesting level (one dir up): skill code + skill evals share a directory, so
+opening the skill folder is the canonical entry point to both. The colocation
+choice is preserved by [ADR #0019](../adrs/0019-skill-eval-discriminating-signal-discipline.md);
+the issue #379 alternative (sibling top-level `skills-evals/`) was rejected
+because the `SKILL.md` frontmatter constraint that forced `rules-evals/` to
+sibling-root does NOT apply when evals live *inside* a real skill directory.
+
+<!-- Suite list mirrors rules-evals/README.md "Current suites:" structure.
+     A future validate.fish phase (deferred — see ADR #0019 Consequences) may
+     enforce drift between this list and on-disk skills/*/evals/ dirs, similar
+     to Phase 1p for rules-evals. Until then this section is maintained by
+     hand. -->
+Current suites:
+
+- `architecture-overview/` — covers the discovery-mode 4-file bundle contract
+  for [`skills/architecture-overview/SKILL.md`](../skills/architecture-overview/SKILL.md)
+- `define-the-problem/` — covers the mandatory-front-door contract + pressure-framing
+  floor probe for [`skills/define-the-problem/SKILL.md`](../skills/define-the-problem/SKILL.md)
+- `fat-marker-sketch/` — covers the visual-sketch-before-detailed-design HARD-GATE
+  for [`skills/fat-marker-sketch/SKILL.md`](../skills/fat-marker-sketch/SKILL.md)
+- `glossary/` — covers the canonical-terminology write-only format-owner contract
+  for [`skills/glossary/SKILL.md`](../skills/glossary/SKILL.md)
+- `sdr/` — covers the four-template routing + DTP-gate contract for
+  [`skills/sdr/SKILL.md`](../skills/sdr/SKILL.md)
+- `strategy-doc/` — covers the strategy-doc shape contract for
+  [`skills/strategy-doc/SKILL.md`](../skills/strategy-doc/SKILL.md)
+- `systems-analysis/` — covers the 60-second surface-area scan + Condensed Pass
+  contract for [`skills/systems-analysis/SKILL.md`](../skills/systems-analysis/SKILL.md)
+
+### Discriminating-signal discipline
+
+Per [ADR #0019](../adrs/0019-skill-eval-discriminating-signal-discipline.md), every
+skill-layer suite MUST contain at least one `"tier": "required"` assertion that
+discriminates at the skill's behavioral boundary (per [ADR #0005's 2026-04-23
+clarification](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md#clarification-2026-04-23-discrimination-must-be-at-the-adrs-specific-boundary)).
+Mechanical enforcement lives at `validate.fish` Phase 1r — a suite with zero
+required-tier assertions hard-fails the validator.
+
+This is the skill-layer mirror of the discipline rule-layer evals inherit from
+the same parent ADR. Layout differs (colocated vs. sibling), discipline does
+not.
+
 ## Rules-layer evals
 
 Some HARD-GATEs live in `rules/*.md` rather than `skills/*/SKILL.md` —
