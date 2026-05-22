@@ -501,6 +501,109 @@
           "description": "required: response does NOT contain a scaffolded markdown header for any of the four SDR template types — proves skill is asking, not scaffolding. Replaces prior not_tool_input_matches (Write/sdr) which silent-fired on the correct-behavior path (asks-and-no-tools). Empty-signal vector for not_regex is terminalState==='empty', so on degenerate empty turn the required positive regex above already gates red and the not_regex silent-fire is cosmetic."
         }
       ]
+    },
+    {
+      "name": "read-hook-fires-on-conflict",
+      "summary": "Phase B read-on-end-of-skill hook fires when an artifact term hits an _Avoid_ alias of a CONTEXT.md canonical. Surfaces advisory line; NEVER substitutes silently. Required-tier regex pinned to the bolded advisory-pair shape (per CALLER-HOOKS.md § sdr advisory format) per ADR #0019 (discriminating-signal). Tightened post-PR-review: prior loose regex matched any prose containing both terms within 80 chars (false-positive risk).",
+      "prompt": "I just finished drafting the System Overview SDR body for our payments platform. The draft refers to 'Account' throughout. Run the end-of-skill glossary hooks per skills/sdr/SKILL.md step 7 — check ./CONTEXT.md and surface any conflicts before I hand off.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(\\*\\*Account\\*\\*.{0,80}\\*\\*Customer\\*\\*|\\*\\*Customer\\*\\*.{0,80}\\*\\*Account\\*\\*)",
+          "flags": "is",
+          "tier": "required",
+          "description": "required: read hook emits the bolded advisory pair per CALLER-HOOKS.md format — Account (artifact, _Avoid_) and Customer (canonical) in **bold** markdown within close proximity. Pinned to the contract advisory shape rather than loose prose co-occurrence (issue raised in PR #406 ruflo review)."
+        },
+        {
+          "type": "regex",
+          "pattern": "(advisory|conflict|canonical|_Avoid_)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "diagnostic: response uses hook-contract vocabulary (advisory / conflict / canonical / _Avoid_)"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(silently substitut|automatic(ally)? replac|rewrit.{0,20}artifact)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required negative: skill does NOT propose silent substitution — memory-discipline echo (CONTEXT.md is candidate, not authority; surface, never override)"
+        }
+      ],
+      "scratch_decoy": {
+        "CONTEXT.md": "# payments-platform\n\nProject canonical terminology.\n\n## Language\n\n**Customer**\nThe end user of the payments service.\n_Avoid_: Account, User\n"
+      }
+    },
+    {
+      "name": "read-hook-silent-on-match",
+      "summary": "Phase B read hook is silent when all artifact terms are canonical (no _Avoid_ matches), but write-offer still engages on a new term not in CONTEXT.md. Required-tier proves write-offer engages on the new term (PriceQuoteWorker); required negative proves read hook does NOT surface a false advisory pair. Updated post-PR-review (PR #406 ruflo): prior version required verbal read-hook signal SKILL.md doesn't mandate, false-failing on truly-silent-correct paths.",
+      "prompt": "I just finished drafting the Service/Component SDR body for the pricing service. The draft uses 'Customer' throughout (canonical per ./CONTEXT.md) and also introduces a new component called PriceQuoteWorker that is NOT yet in ./CONTEXT.md. Run the end-of-skill glossary hooks per skills/sdr/SKILL.md step 7 and report what each hook found.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(PriceQuoteWorker|offer.from.caller=sdr|/glossary)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: write-offer engages on the new term PriceQuoteWorker (names the term, invokes /glossary, or names the hook flag) — proves the skill reached the write-offer stage after the silent read hook"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(\\*\\*Customer\\*\\*.{0,80}\\*\\*Account\\*\\*|\\*\\*Account\\*\\*.{0,80}\\*\\*Customer\\*\\*)",
+          "flags": "is",
+          "tier": "required",
+          "description": "required negative: read hook does NOT emit the bolded advisory pair when all artifact terms are canonical — pinned to the same advisory shape as the conflict eval so absence is structurally discriminable"
+        }
+      ],
+      "scratch_decoy": {
+        "CONTEXT.md": "# pricing-service\n\nProject canonical terminology.\n\n## Language\n\n**Customer**\nThe end user of pricing flows.\n_Avoid_: Account\n"
+      }
+    },
+    {
+      "name": "read-hook-silent-on-absent-context",
+      "summary": "Phase B read hook silent no-op when ./CONTEXT.md is absent. Skill proceeds to write-offer stage regardless. Required-tier positive on absent-or-proceed signal.",
+      "prompt": "I just finished drafting the Data Design SDR body for our order schema. There is no ./CONTEXT.md in this project. Run the end-of-skill glossary hooks per skills/sdr/SKILL.md step 7.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no CONTEXT|absent|skip.{0,30}read|no.{0,20}canonical|write.offer)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: skill notes CONTEXT.md absent OR proceeds to write-offer stage. Load-bearing positive signal."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(advisory line|_Avoid_ alias hit|canonical is)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "diagnostic: skill does not fabricate conflict from absent file"
+        }
+      ],
+      "scratch_decoy": {
+        "README.md": "# order-platform\n\nNo CONTEXT.md present in this project.\n"
+      }
+    },
+    {
+      "name": "read-hook-silent-on-malformed-context",
+      "summary": "Phase B read hook silent no-op + one-line diagnostic when CONTEXT.md is malformed (no Language section). NEVER substitutes. Required-tier positive on diagnostic-or-skip signal.",
+      "prompt": "I just finished drafting the Blueprint SDR body for our microservice template. ./CONTEXT.md exists in this project but has no `## Language` section. Run the end-of-skill glossary hooks per skills/sdr/SKILL.md step 7.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(malformed|cannot parse|no.{0,20}Language|diagnostic|skip.{0,30}read)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: skill emits diagnostic for malformed CONTEXT.md OR explicitly skips read hook. Load-bearing positive."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(silently substitut|automatic.{0,10}replac)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "diagnostic: skill does not substitute on malformed input"
+        }
+      ],
+      "scratch_decoy": {
+        "CONTEXT.md": "# project-notes\n\nRandom prose, no Language section.\n\n## Architecture\n\nServices talk to a queue.\n"
+      }
     }
   ]
 }

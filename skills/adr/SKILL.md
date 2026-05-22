@@ -81,6 +81,13 @@ Proposed
 
 5. **Open the file for the user** and tell them to fill in Context, Decision, and Consequences.
 
+6. **Glossary hooks (end-of-skill).** After the ADR body is filled (Context / Decision / Consequences), fire two hooks against `./CONTEXT.md`. Both fire **once at end-of-skill** (not per-section) per the [2026-05-22 decision](../../docs/superpowers/decisions/2026-05-22-glossary-v2-read-discipline.md) and the contract in [references/CALLER-HOOKS.md § adr](../glossary/references/CALLER-HOOKS.md). Read hook runs first so its findings can inform what the write-offer surfaces as new terms.
+
+   a. **Read hook (advisory).** If `./CONTEXT.md` exists and parses cleanly, parse the `## Language` section, build the `_Avoid_:` alias set, scan the Context / Decision / Consequences sections (plus any Alternatives subsection if the project's ADR template adds one), and surface one advisory line per match — only when an ADR term hits an `_Avoid_` alias (only-on-conflict). NEVER substitute silently in either direction — CONTEXT.md is a candidate, not authority. Surface candidates for user judgment per `rules/memory-discipline.md` (verify before assert). Silent no-op if `./CONTEXT.md` is absent or malformed.
+   b. **Write-offer hook.** Scan Context / Decision / Consequences (and Alternatives if present) for project-specific nouns that recurred ≥2× and lack a `./CONTEXT.md` entry (option names, system names, decision-context vocabulary). Invoke `/glossary --offer-from-caller=adr --candidate-terms=<...>` — offer never auto-write. Skip if every candidate is already canonical.
+
+   Both hooks are **advisory**, not blocking. Promotion to blocking is gated by Phase B eval signal per the decision doc rollback trigger.
+
 ### Superseding an ADR (`supersede`)
 
 1. Create the new ADR as above.

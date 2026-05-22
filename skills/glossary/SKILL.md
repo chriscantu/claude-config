@@ -149,11 +149,16 @@ extends a file matching that structure. Do NOT deviate from the format in v1.
 
 ## Out of Scope (v1)
 
-- SDR / ADR / decision-challenger invocation hooks (v2 follow-up issues
-  #321 / #322 / #323).
-- Read-discipline enforcement in consumer skills, including active
-  collision detection vs. `LANGUAGE.md` and contradiction detection vs.
-  `MEMORY.md` auto-memory (v2; follow-ups #324 / #325).
+- `decision-challenger` invocation hook (v2 follow-up #323 — Phase C,
+  pending agent-vs-skill scope resolution). SDR + ADR invocation hooks
+  (#321 / #322) ship in v2 Phase B alongside read-discipline for both
+  skills per the
+  [2026-05-22 decision](../../docs/superpowers/decisions/2026-05-22-glossary-v2-read-discipline.md).
+- Read-discipline enforcement for DTP / SA — explicitly decided
+  no-read in the same decision doc (write-offer at end-of-skill remains
+  sufficient for question-loop callers). Active collision detection vs.
+  `LANGUAGE.md` and contradiction detection vs. `MEMORY.md` auto-memory
+  remain deferred to v3 unless evals demand.
 - Consolidate / stale-flag mechanism (v2; defer unless evals demand).
 - Multi-context `CONTEXT-MAP.md` (v2; promote only when a project warrants
   split).
