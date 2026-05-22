@@ -165,6 +165,16 @@ validator. Phases relevant to rules:
   issue #352. Regression coverage: `tests/validate-phase-1q.test.ts`.
   Soft-retire / hard-delete procedure: see ["Retiring a rule or
   validator phase"](#retiring-a-rule-or-validator-phase) below.
+- **1r. Skill-eval discriminating-signal presence** — for each
+  `skills/<name>/evals/evals.json`, fails if zero
+  `"tier": "required"` assertions are present across the suite's
+  `evals[]`. Mirrors at the skill layer the discriminating-signal
+  discipline `rules-evals/` inherits from
+  [ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md);
+  policy lineage: [ADR #0019](../adrs/0019-skill-eval-discriminating-signal-discipline.md)
+  (issue #379). Counts via grep; zero-state (no skill eval files)
+  emits a documented pass. Regression coverage:
+  `tests/validate-phase-1r.test.ts`.
 
 Use these in pre-push hooks or CI to catch the silent-failure modes
 (rule not loaded; rule restated and drifted; anchor structurally broken;
