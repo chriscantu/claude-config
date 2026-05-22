@@ -348,10 +348,17 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(/glossary.{0,80}offer-from-caller=decision-challenger|PaymentGateway.{0,200}(canonicaliz|candidate|offer)|(canonicaliz|candidate|offer).{0,200}PaymentGateway)",
+          "pattern": "/glossary.{0,80}offer-from-caller=decision-challenger",
           "flags": "is",
           "tier": "required",
-          "description": "required: write-offer hook engages on PaymentGateway — either invokes /glossary with the decision-challenger caller flag, or names PaymentGateway as a candidate alongside canonicaliz/candidate/offer vocabulary. Pinned to contract shape per memory feedback_advisory_bold_pair_regex.md."
+          "description": "required: write-offer hook invokes /glossary with the decision-challenger caller flag — pinned strictly to the contract invocation shape per agents/decision-challenger.md § Glossary Hook (Invoke block) and memory feedback_advisory_bold_pair_regex.md. Loose prose surfacing of the candidate term without the invocation does NOT honor the contract — agent file says 'Invoke:' not 'mention'."
+        },
+        {
+          "type": "regex",
+          "pattern": "PaymentGateway",
+          "flags": "is",
+          "tier": "required",
+          "description": "required: the inferred term PaymentGateway appears in the hook output — paired with the contract-invocation regex above so the model must BOTH invoke /glossary AND surface PaymentGateway as the candidate. Catches false-pass where the model invokes /glossary with a different/no candidate term."
         },
         {
           "type": "regex",
@@ -386,10 +393,10 @@
         },
         {
           "type": "not_regex",
-          "pattern": "/glossary.{0,80}offer-from-caller=decision-challenger.{0,80}candidate-terms=.{0,20}Merchant",
+          "pattern": "/glossary.{0,80}offer-from-caller=decision-challenger",
           "flags": "is",
           "tier": "required",
-          "description": "required negative: hook does NOT invoke /glossary with Merchant as a candidate when Merchant is already canonical — pinned to the contract invocation shape per memory feedback_advisory_bold_pair_regex.md"
+          "description": "required negative: hook does NOT invoke /glossary at all when every inferred term is already canonical — pinned to the contract invocation shape with no term constraint so a regression firing for ANY candidate (not just Merchant) fails this assertion. Per memory feedback_advisory_bold_pair_regex.md."
         }
       ],
       "scratch_decoy": {
@@ -410,10 +417,10 @@
         },
         {
           "type": "not_regex",
-          "pattern": "/glossary.{0,80}offer-from-caller=decision-challenger.{0,80}candidate-terms=.{0,20}(Stripe|Adyen)",
+          "pattern": "/glossary.{0,80}offer-from-caller=decision-challenger",
           "flags": "is",
           "tier": "required",
-          "description": "required negative: hook does NOT invoke /glossary for Stripe or Adyen when they were quoted verbatim from the artifact — author already canonicalized by using the term explicitly. Pinned to contract invocation shape."
+          "description": "required negative: hook does NOT invoke /glossary at all when challenger only quoted source-artifact terms verbatim — no candidate term constraint so a regression firing for ANY term (Stripe, Adyen, or otherwise) fails. Pinned to contract invocation shape per memory feedback_advisory_bold_pair_regex.md."
         }
       ],
       "scratch_decoy": {

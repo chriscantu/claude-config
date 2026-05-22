@@ -105,7 +105,7 @@ If the record is strong with no substantive issues, state the verdict as ACCEPT 
 
 ## Glossary Hook (end-of-challenge)
 
-After producing the Decision Challenge output above, fire one write-offer hook against `./CONTEXT.md` per the contract in [`skills/glossary/references/CALLER-HOOKS.md` § decision-challenger](../skills/glossary/references/CALLER-HOOKS.md).
+After producing the Decision Challenge output above, fire one write-offer hook against `./CONTEXT.md` per the contract in [`skills/glossary/references/CALLER-HOOKS.md` § decision-challenger](../skills/glossary/references/CALLER-HOOKS.md#decision-challenger-post-challenge-pass-pre-handoff).
 
 **Trigger.** Scan the Challenges section for any term where the challenge text inferred a meaning not explicit in the source artifact — i.e., the challenger introduced a noun the author had not defined, or used a noun in a way the author may interpret differently. Term confusion between challenger and author is the exact failure mode `./CONTEXT.md` exists to prevent.
 
@@ -114,7 +114,11 @@ After producing the Decision Challenge output above, fire one write-offer hook a
 - Were used in a Critical or Warning finding (high stakes if misinterpreted), AND
 - Lack a `./CONTEXT.md` entry (canonical or `_Avoid_` alias).
 
-**Skip** the offer entirely if every inferred term already exists in `./CONTEXT.md`, or if no terms were inferred (challenger only quoted the source artifact).
+**Skip** the offer entirely if:
+
+- `./CONTEXT.md` is absent → silent no-op (no scan, no offer)
+- Every inferred term already exists in `./CONTEXT.md` → silent no-op
+- No terms were inferred (challenger only quoted the source artifact) → silent no-op
 
 **Invoke:**
 
