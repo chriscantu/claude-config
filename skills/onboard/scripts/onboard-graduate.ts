@@ -436,6 +436,8 @@ const main = (): number => {
     return usage();
   }
 
+  process.stderr.write("Status: ready (Phase 5)\n");
+
   let workspace: string | undefined;
   let force = false;
   let retroFromPath: string | undefined;

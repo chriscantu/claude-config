@@ -115,6 +115,9 @@ const appendNagDeduped = (
 };
 
 const cmdPaste = (workspace: string): number => {
+  process.stderr.write(
+    "Status: degraded (Phase 4 manual paste; Phase 6 live scan deferred)\n",
+  );
   const mapPath = join(workspace, "stakeholders", "map.md");
   if (!existsSync(mapPath)) {
     process.stderr.write(`no stakeholders/map.md at ${workspace}\n`);

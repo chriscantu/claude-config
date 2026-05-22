@@ -10,6 +10,8 @@
 #              passes the answer through); when yes, runs `gh repo create --private --push`
 # --no-gh      hard-skip the gh repo create call; overrides --gh-create yes (used by tests)
 
+echo "Status: ready (Phase 1)" >&2
+
 set -l target ""
 set -l cadence "standard"
 set -l skip_gh 0
