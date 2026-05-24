@@ -22,15 +22,15 @@ See [docs/catalog.md](docs/catalog.md) for the full inventory.
 
 ## See it in action
 
-A VP asks Claude to add a new billing tier. Claude works through the pipeline (problem → systems → trade-offs → sketch → verified implementation). Halfway through, the VP says: *"Just copy the enterprise tier and add a price field — 5-line change."*
+A VP asks Claude to draft a Q3 strategy doc for the platform org. Claude works through the pipeline (problem → systems → trade-offs → sketch → verified draft). Halfway through, the VP says: *"Just frame it around 'improve velocity' — we'll sharpen the metric later."*
 
 | Without this config | With this config |
 |---|---|
-| "Sure, I'll copy the enterprise tier and add a price field." | "I disagree — the enterprise tier mixes billing with feature gating in `EntitlementService`, and copying it propagates that coupling into a third tier. What's the new evidence?" |
+| "Sure — drafting around 'improve velocity' now." | "I disagree — 'improve velocity' isn't a measurable goal; it's an aspiration. Sharpening the OKR now is cheaper than rewriting the doc next quarter. What's the new evidence?" |
 
 Full pushback dialog:
 
-> "I disagree — the enterprise tier mixes billing with feature gating in `EntitlementService`, and copying it propagates that coupling into a third tier (which the systems analysis flagged as a future split target). What's the new evidence? If you have a deadline I don't know about, or product has signed off on the coupling, I'll proceed; otherwise the copy makes the eventual split harder."
+> "I disagree — 'improve velocity' isn't a measurable goal; it's an aspiration. Without a baseline (PR cycle-time, lead-time, deploy frequency) the strategy doc becomes a slide deck nobody can hold the org to. Sharpening the OKR before I draft is cheaper than rewriting the doc next quarter, and it surfaces whether velocity is even the right axis vs review-quality or scope-control. What's the new evidence? If product has signed off on the aspirational framing, or you have a deadline I don't know about, I'll proceed; otherwise the vague OKR makes Q3 hard to measure."
 
 Claude holds until you supply a reason to flip. Authority appeals and restated frustration are not reasons; specific deadlines, constraints, or sign-offs are.
 
@@ -38,25 +38,29 @@ _Claude holds a recommendation until new evidence flips it._
 
 ![Anti-sycophancy pushback demo](assets/anti-sycophancy-pushback.gif)
 
-> This isn't a replacement for engineering judgment — it's a forcing function. Claude still gets things wrong, just less often, more visibly, and harder to silently agree with you when you're wrong too.
+> The recorded demo above uses an earlier engineering scenario; the pushback *mechanism* is identical. Re-record against the strategy-doc scenario tracked separately.
+
+> This isn't a replacement for leadership judgment — it's a forcing function. Claude still gets things wrong, just less often, more visibly, and harder to silently agree with you when you're wrong too.
 
 ## See the pipeline in motion
 
-Same VP, earlier in the thread: *"Add a new billing tier."*
+Same VP, earlier in the thread: *"Draft a Q3 strategy doc to improve platform velocity."*
 
 | Without this config | With this config |
 |---|---|
-| "I'll add `TIER_PRO` to the enum, copy the enterprise pricing config, wire it into checkout. Diff incoming." | "Before any code: what problem is the new tier solving — packaging gap, retention play, or competitive response? That changes which surface owns it." |
+| "I'll structure it as Goal / Metrics / Initiatives / Owners and have a draft in 10 minutes." | "Before any draft: what does 'velocity' mean here — cycle-time, lead-time, deploy frequency, scope-throughput? Each picks a different set of initiatives." |
 
 What follows on the "with" side:
 
-1. **[Problem Definition]** Named user, current behavior, desired behavior, stakes, evidence — before approach selection.
-2. **[Systems Analysis]** Surface-area scan — touches `EntitlementService`, `CheckoutFlow`, `BillingAPI`, two downstream consumers. Blast radius flagged.
-3. **[Solution Design]** 2-3 approaches in a trade-off matrix — user value, problem fit, effort, risk, reversibility. Recommendation with reasoning.
-4. **[Fat Marker Sketch]** Visual shape of the change before any detailed design — refactors die quietly when the shape is wrong.
-5. **[Implementation]** Per-step verify checks. Type-check + tests pass before "done."
+1. **[Problem Definition]** Named user (Platform org), current behavior (slow ship cadence), desired behavior (sharper metric + accountable owners), stakes (Q3 plan signs off in 2 weeks), evidence (last quarter's cycle-time data) — before approach selection.
+2. **[Systems Analysis]** Surface-area scan — strategy doc touches engineering OKRs, performance-review rubric, hiring plan, exec readout. Blast radius flagged.
+3. **[Solution Design]** 2-3 metric trees in a trade-off matrix — measurability, gameability, leading vs lagging, org impact. Recommendation with reasoning.
+4. **[Fat Marker Sketch]** Visual shape of the strategy doc before any prose — strategy docs die quietly when the shape is wrong.
+5. **[Drafting]** Per-section verify checks. Each initiative ties to a measurable target before "done."
 
 Each stage is a HARD-GATE. Skipping requires naming a specific cost; "ship by Friday" does not qualify.
+
+> Also works for ICs — same pipeline applied to a billing-tier change, a refactor proposal, a migration plan. The skill set transfers; the demo above is the leadership headliner.
 
 _Anti-sycophancy is the hook. The pipeline is the moat._
 
