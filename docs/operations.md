@@ -144,17 +144,33 @@ bash tests/hooks/scope-tier-memory-check.test.sh
 fish bin/install-scope-tier-hook.fish --remove
 ```
 
-## Adversarial Code Review Hook (opt-in)
+## Adversarial Code Review Swarm (opt-in)
 
-A `PostToolUse` hook at [`hooks/adversarial-trigger.sh`](../hooks/adversarial-trigger.sh) fires on `Write|Edit|MultiEdit` tool results and threshold-gates a backgrounded red-team critique of the current `git diff HEAD`. It is intended for ongoing development work where you want adversarial review without a PR or CI/CD round-trip.
+A `PostToolUse` hook at [`hooks/adversarial-trigger.sh`](../hooks/adversarial-trigger.sh) fires on `Write|Edit|MultiEdit` tool results and threshold-gates a backgrounded **swarm** red-team critique of the current `git diff HEAD`. Four specialized adversaries fan out in parallel, then an arbiter synthesizes a single ranked summary. Intended for ongoing development work where you want adversarial review without a PR or CI/CD round-trip.
+
+### Swarm topology
+
+| Role | Agent | Lens |
+|---|---|---|
+| Coordinator | `hooks/adversarial-spawn.sh` (shell, no LLM) | parallel dispatch + arbiter sequencing |
+| Worker 1 | [`security-adversary`](../agents/security-adversary.md) | OWASP, secrets, authz, input validation, deps |
+| Worker 2 | [`perf-adversary`](../agents/perf-adversary.md) | Big-O, N+1, allocations, blocking I/O |
+| Worker 3 | [`scope-adversary`](../agents/scope-adversary.md) | Karpathy #3 — surgical scope, dead code, drift |
+| Worker 4 | [`test-gap-adversary`](../agents/test-gap-adversary.md) | missing coverage, brittle assertions, regression tests |
+| Synthesis | [`arbiter`](../agents/arbiter.md) | dedupe, cross-rank, top-N consolidated SUMMARY |
+
+Shell coordinator instead of LLM-queen — at 4 workers, hierarchical queen pays no quality premium. Above ~10 workers, reconsider.
 
 ### What it does
 
 1. Computes diff stats vs `HEAD` (LOC delta, file count, hard-gate path hits).
-2. Fires only when one of the thresholds in [`hooks/adversarial-config.json`](../hooks/adversarial-config.json) trips: `loc_threshold` (default 50), `file_threshold` (default 2), or a path matching `hard_gate_paths` (default: `rules/`, `adrs/`, `skills/.*/SKILL.md`, `Plans.md`).
-3. Debounces by diff hash + a `debounce_seconds` window (default 30s) so a single editing burst spawns one critique, not one per keystroke.
-4. Spawns [`hooks/adversarial-spawn.sh`](../hooks/adversarial-spawn.sh) in the background, which pipes `git diff HEAD` into `claude --print --agent code-adversary` (see [`agents/code-adversary.md`](../agents/code-adversary.md)) and writes the resulting markdown critique to `.claude/state/critiques/<branch>-<sha>-<diff-hash>.md`.
-5. `.claude/state/` is gitignored, so critiques never land in commits.
+2. Fires only when one of the thresholds in [`hooks/adversarial-config.json`](../hooks/adversarial-config.json) trips: `loc_threshold` (default 100), `file_threshold` (default 3), or a path matching `hard_gate_paths` (default: `rules/`, `adrs/`, `skills/.*/SKILL.md`, `Plans.md`).
+3. Debounces by diff hash + a `debounce_seconds` window (default 30s) so a single editing burst spawns one swarm fire, not one per keystroke.
+4. Captures `git diff HEAD` once into `<sha-dir>/.diff-captured` then spawns four worker `claude --print` invocations in parallel (each `--agent <role>-adversary`).
+5. Waits for all workers, then spawns the arbiter to read the four worker outputs and emit a synthesized `SUMMARY.md`.
+6. After arbiter completes, the coordinator extracts the top-2 finding titles from `SUMMARY.md` and stores them to claude-flow shared memory (`adversarial-patterns` namespace) for cross-session pattern learning. Failure is non-blocking.
+7. Output lands at `.claude/state/critiques/<branch>-<sha>-<diff-hash>/{security,perf,scope,test-gap,SUMMARY}.md`.
+8. `.claude/state/` is gitignored, so critiques never land in commits.
 
 ### Auth
 
@@ -183,21 +199,26 @@ rm .claude/DISABLE_ADVERSARIAL       # re-enable
 ### Install
 
 ```sh
-fish bin/link-config.fish    # symlinks agents/code-adversary.md into ~/.claude/agents/
+fish bin/link-config.fish    # symlinks all 5 swarm agents into ~/.claude/agents/
 ```
 
 The `PostToolUse` hook entry already lives in `.claude/settings.json` under the `Write|Edit|MultiEdit` matcher (second hook in the list — first is the existing post-edit handler).
 
 ### Tuning
 
-Edit `hooks/adversarial-config.json` to adjust thresholds. Setting `loc_threshold` and `file_threshold` higher means fewer fires; adding entries to `hard_gate_paths` (regexes, anchored as needed) forces a fire whenever those paths change regardless of size.
+Edit `hooks/adversarial-config.json` to adjust thresholds. Setting `loc_threshold` and `file_threshold` higher means fewer fires; adding entries to `hard_gate_paths` (regexes, anchored as needed) forces a fire whenever those paths change regardless of size. The `workers` array can be trimmed if you only want a subset of lenses (e.g. drop `perf` for a frontend-config-only repo).
+
+### Cost expectations
+
+Each swarm fire spawns 5 `claude --print` invocations (4 workers + 1 arbiter). On the default OAuth/Max plan auth path, this counts against your subscription usage. Threshold defaults (100 LOC / 3 files / hard-gate paths) are sized to fire ~once per substantive edit burst, not per keystroke. Audit fire frequency in `.claude/state/critiques/.spawn-log`.
 
 ### Read the critiques
 
 ```sh
-ls .claude/state/critiques/        # see pending
-cat .claude/state/critiques/*.md   # read them
-rm .claude/state/critiques/*.md    # clear when done (or just leave them — gitignored)
+ls .claude/state/critiques/                          # see pending swarm dirs
+cat .claude/state/critiques/*/SUMMARY.md             # read consolidated summaries
+cat .claude/state/critiques/<dir>/{security,perf,scope,test-gap}.md  # individual worker outputs
+rm -rf .claude/state/critiques/*                     # clear when done (or just leave them — gitignored)
 ```
 
 ## Log Hygiene

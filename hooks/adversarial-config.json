@@ -1,6 +1,6 @@
 {
-  "loc_threshold": 50,
-  "file_threshold": 2,
+  "loc_threshold": 100,
+  "file_threshold": 3,
   "hard_gate_paths": [
     "^rules/",
     "^adrs/",
@@ -8,6 +8,9 @@
     "^Plans\\.md$"
   ],
   "debounce_seconds": 30,
-  "max_budget_usd": 0.50,
-  "agent_name": "code-adversary"
+  "workers": ["security", "perf", "scope", "test-gap"],
+  "arbiter": "arbiter",
+  "worker_timeout_seconds": 240,
+  "arbiter_timeout_seconds": 240,
+  "max_budget_usd_per_agent": 5.00
 }
