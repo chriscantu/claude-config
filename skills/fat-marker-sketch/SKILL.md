@@ -312,6 +312,17 @@ strikethrough on removed paths, heavier stroke on added nodes, and a DELTA foote
 names the change so the reader doesn't have to diff two lists. That is the fidelity
 bar for the **Before/After diptych** archetype.
 
+### Sequence Example (HTML fallback)
+
+See `assets/example-sequence-sketch.html` for a rendered sequence-shaped sketch
+(User → API → Worker → DB checkout flow). HTML fallback rendering for the
+**Sequence / swimlane** archetype requires vertical dashed lifelines under each
+actor, horizontal message arrows (solid for synchronous calls, dashed with reversed
+arrowhead for returns), and activation bars on receiver lifelines. Top-to-bottom
+ordering carries the time axis — do NOT render messages as grid cells, since that
+loses the explicit "this happens before that" signal that distinguishes a sequence
+from a tabular swimlane.
+
 ### System Example
 
 ```mermaid

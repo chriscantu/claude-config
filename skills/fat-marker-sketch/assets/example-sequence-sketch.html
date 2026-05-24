@@ -1,0 +1,115 @@
+<!--
+  Example fat marker sketch: Sequence / swimlane archetype.
+  Renders three actors with vertical dashed lifelines, ordered horizontal
+  message arrows between lanes, activation bars on receiver lifelines,
+  and a return arrow. Same fidelity contract as example-ui-sketch.html:
+  black-on-white, Permanent Marker, uneven border-radius, no polish.
+
+  Why this layout:
+  - Actor headers are flex row at top — establishes lanes.
+  - Lifelines are absolutely positioned vertical dashed rules anchored
+    to each actor's column center. Calculated by fixed column widths
+    (220px) so we don't need JavaScript.
+  - Messages stack top-to-bottom in a relative wrapper. Each row is
+    `position:relative` with the arrow drawn via a flex line + arrowhead.
+  - Activation bars sit at the receiver's lifeline x-position with a
+    solid black fill.
+
+  Reads as: User -> API: request, API -> Worker: enqueue,
+  Worker -> DB: fetch, DB -> Worker: rows, Worker -> API: result,
+  API -> User: response.
+-->
+<meta charset="utf-8">
+<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
+<div style="background:#fff;color:#000;font-family:'Permanent Marker',cursive;padding:40px;font-size:18px">
+
+  <div style="font-size:22px;margin-bottom:12px">SEQUENCE: User checkout flow</div>
+
+  <!-- Actor header row. Fixed column widths so lifelines below align. -->
+  <div style="display:flex;gap:0;margin-bottom:0">
+    <div style="width:220px;display:flex;justify-content:center">
+      <div style="border:4px solid #000;padding:10px 18px;border-radius:3px 5px 4px 2px;text-align:center;min-width:120px">USER</div>
+    </div>
+    <div style="width:220px;display:flex;justify-content:center">
+      <div style="border:4px solid #000;padding:10px 18px;border-radius:5px 2px 3px 4px;text-align:center;min-width:120px">API</div>
+    </div>
+    <div style="width:220px;display:flex;justify-content:center">
+      <div style="border:4px solid #000;padding:10px 18px;border-radius:2px 4px 5px 3px;text-align:center;min-width:120px">WORKER</div>
+    </div>
+    <div style="width:220px;display:flex;justify-content:center">
+      <div style="border:4px solid #000;padding:10px 18px;border-radius:4px 3px 2px 5px;text-align:center;min-width:120px">DB</div>
+    </div>
+  </div>
+
+  <!-- Lifelines + messages wrapper. Lifelines are sibling divs absolutely
+       positioned at each actor's column center (220px / 2 = 110px offsets:
+       110, 330, 550, 770). Messages stack in normal flow above them.    -->
+  <div style="position:relative;width:880px;margin-top:0">
+
+    <!-- 4 vertical dashed lifelines, full height of message stack. -->
+    <div style="position:absolute;left:110px;top:0;bottom:0;border-left:3px dashed #000"></div>
+    <div style="position:absolute;left:330px;top:0;bottom:0;border-left:3px dashed #000"></div>
+    <div style="position:absolute;left:550px;top:0;bottom:0;border-left:3px dashed #000"></div>
+    <div style="position:absolute;left:770px;top:0;bottom:0;border-left:3px dashed #000"></div>
+
+    <!-- Activation bars (solid black, sit on receiver lifelines).
+         Positioned absolutely; cover the message spans they're active for. -->
+    <div style="position:absolute;left:326px;top:40px;width:8px;height:340px;background:#000"></div>
+    <div style="position:absolute;left:546px;top:90px;width:8px;height:230px;background:#000"></div>
+    <div style="position:absolute;left:766px;top:140px;width:8px;height:80px;background:#000"></div>
+
+    <!-- Message rows. Each is position:relative so the arrow + label
+         span the right gap. Arrows drawn with a solid black line
+         + ">" or "<" arrowhead in Permanent Marker. -->
+
+    <!-- 1: User -> API (request) -->
+    <div style="position:relative;height:50px">
+      <div style="position:absolute;left:113px;top:18px;width:217px;height:4px;background:#000"></div>
+      <div style="position:absolute;left:320px;top:6px;font-size:24px">&#9658;</div>
+      <div style="position:absolute;left:160px;top:-8px;background:#fff;padding:0 6px">request</div>
+    </div>
+
+    <!-- 2: API -> Worker (enqueue) -->
+    <div style="position:relative;height:50px">
+      <div style="position:absolute;left:333px;top:18px;width:217px;height:4px;background:#000"></div>
+      <div style="position:absolute;left:540px;top:6px;font-size:24px">&#9658;</div>
+      <div style="position:absolute;left:380px;top:-8px;background:#fff;padding:0 6px">enqueue job</div>
+    </div>
+
+    <!-- 3: Worker -> DB (fetch) -->
+    <div style="position:relative;height:50px">
+      <div style="position:absolute;left:553px;top:18px;width:217px;height:4px;background:#000"></div>
+      <div style="position:absolute;left:760px;top:6px;font-size:24px">&#9658;</div>
+      <div style="position:absolute;left:600px;top:-8px;background:#fff;padding:0 6px">fetch rows</div>
+    </div>
+
+    <!-- 4: DB -> Worker (rows) — return arrow, dashed -->
+    <div style="position:relative;height:50px">
+      <div style="position:absolute;left:553px;top:18px;width:217px;border-top:3px dashed #000"></div>
+      <div style="position:absolute;left:548px;top:6px;font-size:24px">&#9668;</div>
+      <div style="position:absolute;left:600px;top:-8px;background:#fff;padding:0 6px">rows</div>
+    </div>
+
+    <!-- 5: Worker -> API (result) — return, dashed -->
+    <div style="position:relative;height:50px">
+      <div style="position:absolute;left:333px;top:18px;width:217px;border-top:3px dashed #000"></div>
+      <div style="position:absolute;left:328px;top:6px;font-size:24px">&#9668;</div>
+      <div style="position:absolute;left:380px;top:-8px;background:#fff;padding:0 6px">result</div>
+    </div>
+
+    <!-- 6: API -> User (response) — return, dashed -->
+    <div style="position:relative;height:50px">
+      <div style="position:absolute;left:113px;top:18px;width:217px;border-top:3px dashed #000"></div>
+      <div style="position:absolute;left:108px;top:6px;font-size:24px">&#9668;</div>
+      <div style="position:absolute;left:160px;top:-8px;background:#fff;padding:0 6px">response</div>
+    </div>
+
+  </div>
+
+  <div style="margin-top:30px;border:4px solid #000;padding:14px;border-radius:3px 5px 2px 4px;max-width:880px">
+    <div style="font-size:20px;margin-bottom:6px">LEGEND</div>
+    Solid arrow (&#9658;) = synchronous call &middot; Dashed arrow (&#9668;) = return<br>
+    Black bar on lifeline = activation (actor processing) &middot; Top-to-bottom = time
+  </div>
+
+</div>
