@@ -68,7 +68,7 @@ Two distribution paths. Pick by audience — see the trade-off below.
 
 Install from the Claude Code marketplace:
 
-> **Coming soon** — marketplace publish pending. Tracked in [#374](https://github.com/chriscantu/claude-config/issues/374); marketplace URL will be added here once published.
+> **Coming soon** — bundle is publish-ready; clean-install test and first-run friction measurement pending. Live status tracked in [ADR #0018](adrs/0018-distribution-shape-hybrid-plugin-and-git-clone.md) (Validation items 4 + 5). Marketplace URL added here once published.
 
 **What you get:** skills (`/sdr`, `/adr`, `/onboard`, `/tech-radar`, `/stakeholder-map`, and the rest of the leadership toolkit), agents, commands, hooks, and MCP servers.
 
