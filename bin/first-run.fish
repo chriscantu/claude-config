@@ -46,7 +46,7 @@ end
 # Probe on ~/.claude/rules/ because link-config.fish --install owns that
 # directory exclusively. Its absence is a strong signal install hasn't
 # run. Partial-install detection is intentionally out of scope per #396.
-if not test -d $HOME/.claude/rules
+if not test -d "$HOME/.claude/rules"
     echo "ERROR: ~/.claude/rules/ not found." >&2
     echo "       bin/first-run.fish is the post-install walkthrough." >&2
     echo "       Run 'bash install.sh' from the repo root first, then re-run this script." >&2

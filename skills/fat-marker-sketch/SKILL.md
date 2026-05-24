@@ -323,6 +323,13 @@ ordering carries the time axis — do NOT render messages as grid cells, since t
 loses the explicit "this happens before that" signal that distinguishes a sequence
 from a tabular swimlane.
 
+When PARAMETERIZING this template with dynamic actor names or message labels (e.g.,
+substituting `USER` with a user-supplied service name), HTML-entity-encode `<`, `>`,
+`&`, `"`, and `'` in every substituted string before insertion. The template uses
+inline-style `<div>` construction with no escaping discipline of its own; reusing
+it as a sketch generator without encoding is a stored-XSS path in any tool that
+later renders the result as HTML (browser tab, Preview panel, eval snapshot).
+
 ### System Example
 
 ```mermaid

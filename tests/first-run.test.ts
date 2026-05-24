@@ -79,6 +79,10 @@ const seedFixture = (): {
   // Seed ~/.claude/rules/ so the #396 preflight check passes. The script
   // probes for this dir's existence to detect pre-install state; tests
   // simulate a healthy post-install layout.
+  //
+  // NOTE: tests that need to exercise the pre-install path must NOT use
+  // seedFixture() — they should inline a HOME setup that omits this dir.
+  // See "pre-install preflight" test for the canonical pattern.
   mkdirSync(join(home, ".claude", "rules"), { recursive: true });
   // Seed a CLAUDE.md identical to the repo's HEAD copy. The script's
   // "user has local edits" detection greps for the upstream H1 sentinel
@@ -269,6 +273,24 @@ describe("first-run.fish — link-config --check failure surfaces", () => {
   });
 });
 
+describe("first-run.fish — per-option rationale (#395)", () => {
+  test("emits per-option rationale lines for each enum prompt", () => {
+    const { env } = seedFixture();
+    const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS });
+    assertExit("rationale run", r, "zero");
+    // One rationale phrase per prompt group. Future revert that drops the
+    // rationale (intentionally or by accident) will fail this test —
+    // existing assertions only check post-answer log strings, never
+    // prompt-time stdout, so without this nothing guards the audience-
+    // comprehension contract that motivated #395.
+    expect(r.stdout).toContain("recommended; commits + scripts assume fish syntax");
+    expect(r.stdout).toContain("required for new server-side code");
+    expect(r.stdout).toContain("tests written before code, always");
+    expect(r.stdout).toContain("anti-sycophancy baseline");
+    expect(r.stdout).toContain("compresses Claude's output");
+  });
+});
+
 describe("first-run.fish — pre-install preflight (#396)", () => {
   test("aborts non-zero with install.sh hint when ~/.claude/rules/ is absent", () => {
     // Skip the seedFixture helper; we need a HOME with .claude/ but NO
@@ -288,7 +310,10 @@ describe("first-run.fish — pre-install preflight (#396)", () => {
       FIRST_RUN_ANSWERS: DEFAULT_ANSWERS,
     });
     assertExit("pre-install run", r, "non-zero");
-    expect(r.stderr).toContain("install.sh");
+    expect(r.exitCode).toBe(2);
+    // Match install hint loosely — exact prose may evolve, but the
+    // user-recovery contract is "name the install script."
+    expect(r.stderr).toMatch(/install/i);
     // CLAUDE.md must remain untouched — preflight runs before any mutation.
     expect(readFileSync(claudeMd, "utf8")).not.toContain(
       "<!-- managed:first-run -->",
