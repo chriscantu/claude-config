@@ -169,11 +169,42 @@ end
 echo "claude-config first-run personalization"
 echo "---------------------------------------"
 
-set -l shell_choice (ask "Shell flavor (fish | bash | zsh) [fish]:" fish)
-set -l lang_choice  (ask "Primary language (TypeScript | Python | Go | other) [TypeScript]:" TypeScript)
-set -l tdd_choice   (ask "TDD discipline (strict | pragmatic | off) [pragmatic]:" pragmatic)
-set -l syco_choice  (ask "Sycophancy intensity (default | tone-down | tone-up) [default]:" default)
-set -l caveman_yn   (ask "Enable caveman terseness mode? (y/N) [N]:" N)
+# Per-option rationale (#395): the audience #378 names (VPs / Sr Directors)
+# can't make informed choices without one-line glosses on the project's
+# vocabulary. Defaults remain selectable by Enter.
+
+echo ""
+echo "Shell flavor:"
+echo "  fish  — recommended; commits + scripts assume fish syntax"
+echo "  bash  — POSIX-portable; some helpers degrade gracefully"
+echo "  zsh   — macOS default; mostly compatible with bash path"
+set -l shell_choice (ask "Choose [fish]:" fish)
+
+echo ""
+echo "Primary language:"
+echo "  TypeScript — required for new server-side code per global CLAUDE.md"
+echo "  Python | Go | other — annotation only; doesn't change tooling"
+set -l lang_choice  (ask "Choose [TypeScript]:" TypeScript)
+
+echo ""
+echo "TDD discipline:"
+echo "  strict     — tests written before code, always"
+echo "  pragmatic  — tests written before code for non-trivial logic"
+echo "  off        — no test-first enforcement"
+set -l tdd_choice   (ask "Choose [pragmatic]:" pragmatic)
+
+echo ""
+echo "Sycophancy intensity (how often Claude pushes back vs agrees):"
+echo "  default    — anti-sycophancy baseline; challenges assumptions"
+echo "  tone-down  — softer pushback; more conversational"
+echo "  tone-up    — stronger pushback; more adversarial review"
+set -l syco_choice  (ask "Choose [default]:" default)
+
+echo ""
+echo "Caveman terseness mode (compresses Claude's output ~75%):"
+echo "  drops articles, filler, pleasantries; technical accuracy preserved"
+echo "  off by default; toggle anytime via /caveman"
+set -l caveman_yn   (ask "Enable? (y/N) [N]:" N)
 
 # Validate enum-shaped answers; fall back to default on garbage. Keeps the
 # managed block sane even if a user fat-fingers an option.
