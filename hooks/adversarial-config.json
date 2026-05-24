@@ -1,0 +1,13 @@
+{
+  "loc_threshold": 50,
+  "file_threshold": 2,
+  "hard_gate_paths": [
+    "^rules/",
+    "^adrs/",
+    "^skills/.*/SKILL\\.md$",
+    "^Plans\\.md$"
+  ],
+  "debounce_seconds": 30,
+  "max_budget_usd": 0.50,
+  "agent_name": "code-adversary"
+}
