@@ -253,6 +253,74 @@ if test $hooks_enabled -eq 1
     if not test -d $settings_dir
         mkdir -p $settings_dir
     end
+
+    # TOCTOU mutex (#394). The validate → backup → patched-write sequence
+    # below is non-atomic across forks; a concurrent first-run.fish (or any
+    # other tool that mutates $settings) can race between stages and lose
+    # one writer's edits or corrupt the merged result. Guard the whole
+    # sequence with a `mkdir` lock — atomic on every POSIX filesystem and
+    # portable to Darwin (which has no `flock(1)`).
+    set -l lock_dir_path "$settings.lock"
+
+    # Validate the timeout env override. Untrusted input must not flow to
+    # `math` unchecked: 0 / negative / non-numeric values break the loop
+    # or produce instant-DoS. Clamp to a sane range.
+    set -l lock_timeout_secs 30
+    if set -q FIRST_RUN_LOCK_TIMEOUT_SECS
+        if string match -rq '^[0-9]+$' -- $FIRST_RUN_LOCK_TIMEOUT_SECS
+            set lock_timeout_secs $FIRST_RUN_LOCK_TIMEOUT_SECS
+            if test $lock_timeout_secs -lt 1
+                set lock_timeout_secs 1
+            else if test $lock_timeout_secs -gt 3600
+                set lock_timeout_secs 3600
+            end
+        else
+            echo "ERROR: FIRST_RUN_LOCK_TIMEOUT_SECS must be a non-negative integer (got: $FIRST_RUN_LOCK_TIMEOUT_SECS)" >&2
+            exit 2
+        end
+    end
+
+    # Pre-arm the release handler with a sentinel that's only flipped AFTER
+    # acquisition. Defining the handler BEFORE the wait-loop closes a race
+    # where a SIGINT during the loop could leave a sibling lockdir orphan;
+    # the sentinel ensures we never rmdir a lock another process holds.
+    set -g FIRST_RUN_LOCK_DIR ""
+    function __first_run_release_settings_lock --on-event fish_exit
+        if set -q FIRST_RUN_LOCK_DIR
+            if test -n "$FIRST_RUN_LOCK_DIR"
+                rmdir $FIRST_RUN_LOCK_DIR 2>/dev/null
+            end
+            set -e FIRST_RUN_LOCK_DIR
+        end
+    end
+
+    set -l lock_deadline_attempts (math "ceil($lock_timeout_secs / 0.5)")
+    set -l lock_attempts 0
+    while not mkdir $lock_dir_path 2>/dev/null
+        set lock_attempts (math $lock_attempts + 1)
+        if test $lock_attempts -gt $lock_deadline_attempts
+            echo "ERROR: cannot acquire settings lock at $lock_dir_path (held >$lock_timeout_secs"s")." >&2
+            echo "       Another first-run.fish or settings-writer is in progress." >&2
+            echo "       Known gap: a SIGKILL'd holder leaks the lockdir; remove manually:" >&2
+            echo "         rmdir $lock_dir_path" >&2
+            exit 2
+        end
+        sleep 0.5
+    end
+
+    # Acquisition confirmed. Verify the lockdir we just created is ours
+    # (not a pre-existing symlink an attacker planted at a predictable
+    # path) BEFORE committing to it. Refuse if the dir is a symlink or
+    # not owned by current user.
+    if test -L $lock_dir_path -o ! -O $lock_dir_path
+        echo "ERROR: settings lockdir $lock_dir_path is a symlink or not owned by current user; refusing." >&2
+        rmdir $lock_dir_path 2>/dev/null
+        exit 2
+    end
+
+    # Arm the release sentinel only after all acquisition checks pass.
+    set FIRST_RUN_LOCK_DIR $lock_dir_path
+
     if not test -f $settings
         echo "{}" > $settings
     end

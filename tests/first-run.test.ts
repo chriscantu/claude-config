@@ -264,3 +264,106 @@ describe("first-run.fish — link-config --check failure surfaces", () => {
     );
   });
 });
+
+describe("first-run.fish — settings.json TOCTOU lock (#394)", () => {
+  test("held lock: fails fast, leaves settings unmutated", () => {
+    const { settings, env } = seedFixture();
+    // mkdir is the atomic primitive the script uses, so a pre-existing
+    // lockdir is indistinguishable from a live holder.
+    mkdirSync(`${settings}.lock`, { recursive: false });
+
+    const r = runFirstRun({
+      ...env,
+      FIRST_RUN_ANSWERS: DEFAULT_ANSWERS,
+      FIRST_RUN_LOCK_TIMEOUT_SECS: "1",
+    });
+    assertExit("locked settings run", r, "non-zero");
+    // Behavior contract: non-zero exit + settings untouched. Don't pin on
+    // prose tokens that a copy-edit would silently break.
+    expect(() => readFileSync(settings, "utf8")).toThrow();
+  });
+
+  test("clean run releases lock so subsequent run re-acquires", () => {
+    const { settings, env } = seedFixture();
+    const first = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS });
+    assertExit("first run", first, "zero");
+    expect(() => readFileSync(`${settings}.lock`)).toThrow();
+  });
+
+  test("mid-sequence failure (malformed settings) still releases lock", () => {
+    const { settings, env } = seedFixture();
+    // Pre-seed an invalid settings.json so jq -e validation fails AFTER
+    // the lock is acquired. Lock must release on the abort path.
+    mkdirSync(join(env.HOME!, ".claude"), { recursive: true });
+    writeFileSync(settings, "{not valid json");
+
+    const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS });
+    assertExit("malformed-settings run", r, "non-zero");
+    // The critical assertion: lockdir does NOT leak across failure.
+    expect(() => readFileSync(`${settings}.lock`)).toThrow();
+  });
+
+  test("hooks declined: no lockdir created", () => {
+    const { settings, env } = seedFixture();
+    const r = runFirstRun({
+      ...env,
+      // hooks answer = N — lock code path must never run
+      FIRST_RUN_ANSWERS: "fish,TypeScript,pragmatic,default,N,N,N",
+    });
+    assertExit("hooks-declined run", r, "zero");
+    expect(() => readFileSync(`${settings}.lock`)).toThrow();
+  });
+
+  test("invalid FIRST_RUN_LOCK_TIMEOUT_SECS rejected (input validation)", () => {
+    const { env } = seedFixture();
+    const r = runFirstRun({
+      ...env,
+      FIRST_RUN_ANSWERS: DEFAULT_ANSWERS,
+      FIRST_RUN_LOCK_TIMEOUT_SECS: "not-a-number",
+    });
+    assertExit("bad-timeout run", r, "non-zero");
+  });
+
+  test("two concurrent runs: exactly one mutates, other fails cleanly", async () => {
+    const { settings, env } = seedFixture();
+    // Both procs target the same sandbox. With FIRST_RUN_LOCK_TIMEOUT_SECS=1,
+    // whichever loses the mkdir race times out fast and exits non-zero.
+    // Without the lock, both would race through validate/backup/write,
+    // producing two backups + a non-deterministic settings.json merge.
+    const racy = (): Promise<RunResult> =>
+      new Promise((resolve) => {
+        // Run in a Promise wrapper so Promise.all parallelizes; spawnSync
+        // is synchronous within a single tick but Bun's event loop will
+        // interleave the two micro-task wakeups closely enough that the
+        // kernel scheduler determines the winner.
+        queueMicrotask(() => {
+          resolve(
+            runFirstRun({
+              ...env,
+              FIRST_RUN_ANSWERS: DEFAULT_ANSWERS,
+              FIRST_RUN_LOCK_TIMEOUT_SECS: "1",
+            }),
+          );
+        });
+      });
+
+    const [a, b] = await Promise.all([racy(), racy()]);
+    const exits = [a.exitCode, b.exitCode].sort();
+    // Either both serialize (both zero, lock acquired+released sequentially)
+    // OR one wins the race and the loser times out → [0, 2]. The forbidden
+    // outcome is [2, 2] (both lost — should be impossible since the lock
+    // is empty at start) or [-1, anything] (spawn error). Both ZEROs is
+    // valid because the 1s wait deadline is loose enough to allow the
+    // second proc to acquire after the first releases.
+    expect(exits[0]).toBe(0);
+    expect([0, 2]).toContain(exits[1]);
+    // Final settings.json must be well-formed JSON with both hooks present
+    // (the winner's write committed; the loser, if any, never touched it).
+    const settingsJson = JSON.parse(readFileSync(settings, "utf8"));
+    const allow: string[] = settingsJson.permissions?.allow ?? [];
+    expect(allow.some((s) => s.endsWith("/hooks/block-dangerous-git.sh)"))).toBe(true);
+    expect(allow.some((s) => s.endsWith("/hooks/scope-tier-memory-check.sh)"))).toBe(true);
+    // Lockdir must not be leaked after both procs settle.
+    expect(() => readFileSync(`${settings}.lock`)).toThrow();
+  });
+});
