@@ -76,6 +76,10 @@ const seedFixture = (): {
   const home = mkdtempSync(join(tmpdir(), "first-run-test-"));
   fixtures.push(home);
   mkdirSync(join(home, ".claude"), { recursive: true });
+  // Seed ~/.claude/rules/ so the #396 preflight check passes. The script
+  // probes for this dir's existence to detect pre-install state; tests
+  // simulate a healthy post-install layout.
+  mkdirSync(join(home, ".claude", "rules"), { recursive: true });
   // Seed a CLAUDE.md identical to the repo's HEAD copy. The script's
   // "user has local edits" detection greps for the upstream H1 sentinel
   // (`# Global Claude Code Configuration`) — copying the real repo file
@@ -262,6 +266,35 @@ describe("first-run.fish — link-config --check failure surfaces", () => {
     expect(readFileSync(claudeMd, "utf8")).toContain(
       "<!-- managed:first-run -->",
     );
+  });
+});
+
+describe("first-run.fish — pre-install preflight (#396)", () => {
+  test("aborts non-zero with install.sh hint when ~/.claude/rules/ is absent", () => {
+    // Skip the seedFixture helper; we need a HOME with .claude/ but NO
+    // rules/ subdir to simulate the pre-install state.
+    const home = mkdtempSync(join(tmpdir(), "first-run-preflight-"));
+    fixtures.push(home);
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    const claudeMd = join(home, "CLAUDE.md");
+    copyFileSync(join(REPO, "global", "CLAUDE.md"), claudeMd);
+    const settings = join(home, ".claude", "settings.json");
+
+    const r = runFirstRun({
+      HOME: home,
+      FIRST_RUN_CLAUDE_MD_PATH: claudeMd,
+      FIRST_RUN_SETTINGS_PATH: settings,
+      FIRST_RUN_SKIP_VERIFY: "1",
+      FIRST_RUN_ANSWERS: DEFAULT_ANSWERS,
+    });
+    assertExit("pre-install run", r, "non-zero");
+    expect(r.stderr).toContain("install.sh");
+    // CLAUDE.md must remain untouched — preflight runs before any mutation.
+    expect(readFileSync(claudeMd, "utf8")).not.toContain(
+      "<!-- managed:first-run -->",
+    );
+    // Settings.json must not have been created.
+    expect(() => readFileSync(settings, "utf8")).toThrow();
   });
 });
 
