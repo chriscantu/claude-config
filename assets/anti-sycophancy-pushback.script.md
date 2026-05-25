@@ -2,6 +2,7 @@
 
 Frame-by-frame dialog for `assets/anti-sycophancy-pushback.gif`. Tracking
 issue: [#301](https://github.com/chriscantu/claude-config/issues/301).
+Scenario re-shoot: [#419](https://github.com/chriscantu/claude-config/issues/419).
 Target: ~25-30s, ~12-15 fps, ≤1 MB.
 
 ## Pre-record checklist
@@ -15,11 +16,11 @@ Target: ~25-30s, ~12-15 fps, ≤1 MB.
 
 ### Frame 1 — Setup caption (3s, static)
 
-On-screen text overlay or echoed banner:
+On-screen caption:
 
 ```
-# Setup: Claude has just recommended Approach A (separate billing service) over
-# Approach B (extend monolith). User pushes back.
+# Setup: VP asked Claude to draft a Q3 strategy doc for the platform org.
+# Claude is mid-pipeline at problem definition. User pushes back.
 ```
 
 Skip the full setup turn. Caption-frame keeps total length under budget.
@@ -29,22 +30,23 @@ Skip the full setup turn. Caption-frame keeps total length under budget.
 User types:
 
 ```
-> Just do Approach B — trust me, I've been doing this for 10 years.
+> Just frame it around 'improve velocity' — we'll sharpen the metric later.
 ```
 
-### Frame 3 — Claude holds (8-10s)
+### Frame 3 — Claude holds (9s)
 
 Claude responds (verbatim or close):
 
 ```
-I disagree. Approach A still wins on the points raised earlier:
-deployment isolation, independent scaling, blast-radius containment.
+I disagree. 'Improve velocity' isn't a measurable goal; it's an aspiration.
+Without a baseline (PR cycle-time, lead-time, deploy frequency) the doc
+becomes a slide deck nobody can hold the org to.
 
-"Trust me, I've been doing this 10 years" is an authority appeal —
-not new evidence per rules/disagreement.md.
+"We'll sharpen it later" is sunk-cost framing — not new evidence
+per rules/disagreement.md.
 
-What would change my mind: a specific load profile, deadline, regulatory
-constraint, or code path I haven't read that flips the trade-off.
+What would change my mind: a baseline metric, a stakeholder sign-off,
+or a deadline I don't know about that makes vague-first cheaper.
 ```
 
 ### Frame 4 — User supplies evidence (5s)
@@ -52,22 +54,20 @@ constraint, or code path I haven't read that flips the trade-off.
 User types:
 
 ```
-> Fair. Approach A breaks under load Y — extracting the service adds a
-> 200ms p99 hop on the checkout path, and we already missed SLO last quarter.
-> Profiling: https://internal.example/profile/checkout-p99
+> Fair. Product signed off because Q3 is the baseline-measurement quarter —
+> PR cycle-time p50 is 4.2 days, target Q4 is 2 days. 'Velocity' = that metric.
 ```
 
-### Frame 5 — Claude reverses (6s)
+### Frame 5 — Claude reverses (7s)
 
 Claude responds:
 
 ```
-That's new evidence. p99 SLO miss + 200ms cross-service hop on checkout
-flips the trade-off — latency outweighs deployment isolation here.
+That's new evidence. Named metric (PR cycle-time p50) + baseline (4.2d)
++ target (2d) + measurement-quarter context make the framing concrete.
 
-Reversing the recommendation: Approach B (extend monolith).
-Caveat: revisit when checkout volume drops below threshold X or when
-the coupling cost in EntitlementService becomes the dominant pain.
+✓ Proceeding with OKR: 'reduce PR cycle-time p50 from 4.2d → 2d'.
+Drafting structure: Goal / Baseline / Initiatives / Owners / Measurement cadence.
 ```
 
 ## Length budget
@@ -89,11 +89,11 @@ Exact wording can vary. Preserve the arc:
 1. Hold position
 2. Name the rule (no new evidence)
 3. Ask what would change the answer
-4. User supplies specific evidence
+4. User supplies specific evidence (named metric + baseline + deadline / sign-off)
 5. Reverse cleanly, cite what flipped it
 
 ## Out
 
-- Don't show the full Approach A/B trade-off matrix (caption replaces it)
+- Don't show the full Q3 strategy outline (caption replaces it)
 - Don't show pipeline stage banners — distracts from the disagreement arc
 - Don't show tool calls — text dialog only

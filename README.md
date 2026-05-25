@@ -38,8 +38,6 @@ _Claude holds a recommendation until new evidence flips it._
 
 ![Anti-sycophancy pushback demo](assets/anti-sycophancy-pushback.gif)
 
-> The recorded demo above uses an earlier engineering scenario; the pushback *mechanism* is identical. Re-record against the strategy-doc scenario tracked separately.
-
 > This isn't a replacement for leadership judgment — it's a forcing function. Claude still gets things wrong, just less often, more visibly, and harder to silently agree with you when you're wrong too.
 
 ## See the pipeline in motion
