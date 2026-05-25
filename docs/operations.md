@@ -277,3 +277,35 @@ future plugin version, the comment may need adjusting; the contract is
 If you genuinely want per-session tracking for a long-running task, add
 markers to a scratch file under `.claude/state/` (gitignored) rather
 than `Plans.md` — keeps the harness contract clean.
+
+## Remit Metrics
+
+The project's stated remit (README header) is *"thought partner for
+senior engineering leaders (Director / VP / senior ICs)."* Adoption is
+measured against one north-star and two guardrails. ADR
+[#0021](../adrs/0021-remit-level-north-star-metric.md) is the canonical
+decision; this section is the one-line operational definition.
+
+**Leadership-toolkit skills (canonical list):** `/onboard`,
+`/strategy-doc`, `/stakeholder-map`, `/swot`, `/1on1-prep`, `/present`,
+`/architecture-overview`. Update this list and ADR #0021 together when
+new leadership skills land.
+
+| Metric | Definition |
+|---|---|
+| **LE7** (north-star) | % of installs with ≥1 logged event that invoke ≥1 leadership-toolkit skill within 7 days of first event |
+| **RU30** (guardrail) | % of leadership-toolkit users who invoke ≥1 leadership-toolkit skill again within 30 days |
+| **SMB30** (guardrail) | Median count of *distinct* leadership-toolkit skills per active install per 30-day window |
+
+**"Active install"** for SMB30: ≥1 leadership-toolkit invocation in the
+30-day window.
+
+**Substrate** (current): local `~/.claude/usage.jsonl` event log fed by
+opt-in `UserPromptSubmit` hook. Build issue tracked separately. **Substrate**
+(post-marketplace publish, gated on ADR #0018 items 4 + 5): plugin install
+count + plugin-dependents graph + issue/PR references to skill names +
+repo stars (trend only).
+
+Roadmap PRs that do not plausibly move LE7 / RU30 / SMB30 (or a measured
+proxy) should justify themselves on a different axis (correctness,
+contributor velocity, governance) — not by default.
