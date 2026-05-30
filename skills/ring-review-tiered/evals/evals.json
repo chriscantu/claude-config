@@ -1,0 +1,132 @@
+{
+  "skill": "ring-review-tiered",
+  "description": "Evals for the ring-review-tiered skill. The skill exists to prevent uniform 4-critic dispatch on PRs that don't warrant it. Each eval below probes a tier boundary: trivial (skip ring), surgical (1 critic), medium (2 critics), large (4 + arbiter). The required-tier assertions enforce the discriminating signal: per-PR tier announcement is mandatory before any critic dispatch, because the calibration IS the skill's value-add. Without that line in the response, the user has no way to intercept a miscalibration. Diagnostic-tier assertions cover finer-grained quality signals (convergence ranking, override handling) that don't gate skill correctness but help spot regressions.",
+  "evals": [
+    {
+      "name": "trivial-binary-only-skip",
+      "summary": "Binary-only PR (icon PNGs) must classify as trivial and skip the ring entirely.",
+      "prompt": "Run a tiered ring review on PR #168 in chriscantu/speedreader-chrome. The PR adds 4 icon PNG files (16/48/128/256 px) and a single line in manifest.json pointing at them. No functional code changes. Use the ring-review-tiered skill.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(tier|classif)[^\\n]{0,80}trivial",
+          "flags": "i",
+          "tier": "required",
+          "description": "Names the tier as trivial in the announcement line — the skill's value-add is the visible classification, without it the user cannot intercept miscalibration"
+        },
+        {
+          "type": "regex",
+          "pattern": "skip[^\\n]{0,40}(ring|critic|review)|no critic|0 critic",
+          "flags": "i",
+          "tier": "required",
+          "description": "Explicitly states the ring is skipped — trivial tier MUST NOT dispatch critics"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "dispatch(ing)?\\s+(4|four|all|full|the\\s+ring)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Does NOT dispatch the full ring on a binary-only PR — that's the exact theater the skill exists to prevent"
+        }
+      ]
+    },
+    {
+      "name": "surgical-single-critic",
+      "summary": "2-file 18-LOC surgical PR with no boundary crossing should get 1 cross-dim critic, not 4.",
+      "prompt": "Tiered ring review on PR #170 in chriscantu/speedreader-chrome. The PR is 2 files, 18 LOC: adds a listener on the prefers-color-scheme media query in src/core/overlay/theme.ts and a matching test. No boundary crossing.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "tier[^\\n]{0,80}surgical",
+          "flags": "i",
+          "tier": "required",
+          "description": "Names the tier as surgical in the announcement"
+        },
+        {
+          "type": "regex",
+          "pattern": "(1|one|single)[^\\n]{0,40}critic|cross[- ]dim|code[- ]analyzer",
+          "flags": "i",
+          "tier": "required",
+          "description": "Dispatches a single cross-dimension critic (or code-analyzer) — not the full ring"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(dispatch(ing)?|spawn(ing)?)\\s+(4|four|all four|the full ring|security.{0,20}perf.{0,20}scope.{0,20}test)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Does NOT spawn 4 critics on a surgical PR"
+        }
+      ]
+    },
+    {
+      "name": "large-boundary-full-ring",
+      "summary": "Large multi-file PR crossing core↔chrome boundary with manifest + WAR changes must dispatch the full 4-critic ring plus arbiter.",
+      "prompt": "Tiered ring review on PR #169 in chriscantu/speedreader-chrome. The PR touches 16 files, 312 LOC, modifies manifest.json (adds web_accessible_resources matches), adds OpenDyslexic font assets, wires up the font loader in src/chrome/content/, and updates src/core/overlay/font.ts. Boundary cross + CSP-adjacent.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "tier[^\\n]{0,80}(large|boundary|security)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Names the tier as large/boundary/security"
+        },
+        {
+          "type": "regex",
+          "pattern": "(4|four|full)[^\\n]{0,60}(critic|ring)|security[^\\n]{0,30}(perf|performance)[^\\n]{0,30}scope[^\\n]{0,30}test",
+          "flags": "i",
+          "tier": "required",
+          "description": "Dispatches the full 4-critic ring — boundary + manifest + WAR is exactly the case the full ring exists for"
+        },
+        {
+          "type": "regex",
+          "pattern": "arbiter|synthesi[sz]e|SUMMARY\\.md",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Plans an arbiter pass on large-tier — large tier is where arbiter dispatch earns its keep"
+        }
+      ]
+    },
+    {
+      "name": "user-says-run-full-ring-on-trivial",
+      "summary": "REGRESSION GUARD. User asks for full ring on a trivial PR. Skill must surface the tier mismatch and not silently dispatch 4 critics — but should honor an explicit --force-tier override.",
+      "prompt": "Run the full antagonistic ring on PR #168 in chriscantu/speedreader-chrome. The PR is binary-only icon PNGs and a one-line manifest update. Use ring-review-tiered.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "trivial|binary[- ]only|skip|low[- ]signal|theater|burns?\\s+(token|critic)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Surfaces the trivial classification and the cost of running the full ring anyway — the skill's whole point is to prevent silent uniform dispatch"
+        },
+        {
+          "type": "regex",
+          "pattern": "override|--force-tier|user[- ]requested|honor(ed|ing)?[^\\n]{0,60}(request|ask|user)|confirm",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Either surfaces the override mechanism or asks the user to confirm — doesn't capitulate without naming the trade-off"
+        }
+      ]
+    },
+    {
+      "name": "medium-storage-touching-pr",
+      "summary": "Medium PR touching popup ↔ chrome.storage.sync boundary should get 2 critics, dimension-targeted (security + test-gap is the canonical pairing for storage).",
+      "prompt": "Tiered ring review on PR #171 in chriscantu/speedreader-chrome. The PR adds font-size stepper buttons to the popup, wires them through chrome.storage.sync round-trip, and updates the overlay to react to storage changes. 3 files, 142 LOC, popup ↔ storage boundary.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "tier[^\\n]{0,80}medium",
+          "flags": "i",
+          "tier": "required",
+          "description": "Names the tier as medium"
+        },
+        {
+          "type": "regex",
+          "pattern": "(2|two)[^\\n]{0,40}critic|security[^\\n]{0,40}(test[- ]gap|test gap|test-coverage)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Dispatches 2 critics, ideally security + test-gap for a storage-touching PR"
+        }
+      ]
+    }
+  ]
+}

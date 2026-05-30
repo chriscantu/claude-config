@@ -1,0 +1,167 @@
+{
+  "skill": "swarm-batch-dispatcher",
+  "description": "Evals for the swarm-batch-dispatcher skill. Each eval probes one of the hard-learned constraints the skill exists to enforce: subagent sandbox boundaries (worktree path + no git/gh in builder), full-CI verify gate before push, spec-first ordering on needs-spec issues, and builder-claim verification by coordinator. Required-tier assertions guard the constraints that previously caused production failures — silent worktree path drift, missing format:check, missing spec PR, unverified builder summaries. Diagnostic-tier assertions cover quality signals (adversarial-self brief, ring delegation) that don't gate correctness but mark a skilled dispatch.",
+  "evals": [
+    {
+      "name": "standard-parallel-batch",
+      "summary": "User asks for a standard 4-issue parallel batch. Skill must create worktrees inside the repo, brief builders to skip git/gh, and plan coordinator-side finalization.",
+      "prompt": "Run a parallel swarm batch on issues #10, #11, #26, #29 in chriscantu/speedreader-chrome. Default builder. Use the swarm-batch-dispatcher skill.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\.worktrees/(issue-)?",
+          "flags": "i",
+          "tier": "required",
+          "description": "Worktrees placed at .worktrees/ INSIDE the repo — outside paths fail under the subagent sandbox"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "~/\\.config/superpowers/worktrees|\\$HOME/\\.config/superpowers",
+          "flags": "i",
+          "tier": "required",
+          "description": "Does NOT use the ~/.config/superpowers/worktrees/ path that the adjacent skill defaults to — that path is sandbox-blocked for subagents"
+        },
+        {
+          "type": "regex",
+          "pattern": "coordinat(or|e)[^\\n]{0,80}(commit|push|PR|finaliz|finish)|builder[^\\n]{0,80}(cannot|can'?t|not allowed)[^\\n]{0,40}(git|gh)|no\\s+git[/ ]gh",
+          "flags": "i",
+          "tier": "required",
+          "description": "Brief states coordinator does commit/push/PR, NOT the builder — sandbox blocks git/gh in builder subagents"
+        },
+        {
+          "type": "regex",
+          "pattern": "lint[^\\n]{0,40}format[^\\n]{0,40}test[^\\n]{0,40}build|npm run lint && npm run format:check && npm run test && npm run build",
+          "flags": "i",
+          "tier": "required",
+          "description": "Verify gate spans ALL four CI steps: lint + format:check + test + build — partial gates leak failures to CI"
+        }
+      ]
+    },
+    {
+      "name": "needs-spec-detour",
+      "summary": "REGRESSION GUARD. Issue is labeled needs-spec — skill must dispatch spec architect first, land spec PR, merge, THEN dispatch implementer. Must NOT run both back-to-back.",
+      "prompt": "Batch issue #65 in chriscantu/speedreader-chrome. The issue is labeled `needs-spec` and asks for a settings-schema implementation. Use swarm-batch-dispatcher.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "spec[^\\n]{0,60}(PR|merge|first|before)|spec/[^\\s]+\\s+branch|architect[^\\n]{0,60}(first|before)|spec-first|spec[- ]?only PR",
+          "flags": "i",
+          "tier": "required",
+          "description": "Recognizes needs-spec ordering: spec dispatched FIRST, PR opened, merged before implementer dispatch"
+        },
+        {
+          "type": "regex",
+          "pattern": "verify[^\\n]{0,80}(commit|wrote|claim)|git log[^\\n]{0,40}(verify|confirm)|architect[^\\n]{0,80}(summary|claim)[^\\n]{0,80}(verify|confirm|intent)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Notes that the architect's 'wrote spec at X' claim must be verified via git log — agent summaries describe intent, not action"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(parallel|simultaneously|both at once|back[- ]to[- ]back)[^\\n]{0,80}(spec|implement)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Does NOT plan parallel/back-to-back spec + implementation dispatch — that's the failure mode that lost the 2026-05-08 settings schema spec"
+        }
+      ]
+    },
+    {
+      "name": "ci-behind-loop",
+      "summary": "User asks about the CI step. Skill must describe the BEHIND-state branch-update loop, not just a single status check.",
+      "prompt": "Walk me through how swarm-batch-dispatcher handles the CI poll step after PRs are open. Specifically, what happens when one PR lands and the others go BEHIND? Use the skill.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "BEHIND",
+          "flags": "",
+          "tier": "required",
+          "description": "Names the BEHIND merge state explicitly — this is the specific GitHub state the loop exists to handle"
+        },
+        {
+          "type": "regex",
+          "pattern": "gh pr update-branch|update[- ]branch",
+          "flags": "i",
+          "tier": "required",
+          "description": "Names the gh pr update-branch resolution — without it the merge stalls and the user has to unstick manually"
+        },
+        {
+          "type": "regex",
+          "pattern": "(loop|repeat|retry|again|re[- ]check)[^\\n]{0,80}(poll|state|status|CI|check)|sequential[^\\n]{0,40}merge",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Describes the loop nature (poll → BEHIND → update-branch → re-poll) rather than presenting it as a one-shot"
+        }
+      ]
+    },
+    {
+      "name": "builder-claim-verification",
+      "summary": "User asks what to do when a builder reports clean. Skill must call out verification of the claim before committing.",
+      "prompt": "A builder subagent in my batch just reported back with clean state — tests pass, build clean, files modified are A, B, C. Before I commit and push, what does the swarm-batch-dispatcher workflow say I should do?",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "git status|verify[^\\n]{0,60}(modifi|change|file)|match[^\\n]{0,40}(claim|report)|restor",
+          "flags": "i",
+          "tier": "required",
+          "description": "Coordinator verifies git status matches builder claim before committing — builders sometimes probe and restore source files"
+        },
+        {
+          "type": "regex",
+          "pattern": "(intent|claim|summary)[^\\n]{0,60}(not|≠|vs|actual|action)|describ[^\\n]{0,40}intent",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Cites the 'agent summaries describe intent, not action' principle — the why behind the verification step"
+        }
+      ]
+    },
+    {
+      "name": "adversarial-self-brief",
+      "summary": "Quality signal: the builder brief should invite pushback (refuse speculative work, mutation-test claims). This is the build-stage discriminating-signal discipline.",
+      "prompt": "Show me the builder brief swarm-batch-dispatcher would dispatch for an issue that says 'widen the THEME_TOKENS interface to include 5 floor slots so future themes can use them.' Issue body warns: 'do not ship speculative widening; audit first.'",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(audit|invalidates?|premise|refus|don'?t fabricat|propose disposition|not fabricat)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Brief invites the builder to refuse speculative work when the audit invalidates the premise — discriminating-signal discipline at build stage"
+        },
+        {
+          "type": "regex",
+          "pattern": "(mutat|tautolog|flip[s]? red|discriminat|invariant)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Brief mentions mutation-testing or tautological-assertion guard — quality signal from #116 builder pattern"
+        }
+      ]
+    },
+    {
+      "name": "fish-shell-commit-msg",
+      "summary": "Coordinator step writes commit messages — must use fish-safe pattern (temp file), not bash heredoc.",
+      "prompt": "I'm running swarm-batch-dispatcher and ready for step 5 (commit + push). My shell is fish. Show me the exact commit-message pattern.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "echo[^\\n]{0,80}>\\s*/tmp/|temp(orary)?\\s+file|>\\s*/tmp/[^\\s]+",
+          "flags": "i",
+          "tier": "required",
+          "description": "Uses temp-file redirect pattern, not heredoc — fish doesn't support bash heredocs"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "<<\\s*['\"]?EOF['\"]?",
+          "flags": "i",
+          "tier": "required",
+          "description": "Does NOT use bash heredoc syntax (<<'EOF') — that breaks under fish"
+        },
+        {
+          "type": "regex",
+          "pattern": "git\\s+commit\\s+-F\\s+/tmp/|commit\\s+-F",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Uses git commit -F <file> to read message from temp file"
+        }
+      ]
+    }
+  ]
+}
