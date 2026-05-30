@@ -9,6 +9,12 @@ excalidraw.log.*
 .claude/sessions/
 .claude/memory/session-log.md
 .harness-mem/
+
+# Ruflo / claude-flow runtime caches — adversarial-ring shared memory + daemon state.
+# Preserved on disk for cross-session learning; never tracked.
+.claude-flow/
+.swarm/
+
 out/
 global/*.bak
 tests/results/*
