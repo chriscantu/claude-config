@@ -62,13 +62,7 @@ Source: https://github.com/forrestchang/andrej-karpathy-skills — biases toward
 **HARD-GATE cap.** The current 8 HARD-GATE rules listed in `rules/README.md`'s "What lives here" table are the ceiling. New behavioral concerns must extend an existing rule, not add a 9th. Adding a 9th requires extension-first audit, discriminating eval signal per [ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md) at the new rule's specific boundary, and substrate cost accounting. See [`rules/GOVERNANCE.md#hard-gate-cap`](../rules/GOVERNANCE.md#hard-gate-cap) for the canonical three-condition gate.
 
 ### 1. Think Before Coding
-**Don't assume. Don't hide confusion. Surface tradeoffs.** Promoted to a HARD-GATE rule — see `rules/think-before-coding.md` for the enforced version (three-part preamble: Assumptions / Interpretations / Simpler-Path Challenge; skip contract; pipeline placement).
-
-Quick reference:
-- State assumptions explicitly. If uncertain, ask.
-- If multiple interpretations exist, present them — don't pick silently.
-- If a simpler approach exists, say so. Push back when warranted.
-- If something is unclear, stop. Name what's confusing. Ask.
+Enforced version: see `rules/think-before-coding.md` (loaded as HARD-GATE).
 
 > Extends `Communication Style` into the implementation phase. Composes with `superpowers:brainstorming` — preamble sits at the top of the "Propose 2-3 approaches" step, not as a replacement for it.
 
@@ -91,13 +85,7 @@ Quick reference:
 - Test: every changed line traces directly to the user's request.
 
 ### 4. Goal-Driven Execution
-**Define success criteria. Loop until verified.** Promoted to a HARD-GATE rule — see `rules/goal-driven.md` for the enforced version (skip contract, required plan shape, loop semantics).
-
-Quick reference:
-- "Add validation" → "Write tests for invalid inputs, then make them pass"
-- "Fix the bug" → "Write a test that reproduces it, then make it pass"
-- "Refactor X" → "Ensure tests pass before and after"
-- Multi-step work: brief plan, per-step verify check, no advancement until check passes.
+Enforced version: see `rules/goal-driven.md` (loaded as HARD-GATE).
 
 > Produces the per-step verify criteria referenced by `Verification (IMPORTANT)` and the TDD line in `Development Defaults`. `goal-driven.md` is the gate at the start (criteria defined); `Verification` is the gate at the finish (criteria enforced).
 
