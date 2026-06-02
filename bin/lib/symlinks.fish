@@ -25,6 +25,18 @@
 #       STALE       — dst is symlink with wrong target; detail = current target
 #       NOT_SYMLINK — dst exists as real file/dir; detail = "real file"
 #
+#   each_orphan_symlink REPO HOME_CLAUDE
+#     Walks managed namespace dirs (rules, agents, commands, hooks, skills)
+#     under HOME_CLAUDE and yields one line per orphan:
+#       ORPHAN|dst|target
+#     An orphan is a symlink whose readlink target points INTO REPO but
+#     whose dst path is NOT in the current each_symlink_target output.
+#     Closes the silent-failure mode where a file dropped from the managed
+#     layout (e.g., README.md skip-rule landed in PR #198) leaves its old
+#     symlink in place, silently auto-loading content that's no longer
+#     managed (issue #431). The repo-prefix guard ensures unrelated
+#     plugins under ~/.claude/<dir>/ are never touched.
+#
 # Both callers (validate.fish Phase 1e and bin/link-config.fish) source this
 # file. If the layout changes, edit each_symlink_target — both validators
 # inherit the change automatically.
@@ -114,6 +126,44 @@ function check_symlink_layout --argument-names repo home_claude
             printf 'NOT_SYMLINK|%s|%s\n' $dst "real file"
         else
             printf 'MISSING|%s|%s\n' $dst $src
+        end
+    end
+end
+
+function each_orphan_symlink --argument-names repo home_claude
+    if test -z "$repo"; or test -z "$home_claude"
+        echo "each_orphan_symlink: usage: each_orphan_symlink REPO HOME_CLAUDE" >&2
+        return 2
+    end
+
+    # Materialize the expected-dst set once. Each entry is kind|src|dst|label;
+    # we only need the dst column.
+    set -l expected
+    for entry in (each_symlink_target $repo $home_claude)
+        set -l parts (string split -m 3 "|" $entry)
+        set -a expected $parts[3]
+    end
+
+    # Walk only the managed namespace dirs. Anything outside this set is
+    # off-limits — user's other plugins live next to us under ~/.claude/.
+    for dir in rules agents commands hooks skills
+        set -l home_dir $home_claude/$dir
+        if not test -d $home_dir
+            continue
+        end
+        for path in $home_dir/*
+            if not test -L $path
+                continue
+            end
+            set -l target (readlink $path)
+            # Repo-prefix guard: only consider symlinks pointing INTO this repo.
+            # Trailing slash on $repo prevents prefix collisions (/foo vs /foobar).
+            if not string match -q "$repo/*" $target
+                continue
+            end
+            if not contains $path $expected
+                printf 'ORPHAN|%s|%s\n' $path $target
+            end
         end
     end
 end

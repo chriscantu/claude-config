@@ -233,6 +233,81 @@ cleanup_fixture $repo
 cleanup_fixture $home
 
 echo ""
+echo "── Test F: each_orphan_symlink finds dst whose target is in repo but not in layout"
+set repo (make_repo_fixture)
+set home (make_home_fixture)
+install_layout $repo $home
+# Plant an orphan: symlink rules/retired.md → repo/rules/foo.md (a real file
+# in the fixture). dst path is not yielded by each_symlink_target → orphan.
+mkdir -p $home/rules
+ln -s $repo/rules/foo.md $home/rules/retired.md
+set orphans (each_orphan_symlink $repo $home)
+set found_orphan 0
+for o in $orphans
+    if string match -q "ORPHAN|$home/rules/retired.md|*" $o
+        set found_orphan 1
+    end
+end
+if test $found_orphan -eq 1
+    t_pass "orphan symlink reported"
+else
+    t_fail "orphan symlink not detected: $orphans"
+end
+cleanup_fixture $repo
+cleanup_fixture $home
+
+echo ""
+echo "── Test G: each_orphan_symlink ignores symlinks pointing outside repo"
+set repo (make_repo_fixture)
+set home (make_home_fixture)
+install_layout $repo $home
+# Foreign symlink — points outside $repo. Must NOT be flagged. Simulates a
+# user's other plugin living next to us under ~/.claude/rules/.
+set foreign (mktemp)
+echo "# foreign rule" > $foreign
+mkdir -p $home/rules
+ln -s $foreign $home/rules/from-other-plugin.md
+set orphans (each_orphan_symlink $repo $home)
+set leaked_foreign 0
+for o in $orphans
+    if string match -q "*from-other-plugin.md*" $o
+        set leaked_foreign 1
+    end
+end
+if test $leaked_foreign -eq 0
+    t_pass "foreign symlink correctly ignored (repo-prefix guard)"
+else
+    t_fail "foreign symlink flagged: $orphans"
+end
+rm -f $foreign
+cleanup_fixture $repo
+cleanup_fixture $home
+
+echo ""
+echo "── Test H: each_orphan_symlink ignores real files at managed dst"
+set repo (make_repo_fixture)
+set home (make_home_fixture)
+install_layout $repo $home
+# A real file (not a symlink) at a managed namespace dir. Must be ignored by
+# the orphan walker — handled by NOT_SYMLINK in check_symlink_layout.
+mkdir -p $home/rules
+echo "real" > $home/rules/notalink.md
+set orphans (each_orphan_symlink $repo $home)
+set leaked_realfile 0
+for o in $orphans
+    if string match -q "*notalink.md*" $o
+        set leaked_realfile 1
+    end
+end
+if test $leaked_realfile -eq 0
+    t_pass "real file at managed dst correctly ignored"
+else
+    t_fail "real file flagged as orphan: $orphans"
+end
+cleanup_fixture $repo
+cleanup_fixture $home
+
+echo ""
 echo "─────────────────────────────────────────────────"
 echo "Symlinks lib regression: $test_pass passed, $test_fail failed"
 if test $test_fail -gt 0
