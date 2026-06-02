@@ -1,6 +1,7 @@
 {
   "loc_threshold": 100,
   "file_threshold": 3,
+  "path_min_loc_threshold": 20,
   "hard_gate_paths": [
     "^rules/",
     "^adrs/",
