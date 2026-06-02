@@ -15,17 +15,27 @@
 # Usage:
 #   ./bin/link-config.fish            # idempotent sync; refuse-on-real-file
 #   ./bin/link-config.fish --install  # first-time setup; back up real files to .bak
-#   ./bin/link-config.fish --check    # exit 1 if any link missing or stale (CI-friendly)
+#   ./bin/link-config.fish --check    # exit 1 if any link missing/stale/orphan
 #
 # Mode semantics:
-#   default — install missing links, repair stale ones, ERROR on real files
-#               (real files at the target path are NEVER overwritten)
+#   default — install missing links, repair stale ones, prune orphan symlinks
+#               pointing into the repo, ERROR on real files (real files at the
+#               target path are NEVER overwritten).
 #   --install — same, but BACK UP real files to <name>.bak then symlink.
 #               If <name>.bak already exists, ERROR (won't clobber prior backup).
-#   --check — read-only verification; exit 1 on missing/stale, exit 0 if clean
+#               Orphans are pruned (no .bak — they're already symlinks).
+#   --check — read-only verification; exit 1 on missing/stale/orphan, exit 0 if clean
+#
+# Orphan: a symlink under ~/.claude/<managed-dir>/ whose readlink target
+# points INTO this repo but whose dst path is no longer in the managed
+# layout (e.g., README.md after the skip rule landed in PR #198). The
+# repo-prefix guard inside each_orphan_symlink keeps user's other plugins
+# under ~/.claude/<managed-dir>/ off-limits — only repo-targeting symlinks
+# are pruned. Issue #431.
 #
 # Safe to re-run: existing correct symlinks are left alone, broken or wrong-target
-# symlinks are repaired, real files are never silently overwritten.
+# symlinks are repaired, real files are never silently overwritten, orphan
+# symlinks pointing into the repo are pruned.
 
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
 set -l home_claude $HOME/.claude
