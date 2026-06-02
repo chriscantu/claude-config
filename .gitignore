@@ -1,4 +1,4 @@
-default.profraw
+*.profraw
 .vscode/
 .DS_Store
 excalidraw.log
