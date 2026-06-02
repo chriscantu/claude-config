@@ -53,6 +53,8 @@ set -g linked 0
 set -g skipped 0
 set -g errors 0
 set -g backed_up 0
+set -g pruned 0
+set -g orphans 0
 
 # Ensure parent directory exists for a destination link.
 # Returns 0 on success, 1 on mkdir failure.
@@ -179,6 +181,15 @@ if test "$mode" = check
                 set -g errors (math $errors + 1)
         end
     end
+    # Report orphans alongside missing/stale — counted into the failure exit
+    # so CI catches them without needing a separate run.
+    for orphan in (each_orphan_symlink $repo $home_claude)
+        set -l parts (string split -m 3 "|" $orphan)
+        set -l dst $parts[2]
+        set -l target $parts[3]
+        echo "ORPHAN link: $dst -> $target (no longer in managed layout)"
+        set -g orphans (math $orphans + 1)
+    end
 else
     # Install / first-install: iterate the shared layout and create symlinks.
     set -l entries (each_symlink_target $repo $home_claude)
@@ -202,17 +213,36 @@ else
             link_one $src $dst $label
         end
     end
+
+    # Prune orphans — symlinks that point INTO this repo but are no longer in
+    # the managed layout (e.g., README.md after the skip-rule landed in PR #198).
+    # Repo-prefix guard inside each_orphan_symlink keeps user's other plugins
+    # off-limits. Issue #431.
+    for orphan in (each_orphan_symlink $repo $home_claude)
+        set -l parts (string split -m 3 "|" $orphan)
+        set -l dst $parts[2]
+        set -l target $parts[3]
+        if rm $dst
+            echo "PRUNED: $dst -> $target"
+            set -g pruned (math $pruned + 1)
+        else
+            echo "ERROR: rm $dst failed (cannot prune orphan symlink)" >&2
+            set -g errors (math $errors + 1)
+        end
+    end
 end
 
 echo ""
 if test "$mode" = first-install
-    echo "Summary: linked=$linked already-ok=$skipped backed-up=$backed_up errors=$errors"
+    echo "Summary: linked=$linked already-ok=$skipped backed-up=$backed_up pruned=$pruned errors=$errors"
+else if test "$mode" = check
+    echo "Summary: linked=$linked already-ok=$skipped errors=$errors missing=$missing orphans=$orphans"
 else
-    echo "Summary: linked=$linked already-ok=$skipped errors=$errors missing=$missing"
+    echo "Summary: linked=$linked already-ok=$skipped pruned=$pruned errors=$errors missing=$missing"
 end
 
 if test "$mode" = check
-    if test $missing -gt 0; or test $errors -gt 0
+    if test $missing -gt 0; or test $errors -gt 0; or test $orphans -gt 0
         exit 1
     end
 end
