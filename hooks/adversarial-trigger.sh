@@ -18,6 +18,7 @@ CONFIG="hooks/adversarial-config.json"
 # ── Load thresholds ──────────────────────────────────────────────────────────
 LOC_THRESHOLD=$(jq -r '.loc_threshold' "$CONFIG")
 FILE_THRESHOLD=$(jq -r '.file_threshold' "$CONFIG")
+PATH_MIN_LOC=$(jq -r '.path_min_loc_threshold // 0' "$CONFIG")
 DEBOUNCE=$(jq -r '.debounce_seconds' "$CONFIG")
 HARD_GATE_PATTERN=$(jq -r '.hard_gate_paths | join("|")' "$CONFIG")
 
@@ -36,8 +37,8 @@ if [[ "$LOC_DELTA" -ge "$LOC_THRESHOLD" ]]; then
   FIRE=1; REASON="loc=$LOC_DELTA"
 elif [[ "$FILE_COUNT" -ge "$FILE_THRESHOLD" ]]; then
   FIRE=1; REASON="files=$FILE_COUNT"
-elif [[ -n "$PATH_HIT" ]]; then
-  FIRE=1; REASON="path=$PATH_HIT"
+elif [[ -n "$PATH_HIT" && "$LOC_DELTA" -ge "$PATH_MIN_LOC" ]]; then
+  FIRE=1; REASON="path=$PATH_HIT loc=$LOC_DELTA"
 fi
 
 [[ "$FIRE" -eq 0 ]] && exit 0

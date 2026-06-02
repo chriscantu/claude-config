@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, lstatSync, unlinkSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, lstatSync, unlinkSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -109,6 +109,65 @@ describe("link-config.fish round-trip", () => {
     // token like `relinked=0` cannot false-pass.
     expect(summary!).toStartWith("Summary: linked=0 ");
     expect(summary!).toMatch(/already-ok=[1-9]/);
+  });
+
+  test("--install prunes orphan symlinks pointing into repo but not in layout (issue #431)", () => {
+    const home = makeFixtureHome();
+
+    const install = runLinkConfig(home, "--install");
+    assertExit("setup --install", install, "zero");
+
+    // Plant an orphan: symlink ~/.claude/rules/retired.md → a real file
+    // inside the repo (rules/GOVERNANCE.md is in-repo but excluded from
+    // the layout, so it's a stable target that always exists). The orphan's
+    // dst path (retired.md) is not yielded by each_symlink_target, so it
+    // must be pruned. Mirrors the README.md regression that motivated the
+    // fix.
+    const orphanDst = join(home, ".claude", "rules", "retired.md");
+    const orphanTarget = join(REPO, "rules", "GOVERNANCE.md");
+    mkdirSync(join(home, ".claude", "rules"), { recursive: true });
+    symlinkSync(orphanTarget, orphanDst);
+    expect(lstatSync(orphanDst).isSymbolicLink()).toBe(true);
+
+    // --check sees the orphan and exits non-zero.
+    const checkBefore = runLinkConfig(home, "--check");
+    assertExit("--check with orphan", checkBefore, "non-zero");
+    expect(checkBefore.stdout).toMatch(/ORPHAN link:.*retired\.md/);
+
+    // --install (default mode, not first-install) prunes it.
+    const reinstall = runLinkConfig(home);
+    assertExit("--install with orphan present", reinstall, "zero");
+    expect(reinstall.stdout).toMatch(/PRUNED:.*retired\.md/);
+    expect(existsSync(orphanDst)).toBe(false);
+
+    // --check now clean.
+    const checkAfter = runLinkConfig(home, "--check");
+    assertExit("--check after prune", checkAfter, "zero");
+  });
+
+  test("--install does NOT prune symlinks pointing outside the repo (foreign-plugin safety)", () => {
+    const home = makeFixtureHome();
+
+    const install = runLinkConfig(home, "--install");
+    assertExit("setup --install", install, "zero");
+
+    // Simulate another plugin's symlink under ~/.claude/rules/.
+    // Target lives outside this repo — the repo-prefix guard inside
+    // each_orphan_symlink must keep it untouched.
+    const foreignTargetDir = mkdtempSync(join(tmpdir(), "foreign-plugin-"));
+    fixtures.push(foreignTargetDir);
+    const foreignTarget = join(foreignTargetDir, "from-other-plugin.md");
+    // Use Bun's file write — file doesn't need to exist for symlink, but
+    // touching it is closer to the real-world case.
+    Bun.write(foreignTarget, "# foreign rule\n");
+    const foreignDst = join(home, ".claude", "rules", "from-other-plugin.md");
+    mkdirSync(join(home, ".claude", "rules"), { recursive: true });
+    symlinkSync(foreignTarget, foreignDst);
+
+    const reinstall = runLinkConfig(home);
+    assertExit("--install with foreign symlink present", reinstall, "zero");
+    expect(reinstall.stdout).not.toMatch(/PRUNED:.*from-other-plugin/);
+    expect(existsSync(foreignDst)).toBe(true);
   });
 
   test("--check exits non-zero with STALE line when symlink is broken", () => {
