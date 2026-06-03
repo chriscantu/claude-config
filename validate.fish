@@ -1421,6 +1421,53 @@ end
 
 echo ""
 
+# 1t. Per-rule LOC ceiling (issue #443)
+# Substrate-cost prevention: every HARD-GATE rule under rules/ pre-loads on
+# every prompt. Without a ceiling, accretion drifts silently and compresses
+# only reactively (#435, #440). This phase fails loudly when any loadable rule
+# breaches the ceiling, forcing decompose-or-split before merge.
+#
+# Scope: rules/*.md EXCLUDING README.md and GOVERNANCE.md per GOVERNANCE
+# "NOT symlinked into ~/.claude/rules/" — repo-internal docs, not per-prompt
+# substrate. Token-exact measurement deferred (would require tokenizer
+# dependency + billing path); LOC is a deterministic proxy and every line
+# costs bytes loaded.
+_phase_begin "1t"
+echo "── Phase 1t: per-rule LOC ceiling (issue #443)"
+
+set -l rule_loc_ceiling 250
+set -l rule_glob $repo_dir/rules/*.md
+set -l p1t_loadable_found 0
+for rule in $rule_glob
+    if not test -f $rule
+        continue
+    end
+    set -l name (basename $rule .md)
+    # README and GOVERNANCE are documentation/policy artifacts, not symlinked
+    # into ~/.claude/rules/, so they do not load per prompt. Exclude from
+    # substrate ceiling.
+    if test "$name" = README; or test "$name" = GOVERNANCE
+        continue
+    end
+    set p1t_loadable_found 1
+    set -l loc (wc -l <$rule | string trim)
+    if test -z "$loc"; or not string match -qr '^\d+$' -- "$loc"
+        fail "Phase 1t: wc -l returned non-numeric for rules/$name.md: '$loc'"
+        continue
+    end
+    if test $loc -gt $rule_loc_ceiling
+        fail "rules/$name.md: $loc LOC exceeds ceiling $rule_loc_ceiling — decompose or split (see GOVERNANCE.md stable anchor pattern)"
+    else
+        pass "rules/$name.md: $loc/$rule_loc_ceiling LOC"
+    end
+end
+
+if test $p1t_loadable_found -eq 0
+    fail "Phase 1t: no loadable rules found under rules/ (excluding README.md, GOVERNANCE.md)"
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
