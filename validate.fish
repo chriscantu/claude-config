@@ -1468,6 +1468,85 @@ end
 
 echo ""
 
+# 1u. Slash-trigger collision (issue #442)
+# At 22 skills today and growing, two skills claiming the same `/foo` trigger
+# in their frontmatter description silently break the router. Phase 1u extracts
+# slash triggers from every SKILL.md frontmatter description, builds a trigger →
+# owner map, and fails when two different skills claim the same trigger.
+#
+# Frontmatter shape (name/description present, name matches dir) is already
+# enforced by Phase 1a — this phase is collision detection only.
+#
+# Slash trigger pattern: `/[a-z][a-z0-9-]*` anywhere in the description text.
+# A skill with NO slash trigger in its description is silently skipped (some
+# skills auto-trigger on natural-language patterns only).
+_phase_begin "1u"
+echo "── Phase 1u: slash-trigger collision (issue #442)"
+
+set -l p1u_skill_md_files $repo_dir/skills/*/SKILL.md
+set -l p1u_found 0
+set -l p1u_triggers
+set -l p1u_owners
+
+for skill_md in $p1u_skill_md_files
+    if not test -f $skill_md
+        continue
+    end
+    set p1u_found 1
+    set -l skill_name (basename (dirname $skill_md))
+    set -l desc (frontmatter_get $skill_md description)
+    # Multi-line YAML descriptions (folded `>` or `|`) span past the first line.
+    # frontmatter_get only returns the field's initial line; concatenate the
+    # rest of the frontmatter as a fallback so a folded-block description still
+    # gets scanned for slash tokens.
+    set -l all_fm (sed -n '2,/^---$/p' $skill_md | sed '$d')
+    set -l haystack "$desc $all_fm"
+    # Claim pattern: `/foo` appearing immediately after a claim verb. Real-repo
+    # audit (2026-06-03) found four phrasings in use: `says /foo`,
+    # `(explicitly )invokes /foo`, `runs /foo`, `types /foo`. Everything else —
+    # `(use /bar)`, `collates /baz`, `instead of /qux` — is a cross-reference,
+    # not a claim. Verb anchor + optional adverb keeps the regex robust against
+    # phrasing drift without over-matching arbitrary slash mentions.
+    # Older PCRE on Ubuntu 22.04 CI (fish 3.3) rejects variable-length
+    # lookbehind. Use a capture group instead — `string match -ar` returns
+    # match + each capture interleaved, so the slash trigger is at every
+    # second position starting from index 2.
+    set -l raw (string match -ar '(?:says|invokes|runs|types)\s+(/[a-z][a-z0-9-]*)' -- $haystack)
+    set -l triggers
+    set -l n (count $raw)
+    if test $n -ge 2
+        for i in (seq 2 2 $n)
+            set -a triggers $raw[$i]
+        end
+        set triggers (printf '%s\n' $triggers | sort -u)
+    end
+
+    if test (count $triggers) -eq 0
+        pass "skills/$skill_name: no slash trigger in description (skipped)"
+        continue
+    end
+
+    for trigger in $triggers
+        set -l idx (contains -i -- $trigger $p1u_triggers)
+        if test -n "$idx"
+            set -l prev_owner $p1u_owners[$idx]
+            if test "$prev_owner" != "$skill_name"
+                fail "skills/$skill_name claims $trigger but skills/$prev_owner already owns it — slash-trigger collision"
+            end
+        else
+            set -a p1u_triggers $trigger
+            set -a p1u_owners $skill_name
+            pass "skills/$skill_name claims $trigger"
+        end
+    end
+end
+
+if test $p1u_found -eq 0
+    fail "Phase 1u: no SKILL.md files found under skills/ (nothing to scan for collisions)"
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
