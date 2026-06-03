@@ -1547,6 +1547,101 @@ end
 
 echo ""
 
+# 1v. Anchor-content snapshot (issue #444)
+# Phase 1j locks anchor IDs in their canonical file. This phase locks the
+# SECTION BODY at each anchor — text under the anchor up to the next anchor or
+# next h2 (`^## `). The snapshot lives at tests/anchor-snapshots.txt as
+# pipe-delimited `<anchor>|<basename>|<sha256>` rows. CI fails on hash
+# mismatch — contributors must regenerate the snapshot in the same PR that
+# changes anchor body text.
+#
+# New anchors on disk that are not yet in the snapshot warn (forward-add OK);
+# snapshot entries pointing at missing anchors fail (stale snapshot).
+_phase_begin "1v"
+echo "── Phase 1v: anchor-content snapshot (issue #444)"
+
+set -l p1v_snapshot "$repo_dir/tests/anchor-snapshots.txt"
+
+# Compute section-body sha256 for an anchor in a rules/ file. Mirrors the
+# computeBodyHash() reference in tests/validate-phase-1v.test.ts. Body =
+# lines after `<a id="X"></a>`, skip leading blanks, then first non-blank
+# (the section's own heading) included unconditionally, then content until
+# the next `<a id=` line or next `^## ` heading. Normalize: strip trailing
+# whitespace per line, drop trailing blank lines, append single newline.
+function _p1v_hash_body --argument-names file aid
+    set -l start_line (grep -nF "<a id=\"$aid\"></a>" $file 2>/dev/null | head -1 | cut -d: -f1)
+    if test -z "$start_line"
+        echo "NO_ANCHOR"
+        return 1
+    end
+    set -l body_start (math $start_line + 1)
+    set -l body (awk -v s=$body_start '
+        NR < s { next }
+        !seen_first {
+            if ($0 == "") next
+            seen_first=1; print; next
+        }
+        /^<a id=/ { exit }
+        /^## / { exit }
+        { print }
+    ' $file)
+    set -l normalized (printf '%s\n' $body | sed 's/[[:space:]]*$//' | awk 'NF{p=1} p{a[++n]=$0} END{while(n>0 && a[n]==""){n--} for(i=1;i<=n;i++)print a[i]}')
+    printf '%s\n' $normalized | shasum -a 256 | cut -d' ' -f1
+end
+
+if not test -f $p1v_snapshot
+    fail "Phase 1v: tests/anchor-snapshots.txt missing — regenerate via bin/regen-anchor-snapshots.fish"
+else
+    set -l snapshot_lines (grep -v '^#' $p1v_snapshot | grep -v '^$')
+    if test (count $snapshot_lines) -eq 0
+        fail "Phase 1v: tests/anchor-snapshots.txt empty — nothing to validate"
+    else
+        set -l p1v_covered_anchors
+
+        for line in $snapshot_lines
+            set -l parts (string split -m 2 "|" $line)
+            if test (count $parts) -ne 3
+                fail "Phase 1v: malformed snapshot row (expected anchor|file|hash): $line"
+                continue
+            end
+            set -l aid $parts[1]
+            set -l basename $parts[2]
+            set -l expected $parts[3]
+            set -l target "$repo_dir/rules/$basename"
+            if not test -f $target
+                fail "Phase 1v: snapshot references rules/$basename which does not exist on disk"
+                continue
+            end
+            set -l actual (_p1v_hash_body $target $aid)
+            if test "$actual" = "NO_ANCHOR"
+                fail "Phase 1v: anchor #$aid not found in rules/$basename — stale snapshot row"
+                continue
+            end
+            if test "$actual" = "$expected"
+                pass "anchor #$aid in rules/$basename: body matches snapshot"
+                set -a p1v_covered_anchors "$basename:$aid"
+            else
+                fail "Phase 1v: anchor #$aid in rules/$basename hash mismatch (expected $expected, got $actual) — regenerate snapshot via bin/regen-anchor-snapshots.fish"
+            end
+        end
+
+        for rfile in $repo_dir/rules/*.md
+            if not test -f $rfile
+                continue
+            end
+            set -l rbase (basename $rfile)
+            for raw in (grep -oE '<a id="[^"]+"></a>' $rfile)
+                set -l aid (string replace -r '^<a id="' '' -- $raw | string replace -r '"></a>$' '')
+                if not contains -- "$rbase:$aid" $p1v_covered_anchors
+                    warn "anchor #$aid in rules/$rbase not in snapshot — add via bin/regen-anchor-snapshots.fish"
+                end
+            end
+        end
+    end
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
