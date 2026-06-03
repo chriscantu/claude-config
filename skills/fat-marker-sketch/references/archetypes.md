@@ -206,3 +206,20 @@ stages? containers?) and what the **arrows carry** (order? call? record? delta?)
 | Before/After **vs.** C4 container | Prompt contains **delta keywords** (refactor, migrate, replace, rewrite) — the change is the point | Prompt describes a **steady-state** multi-container picture with tech/protocol labels |
 | State machine **vs.** Sequence | Prompt names states the *same* system can be in | Prompt names calls between *different* actors |
 | Sequence **vs.** C4 container | **Temporal order** is the point — "first this, then that, then the other" | **Steady-state architecture** is the point — the picture is still true at any moment |
+
+---
+
+## Backtracking Mid-Pick
+
+If you catch yourself picking:
+
+- **"System integration"** for a refactor (delta is the point) → use **Before/After**
+- **"UI / user journey"** for something with no screens → use **Process/workflow** or the shape-appropriate archetype
+- **"Process/workflow"** when the prompt names states/modes → use **State machine**
+- **"Process/workflow"** when the prompt names actors and call order → use **Sequence**
+- **"Process/workflow"** when boxes transform records → use **Data-flow**
+- **"Sequence"** when there's only one actor → use **Process/workflow**
+- **"Before/After"** when there's no named change (it's a steady-state architecture) → use **C4 container**
+
+Stop and re-pick. Using the wrong archetype is how you end up with "notes with borders"
+(see `SKILL.md` Rationalizations table and Step 2 anti-patterns).

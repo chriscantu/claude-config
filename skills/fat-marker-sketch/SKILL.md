@@ -8,7 +8,7 @@ description: >
 license: MIT
 metadata:
   author: chriscantu
-  version: "2.0"
+  version: "2.1"
 ---
 
 # Fat Marker Sketch
@@ -17,139 +17,91 @@ A fat marker sketch is a crude structural drawing — as if you grabbed a thick 
 and sketched on a whiteboard. The thick marker physically prevents fine detail. That's
 the point: it forces the conversation to stay on structure and components, not pixels.
 
-**See `assets/example-fat-marker-sketch.jpg` for a visual reference of the target fidelity.**
-That image IS the standard — crude boxes, structural regions, no decorative styling.
-Match that *level* of fidelity: coarse and structural, not polished. In excalidraw, the
-equivalent is outline-only rectangles in Excalifont; cross-hatching and uneven radii are
-HTML-fallback aesthetics and do not apply to the MCP renderer.
+**See `assets/example-fat-marker-sketch.jpg` for the target fidelity standard.** Crude
+boxes, structural regions, no decorative styling. In excalidraw, the equivalent is
+outline-only rectangles in Excalifont.
 
-The sketch answers two questions:
-1. **What are the major components and how do they relate?** — structural regions,
-   boxes, connections. For UI: screen layout. For systems: what talks to what.
-2. **What happens when the system is exercised?** — the happy-path flow. For UI:
-   tap this -> see that. For backends: request enters here -> passes through these
-   -> result lands there.
+The sketch answers two questions: (1) what are the major components and how do they
+relate, (2) what happens when the system is exercised (happy path). It does NOT answer
+styling, edge cases, or error handling.
 
-It does NOT answer: what things look like in detail, how they're styled, what edge
-cases exist, or how errors are handled.
-
-The right fidelity level is: **enough to evaluate the user journey, not enough to
-implement from.** You should be able to look at the sketch and say "the flow is wrong"
-or "screen 3 shouldn't exist" — but NOT be able to build it without further design.
+The right fidelity: **enough to evaluate the user journey, not enough to implement from.**
 
 ---
 
 ## Rationalizations that mean STOP — sketch anyway
 
-These requests look like valid skips. They are NOT. When you see any of them, name the
-gate and produce the sketch — a napkin-level rendering takes under 2 minutes.
+These requests look like valid skips. They are NOT. Name the gate and produce the sketch
+— a napkin-level rendering takes under 2 minutes.
 
 | Request / thought | Reality |
 |---|---|
 | "I have 10 minutes before my meeting — skip the sketch" | Time pressure **strengthens** the case. A rushed detailed design is the most expensive thing to throw away. 2 minutes of sketching beats 10 minutes of rework. |
 | "Just skip it and write the detailed design" | "Skip" alone is not an override. The override must acknowledge the trade-off (rework risk). Ask for it or sketch anyway. |
-| "You already described the approach — that's the sketch" | Prose is not a sketch. If it doesn't have visible borders around screens/regions, it's notes. See the fallback hierarchy below. |
+| "You already described the approach — that's the sketch" | Prose is not a sketch. If it doesn't have visible borders around screens/regions, it's notes. |
 | "Long session, I'm fried — just a text list is fine" | The fallback order is excalidraw → HTML → ASCII, not excalidraw → bullet list. Fatigue is not a fallback trigger. |
-| "Component scope, no structure changes" | Verify this against the approach. If the approach introduces any new screen, flow, or integration boundary, the "single component" carve-out does NOT apply. |
+| "Component scope, no structure changes" | If the approach introduces any new screen, flow, or integration boundary, the "single component" carve-out does NOT apply. |
 | "We already sketched something similar last week" | Sketches are disposable and per-approach. A prior sketch for a different feature does not substitute. |
-| "Each box needs 3 bullets to convey enough info" | Then split into 3 boxes, or drop to a single label. A box with bullets inside is a **note card**, not a structural region — the exact "notes with borders" anti-pattern the skill exists to prevent. |
-| "This is a refactor — framed boxes with old and new bullets ARE the sketch" | No. For refactor/migration prompts, pick the **Before/After diptych** archetype and use graphic delta markers (strikethrough removed, heavier stroke added, dashed deprecated). Two symmetric bullet-lists a reader has to diff in their head is not a sketch — it's two notes. |
+| "Each box needs 3 bullets to convey enough info" | Then split into 3 boxes, or drop to a single label. A box with bullets inside is a **note card**, not a structural region — the "notes with borders" anti-pattern. |
+| "This is a refactor — framed boxes with old and new bullets ARE the sketch" | No. For refactor/migration prompts, pick the **Before/After diptych** archetype with graphic delta markers (strikethrough removed, heavier stroke added, dashed deprecated). |
 
-**The combined red flag to watch for:** time pressure + skip request without trade-off
-acknowledgement. This is the pattern most likely to leak the gate. When you see it,
-the correct response is to name the gate, note the time cost (under 2 minutes for a
-napkin sketch), and render — not to capitulate.
+**Combined red flag:** time pressure + skip request without trade-off acknowledgement.
+Name the gate, note the time cost (under 2 minutes for a napkin sketch), and render.
 
 An explicit override is valid only when it names the **specific cost** being accepted
-(e.g., "skip the sketch, I accept the rework risk," "skip it — I'll eat the wrong-shape
-risk"). Bare "skip" requests and generic acknowledgements ("I accept the trade-off,"
-"I know the risks") do NOT qualify — name the gate and request the specific
-acknowledgement.
+(e.g., "skip the sketch, I accept the rework risk"). Bare "skip" and generic
+acknowledgements ("I accept the trade-off") do NOT qualify.
 
 ---
 
 ## Step 1: Choose the Format (Archetype)
 
-Pick the archetype that fits the shape of the work. Each heuristic names an **observable
-feature of the prompt** — keywords, structure, or count — so the same prompt routes to
-the same archetype across runs.
-
 | Archetype | Picker heuristic (observable features) | Example prompt trigger |
 |-----------|----------------------------------------|------------------------|
 | **UI / user journey** | Prompt names 2+ screens, user-visible surfaces, or UI actions (tap, click, swipe, submit). | "sketch the onboarding screens" |
-| **Process / workflow** | Prompt names actions a human or system *performs* in sequence (verbs: validate, fetch, review, approve). No named actors, no states, no data transforms. | "sketch the PR approval steps" |
+| **Process / workflow** | Prompt names actions performed in sequence (verbs: validate, fetch, review, approve). No named actors, no states, no data transforms. | "sketch the PR approval steps" |
 | **CLI / command** | Prompt names a command invocation or developer-facing tool whose surface is `stdin → stdout`. | "sketch what `bun run foo` outputs" |
 | **System integration (Mermaid)** | ≤6 boxes, one integration path, no tech-stack or protocol labeling needed. | "sketch how API talks to queue talks to worker" |
-| **Before/After diptych** | Prompt contains *delta* keywords: refactor, migration, rewrite, replace, rip out, move X to Y, change how X works. | "sketch the migration from REST to gRPC" |
-| **Sequence / swimlane** | Prompt names 2+ **actors by name** (User, API, Worker, DB) whose *call order* is load-bearing. Actor identity matters. | "sketch: user → API → worker → DB interaction" |
-| **C4 container** | Prompt names tech stacks, protocols, or deployable units (Node.js, Postgres, HTTPS, AMQP, S3). Multi-container architecture picture. | "sketch the containers: React app, Go API, Postgres, Redis" |
-| **Data-flow** | Prompt names *record transforms* or data stages (parse, dedupe, enrich, score, aggregate) — data changes shape as it moves. | "sketch the eval pipeline: transcripts in, reports out" |
-| **State machine** | Prompt names **states or modes** (pending, running, idle, active, failed, retrying) the system can sit in between triggers. | "sketch the job lifecycle states" |
+| **Before/After diptych** | Prompt contains *delta* keywords: refactor, migration, rewrite, replace, rip out, move X to Y. | "sketch the migration from REST to gRPC" |
+| **Sequence / swimlane** | Prompt names 2+ **actors by name** (User, API, Worker, DB) whose *call order* is load-bearing. | "sketch: user → API → worker → DB interaction" |
+| **C4 container** | Prompt names tech stacks, protocols, or deployable units (Node.js, Postgres, HTTPS, AMQP, S3). | "sketch the containers: React app, Go API, Postgres, Redis" |
+| **Data-flow** | Prompt names *record transforms* or data stages (parse, dedupe, enrich, score, aggregate) — data changes shape. | "sketch the eval pipeline: transcripts in, reports out" |
+| **State machine** | Prompt names **states or modes** (pending, running, idle, active, failed, retrying). | "sketch the job lifecycle states" |
 
 ### Inline tiebreakers (high-risk pairs)
 
-Two pairs account for most mis-picks. Read these at decision time:
+- **System integration (Mermaid) vs. C4 container** — any tech stack name, protocol, or deployable unit mentioned → **C4**.
+- **Sequence vs. C4 container** — temporal order ("first this, then that") across named actors → **Sequence**.
+- **Process/workflow vs. State machine vs. Data-flow** — boxes are **actions** → process; boxes are **modes** → state machine; boxes are **record transforms** → data-flow.
 
-- **System integration (Mermaid) vs. C4 container** — if the prompt mentions **any**
-  tech stack name, protocol, or deployable unit, pick **C4**. Mermaid is for the case
-  where arrows don't need labels beyond arrowheads.
-- **Sequence vs. C4 container** — if the prompt emphasizes **temporal order** ("first
-  this, then that") across named actors, pick **Sequence** even if tech stacks are
-  mentioned. C4 is for the **steady-state picture** — true at any moment, not a story
-  of what happens when.
-- **Process/workflow vs. State machine vs. Data-flow** — read what the boxes *are*.
-  Boxes are **actions a system performs** → process. Boxes are **modes the system sits
-  in** → state machine. Boxes are **stages that transform records** → data-flow. If the
-  prompt's nouns are states (pending, running), pick state machine even if you could
-  also describe them as steps.
-
-See `references/archetypes.md` for the full tiebreaker table (9 pairs) and per-archetype
-rendering conventions — especially before/after delta markers, swimlane actor columns,
-and C4 labeling.
-
-### Backtracking mid-pick
-
-If you catch yourself picking:
-- **"System integration"** for a refactor (delta is the point) → use **Before/After**
-- **"UI / user journey"** for something with no screens → use **Process/workflow** or the shape-appropriate archetype
-- **"Process/workflow"** when the prompt names states/modes → use **State machine**
-- **"Process/workflow"** when the prompt names actors and call order → use **Sequence**
-- **"Process/workflow"** when boxes transform records → use **Data-flow**
-- **"Sequence"** when there's only one actor → use **Process/workflow**
-- **"Before/After"** when there's no named change (it's a steady-state architecture) → use **C4 container**
-
-Stop and re-pick. Using the wrong archetype is how you end up with "notes with borders"
-(see the rationalization table above and Step 2 anti-patterns).
+See `references/archetypes.md` for the full 9-pair tiebreaker table, per-archetype
+rendering conventions (delta markers, swimlanes, C4 labeling), and the
+backtracking-mid-pick checklist when you've picked the wrong archetype.
 
 ### Rendering
 
-Default to **excalidraw** via the excalidraw MCP. Use this decision tree:
+Default to **excalidraw** via the excalidraw MCP. Decision tree:
 
-- If `mcp__excalidraw__*` tools are **not available** → fall back to HTML immediately.
-- If the tools are available but the canvas is **not reachable** → ask the user to run
-  `PORT=3000 npm run canvas` in the `mcp_excalidraw` directory and open
-  `http://localhost:3000`. Do NOT fall back to HTML in this case — wait for the user to
-  start the server.
+- `mcp__excalidraw__*` tools **not available** → fall back to HTML immediately.
+- Tools available but canvas **not reachable** → ask the user to run `PORT=3000 npm run canvas` in `mcp_excalidraw/` and open `http://localhost:3000`. Do NOT fall back to HTML — wait.
 
-Fall back to **HTML** (using `assets/sketch-template.html`) only when the MCP tools are
-absent. Fall back to **ASCII** (markdown code block with `+`, `-`, `|` box characters)
-only if the user explicitly requests it or neither excalidraw nor HTML can render.
+Fall back to **ASCII** only if the user explicitly requests it or neither excalidraw
+nor HTML can render. For HTML rendering details, see `references/html-fallback.md`.
 
 <HARD-GATE>
 A fat marker sketch is a VISUAL artifact, not a text artifact. When rendering with excalidraw:
 
-- Use outline-only shapes — no fills. This matches the rough, low-fidelity intent.
-- Use Excalifont (the excalidraw default) for all labels — it is organic and hand-drawn looking.
-- Set transparent backgrounds so the sketch reads as "drawn on a whiteboard."
-- Keep shapes simple: rectangles for screens/regions, arrows for flow connections.
-- Do NOT add colors, shadows, or fills — black strokes on transparent background only.
-- The output will be a "refined rough sketch" rather than a chaotic napkin doodle — that is acceptable and expected.
+- Outline-only shapes — no fills. Matches the rough, low-fidelity intent.
+- Excalifont (default) for all labels — organic, hand-drawn look.
+- Transparent backgrounds — reads as "drawn on a whiteboard."
+- Rectangles for screens/regions, arrows for flow connections.
+- No colors, no shadows, no fills — black strokes on transparent background only.
 
 ### Staged drawing (required — do NOT skip)
 
 Build the sketch in **4 stages** — Pass 1 fires one `batch_create_elements` call per
 screen frame; Passes 2–4 fire one call each. Do NOT create all elements in one call
-— it causes the entire sketch to pop in fully-formed, removing the live-draw experience entirely.
+— it removes the live-draw experience entirely.
 
 | Pass | What to create | How |
 |------|----------------|-----|
@@ -158,89 +110,39 @@ screen frame; Passes 2–4 fire one call each. Do NOT create all elements in one
 | 3. Content + actions | Representative text, inputs, `[buttons]`, radio groups | Single batch |
 | 4. Connections | Arrows bound between screens + FLOW text at the bottom | Single batch |
 
-Pass 1 draws one screen at a time so the user sees the structure emerge screen by screen. Passes 2–4 land as a single batch each.
-
 ### Font sizes (minimum to prevent blur)
 
-Excalifont renders blurry below 13px — both on the live canvas and in screenshots.
-This is not a one-off; it happens every time a small font is used.
+Excalifont renders blurry below 13px. Never use fontSize below 13.
 
 | Element | Minimum fontSize |
 |---------|-----------------|
 | Sketch / composite header | 20px |
 | Screen title | 16px |
 | Body labels, questions, actions | 13px |
-
-**Never use fontSize below 13.** If elements don't fit at 13px, reduce the number
-of elements or increase the screen box size — do NOT shrink the font to fit more in.
 </HARD-GATE>
 
-When falling back to HTML:
-
-- Start from `assets/sketch-template.html`
-- Include Google Font: `<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">`
-- The root element MUST set `background: #fff; color: #000; font-family: 'Permanent Marker', cursive; font-size: 20px;`
-- Use `border: 4px solid #000` for screen frames and `border: 3px solid #000` for regions
-- Use uneven `border-radius` values (e.g., `2px 5px 4px 3px`) on every box — vary the
-  values so no two boxes have the same radius
-- Do NOT inherit the host page's theme
-
-Never output the sketch as plain prose or an unstyled text list. If it doesn't have
-visible boxes/borders around screens and regions, it's not a sketch — it's notes.
-
-See `assets/example-ui-sketch.html` for a reference of the target structure (HTML fallback).
+If the sketch doesn't have visible boxes/borders around screens and regions, it's not a
+sketch — it's notes.
 
 ---
 
 ## Step 2: Produce the Sketch
 
-Apply these fidelity rules regardless of format:
+Apply these fidelity rules regardless of format (see `references/fidelity-rules.md` for
+full detail and properties):
 
-- **Black on white** — black strokes and text. For excalidraw: outline-only shapes on a
-  transparent canvas (like marker on a whiteboard). For HTML fallback: set an explicit
-  white background and black text on the root element. Do NOT rely on the host page's theme.
-- **Journey-focused** — show the full user journey across screens or steps, not a
-  single screen in isolation. Number each screen/step.
-- **Structural boxes** — each screen is a thick-bordered (4px) rectangle. Regions
-  within screens are 3px-bordered rectangles. Use uneven border-radius on every box
-  so they look hand-drawn. The boxes ARE the sketch — without them you just have a
-  text list.
-- **Representative content** — include enough text to understand what each region DOES,
-  not just what it IS. "Q: How often paid?" is good — it tells you the screen is a
-  guided questionnaire. "Goal Card" is too abstract. But don't write full copy or
-  real data for every field.
-- **Explicit actions** — label every user action in brackets: [Get Started], [Next],
-  [Activate], [+ Add Goal]. These make the flow traceable.
-- **No styling** — no colors, no shadows, no fills. For excalidraw: outline-only shapes
-  with Excalifont labels. For HTML fallback: uneven border-radius for a hand-drawn feel
-  is the one exception. Crude progress indicators (block characters in HTML, thin
-  rectangles in excalidraw) are fine for showing proportional state.
-- **ASCII-safe characters only** — use `->` for arrows, `[x]` for checked, `[ ]` for
-  unchecked. For HTML fallback: do NOT use Unicode arrows or checkmarks — they render
-  as garbled text in minimal HTML viewers. For excalidraw: standard ASCII is still
-  preferred for simplicity, but Unicode is safe.
-- **Show relationships** — how components connect (tap this -> see that, service A calls
-  service B). For UI, include a FLOW section mapping connections as plain text.
-- **No bullets inside boxes** — a box holds a single label or a single representative
-  phrase, not a bulleted list. If a box contains more than one bullet, it has become a
-  note card. Split the box into multiple boxes, or drop the bullets to a single label.
-  "Notes with borders" is the anti-pattern this skill exists to prevent.
-
-### Self-check before presenting
+- **Black on white** — outline-only shapes on transparent canvas (excalidraw); explicit white background + black text (HTML).
+- **Journey-focused** — full user journey across screens/steps, not a single screen in isolation. Number each.
+- **Structural boxes** — 4px screen frames, 3px region borders, uneven border-radius. **The boxes ARE the sketch.**
+- **Representative content** — enough text to understand what each region DOES. "Q: How often paid?" good; "Goal Card" too abstract.
+- **Explicit actions** — bracket every user action: `[Get Started]`, `[Next]`, `[Activate]`.
+- **No styling** — no colors, shadows, fills. Uneven border-radius (HTML only) is the one exception.
+- **ASCII-safe characters only** — `->` for arrows, `[x]`/`[ ]` for checkboxes. No Unicode in HTML fallback.
+- **Show relationships** — include a FLOW section mapping connections.
+- **No bullets inside boxes** — a box holds a single label or single representative phrase. Bullets inside = note card = the "notes with borders" anti-pattern.
 
 Read `references/self-check.md` and verify the sketch passes all checks before
 presenting it.
-
-### Properties
-
-The sketch should:
-
-- Fit in one screen (all screens of the journey visible together)
-- Take under 2 minutes to produce
-- Be disposable — it's a conversation tool, not a deliverable
-- Show the **full journey** across screens/steps, not a single screen in detail
-- Include representative content and explicit actions
-- Omit edge cases, error states, and configuration options
 
 ---
 
@@ -261,89 +163,11 @@ that prevents expensive design rework.
 
 ---
 
-## Backtracking
+## Backtracking & Examples
 
-When the sketch reveals a problem, name the backtrack explicitly and go to the
-right level:
+When the sketch reveals a problem, name the backtrack explicitly: wrong shape → revise;
+wrong approach → return to Solution Design; wrong problem framing → return to Problem
+Definition. See `references/backtracking.md` for full guidance.
 
-- **Wrong shape, right approach**: Revise the sketch. Do NOT re-run decomposition.
-  "The sketch shows [problem]. Let me redraw with [adjustment]."
-- **Wrong approach**: Return to the **Solution Design** stage in the planning pipeline
-  with the same decomposition intact. Present remaining approaches or propose new ones
-  informed by what the sketch revealed. "The sketch revealed [X] doesn't work
-  because [Y]. Let's revisit the approaches."
-- **Wrong problem framing**: Rare, but if the sketch surfaces a fundamental
-  misunderstanding, return to the **Problem Definition** stage and re-validate.
-  "This sketch made me realize the problem might actually be [Z], not [original].
-  Let's go back to the core problem."
-
-Always state what triggered the backtrack, where you're going, and why.
-
----
-
-## Examples
-
-### UI Example
-
-See `assets/example-ui-sketch.html` for a complete rendered example of a guided
-savings feature (HTML fallback path). It shows four screens
-(Welcome -> Guided Q's -> Your Plan -> Dashboard) with representative content,
-bracketed actions, and a FLOW section.
-
-**Too detailed** (wrong):
-A single-screen wireframe with full sample data for every field, styled progress bars,
-and dollar amounts — but no journey context. You can't evaluate the user experience
-from a single screen.
-
-**Too abstract** (wrong):
-`[Header] [Status badges] [Goals list] [Paycheck breakdown] [Recommendation]`
-— just a parts list. You can't evaluate the flow or whether the experience makes sense.
-
-**Right**: The example in `assets/example-ui-sketch.html` — four screens showing the
-full journey. Each has 3-5 elements with enough content to understand what the screen
-DOES. Actions in brackets. A FLOW section mapping connections. No styling, no full
-copy, no pixel decisions — but enough to ask "is this the right experience?"
-
-### Before/After Example
-
-See `assets/example-before-after-sketch.html` for a rendered refactor-shaped sketch
-(eval-runner scratch-cwd change). Demonstrates AFTER-dominant visual weight,
-strikethrough on removed paths, heavier stroke on added nodes, and a DELTA footer that
-names the change so the reader doesn't have to diff two lists. That is the fidelity
-bar for the **Before/After diptych** archetype.
-
-### Sequence Example (HTML fallback)
-
-See `assets/example-sequence-sketch.html` for a rendered sequence-shaped sketch
-(User → API → Worker → DB checkout flow). HTML fallback rendering for the
-**Sequence / swimlane** archetype requires vertical dashed lifelines under each
-actor, horizontal message arrows (solid for synchronous calls, dashed with reversed
-arrowhead for returns), and activation bars on receiver lifelines. Top-to-bottom
-ordering carries the time axis — do NOT render messages as grid cells, since that
-loses the explicit "this happens before that" signal that distinguishes a sequence
-from a tabular swimlane.
-
-When PARAMETERIZING this template with dynamic actor names or message labels (e.g.,
-substituting `USER` with a user-supplied service name), HTML-entity-encode `<`, `>`,
-`&`, `"`, and `'` in every substituted string before insertion. The template uses
-inline-style `<div>` construction with no escaping discipline of its own; reusing
-it as a sketch generator without encoding is a stored-XSS path in any tool that
-later renders the result as HTML (browser tab, Preview panel, eval snapshot).
-
-### System Example
-
-```mermaid
-graph LR
-  API --> Queue --> Worker --> DB
-  Worker --> Notifications
-```
-
-```
-FLOW
-Request -> API validates -> Queue buffers -> Worker processes -> DB stores
-Worker -> Notification service (async, on completion)
-Failure -> Queue retries 3x -> Dead letter -> Alert
-```
-
-Five nodes. One diagram. A flow section showing the happy path and one failure mode.
-Enough to ask "should notifications be sync or async?" — but not enough to implement from.
+See `references/examples.md` for worked UI, Before/After, Sequence, and System examples
+demonstrating the fidelity bar per archetype.
