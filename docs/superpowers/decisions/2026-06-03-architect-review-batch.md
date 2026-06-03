@@ -67,11 +67,32 @@ Picks 2 (Sequential Thinking) and 5 (Non-Trivial tier announcements) deferred �
    - `bun tests/eval-runner-v2.ts --skill define-the-problem --filter multi-session-breadcrumb-offer-green`
    - Full DTP + SA suites for Pick 4 Stage marker regression check
 2. **Open follow-up issues** for Pick 2 (Sequential Thinking bounded contract eval, M) and Pick 5 (Non-Trivial tier announcement evals, M)
-3. **Pick next architect-review issue** to execute. Recommended order by leverage:
-   - #443 substrate-cost budget (highest leverage, touches token mass under #435 compression workstream)
-   - #442 SKILL.md schema + collision (cheapest, prevents drift at N=30+ skills)
-   - #444 anchor-content snapshot (insurance on `rules/` SSOT pattern)
-   - #445 scope-tier-gate adversarial hooks (cost reduction on Trivial-tier edits)
+
+## Session 2 — 2026-06-03 evening ship cycle
+
+Shipped 3 of remaining 4 architect-review issues. Tooling pattern stabilized: each issue became a new `validate.fish` phase + TS regression test under `tests/validate-phase-1<letter>.test.ts`. Single-implementer execution mode every time.
+
+### What shipped
+
+| # | PR | Commit | Notes |
+|---|---|---|---|
+| 443 | #447 | `2be5ce9` | Phase 1t per-rule LOC ceiling. 250 LOC cap on loadable `rules/*.md` (excludes README, GOVERNANCE). Token-baseline step 1 deferred — comment posted on #443; **issue stays open** as audit trail. |
+| 442 | #448 | `a67ca23` | Phase 1u slash-trigger collision check. Anchor on claim verbs (`says`, `invokes`, `runs`, `types`). JSON-schema piece already covered by Phase 1a; comment posted on #442; **issue stays open**. CI failed on first push — fish 3.3 PCRE lookbehind portability; fixed with capture-group rewrite (`c15a233`). |
+| 444 | #449 | `69bbeee` | Phase 1v anchor-content snapshot. Section-body sha256 per registered anchor in `tests/anchor-snapshots.txt`; regenerator at `bin/regen-anchor-snapshots.fish`. **Issue closed.** Three forward-add warns surfaced for anchors out of registry scope (`hedge-then-comply`, `kebab-name`, `what-lives-here`) — left as informational. |
+
+### Lessons saved to memory
+
+- `feedback-fish-pcre-portability` — avoid variable-length PCRE lookbehind in `string match -ar`; CI fish 3.3 rejects what local fish 4 accepts. Use capture-group + interleaved-pair walk.
+- `feedback-validate-phase-pattern` — `validate.fish` phase additions follow a stable substrate. Mirror `tests/validate-phase-1s.test.ts`, insert before Phase 2 header, grep the whole repo (not just `validate.fish`) for next phase letter — 1r/1s are TS-only tests.
+
+### Remaining picks
+
+3. **#445 scope-tier-gate adversarial hooks** — bind `hooks/adversarial-trigger.sh` to scope-tier-memory-check output. Trivial-tier cost reduction. ~S-M effort. Different substrate (bash + hooks, not validate.fish) — worth restarting session for fresh context per `using-superpowers` skill-priority discipline.
+
+### Local-vs-remote state
+
+- `main` at `69bbeee`, synced to `origin/main`.
+- Untracked: `.claude-plugin/marketplace.json`, `agentdb.rvf`, `agentdb.rvf.lock` — pre-existing, not in any PR. Not load-bearing for next session.
 
 ## Confidence
 
