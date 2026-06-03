@@ -25,6 +25,19 @@ rotate_log_if_needed() {
   fi
 }
 
+SENTINEL_PATH="${SCOPE_TIER_SENTINEL_PATH:-.claude/state/scope-tier-current}"
+
+write_sentinel() {
+  local matched_json="$1"
+  mkdir -p "$(dirname "$SENTINEL_PATH")" 2>/dev/null || return 0
+  jq -n -c --argjson ts "$(date +%s)" --argjson matched "$matched_json" \
+    '{ts:$ts,matched:$matched}' > "$SENTINEL_PATH" 2>/dev/null || true
+}
+
+clear_sentinel() {
+  [[ -f "$SENTINEL_PATH" ]] && rm -f "$SENTINEL_PATH" 2>/dev/null || true
+}
+
 log_decision() {
   local decision="$1"
   rotate_log_if_needed
@@ -82,6 +95,7 @@ while IFS= read -r line; do
 done < "$MEMORY_PATH"
 
 if [[ ${#MATCHED_MEMORIES[@]} -eq 0 ]]; then
+  clear_sentinel
   log_decision "no_scope_tier_memory"
   exit 0
 fi
@@ -131,6 +145,7 @@ prompt_contains_any BLAST_RADIUS_WORDS && HAS_BLAST_WORD=true
 if [[ "$HAS_VERB" != "true" ]] || [[ "$HAS_TARGET" != "true" ]] \
   || [[ "$HAS_MINIMIZER" == "true" ]] || [[ "$HAS_SCOPE_EXPANDER" == "true" ]] \
   || [[ "$HAS_BLAST_PATH" == "true" ]] || [[ "$HAS_BLAST_WORD" == "true" ]]; then
+  clear_sentinel
   log_decision "no_match"
   exit 0
 fi
@@ -162,10 +177,13 @@ git_check_rejects() {
   return 1
 }
 if git_check_rejects; then
+  clear_sentinel
   log_decision "no_match_git"
   exit 0
 fi
 
+matched_json_for_sentinel=$(printf '%s\n' "${MATCHED_MEMORIES[@]}" | jq -R . | jq -s -c .)
+write_sentinel "$matched_json_for_sentinel"
 log_decision "match"
 memory_list=$(IFS=, ; echo "${MATCHED_MEMORIES[*]}")
 jq -n --arg mems "$memory_list" '{
