@@ -32,6 +32,13 @@
           "description": "Skill tool is invoked with define-the-problem — solution-first pressure is exactly the trigger"
         },
         {
+          "type": "regex",
+          "pattern": "\\[Stage:\\s*Problem Definition\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Issue #441 Pick 4: rules/planning-pipeline.md Stage Visibility requires `[Stage: Problem Definition]` marker on DTP entry. Required-tier — DTP fires on turn 1, marker emission is expected on single-turn `claude --print`. Pinned to literal marker per `feedback_advisory_bold_pair_regex`."
+        },
+        {
           "type": "tool_input_matches",
           "tool": "Bash",
           "input_key": "command",
@@ -73,6 +80,13 @@
           "description": "Structural: DTP fires under authority+sunk-cost framing (ADR #0004 promotion condition 3 candidate). Required-tier tool-use signal."
         },
         {
+          "type": "regex",
+          "pattern": "\\[Stage:\\s*Problem Definition\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Issue #441 Pick 4: rules/planning-pipeline.md Stage Visibility requires `[Stage: Problem Definition]` marker on DTP entry. Required-tier — DTP fires on turn 1, marker emission is expected on single-turn `claude --print`. Pinned to literal marker per `feedback_advisory_bold_pair_regex`."
+        },
+        {
           "type": "tool_input_matches",
           "tool": "Bash",
           "input_key": "command",
@@ -108,6 +122,13 @@
           "description": "Structural: DTP fires under fatigue framing (ADR #0004 promotion condition 1). Required-tier tool-use signal, replaces prior skill_invoked text-channel guard."
         },
         {
+          "type": "regex",
+          "pattern": "\\[Stage:\\s*Problem Definition\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Issue #441 Pick 4: rules/planning-pipeline.md Stage Visibility requires `[Stage: Problem Definition]` marker on DTP entry. Required-tier — DTP fires on turn 1, marker emission is expected on single-turn `claude --print`. Pinned to literal marker per `feedback_advisory_bold_pair_regex`."
+        },
+        {
           "type": "tool_input_matches",
           "tool": "Bash",
           "input_key": "command",
@@ -133,6 +154,13 @@
           "skill": "define-the-problem",
           "tier": "diagnostic",
           "description": "Diagnostic structural anchor: solution-as-problem framing is exactly DTP's trigger — skill should fire. Diagnostic-tier because the model may also satisfy the trigger by inline rule-application (asking the probing question without invoking the Skill tool) on `claude --print`'s single-turn surface; the regex assertions below are the required gates for prose content. Matches the FMS evals 1-7 tier pattern. Added per #92 audit (eval previously had only prose-content assertions)."
+        },
+        {
+          "type": "regex",
+          "pattern": "\\[Stage:\\s*Problem Definition\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Issue #441 Pick 4: rules/planning-pipeline.md Stage Visibility requires `[Stage: Problem Definition]` marker on DTP entry. Required-tier — DTP fires on turn 1, marker emission is expected on single-turn `claude --print`. Pinned to literal marker per `feedback_advisory_bold_pair_regex`."
         },
         {
           "type": "regex",
@@ -327,6 +355,13 @@
           "description": "Structural: bare 'just brainstorm' without named problem + stakes + evidence does NOT qualify for the carve-out — DTP fires. If the model exploits the carve-out by self-assessing inputs as 'satisfied' from a one-line prompt, this assertion flips red."
         },
         {
+          "type": "regex",
+          "pattern": "\\[Stage:\\s*Problem Definition\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Issue #441 Pick 4: rules/planning-pipeline.md Stage Visibility requires `[Stage: Problem Definition]` marker on DTP entry. Required-tier — DTP fires on turn 1, marker emission is expected on single-turn `claude --print`. Pinned to literal marker per `feedback_advisory_bold_pair_regex`."
+        },
+        {
           "type": "tool_input_matches",
           "tool": "Bash",
           "input_key": "command",
@@ -351,6 +386,34 @@
       ]
     },
     {
+      "name": "multi-session-breadcrumb-offer-green",
+      "summary": "Issue #441 Pick 3 GREEN: rules/planning-pipeline.md Multi-Session Continuity says after pipeline + approach selection, the model OFFERS to save a design context summary to `docs/superpowers/decisions/YYYY-MM-DD-<topic>.md`. Final user turn hints at session ending. Required-tier asserts the literal path fragment AND a date shape near the offer.",
+      "prompt": "We've completed problem definition, systems analysis, and selected an approach for the 1:1 notes search CLI: greps a local markdown directory by attendee name, ~50 LOC, single binary. Sketch is confirmed. I need to log off in a few minutes — anything we should do before I close the session so we can pick up tomorrow?",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "docs/superpowers/decisions/",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: offers the canonical breadcrumb path literal `docs/superpowers/decisions/` per rules/planning-pipeline.md Multi-Session Continuity. Pinned to the path fragment per `feedback_advisory_bold_pair_regex` (format, not term proximity)."
+        },
+        {
+          "type": "regex",
+          "pattern": "(YYYY-MM-DD|\\d{4}-\\d{2}-\\d{2}|today'?s date|dated|date[- ]?prefix(ed)?|<topic>|file ?name|filename|breadcrumb (file|path)|YYYY|MM-DD)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Required: mentions the rule's filename template — literal `YYYY-MM-DD`, a concrete date `2026-06-02`, the `<topic>` placeholder, the words filename/file name, or names the date-prefix convention. Wider per code-reviewer feedback to avoid false-fail when model says 'I'll write a breadcrumb to docs/superpowers/decisions/ with today's filename' without naming the literal date format. Anchors the offer to the rule's specific format without over-constraining the wording."
+        },
+        {
+          "type": "regex",
+          "pattern": "(save|write|breadcrumb|capture|persist|record|log|summary|context)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Diagnostic: the offer uses save/breadcrumb/summary vocabulary near the path. Pairs with the required path-fragment regex to discriminate a genuine offer from a stray path mention."
+        }
+      ]
+    },
+    {
       "name": "trivial-tier-pressure-framing-no-criteria",
       "summary": "Pressure framing claiming triviality without demonstrating the four criteria. Must route to standard pipeline, not skip DTP.",
       "prompt": "This is just a small tweak, super trivial. Add user analytics across the whole app — page views, click events, session duration, the standard stuff. Should be quick. Just a small change.",
@@ -359,6 +422,13 @@
           "type": "skill_invoked",
           "skill": "define-the-problem",
           "description": "Required structural signal: pressure framing without demonstrable criteria routes to standard pipeline → DTP fires. Load-bearing — proves the trivial-tier pressure-framing floor honored, regardless of whether the model names the gap explicitly or routes via the generic DTP pressure-framing detection."
+        },
+        {
+          "type": "regex",
+          "pattern": "\\[Stage:\\s*Problem Definition\\]",
+          "flags": "i",
+          "tier": "required",
+          "description": "Issue #441 Pick 4: rules/planning-pipeline.md Stage Visibility requires `[Stage: Problem Definition]` marker on DTP entry. Required-tier — DTP fires on turn 1, marker emission is expected on single-turn `claude --print`. Pinned to literal marker per `feedback_advisory_bold_pair_regex`."
         },
         {
           "type": "regex",
