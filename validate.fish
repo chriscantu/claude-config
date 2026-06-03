@@ -1507,7 +1507,19 @@ for skill_md in $p1u_skill_md_files
     # `(use /bar)`, `collates /baz`, `instead of /qux` — is a cross-reference,
     # not a claim. Verb anchor + optional adverb keeps the regex robust against
     # phrasing drift without over-matching arbitrary slash mentions.
-    set -l triggers (string match -ar '(?<=\b(?:says|invokes|runs|types)\s)/[a-z][a-z0-9-]*' -- $haystack | sort -u)
+    # Older PCRE on Ubuntu 22.04 CI (fish 3.3) rejects variable-length
+    # lookbehind. Use a capture group instead — `string match -ar` returns
+    # match + each capture interleaved, so the slash trigger is at every
+    # second position starting from index 2.
+    set -l raw (string match -ar '(?:says|invokes|runs|types)\s+(/[a-z][a-z0-9-]*)' -- $haystack)
+    set -l triggers
+    set -l n (count $raw)
+    if test $n -ge 2
+        for i in (seq 2 2 $n)
+            set -a triggers $raw[$i]
+        end
+        set triggers (printf '%s\n' $triggers | sort -u)
+    end
 
     if test (count $triggers) -eq 0
         pass "skills/$skill_name: no slash trigger in description (skipped)"
