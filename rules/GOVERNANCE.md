@@ -108,6 +108,36 @@ A new rule that fails any of these tests is a new concern and consumes
 cap budget. "Refinement of existing concern X" without satisfying all
 three is accretion in disguise.
 
+<a id="cap-slot-counting"></a>
+
+### Cap-slot counting rule
+
+Documentation refactors that split one HARD-GATE concept across multiple
+files (e.g., the planning-pipeline / skip-contract / pressure-framing-floor
+trio) count as **one cap slot**, not N. Conservation rationale: the split
+must be a navigation/size refactor of a single concept — not the promotion
+of N independent rules. A split that satisfies all three concern-split
+eligibility conditions above earns the single-slot count; one that fails
+any condition is N new concerns and consumes N slots.
+
+Current count (post ADR #0022 clarification): **10 files, 8 cap slots.**
+
+### LOC budget (advisory)
+
+Source: [ADR #0022](../adrs/0022-hard-gate-rule-mass-audit.md).
+
+- **~150 LOC** advisory per cap slot (median of current sizes).
+- **>150 LOC** — add a one-line `**Why this size:**` sentence at the top
+  of the rule file explaining why the slot warrants the extra length.
+- **>200 LOC** — triggers a trim-or-justify PR pass before merge.
+
+This budget is **advisory, not HARD-GATE-enforced.** Adding a HARD-GATE
+about HARD-GATE size is exactly the self-referential meta-work the
+rule-mass audit flagged. Soft enforcement substrate: a warn-only
+`validate.fish` phase (tracked separately — issue #443 steps 2/3 shipped
+in PR #447 enforce a 250 LOC HARD ceiling via Phase 1t; the 150 LOC
+advisory sits below that ceiling as a contributor norm, not a gate).
+
 ### Retroactive audit pass
 
 Survey of overlap candidates among the current 8. None forced to merge —
