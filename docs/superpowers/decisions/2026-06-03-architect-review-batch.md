@@ -87,13 +87,34 @@ Shipped 3 of remaining 4 architect-review issues. Tooling pattern stabilized: ea
 
 ### Remaining picks
 
-3. **#445 scope-tier-gate adversarial hooks** — bind `hooks/adversarial-trigger.sh` to scope-tier-memory-check output. Trivial-tier cost reduction. ~S-M effort. Different substrate (bash + hooks, not validate.fish) — worth restarting session for fresh context per `using-superpowers` skill-priority discipline.
+(all shipped — see Session 3 below)
+
+## Session 3 — 2026-06-03 late ship cycle
+
+Closes the architect-review batch. All 5 issues (#441, #442, #443, #444, #445) shipped.
+
+### What shipped
+
+| # | PR | Commit | Notes |
+|---|---|---|---|
+| 445 | #450 | `3cb9b10` | hooks: scope-tier sentinel skip for adversarial swarm. `hooks/scope-tier-memory-check.sh` writes/clears `.claude/state/scope-tier-current` (JSON `{ts,matched}`); `hooks/adversarial-trigger.sh` exits early when sentinel ts within `scope_tier_sentinel_ttl_seconds` (default 600s). New test `tests/hooks/scope-tier-adversarial-gate.test.sh` (5 cases). **Issue closed.** Binary skip on Trivial only — not the 4-tier graduated swarm in original issue body; that would need a new classifier the issue explicitly rules out. |
+
+### CI hiccup
+
+First push failed `validate.fish` Phase 1o (`shellcheck warnings`) — local shellcheck 0.11.0 silent, CI Ubuntu 22.04 shellcheck 0.8.0 flagged `SC2015 (A && B || C)` on the two sentinel helpers. Refactored to explicit `if/then` blocks; passed on the next push. Lesson saved to memory as `feedback-shellcheck-ci-version-skew` — companion to `feedback-fish-pcre-portability`, same CI version-skew failure mode, different tool.
+
+### Pre-existing gap surfaced (out of scope)
+
+`tests/hooks/*.test.sh` (bash hook tests) are not wired into `.github/workflows/validate.yml`. The new gate test and the three pre-existing hook tests rely on local execution. Worth a follow-up issue.
 
 ### Local-vs-remote state
 
-- `main` at `69bbeee`, synced to `origin/main`.
-- Untracked: `.claude-plugin/marketplace.json`, `agentdb.rvf`, `agentdb.rvf.lock` — pre-existing, not in any PR. Not load-bearing for next session.
+- `main` at `3cb9b10`, synced to `origin/main`.
+- Untracked: `.claude-plugin/marketplace.json`, `agentdb.rvf`, `agentdb.rvf.lock` — pre-existing, not in any PR. Not load-bearing.
+- Branch `feature/scope-tier-adversarial-gate` merged + deleted.
 
 ## Confidence
 
 Dry-run + reviewer-approved + format-pinned regex = high confidence #441 v1 passes live eval. Confidence LOW until live run because eval-runner spawns fresh `claude --print` with no in-session priming on planning-pipeline.md (rule IS loaded at session start though).
+
+Session 3 #445: shipped behind passing CI (validate + claude-review + CodeQL) and 5/5 local gate test. Behavioral impact (token reduction on Trivial-tier edits) not yet observable — depends on real Trivial-tier traffic post-merge.
