@@ -253,6 +253,10 @@ Each commit independently revertable. No one-way doors.
 | Spec drift between authoring + execution | Re-measure at plan-time (this revision, 2026-05-18); planner re-measures on each subsequent revisit; acceptance criterion #1 reports measured delta, not absolute target |
 | Phase number collision (1o taken post-spec) | Reassigned to 1p; 1p preventive concept renamed to 1q (out-of-scope) |
 
+## Related work
+
+- [#452](https://github.com/chriscantu/claude-config/issues/452) — strip `rules/disagreement.md`, fold into CLAUDE.md fixture, re-baseline sycophancy eval. Adjacent rule-prune work; same governance posture (eval re-baseline as ship gate, ADR 0022 cap drop). Either issue can land first; whichever ships second inherits the updated cap math.
+
 ## Next
 
 Spec self-review → user review → invoke `superpowers:writing-plans` for implementation plan.
