@@ -9,6 +9,7 @@
     "^Plans\\.md$"
   ],
   "debounce_seconds": 30,
+  "scope_tier_sentinel_ttl_seconds": 600,
   "workers": ["security", "perf", "scope", "test-gap"],
   "arbiter": "arbiter",
   "worker_timeout_seconds": 240,
