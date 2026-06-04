@@ -29,13 +29,23 @@ SENTINEL_PATH="${SCOPE_TIER_SENTINEL_PATH:-.claude/state/scope-tier-current}"
 
 write_sentinel() {
   local matched_json="$1"
-  mkdir -p "$(dirname "$SENTINEL_PATH")" 2>/dev/null || return 0
-  jq -n -c --argjson ts "$(date +%s)" --argjson matched "$matched_json" \
-    '{ts:$ts,matched:$matched}' > "$SENTINEL_PATH" 2>/dev/null || true
+  local sentinel_dir
+  sentinel_dir=$(dirname "$SENTINEL_PATH")
+  if ! mkdir -p "$sentinel_dir" 2>/dev/null; then
+    return 0
+  fi
+  local now_ts
+  now_ts=$(date +%s)
+  jq -n -c --argjson ts "$now_ts" --argjson matched "$matched_json" \
+    '{ts:$ts,matched:$matched}' > "$SENTINEL_PATH" 2>/dev/null
+  return 0
 }
 
 clear_sentinel() {
-  [[ -f "$SENTINEL_PATH" ]] && rm -f "$SENTINEL_PATH" 2>/dev/null || true
+  if [[ -f "$SENTINEL_PATH" ]]; then
+    rm -f "$SENTINEL_PATH" 2>/dev/null
+  fi
+  return 0
 }
 
 log_decision() {

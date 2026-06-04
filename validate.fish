@@ -1109,16 +1109,9 @@ else
     pass "hooks/scope-tier-memory-check.sh present"
     test -x $hook_path; and pass "executable"; or fail "not executable"
     if command -q shellcheck
-        set -l sc_out (shellcheck $hook_path 2>&1)
-        set -l sc_status $status
-        if test $sc_status -eq 0
-            pass "shellcheck clean"
-        else
-            fail "shellcheck warnings"
-            for line in $sc_out
-                echo "    $line"
-            end
-        end
+        shellcheck $hook_path >/dev/null 2>&1
+            and pass "shellcheck clean"
+            or fail "shellcheck warnings"
     end
 end
 
