@@ -1642,6 +1642,55 @@ end
 
 echo ""
 
+# 1w. Eval suite name collision across roots (issue #462)
+# The eval runner (tests/eval-runner-v2.ts) discovers suites from two roots —
+# skills/<name>/evals/evals.json and rules-evals/<name>/evals/evals.json — and
+# exits 1 if the same <name> exists under both (eval-runner-v2.ts collision
+# guard, mirroring discoverSkills in tests/evals-lib.ts). validate.fish Phase 1m
+# only checks each evals.json's JSON shape, not cross-root name uniqueness, so a
+# collision passes CI green then crashes the runner the next time evals run (the
+# gap that shipped a runner-crashing collision in the #424 batch). This phase
+# replicates discoverSkills' domain — a directory under either root that contains
+# evals/evals.json — and fails on any name present under both.
+#
+# Zero-state is a pass (no suites → no collision possible), consistent with the
+# conditional phases 1n/1p; Phase 1m is the authoritative "evals must exist"
+# guard, so 1w stays narrowly scoped to collision detection and does not
+# double-fail an empty repo.
+_phase_begin "1w"
+echo "── Phase 1w: eval suite name collision (issue #462)"
+
+set -l p1w_skills_names
+for d in $repo_dir/skills/*/
+    if test -f "$d/evals/evals.json"
+        set -a p1w_skills_names (basename $d)
+    end
+end
+
+set -l p1w_rules_names
+for d in $repo_dir/rules-evals/*/
+    if test -f "$d/evals/evals.json"
+        set -a p1w_rules_names (basename $d)
+    end
+end
+
+if test (count $p1w_skills_names) -eq 0; and test (count $p1w_rules_names) -eq 0
+    pass "Phase 1w: no eval suites under either root — no collision possible"
+else
+    set -l p1w_collision 0
+    for name in $p1w_skills_names
+        if contains -- $name $p1w_rules_names
+            fail "eval suite '$name' exists under both skills/ and rules-evals/ — name collision (runner exits 1; pick a unique suite name)"
+            set p1w_collision 1
+        end
+    end
+    if test $p1w_collision -eq 0
+        pass "no eval suite name collisions across skills/ and rules-evals/ ("(count $p1w_skills_names)" skills, "(count $p1w_rules_names)" rules-evals)"
+    end
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
