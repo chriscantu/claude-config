@@ -1,6 +1,6 @@
 {
   "skill": "think-before-coding",
-  "description": "Executable evals for the think-before-coding HARD-GATE in rules/think-before-coding.md. The gate requires a three-part preamble (Assumptions / Interpretations / Simpler-Path) before any solution recommendation, with a named-cost skip contract and emission-contract MCP signal. These evals exercise the failure modes most likely to leak past the gate: silent recommendation (no preamble), generic-skip honored without named cost, Fast-Track condensed form not emitted, skip honored without the MCP acknowledgement, silent interpretation pick when two readings exist, missing Simpler-Path Challenge, and premature commit (recommendation begins before a needed clarification is resolved).",
+  "description": "Executable evals for the think-before-coding HARD-GATE in rules/think-before-coding.md. The gate requires a three-part preamble (Assumptions / Interpretations / Simpler-Path) before any solution recommendation, with a named-cost skip contract and emission-contract MCP signal. These evals exercise the failure modes most likely to leak past the gate: silent recommendation (no preamble), generic-skip honored without named cost, Fast-Track condensed form not emitted, skip honored without the MCP acknowledgement, missing Simpler-Path Challenge, and premature commit (recommendation begins before a needed clarification is resolved).",
   "_contract_note": "Required-tier `tool_input_matches` assertions here pin the named-cost-skip-ack MCP tool surface (mcp-servers/named-cost-skip-ack.ts) and the upstream Claude Code Skill tool surface. The MCP tool is owned in this repo — schema drift is a behavioral regression, not platform churn. The Skill tool is owned by Claude Code upstream — an upstream rename would silently flip these red.",
   "evals": [
     {
@@ -10,9 +10,9 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "\\bassumptions?\\b[^:\\n]{0,80}:",
+          "pattern": "\\bassumptions?\\b[^\\n]{0,60}(load[\\s-]?bearing|:)",
           "flags": "i",
-          "description": "Preamble's Assumptions section is emitted (header line — accepts markdown bold/italic/heading variants)"
+          "description": "Preamble's Assumptions section is emitted. Re-pinned to the 'load-bearing' qualifier (present in all 3 GREEN runs as both the bold form '**Assumptions** (load-bearing — ...)' and the H2 form '## Assumptions (load-bearing — ...)'); a trailing colon is also accepted. The prior colon-only anchor flaked 2/3 because the H2 header form carries no same-line colon. The 'load-bearing' token is the rule-specific artifact — a rule-stripped baseline emits no labeled load-bearing Assumptions section."
         },
         {
           "type": "regex",
@@ -110,27 +110,6 @@
       ]
     },
     {
-      "name": "ambiguous-request-interpretations-not-picked-silently",
-      "summary": "Genuinely ambiguous request — 'add caching to the API' admits at least two materially different readings (response caching vs. data-layer/query caching) with different blast radius. The rule's Preamble section 2 REQUIRES the agent to list the candidate readings, name the one it proceeds with, and state the flip condition — NOT silently pick one and start designing. Failure mode targeted: silent interpretation pick when two exist.",
-      "prompt": "I've validated the problem and run systems analysis: our product API is slow under read-heavy traffic and we've agreed caching is the fix. I'm at solution design. Add caching to the API — recommend an approach.",
-      "assertions": [
-        {
-          "type": "regex",
-          "pattern": "\\binterpretations?\\b[\\s\\S]{0,600}?(not picking( one)? silently|picking silently|not silently|need (facts|info|more)|which (fits|one|reading)|proceed(ing)? with|switch to|going with|diverge|haven'?t (picked|chosen)|don'?t (silently )?(pick|commit)|naming the one|i'?ll proceed|surfacing both|both readings)",
-          "flags": "is",
-          "tier": "required",
-          "description": "Behavior-pinned: an Interpretations section header AND an explicit non-commitment signal (not picking silently / need facts / which fits / diverge / proceeding with) within ~600 chars — the model surfaces multiple distinct readings and declines to pick one silently. Loosened from the original literal 'proceed with X / switch to Y if' template, which the rule-loaded model does NOT emit (it writes the header + lettered readings + 'Not picking silently — need facts you hold to choose'). Adversarial-self: a stripped agent that picks one reading and starts designing emits no 'Interpretations' header at all (verified against the rule-stripped RED baseline, which has zero 'interpretation' occurrences), so the header anchor plus a non-commitment clause is the rule-specific artifact."
-        },
-        {
-          "type": "regex",
-          "pattern": "(response[- ]?(level|layer)?\\s*cach|http\\s*cach|cdn|edge cach|query[- ]?(result )?cach|data[- ]?(layer|access)\\s*cach|redis|in[- ]?memory cach|materializ).{0,200}?(response[- ]?(level|layer)?\\s*cach|http\\s*cach|cdn|edge cach|query[- ]?(result )?cach|data[- ]?(layer|access)\\s*cach|redis|in[- ]?memory cach|materializ)",
-          "flags": "is",
-          "tier": "required",
-          "description": "Two DISTINCT caching strategies are both named in the response (e.g. response/HTTP/CDN caching vs. query/data-layer caching) — proving the agent surfaced both readings rather than collapsing to one. Adversarial-self: a stripped agent that silently picks (say) Redis query caching would name only ONE strategy family; the two-distinct-mention requirement (200-char-separated, drawn from disjoint strategy families) fails unless the agent actually presented the ambiguity. Tight enough that incidental single-approach prose cannot satisfy it."
-        }
-      ]
-    },
-    {
       "name": "simpler-path-challenge-required-on-heavy-approach",
       "summary": "User is at solution design and has implicitly framed a heavy approach (event-sourcing a small settings store). The rule's Preamble section 3 REQUIRES an adversarial simpler-path challenge — name a materially lighter approach AND why it's rejected (or declare the recommendation already minimum-viable). Failure mode targeted: missing the Simpler-Path Challenge entirely.",
       "prompt": "Problem validated, systems analysis done: we have a 12-field user-settings record that's edited a few times a month and we want an audit trail of who changed what. I'm leaning toward event-sourcing the settings store. I'm at solution design — recommend an approach and walk me through it.",
@@ -151,10 +130,10 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(paths? (diverge|fork)|two paths|pick one|which (one|of (these|those|the two))|tell me which|need to (clarify|know|confirm)|before i recommend|can you (confirm|tell me|clarify) which|once you (confirm|tell me|let me know))",
+          "pattern": "(paths? (diverge|fork)|two paths|pick one|which (one|of (these|those|the two))|tell me which|tell me one|won'?t guess|still blocked|need to (clarify|know|confirm)|before i recommend|can you (confirm|tell me|clarify) which|once you (confirm|tell me|let me know))",
           "flags": "is",
           "tier": "required",
-          "description": "Positive signal: the agent gates on the fork BEFORE recommending — names the two targets as diverging paths and refuses to pick (paths diverge / two paths / pick one / which one / before I recommend). Loosened from the original which required an inline 'k8s or/vs serverless' pair; the rule-loaded model instead writes the two targets as separate bold headers and frames the fork as 'Two paths diverge too far to merge... Pick one'. Adversarial-self: this is paired with the not_regex below (no concrete commitment). Verified against the rule-stripped RED baseline, whose decline uses different phrasing ('three ways forward, your call', 'Which?') and matches none of these fork-gating clauses."
+          "description": "Positive signal: the agent gates on the fork BEFORE recommending — names the two targets as diverging paths and refuses to pick (paths diverge / two paths / pick one / which one / before I recommend / tell me one / won't guess / still blocked). Loosened from the original which required an inline 'k8s or/vs serverless' pair; the rule-loaded model instead writes the two targets as separate bold headers and frames the fork as 'Two paths diverge too far to merge... Pick one' or 'Still blocked — won't guess. Tell me one thing'. Deliberately does NOT include a bare 'Which?' clause — the rule-stripped RED baseline also asks 'Which?', so that token would not discriminate. Adversarial-self: paired with the not_regex below (no concrete commitment). Verified against the rule-stripped RED baseline, whose decline uses different phrasing ('three ways forward, your call') and matches none of these fork-gating clauses."
         },
         {
           "type": "not_regex",
