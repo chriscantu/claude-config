@@ -44,3 +44,4 @@ tests/sycophancy/results/full/
 tests/sycophancy/results/smoke/*
 !tests/sycophancy/results/smoke/.gitkeep
 !tests/sycophancy/results/smoke/baseline-*/
+.worktrees/
