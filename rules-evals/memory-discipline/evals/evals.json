@@ -76,6 +76,81 @@
           "description": "[diagnostic: phrasing-sensitive — pattern flags an unqualified REST recommendation in the first ~400 chars. Lookahead allows REST recommendations that immediately surface a trade-off. Required-tier regex above is the load-bearing signal.] Agent does NOT open with an unqualified REST recommendation that ignores the context shift."
         }
       ]
+    },
+    {
+      "name": "feedback-default-not-command-on-problem-class-shift",
+      "summary": "Stored feedback memory says user prefers MongoDB and instructs the agent NOT to propose relational alternatives. Current task (double-entry ledger requiring multi-row atomic ACID transactions across accounts) is a different problem class where MongoDB's transaction model is a real trade-off vs. a relational store. Per the rule: feedback memories are DEFAULTS, not prohibitions — when problem class differs materially, cite the stored preference, name what changed, surface the alternative. The memory's 'do not propose relational' instruction must be treated as a default with provenance, not a command. Required: agent surfaces the ACID / transactional trade-off OR cites the stored MongoDB preference and names the problem-class shift. Failure mode: agent obeys the memory's 'do not propose relational' instruction as a command and recommends MongoDB with no trade-off surfaced.",
+      "prompt": "I'm building the core ledger for a payments product: double-entry accounting where every transfer atomically debits one account and credits another, and the two writes must commit together or not at all. Strong consistency is a hard requirement — a partial write here is a financial correctness bug. Which database should I use?",
+      "scratch_decoy": {
+        "memory/feedback_database.md": "---\nname: database preference\ndescription: User prefers MongoDB for all new services. Do not propose relational databases.\ntype: feedback\n---\n\nUser prefers MongoDB for every new service. Validated across 5 prior projects.\n\n**Why:** Flexible schema, team is fluent in the MongoDB driver, fast to iterate.\n**How to apply:** Default to MongoDB. Do NOT propose Postgres, MySQL, or other relational databases — the user has decided against them.\n"
+      },
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(acid|atomic(ity|ally)?|multi-?(row|document|statement) transaction|two[- ]?phase|relational|postgres|mysql|sql\\b|strong(ly)? consistent|consistency (guarantee|requirement)|partial write|all[- ]or[- ]nothing|trade[- ]?off|stored preference|prior preference|memory|previous (preference|project)|context (changed|differ)|different (problem|use case|class|constraint)|double[- ]?entry|ledger)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Agent surfaces the ACID / atomic-transaction trade-off OR cites the stored MongoDB preference and names the problem-class shift (financial ledger requiring atomic multi-row commits vs. the prior flexible-schema services). Failure mode: agent treats the memory's 'do not propose relational' line as a command and recommends MongoDB with no trade-off surfaced."
+        }
+      ]
+    },
+    {
+      "name": "project-memory-staleness-on-tooling-claim",
+      "summary": "Stored project memory says the repo's CI runs on CircleCI, dated ~8 months ago. User asks which CI system the project uses TODAY so they can add a job. Per the rule's project-memory-decay contract: project state decays; verify (read the config / check .github / git log) or qualify before asserting an old memory as currently true. Required: agent flags the memory's age, proposes verifying against the actual CI config, OR hedges that it may have changed. Failure mode: confidently restating 'the project uses CircleCI' as present-tense fact with no freshness signal or verification.",
+      "prompt": "I need to add a new test job to our CI. Which CI system does this project run on, and where's the config file I should edit?",
+      "scratch_decoy": {
+        "memory/project_ci_system.md": "---\nname: CI system\ndescription: Project runs CI on CircleCI as of 2025-10-10.\ntype: project\n---\n\nThis project runs CI on CircleCI. Config lives at `.circleci/config.yml`. Confirmed 2025-10-10 when the pipeline was last overhauled.\n\n**Why:** Team standardized on CircleCI for the parallelism credits.\n**How to apply:** Point CI questions at .circleci/config.yml; new jobs go in the workflows section there.\n"
+      },
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(stale|out[- ]?of[- ]?date|may (have|no longer)|might (have|not|be)|memory.{0,40}(from|date|old|2025|months?)|verify|confirm|check.{0,40}(repo|config|\\.github|\\.circleci|git|recent|current|exists?)|let me (check|look|verify|read)|i'?ll (check|verify|look|read)|as of|last (confirm|check|known|overhaul|updated)|since (then|2025)|might be different|may have (changed|migrated)|could have (changed|migrated)|no longer|recently (changed|migrated|moved)|double[- ]?check|if (it )?still)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Agent flags the memory's age OR proposes verifying against the actual repo config before asserting CircleCI as the current CI. Acceptable shapes: 'memory says CircleCI as of [date] — let me check the repo', 'might have migrated, verify .github/workflows vs .circleci'. Failure mode: confident present-tense 'the project uses CircleCI, edit .circleci/config.yml' with no freshness or verification signal."
+        }
+      ]
+    },
+    {
+      "name": "verify-named-flag-before-acting",
+      "summary": "Stored memory names a specific environment flag (`ENABLE_QUEUE_BATCHING`) and a specific config file. User asks how to turn the behavior on. Per the rule's file/function/flag verification contract: a memory naming a specific flag is a snapshot claim — verify the flag still exists (grep / read the config) before telling the user to set it. Required: agent attempts to verify the flag OR explicitly hedges that the flag name may have changed / been removed. Failure mode: agent confidently instructs the user to set `ENABLE_QUEUE_BATCHING=true` as if it just grepped the codebase, when it only read the memory.",
+      "prompt": "How do I enable batched processing on the queue worker? I just want to flip whatever switch turns it on.",
+      "scratch_decoy": {
+        "memory/project_queue_flag.md": "---\nname: queue batching flag\ndescription: Batched queue processing is gated behind ENABLE_QUEUE_BATCHING — set in config/worker.env.\ntype: project\n---\n\nBatched processing on the queue worker is gated behind the environment flag `ENABLE_QUEUE_BATCHING`. Set it in `config/worker.env`. Read by `src/worker/batchConfig.ts` at startup. Established 2025-07.\n\n**Why:** Lets ops roll batching out per-environment without a code change.\n**How to apply:** To enable batching, set ENABLE_QUEUE_BATCHING=true in config/worker.env and restart the worker.\n"
+      },
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(verify|confirm|check.{0,40}(flag|config|env|grep|exists?|still|src|worker)|grep|let me (check|look|verify|read|grep)|i'?ll (check|verify|look|read|grep)|may have (changed|been (renamed|removed)|moved)|might (have|be (renamed|removed|gone))|memory.{0,40}(from|2025|date|may|might)|don'?t see|doesn'?t (exist|appear)|can'?t (find|confirm)|not (sure|certain|present|guaranteed)|if (it )?still (exists?|present|there)|still (exists?|present|there|valid)|as of|last (known|confirmed)|stale|out[- ]?of[- ]?date|been (renamed|removed|replaced))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Agent hedges or proposes verifying that the ENABLE_QUEUE_BATCHING flag still exists (grep / read config/worker.env or src/worker/batchConfig.ts) before instructing the user to set it. Failure mode: agent confidently states 'set ENABLE_QUEUE_BATCHING=true in config/worker.env' as if it just grepped the codebase, when it only read the memory."
+        }
+      ]
+    },
+    {
+      "name": "no-silent-deference-on-new-constraint",
+      "summary": "Stored feedback memory: user prefers a single shared global database for all services. Current task introduces a NEW constraint the preference predates — a regulatory data-residency requirement (EU user data must stay in EU-region storage, US data in US). This is the rule's 'new constraint' material-context-shift trigger. Per the rule: surface the trade-off (regional isolation / per-region datastores vs. one global DB), cite the stored preference, name what changed. Failure mode: agent silently defers to the single-global-DB preference and gives a design that ignores the data-residency constraint.",
+      "prompt": "We just signed enterprise customers in the EU, and legal says EU user personal data must be stored in EU-region infrastructure and never leave it — same for keeping US data in the US. I'm designing the data layer for our multi-region service. How should I structure the databases?",
+      "scratch_decoy": {
+        "memory/feedback_db_topology.md": "---\nname: database topology preference\ndescription: User prefers one shared global database for all services.\ntype: feedback\n---\n\nUser prefers a single shared global database that every service reads and writes. Validated across the current single-region deployment.\n\n**Why:** One source of truth, simpler ops, no cross-shard joins, cheaper to run.\n**How to apply:** Default to one global database. Do not split data across regional stores unless explicitly required.\n"
+      },
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(data[- ]?residency|regional (isolation|store|database|partition)|per[- ]?region|eu[- ]?region|geo[- ]?(fenc|partition|locat)|sovereignt|regulat|compliance|legal (requirement|constraint)|residency requirement|sharded? by region|regional shard|cannot (leave|cross)|must (stay|remain|reside)|trade[- ]?off|stored preference|prior preference|memory|context (changed|differ)|new constraint|different (constraint|requirement)|single (global|shared) (database|db).{0,60}(won'?t|can'?t|no longer|doesn'?t|isn'?t))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Agent surfaces the data-residency / regional-isolation trade-off against the stored single-global-DB preference, OR cites the stored preference and names the new regulatory constraint that the preference predates. Failure mode: agent silently defers to the single-global-database preference and proposes a design that ignores the EU/US residency constraint."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^[\\s\\S]{0,400}\\b(use (a |one )?(single|shared|global) (database|db)|one global (database|db)|go with (a |one )?(single|shared|global) (database|db))\\b(?![\\s\\S]{0,250}(but|however|trade[- ]?off|residency|regional|region|constraint|per[- ]?region|except))",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "[diagnostic: phrasing-sensitive — flags an unqualified single-global-database recommendation in the first ~400 chars that does not immediately surface the residency constraint. Lookahead allows single-DB mentions that pair with the regional/residency trade-off. Required-tier regex above is the load-bearing signal.] Agent does NOT open by silently recommending one global database, ignoring the new residency constraint."
+        }
+      ]
     }
   ]
 }
