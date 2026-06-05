@@ -92,33 +92,18 @@ For every unchecked item in the test plan:
 ## When to Skip
 
 - Single-line edits with no behavioral change (typo, comment, formatting)
-- Zero-functional-change PRs via the carve-out below
+- Zero-functional-change PRs via the mechanical carve-out (see below)
 - Emergency bypass via `DISABLE_PRESSURE_FLOOR` sentinel (see
   [pressure-framing-floor.md](pressure-framing-floor.md#emergency-bypass-sentinel))
 
 ### Zero-functional-change carve-out (mechanical adjudication)
 
-The carve-out is **agent-adjudicated via mechanical check**, NOT
-self-declared. The agent MUST:
-
-1. Run `git diff --stat <base>...HEAD` via the Bash tool.
-2. **Quote the literal stdout output** in the response — file list and
-   change counts must appear verbatim, so the eval substrate (and any
-   reviewer) can audit the artifact rather than the narrative claim.
-3. Apply the carve-out ONLY when ALL hold:
-   - All changed paths match: `*.md`, `*.txt`, `*.rst`, `*.adoc`,
-     `LICENSE*`, `CODEOWNERS`, `.gitignore`, or `.github/*.yml`
-   - Zero changes to executable code paths (`*.ts`, `*.js`, `*.py`,
-     `*.fish`, `*.sh`, source files of any language)
-   - One-line declaration in PR body:
-     `Carve-out: zero-functional-change (docs/config only)`
-
-A response that claims the carve-out without the quoted `git diff
---stat` artifact is theatrical, not mechanical — gate fires.
-
-Mixed PRs (docs + behavior) MUST run the full gate. If the agent
-catches itself rationalizing a mixed PR as zero-functional-change, the
-mechanical check refuses the carve-out.
+The zero-functional-change carve-out is **agent-adjudicated via a
+mechanical `git diff --stat` check**, NOT self-declared — the agent MUST
+quote the literal diff stat, all changed paths must match the docs/config
+allowlist, and mixed PRs (docs + behavior) MUST run the full gate. The
+full procedure (allowlist, quoting requirement, mixed-PR refusal) lives in
+[`references/pr-validation-carveout.md`](references/pr-validation-carveout.md#zero-functional-change-carve-out-mechanical-adjudication).
 
 ### What counts as an explicit override
 
