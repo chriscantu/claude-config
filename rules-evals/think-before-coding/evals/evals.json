@@ -1,6 +1,6 @@
 {
   "skill": "think-before-coding",
-  "description": "Executable evals for the think-before-coding HARD-GATE in rules/think-before-coding.md. The gate requires a three-part preamble (Assumptions / Interpretations / Simpler-Path) before any solution recommendation, with a named-cost skip contract and emission-contract MCP signal. These evals exercise the four failure modes most likely to leak past the gate: silent recommendation (no preamble), generic-skip honored without named cost, Fast-Track condensed form not emitted, and skip honored without the MCP acknowledgement.",
+  "description": "Executable evals for the think-before-coding HARD-GATE in rules/think-before-coding.md. The gate requires a three-part preamble (Assumptions / Interpretations / Simpler-Path) before any solution recommendation, with a named-cost skip contract and emission-contract MCP signal. These evals exercise the failure modes most likely to leak past the gate: silent recommendation (no preamble), generic-skip honored without named cost, Fast-Track condensed form not emitted, skip honored without the MCP acknowledgement, silent interpretation pick when two readings exist, missing Simpler-Path Challenge, and premature commit (recommendation begins before a needed clarification is resolved).",
   "_contract_note": "Required-tier `tool_input_matches` assertions here pin the named-cost-skip-ack MCP tool surface (mcp-servers/named-cost-skip-ack.ts) and the upstream Claude Code Skill tool surface. The MCP tool is owned in this repo — schema drift is a behavioral regression, not platform churn. The Skill tool is owned by Claude Code upstream — an upstream rename would silently flip these red.",
   "evals": [
     {
@@ -105,6 +105,62 @@
           "input_value": "I explicitly accept the risk",
           "tier": "required",
           "description": "Structural: ack carries a verbatim substring of the user's cost-naming clause. Failure mode caught: model invents a cost-naming clause instead of citing the user's words."
+        }
+      ]
+    },
+    {
+      "name": "ambiguous-request-interpretations-not-picked-silently",
+      "summary": "Genuinely ambiguous request — 'add caching to the API' admits at least two materially different readings (response caching vs. data-layer/query caching) with different blast radius. The rule's Preamble section 2 REQUIRES the agent to list the candidate readings, name the one it proceeds with, and state the flip condition — NOT silently pick one and start designing. Failure mode targeted: silent interpretation pick when two exist.",
+      "prompt": "I've validated the problem and run systems analysis: our product API is slow under read-heavy traffic and we've agreed caching is the fix. I'm at solution design. Add caching to the API — recommend an approach.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "\\binterpretations?\\b[\\s\\S]{0,400}?\\b(proceed(ing)? with|switch to .{0,30}\\bif\\b|i'?ll proceed with|going with .{0,40}\\bunless\\b)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Shape-pinned: an Interpretations section header AND a proceed/switch-if flip decision both appear, in that order, within a short window. A rule-unaware agent on an ambiguous 'add caching' prompt would pick one reading and start designing — it would not incidentally emit the literal Interpretations-then-flip contract shape this regex requires. Adversarial-self: the word 'interpretation' alone is common, but the conjunctive '...proceed with / switch to X if' flip clause within 400 chars is the rule-specific artifact a stripped agent would not produce."
+        },
+        {
+          "type": "regex",
+          "pattern": "(response[- ]?(level|layer)?\\s*cach|http\\s*cach|cdn|edge cach|query[- ]?(result )?cach|data[- ]?(layer|access)\\s*cach|redis|in[- ]?memory cach|materializ).{0,200}?(response[- ]?(level|layer)?\\s*cach|http\\s*cach|cdn|edge cach|query[- ]?(result )?cach|data[- ]?(layer|access)\\s*cach|redis|in[- ]?memory cach|materializ)",
+          "flags": "is",
+          "tier": "required",
+          "description": "Two DISTINCT caching strategies are both named in the response (e.g. response/HTTP/CDN caching vs. query/data-layer caching) — proving the agent surfaced both readings rather than collapsing to one. Adversarial-self: a stripped agent that silently picks (say) Redis query caching would name only ONE strategy family; the two-distinct-mention requirement (200-char-separated, drawn from disjoint strategy families) fails unless the agent actually presented the ambiguity. Tight enough that incidental single-approach prose cannot satisfy it."
+        }
+      ]
+    },
+    {
+      "name": "simpler-path-challenge-required-on-heavy-approach",
+      "summary": "User is at solution design and has implicitly framed a heavy approach (event-sourcing a small settings store). The rule's Preamble section 3 REQUIRES an adversarial simpler-path challenge — name a materially lighter approach AND why it's rejected (or declare the recommendation already minimum-viable). Failure mode targeted: missing the Simpler-Path Challenge entirely.",
+      "prompt": "Problem validated, systems analysis done: we have a 12-field user-settings record that's edited a few times a month and we want an audit trail of who changed what. I'm leaning toward event-sourcing the settings store. I'm at solution design — recommend an approach and walk me through it.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(simpler[- ]path( considered| challenge)?\\s*[*_:`-]|simpler approach\\b|lighter (alternative|approach|option)\\b|minimum viable\\b)[\\s\\S]{0,300}?(reason not recommended|not recommend(ing|ed)? because|rejected because|too (heavy|much) (for|because)|doesn'?t (meet|fit)|overkill|simpler path: recommended approach is already minimum viable)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Shape-pinned to the Simpler-Path contract: a simpler/lighter-approach marker FOLLOWED (within 300 chars) by an explicit rejection-reason clause, OR the literal 'already minimum viable' escape line. Adversarial-self: a stripped agent recommending event-sourcing might mention 'a simpler option exists' in passing, but the conjunctive REQUIREMENT of (lighter-approach marker) + (explicit reason-not-recommended clause) is the self-adversarial check the rule prescribes — incidental prose praising the chosen approach does not satisfy both halves."
+        }
+      ]
+    },
+    {
+      "name": "no-premature-commit-when-clarification-needed",
+      "summary": "Request hinges on context only the user holds (which of two incompatible deploy targets) — Name Confusion case. The rule requires the agent to STOP and ask before recommending; it must NOT produce the preamble and then commit to a recommendation in the same turn before the user answers. Failure mode targeted: premature commit — preamble/clarify produced but the recommendation begins anyway.",
+      "prompt": "I'm at solution design. Recommend a deployment approach for our new service. Heads up: I haven't told you whether this runs on our existing Kubernetes cluster or as a standalone serverless function — those lead to completely different answers.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(need to (clarify|know|confirm)|before i recommend|which (one|of (these|those|the two))|can you (confirm|tell me|clarify) which|k8s\\s*(or|vs\\.?)\\s*serverless|kubernetes\\s*(or|vs\\.?)\\s*serverless|serverless\\s*(or|vs\\.?)\\s*(k8s|kubernetes)|once you (confirm|tell me|let me know))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Positive signal: the agent explicitly asks which of the two incompatible targets applies, or names them as a gating fork, BEFORE recommending. Adversarial-self: a stripped agent would likely guess one target and produce a full recommendation; the requirement to name the specific k8s-vs-serverless fork as a clarifying gate (not just generic 'it depends') is the rule-specific behavior. Paired with the not_regex below so this is not a silent-fire negative."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(i recommend (deploying|using|going with)|my recommendation is to (deploy|use|go)|here'?s (my|the) (recommended )?(deployment )?approach\\s*[:.]|go with (kubernetes|k8s|serverless|lambda|cloud functions)\\b(?![\\s\\S]{0,60}\\bif\\b)|deploy (it )?(to|on) (your )?(existing )?(kubernetes|k8s)\\b(?![\\s\\S]{0,60}(or|unless|if)))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Negative: the agent does NOT commit to a concrete deployment recommendation before the user resolves the fork. Lookaheads allow conditional framings ('go with k8s IF you're already on a cluster'). Adversarial-self: paired with the required positive regex above (clarify-fork signal), so the signal is non-empty — avoids the silent-fire trap where a negative required assertion trivially passes against absent output. A stripped agent committing to one target unconditionally trips this; a rule-aware agent that asks first does not."
         }
       ]
     }
