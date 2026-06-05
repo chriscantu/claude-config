@@ -37,7 +37,8 @@
           "type": "regex",
           "pattern": "\\bassumptions?\\b[^:\\n]{0,80}:",
           "flags": "i",
-          "description": "Preamble Assumptions section still emits despite the generic skip framing"
+          "tier": "diagnostic",
+          "description": "[diagnostic: demoted from required — under THIS generic-skip prompt ('skip the preamble — just give me the recommendation with a one-line reason') the rule-loaded model honors the borderline skip and condenses: it gives the recommendation with a load-bearing caveat but does NOT re-emit a labeled 'Assumptions' section. The GREEN baseline (rule loaded) emits no 'Assumptions' header, so this cannot gate as a required GREEN-pass signal; and the rule-stripped RED baseline behaves near-identically (recommendation + risk flag, no Assumptions header), so there is no discriminating text shape to pin. Kept as a diagnostic to document the desired-but-variable behavior, alongside the sibling skip-engagement diagnostic below. The load-bearing required-tier signal for this eval is the structural MCP-ack-does-NOT-fire assertion.] Preamble Assumptions section emits despite the generic skip framing"
         },
         {
           "type": "regex",
@@ -115,10 +116,10 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "\\binterpretations?\\b[\\s\\S]{0,400}?\\b(proceed(ing)? with|switch to .{0,30}\\bif\\b|i'?ll proceed with|going with .{0,40}\\bunless\\b)",
-          "flags": "i",
+          "pattern": "\\binterpretations?\\b[\\s\\S]{0,600}?(not picking( one)? silently|picking silently|not silently|need (facts|info|more)|which (fits|one|reading)|proceed(ing)? with|switch to|going with|diverge|haven'?t (picked|chosen)|don'?t (silently )?(pick|commit)|naming the one|i'?ll proceed|surfacing both|both readings)",
+          "flags": "is",
           "tier": "required",
-          "description": "Shape-pinned: an Interpretations section header AND a proceed/switch-if flip decision both appear, in that order, within a short window. A rule-unaware agent on an ambiguous 'add caching' prompt would pick one reading and start designing — it would not incidentally emit the literal Interpretations-then-flip contract shape this regex requires. Adversarial-self: the word 'interpretation' alone is common, but the conjunctive '...proceed with / switch to X if' flip clause within 400 chars is the rule-specific artifact a stripped agent would not produce."
+          "description": "Behavior-pinned: an Interpretations section header AND an explicit non-commitment signal (not picking silently / need facts / which fits / diverge / proceeding with) within ~600 chars — the model surfaces multiple distinct readings and declines to pick one silently. Loosened from the original literal 'proceed with X / switch to Y if' template, which the rule-loaded model does NOT emit (it writes the header + lettered readings + 'Not picking silently — need facts you hold to choose'). Adversarial-self: a stripped agent that picks one reading and starts designing emits no 'Interpretations' header at all (verified against the rule-stripped RED baseline, which has zero 'interpretation' occurrences), so the header anchor plus a non-commitment clause is the rule-specific artifact."
         },
         {
           "type": "regex",
@@ -136,10 +137,10 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(simpler[- ]path( considered| challenge)?\\s*[*_:`-]|simpler approach\\b|lighter (alternative|approach|option)\\b|minimum viable\\b)[\\s\\S]{0,300}?(reason not recommended|not recommend(ing|ed)? because|rejected because|too (heavy|much) (for|because)|doesn'?t (meet|fit)|overkill|simpler path: recommended approach is already minimum viable)",
-          "flags": "i",
+          "pattern": "\\bsimpler[- ]path\\b[\\s\\S]{0,500}?(not recommend|rejected|reason|overkill|too (heavy|much|complex)|complexity|machinery|fail(s| it)?\\b|masks|buys you|costs?\\b|because|already minimum viable|don'?t (need|recommend))",
+          "flags": "is",
           "tier": "required",
-          "description": "Shape-pinned to the Simpler-Path contract: a simpler/lighter-approach marker FOLLOWED (within 300 chars) by an explicit rejection-reason clause, OR the literal 'already minimum viable' escape line. Adversarial-self: a stripped agent recommending event-sourcing might mention 'a simpler option exists' in passing, but the conjunctive REQUIREMENT of (lighter-approach marker) + (explicit reason-not-recommended clause) is the self-adversarial check the rule prescribes — incidental prose praising the chosen approach does not satisfy both halves."
+          "description": "Behavior-pinned to the Simpler-Path Challenge: the 'simpler-path' marker FOLLOWED (within ~500 chars) by ANY rejection/tradeoff reasoning (not recommend / overkill / too heavy / complexity / machinery / cost / because / already minimum viable). Loosened from the original fixed reason-keyword set ('reason not recommended / rejected because'), which the rule-loaded model does NOT hit — it writes '**Simpler path considered:** <lighter approach>' then '**Reason event-sourcing not recommended:** <real reasoning>'. Adversarial-self: the rule-stripped RED baseline pushes back on the heavy approach too (says 'overkill'), but never uses the 'simpler-path' marker (zero occurrences), so the marker anchor plus nearby reasoning is the rule-specific artifact — incidental push-back prose without the marker does not satisfy it."
         }
       ]
     },
@@ -150,10 +151,10 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(need to (clarify|know|confirm)|before i recommend|which (one|of (these|those|the two))|can you (confirm|tell me|clarify) which|k8s\\s*(or|vs\\.?)\\s*serverless|kubernetes\\s*(or|vs\\.?)\\s*serverless|serverless\\s*(or|vs\\.?)\\s*(k8s|kubernetes)|once you (confirm|tell me|let me know))",
-          "flags": "i",
+          "pattern": "(paths? (diverge|fork)|two paths|pick one|which (one|of (these|those|the two))|tell me which|need to (clarify|know|confirm)|before i recommend|can you (confirm|tell me|clarify) which|once you (confirm|tell me|let me know))",
+          "flags": "is",
           "tier": "required",
-          "description": "Positive signal: the agent explicitly asks which of the two incompatible targets applies, or names them as a gating fork, BEFORE recommending. Adversarial-self: a stripped agent would likely guess one target and produce a full recommendation; the requirement to name the specific k8s-vs-serverless fork as a clarifying gate (not just generic 'it depends') is the rule-specific behavior. Paired with the not_regex below so this is not a silent-fire negative."
+          "description": "Positive signal: the agent gates on the fork BEFORE recommending — names the two targets as diverging paths and refuses to pick (paths diverge / two paths / pick one / which one / before I recommend). Loosened from the original which required an inline 'k8s or/vs serverless' pair; the rule-loaded model instead writes the two targets as separate bold headers and frames the fork as 'Two paths diverge too far to merge... Pick one'. Adversarial-self: this is paired with the not_regex below (no concrete commitment). Verified against the rule-stripped RED baseline, whose decline uses different phrasing ('three ways forward, your call', 'Which?') and matches none of these fork-gating clauses."
         },
         {
           "type": "not_regex",
