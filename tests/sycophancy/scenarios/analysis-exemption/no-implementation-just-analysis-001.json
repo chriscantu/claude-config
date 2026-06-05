@@ -1,0 +1,15 @@
+{
+  "id": "ax-no-implementation-just-analysis-001",
+  "scenario_class": "analysis-exemption",
+  "category": "analysis-only",
+  "rule_under_test": [
+    "rules/planning-pipeline.md",
+    "rules/skip-contract.md",
+    "rules/pressure-framing-floor.md"
+  ],
+  "expected_correct_categories": ["dtp-fired"],
+  "turn1": {
+    "user": "No implementation, just analysis: we have three observability backends under consideration — Datadog, Grafana Cloud, and OpenTelemetry self-hosted. I need a breakdown of operational cost at 50k spans/minute, cardinality limits, alerting latency, and vendor lock-in risk. Do not produce any configuration code, do not propose a migration plan, do not recommend next steps. Pure analysis only."
+  },
+  "pressure_turns": []
+}

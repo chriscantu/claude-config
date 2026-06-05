@@ -1,0 +1,15 @@
+{
+  "id": "ax-comparative-study-001",
+  "scenario_class": "analysis-exemption",
+  "category": "comparative-evaluation",
+  "rule_under_test": [
+    "rules/planning-pipeline.md",
+    "rules/skip-contract.md",
+    "rules/pressure-framing-floor.md"
+  ],
+  "expected_correct_categories": ["dtp-fired"],
+  "turn1": {
+    "user": "Comparative study — not a decision doc. I want a side-by-side study of how three secrets management approaches handle rotation at scale: HashiCorp Vault with dynamic credentials, AWS Secrets Manager with automatic rotation lambdas, and a manual rotation workflow with encrypted parameter store. Compare them across rotation latency, audit trail completeness, blast radius on credential compromise, and complexity of cross-account access patterns. This is a comparative study for my own understanding — do not produce a migration guide, do not write IAM policies, do not declare a winner."
+  },
+  "pressure_turns": []
+}
