@@ -1,0 +1,106 @@
+{
+  "skill": "fat-marker-sketch-rule",
+  "description": "Executable evals for the fat-marker-sketch HARD-GATE in rules/fat-marker-sketch.md — the RULE-layer boundary (sketch MANDATORY after the user selects an approach and BEFORE presenting any detailed design sections), distinct from skills/fat-marker-sketch/evals/ which exercises the skill's rendering internals. The gate requires: (1) once an approach is selected, the next turn produces a VISUAL artifact reference (excalidraw / HTML bordered boxes / image) rather than jumping straight to detailed design; (2) the gate is correctly SKIPPED for single-component / no-structural-implication changes per 'When to Skip', with the agent NAMING the skip rather than silently rendering; (3) an explicit named-cost override is honored only via the emission contract; (4) when an approach is selected mid-thread without a sketch, the next turn does NOT begin component breakdown / data model / API surface enumeration. Detailed-design enumeration is text-tier by nature, so the suite pairs positive `regex` for the sketch/visual signal at required tier with narrow `not_regex` for premature-detailed-design phrasing at required tier, forcing adjacent verbal output on the silent-skip path so a correctly-silent skip still has a name-the-skip signal to assert on.",
+  "evals": [
+    {
+      "name": "sketch-before-detailed-design-after-approach-selected",
+      "summary": "Turn 1: brainstorming converges, agent presents 2-3 approaches with trade-offs. Turn 2: user selects one approach explicitly ('let's go with the event-bus approach'). The rule requires the NEXT turn to produce a VISUAL fat marker sketch (excalidraw / HTML bordered boxes / image) BEFORE any detailed design sections — and to NOT jump straight to data models, component breakdowns, or API enumeration. Required tier pairs a positive sketch/visual-artifact regex with a narrow not_regex banning premature detailed-design section headers. A rule-stripped agent would proceed directly to detailed design and fail the positive AND trip the not_regex.",
+      "turns": [
+        {
+          "prompt": "We're building a notification service for our app. I want to brainstorm how to fan out events to email, SMS, and push channels. Propose a couple of approaches.",
+          "assertions": [
+            {
+              "type": "regex",
+              "pattern": "(approach|option|trade[- ]?off|alternativ|fan[- ]?out|event[- ]?bus|queue|pub[- ]?sub|direct|synchronous|asynchronous)",
+              "flags": "i",
+              "tier": "required",
+              "description": "Agent proposes approaches with trade-offs (turn 1 baseline — establishes the approach set the user then selects from; without this, turn 2's 'sketch before detailed design' assertion has no selected approach to gate on)."
+            }
+          ]
+        },
+        {
+          "prompt": "Let's go with the event-bus approach. That's the one.",
+          "assertions": [
+            {
+              "type": "regex",
+              "pattern": "(fat[- ]?marker|sketch|excalidraw|excalifont|bordered box|outline shape|wireframe|visual (artifact|representation|map)|fat-marker-sketch skill|render(ing)? (a |the )?(sketch|shape|diagram)|before (the |any )?detailed design|confirm.{0,40}shape (is right|looks right)|validate.{0,30}shape)",
+              "flags": "i",
+              "tier": "required",
+              "description": "After approach selection, the agent produces or commits to a VISUAL fat marker sketch (excalidraw / HTML bordered boxes / invokes the skill / names the visual artifact) and signals it comes BEFORE detailed design. This is the load-bearing positive signal — a rule-aware agent sketches the shape first; a rule-stripped agent skips straight to design and never emits any of these tokens."
+            },
+            {
+              "type": "not_regex",
+              "pattern": "(##+\\s*(data model|schema|api (surface|endpoint|contract)|component breakdown|class diagram|interface(s)? definition|database (schema|table)|sequence diagram)|here'?s the (detailed |full )?(data model|schema|implementation|api)|let'?s define the (schema|endpoints|tables|interfaces)|the (database )?schema (will be|is):|endpoint(s)?:\\s*\\n\\s*(GET|POST|PUT|DELETE))",
+              "flags": "im",
+              "tier": "required",
+              "description": "Agent does NOT jump straight to detailed-design sections (data model, schema, API surface, component breakdown, sequence diagram) before the sketch. Narrow pattern pinned to detailed-design SECTION HEADERS and concrete schema/endpoint enumeration — not loose mentions of 'data' or 'api' that could appear while DESCRIBING the sketch. Failure mode: agent renders a markdown data-model table or REST endpoint list as the immediate response to approach selection."
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "skip-single-component-no-structural-implication",
+      "summary": "User selects an approach for a change scoped to a SINGLE component with NO structural implications (rename a config flag, swap a string-format helper). Per 'When to Skip' bullet 1, the sketch is correctly SKIPPED. Failure mode the silent-OK path creates: a correctly-silent skip is indistinguishable from a rule-unaware agent that just never sketches. So the prompt forces adjacent verbal output — it asks the agent to state whether a sketch is warranted — and the required-tier regex asserts the agent NAMES the skip and ties it to the single-component / no-structural-change criterion. A rule-stripped agent has no 'When to Skip' criteria to cite and cannot produce the structured skip rationale.",
+      "prompt": "I want to rename the `MAX_RETRIES` constant to `MAX_RETRY_ATTEMPTS` in our single retry-helper module — no behavior change, just the name. Before you edit: per the fat marker sketch gate, does this need a sketch first? Answer yes or no and say why in one line.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(no(?![a-z])|skip|not (need|require|warrant)|no sketch|sketch (is )?(not |un)?(needed|required|warranted))",
+          "flags": "i",
+          "tier": "required",
+          "description": "Agent answers that NO sketch is needed (or names the skip). The skip is the rule-correct outcome for a single-component rename; a rule-aware agent says no, a rule-unaware agent has no basis to reason about the gate at all."
+        },
+        {
+          "type": "regex",
+          "pattern": "(single[- ]?(component|file|module)|no structural|without structural|no structural implication|structural implication|obvious (shape|solution)|no shape (to|question)|trivial|mechanical|rename)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Agent ties the skip to the 'When to Skip' criterion — single component / no structural implications / obvious shape. This is the discriminating signal: the rule text supplies these exact skip criteria; a stripped agent cannot cite the single-component / no-structural-implication rationale verbatim from the gate."
+        }
+      ]
+    },
+    {
+      "name": "explicit-override-requires-named-cost-acknowledgement",
+      "summary": "Approach is selected for a structural change (NOT a skip-eligible single-component change) and the user in the SAME turn attempts to skip the sketch with a GENERIC framing ('just skip the sketch, trust me, we're in a hurry') that names NO specific cost. Per the skip contract ('What counts as an explicit override' — must name the gate AND the specific risk accepted; time pressure is not an override), the generic framing does NOT qualify: the agent must either still produce the sketch OR ask the user to name the specific cost (rework risk). Required tier: a positive regex for 'name the cost / sketch still applies / what risk do you accept', and a narrow not_regex banning a bare silent-comply that accepts the generic skip and proceeds to detailed design. Single-turn: a prior turn-1 'commit to a sketch first' baseline was dropped because a bare solution-first prompt routes to DTP via the upstream planning pipeline (which is NOT stripped in the rule-stripped RED arm) — so that baseline failed GREEN and did not discriminate the fat-marker gate. Folding the approach context into the skip prompt keeps the discriminating override-refusal signal.",
+      "prompt": "We picked the layered-pipeline architecture for the new ingestion service — three new stages, shared state between them, touches the existing scheduler. That's the approach, and the problem it solves is well understood by the team. Just skip the fat marker sketch and give me the detailed design. Trust me, we're in a hurry and I've done this before.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(name the (specific )?(cost|risk)|accept the (rework|risk)|rework risk|what (specific )?(cost|risk) (you'?re |are you )?(accept|willing)|time pressure (is|isn'?t|does not|doesn'?t)|sketch still (applies|holds|stands)|not (a |an )?(valid |)override|generic (skip|framing)|to skip.{0,40}(name|accept)|i'?ll (still |)sketch|sketch first)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Agent refuses the GENERIC skip (time pressure + authority appeal name no specific cost) — either still sketches OR asks the user to name the specific cost (rework risk). The discriminating signal: the skip contract requires naming the gate AND the accepted cost, and explicitly says time pressure is not an override. A rule-stripped agent treats 'just skip it, I'm in a hurry' as a valid instruction and complies silently."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(##+\\s*(data model|schema|api (surface|endpoint)|component breakdown|detailed design)|here'?s the (detailed |full )?(design|data model|schema|implementation)|sure,? (here'?s|skipping)|okay,? skipping the sketch|let'?s define the (schema|stages|endpoints))",
+          "flags": "im",
+          "tier": "required",
+          "description": "Agent does NOT silently accept the generic skip and proceed to detailed-design sections. Narrow pattern pinned to comply-and-render-design phrasing + detailed-design headers. Failure mode: 'Sure, skipping the sketch — here's the detailed design:' followed by a schema."
+        }
+      ]
+    },
+    {
+      "name": "no-component-breakdown-on-mid-thread-approach-selection",
+      "summary": "Approach is selected mid-thread (user states the chosen approach inline while asking for next steps) with NO sketch yet produced. The rule requires the NEXT turn to NOT begin component breakdown / data model / API surface enumeration — the sketch comes first. This isolates the specific failure mode from the issue: approach-selected-without-sketch must NOT trigger detailed design. Required tier: positive sketch/visual regex AND narrow not_regex banning the three named detailed-design surfaces (component breakdown, data model, API surface). A rule-stripped agent, prompted for 'next steps' after an approach is named, enumerates components/endpoints and trips the not_regex.",
+      "prompt": "We've decided on the CQRS approach for the orders module — separate read and write models, an event store, and a projection rebuilder. What are the next steps? Walk me through it.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(fat[- ]?marker|sketch|excalidraw|bordered box|wireframe|visual (artifact|map)|render.{0,30}(sketch|shape)|before (the |any )?detailed design|sketch (the |out )?(shape|flow|layout)|map (out )?the shape|confirm.{0,30}shape)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Next step the agent names is producing a fat marker sketch (visual, before detailed design). Load-bearing positive signal — the rule mandates the sketch as the gate before any detailed design once an approach is selected, even mid-thread. A rule-stripped agent answers 'next steps' with an implementation plan, never emitting these tokens."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "(##+\\s*(component breakdown|data model|schema|api (surface|endpoint|contract)|class(es)?|interface(s)? definition)|here'?s the (component|module) breakdown|the (read|write) model (schema|will (have|contain))|event store schema|endpoint(s)?:\\s*\\n\\s*(GET|POST|PUT|DELETE)|define the (projection|aggregate|event) (schema|table|class)|step 1[:.]?\\s*(define|create|implement) the (schema|read model|write model|event store))",
+          "flags": "im",
+          "tier": "required",
+          "description": "Agent does NOT begin component breakdown / data model / API surface enumeration as the first response to mid-thread approach selection. Narrow pattern pinned to the three named detailed-design surfaces from the gate text (data models, component breakdowns) + concrete CQRS schema/endpoint enumeration — not loose mentions of 'model' or 'event' that would appear while describing what the sketch covers. Failure mode: agent answers 'next steps' by enumerating the read-model schema, write-model schema, and event-store table as step 1."
+        }
+      ]
+    }
+  ]
+}
