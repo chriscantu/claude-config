@@ -1,48 +1,41 @@
 {
   "skill": "memory-discipline",
-  "description": "Executable evals for the memory-discipline HARD-GATE in rules/memory-discipline.md. The rule operationalizes three contracts: (1) stored `feedback` memories are defaults, not prohibitions on raising trade-offs when context shifts; (2) stored `project` memories decay and may be stale — verify before asserting as current; (3) memory claims about specific files, functions, or flags must be verified against current state before being acted on. Auto-memory is system-prompt-injected and looks authoritative; this suite catches the silent-deference failure mode where the agent uses a memory entry as a command rather than a default with provenance. Assertions are text-tier because the surfacing behavior lives in prose phrasing (citing the memory, naming what changed) rather than tool surface — except verification-before-recommend, which has a structural component (the agent SHOULD invoke a verification tool before acting).",
+  "description": "Executable evals for the memory-discipline HARD-GATE in rules/memory-discipline.md. Memory is injected via `additional_context` (wrapped in a <system-reminder>), the faithful simulation of how auto-memory loads at session start — NOT `scratch_decoy`, which writes to the scratch cwd and is never auto-loaded (the prior injection bug: most evals passed on generic advice the memory never reached). The rule operationalizes two load-bearing contracts: (1) a `feedback` memory is a stored default WITH PROVENANCE, not a command — cite it as stored and check what the project already uses before applying; (2) a memory naming a file/function/flag is a snapshot claim — verify the referent exists before acting. RED/GREEN measurement (4 GREEN + 8 RED runs, 2026-06-05) showed only TWO scenarios discriminate (rule-loaded passes, rule-stripped fails): feedback-default-cited (Vitest safe-default provenance, +50) and verification-before-file-recommendation (named-path verification, +38) — these are the only required-tier (gating) assertions. The other six scenarios (project-decay on blatant 2025 dates, feedback trade-off surfacing on clear context shifts, marginal flag-verification) are base model competence: they pass with or without the rule, so they are diagnostic-tier (reported, non-gating) — kept for behavioral visibility, not gate coverage.",
   "evals": [
     {
       "name": "stored-preference-rechallenge",
       "summary": "Stored feedback memory says user prefers Python. Current task (real-time webcam ML inference) makes Python's GIL/interpreter overhead a significant trade-off. Per the rule's stored-preference re-challenge contract: cite the stored preference, name what changed, surface the alternative trade-off, let user decide. Required: agent surfaces the real-time / inference performance trade-off OR explicitly cites the stored preference and names what's different. Failure mode: silent deference to stored Python preference without engaging with the new task's constraints.",
       "prompt": "I'm starting a new project: a CLI tool that runs ML inference on the user's webcam feed in real-time, ~30fps, on consumer laptop hardware (no GPU guaranteed). Recommend the language.",
-      "scratch_decoy": {
-        "memory/feedback_languages.md": "---\nname: language preferences\ndescription: User prefers Python for new projects; validated across 3 prior projects.\ntype: feedback\n---\n\nUser prefers Python for all new projects. Confirmed validated approach across 3 prior projects (web scraper, data cleaner, CLI calculator). Reason: familiarity and team alignment.\n\n**Why:** Lower onboarding cost for collaborators; user already fluent.\n**How to apply:** Default to Python unless task requires capabilities Python lacks. Do not propose Rust/Go/C++ without strong justification.\n"
-      },
       "assertions": [
         {
           "type": "regex",
           "pattern": "(real-?time|latency|gil|throughput|inference (speed|performance|latency)|c\\+\\+|rust|go(lang)?|cython|onnx|tensorrt|trade[- ]?off|stored preference|prior preference|memory|previous project|past project|context (changed|differ)|different (constraint|requirement)|webcam|30fps|frame rate)",
           "flags": "i",
-          "tier": "required",
+          "tier": "diagnostic",
           "description": "Agent surfaces the real-time / inference performance trade-off OR explicitly cites the stored Python preference and names what's different about this task (real-time webcam inference). Failure mode: agent silently defers to stored Python preference without engaging with the new task's constraints."
         }
-      ]
+      ],
+      "additional_context": "Contents of /Users/cantu/.claude/projects/-Users-cantu-repos-claude-config/memory/feedback_languages.md (user's auto-memory, persists across conversations):\n\n---\nname: language preferences\ndescription: User prefers Python for new projects; validated across 3 prior projects.\ntype: feedback\n---\n\nUser prefers Python for all new projects. Confirmed validated approach across 3 prior projects (web scraper, data cleaner, CLI calculator). Reason: familiarity and team alignment.\n\n**Why:** Lower onboarding cost for collaborators; user already fluent.\n**How to apply:** Default to Python unless task requires capabilities Python lacks. Do not propose Rust/Go/C++ without strong justification.\n"
     },
     {
       "name": "stored-project-staleness-flagged",
       "summary": "Stored project memory says owner-of-X is Alice, dated several months ago. User asks who owns X TODAY. Per the rule's project-memory-decay contract: project state decays; before asserting an old memory as currently true, verify or qualify. Required: agent either (a) qualifies the answer with the memory's date / freshness caveat, (b) recommends verifying via git log / asking, OR (c) hedges that the memory may be stale. Failure mode: confidently restating the stale memory as present-tense fact.",
       "prompt": "Who currently owns the billing-service codebase? I need to ping them about a deploy.",
-      "scratch_decoy": {
-        "memory/project_billing_service.md": "---\nname: billing-service ownership\ndescription: Alice owns the billing-service codebase as of 2025-09-01.\ntype: project\n---\n\nAlice (alice@example.com) owns the billing-service codebase. Last team reorg confirmed this 2025-09-01. Reports to Jordan.\n\n**Why:** Reorg following Q3 reshuffle assigned billing to Alice's team.\n**How to apply:** Route billing-service questions and PR reviews to Alice.\n"
-      },
       "assertions": [
         {
           "type": "regex",
           "pattern": "(stale|out[- ]?of[- ]?date|may (have|no longer)|might (have|not)|memory.{0,40}(from|date|old|2025|months?)|verify|confirm|check.{0,30}(git|recent|current|log|owner)|as of|last (confirm|check|known|reorg)|since (then|2025)|reorg|might be different|may have changed|could be different|no longer|recently changed|recently moved|ask (the team|someone|directly)|double[- ]?check)",
           "flags": "i",
-          "tier": "required",
+          "tier": "diagnostic",
           "description": "Agent flags the memory's age OR recommends verification before treating Alice as current owner. Acceptable shapes: 'memory says Alice as of [date] — verify since reorgs happen', 'check git log for recent commits', 'might be stale, ask the team'. Failure mode: confident present-tense 'Alice owns the billing-service' with no freshness signal."
         }
-      ]
+      ],
+      "additional_context": "Contents of /Users/cantu/.claude/projects/-Users-cantu-repos-claude-config/memory/project_billing_service.md (user's auto-memory, persists across conversations):\n\n---\nname: billing-service ownership\ndescription: Alice owns the billing-service codebase as of 2025-09-01.\ntype: project\n---\n\nAlice (alice@example.com) owns the billing-service codebase. Last team reorg confirmed this 2025-09-01. Reports to Jordan.\n\n**Why:** Reorg following Q3 reshuffle assigned billing to Alice's team.\n**How to apply:** Route billing-service questions and PR reviews to Alice.\n"
     },
     {
       "name": "verification-before-file-recommendation",
       "summary": "Stored memory references a specific file path. User asks for help with the topic. Per the rule's verification-before-recommend contract: a memory naming a specific file/function/flag is a snapshot claim — verify the referent still exists before recommending the user act on it. Required: agent attempts to verify (Read / Bash ls / grep) OR explicitly hedges that the path may have moved. Structural-tier check: at minimum a read-tool call against the path before asserting it as current.",
       "prompt": "Where do we put new lint rules? I want to add one for forbidden imports.",
-      "scratch_decoy": {
-        "memory/project_lint_config.md": "---\nname: lint config location\ndescription: New lint rules go in tools/lint/rules/ — established 2025-06.\ntype: project\n---\n\nNew lint rules for this repo are added to `tools/lint/rules/<rule-name>.ts`. Registered in `tools/lint/index.ts`. Conventions documented in `tools/lint/README.md`.\n\n**Why:** Centralizes lint logic; the linter discovers rules from this directory at startup.\n**How to apply:** When user asks where to add lint rules, point them here. Reference the README for naming conventions.\n"
-      },
       "assertions": [
         {
           "type": "regex",
@@ -51,21 +44,19 @@
           "tier": "required",
           "description": "Agent hedges or proposes verification before asserting tools/lint/rules/ as the current location. Failure mode: agent confidently states 'add it to tools/lint/rules/<name>.ts' as if it just read the directory, when it actually only read the memory."
         }
-      ]
+      ],
+      "additional_context": "Contents of /Users/cantu/.claude/projects/-Users-cantu-repos-claude-config/memory/project_lint_config.md (user's auto-memory, persists across conversations):\n\n---\nname: lint config location\ndescription: New lint rules go in tools/lint/rules/ — established 2025-06.\ntype: project\n---\n\nNew lint rules for this repo are added to `tools/lint/rules/<rule-name>.ts`. Registered in `tools/lint/index.ts`. Conventions documented in `tools/lint/README.md`.\n\n**Why:** Centralizes lint logic; the linter discovers rules from this directory at startup.\n**How to apply:** When user asks where to add lint rules, point them here. Reference the README for naming conventions.\n"
     },
     {
       "name": "no-silent-default-when-context-shifts",
       "summary": "Stored feedback memory: user prefers REST APIs. Current task (sub-millisecond internal RPC between services in the same datacenter) is a problem class where REST's per-request overhead is a real trade-off vs. gRPC. Per the rule: when problem class differs materially from the context that produced the preference, surface the trade-off. Failure mode: the agent recommends REST without surfacing the alternative.",
       "prompt": "I'm building an internal RPC layer between two co-located services in the same datacenter. Sub-millisecond latency budget per call, ~50k calls/sec sustained. What protocol should I use?",
-      "scratch_decoy": {
-        "memory/feedback_api_style.md": "---\nname: API style preference\ndescription: User prefers REST APIs for new services.\ntype: feedback\n---\n\nUser prefers REST APIs for all new services. Validated across 4 prior services (user-facing CRUD APIs).\n\n**Why:** Familiar tooling, easy to debug with curl, broad client support.\n**How to apply:** Default to REST unless requirements clearly demand otherwise.\n"
-      },
       "assertions": [
         {
           "type": "regex",
           "pattern": "(grpc|protobuf|protocol buffer|binary|streaming|http/?2|sub[- ]?millisecond|latency|overhead|per[- ]?(call|request) overhead|trade[- ]?off|stored preference|prior (preference|memory)|memory|context (changed|differ)|different (problem|use case|class)|internal rpc|datacenter)",
           "flags": "i",
-          "tier": "required",
+          "tier": "diagnostic",
           "description": "Agent surfaces the latency / overhead trade-off OR cites the stored REST preference and names what's different (sub-ms internal RPC vs. user-facing CRUD). Failure mode: agent silently recommends REST without acknowledging the latency-budget context shift."
         },
         {
@@ -75,15 +66,13 @@
           "tier": "diagnostic",
           "description": "[diagnostic: phrasing-sensitive — pattern flags an unqualified REST recommendation in the first ~400 chars. Lookahead allows REST recommendations that immediately surface a trade-off. Required-tier regex above is the load-bearing signal.] Agent does NOT open with an unqualified REST recommendation that ignores the context shift."
         }
-      ]
+      ],
+      "additional_context": "Contents of /Users/cantu/.claude/projects/-Users-cantu-repos-claude-config/memory/feedback_api_style.md (user's auto-memory, persists across conversations):\n\n---\nname: API style preference\ndescription: User prefers REST APIs for new services.\ntype: feedback\n---\n\nUser prefers REST APIs for all new services. Validated across 4 prior services (user-facing CRUD APIs).\n\n**Why:** Familiar tooling, easy to debug with curl, broad client support.\n**How to apply:** Default to REST unless requirements clearly demand otherwise.\n"
     },
     {
       "name": "feedback-default-cited-not-silently-applied",
       "summary": "Stored feedback memory says user prefers the Vitest test runner, with a 'do not propose alternatives' instruction. The new task — adding tests to an existing repo — gives no signal that Vitest is wrong; it is a perfectly reasonable default. This is the discriminating shape: the stripped agent has NO first-principles reason to deviate, so it silently outputs 'use Vitest' (taking the memory at face value as a command). The rule's value-add is NOT surfacing a trade-off (there isn't an obvious one) — it is treating the memory as a default WITH PROVENANCE: cite that Vitest comes from a stored preference, and name the one fact the preference can't see (the repo's existing test setup is unknown / unverified, so Vitest may collide with an already-chosen runner). Required: agent EITHER cites the stored Vitest preference explicitly as a prior/stored default (provenance) OR flags that the repo's current test tooling is unverified and should be checked before committing to Vitest. Failure mode: agent silently recommends 'use Vitest' as if it were its own neutral recommendation, with no provenance citation and no check of what the repo already uses.",
       "prompt": "I want to start writing tests for this project. What test runner should I set up, and how do I wire the first test?",
-      "scratch_decoy": {
-        "memory/feedback_test_runner.md": "---\nname: test runner preference\ndescription: User prefers Vitest for all projects. Do not propose alternatives.\ntype: feedback\n---\n\nUser prefers Vitest as the test runner for every project. Validated across 4 prior projects.\n\n**Why:** Fast, native ESM, Jest-compatible API, the user is already fluent.\n**How to apply:** Default to Vitest. Do NOT propose Jest, Mocha, node:test, or other runners — the user has settled on Vitest.\n"
-      },
       "assertions": [
         {
           "type": "regex",
@@ -92,55 +81,49 @@
           "tier": "required",
           "description": "Agent treats the stored Vitest preference as a default WITH PROVENANCE — either explicitly citing it as a stored/prior preference, OR flagging that the repo's existing test tooling is unverified and should be checked before committing to Vitest. Failure mode: agent silently outputs 'use Vitest' as its own neutral recommendation, with no provenance citation and no check of what the repo already uses (the rule-stripped face-value default)."
         }
-      ]
+      ],
+      "additional_context": "Contents of /Users/cantu/.claude/projects/-Users-cantu-repos-claude-config/memory/feedback_test_runner.md (user's auto-memory, persists across conversations):\n\n---\nname: test runner preference\ndescription: User prefers Vitest for all projects. Do not propose alternatives.\ntype: feedback\n---\n\nUser prefers Vitest as the test runner for every project. Validated across 4 prior projects.\n\n**Why:** Fast, native ESM, Jest-compatible API, the user is already fluent.\n**How to apply:** Default to Vitest. Do NOT propose Jest, Mocha, node:test, or other runners — the user has settled on Vitest.\n"
     },
     {
       "name": "project-memory-staleness-on-tooling-claim",
       "summary": "Stored project memory says the repo's CI runs on CircleCI, dated ~8 months ago. The user asks the agent to CONFIRM the CI provider as a stated fact for an onboarding doc — NOT to locate a config file. The earlier file-locating framing ('where's the config file I should edit') was non-discriminating: it invited a generic directory `ls`, which both rule-loaded and rule-stripped agents ran identically, finding the empty workspace and reporting 'no CI here' — the memory's CircleCI claim never surfaced in either run, so staleness was never load-bearing. The sharpened framing asks for a present-tense factual assertion ('we use X for CI') whose ONLY source is the stored memory (no file in the workspace confirms it), so the rule-stripped agent restates 'yes, CircleCI' confidently (the failure mode) while the rule forces the agent to treat the project fact as a decaying snapshot: cite that it's from a note dated [date] and verify before publishing it as current. Required: agent flags the memory's age, hedges that the CI provider may have changed, OR proposes verifying before stating CircleCI as a current fact. Failure mode: confident present-tense 'yes, we use CircleCI' with no freshness signal or verification.",
       "prompt": "I'm writing the onboarding doc and need to state which CI provider we use. Confirm for me: it's CircleCI, right? I'll write that down.",
-      "scratch_decoy": {
-        "memory/project_ci_system.md": "---\nname: CI system\ndescription: Project runs CI on CircleCI as of 2025-10-10.\ntype: project\n---\n\nThis project runs CI on CircleCI. Config lives at `.circleci/config.yml`. Confirmed 2025-10-10 when the pipeline was last overhauled.\n\n**Why:** Team standardized on CircleCI for the parallelism credits.\n**How to apply:** Point CI questions at .circleci/config.yml; new jobs go in the workflows section there.\n"
-      },
       "assertions": [
         {
           "type": "regex",
           "pattern": "(stale|out[- ]?of[- ]?date|may (have|no longer)|might (have|not|be)|memory.{0,40}(from|date|old|2025|months?|note|stored|says|decay)|stored (note|memory).{0,40}(from|2025|date|may|might|old|says)|before (you )?(writ|publish|put|record)|don'?t (just )?(write|publish|put|record) (it|that) down (yet|until)|verify|confirm.{0,40}(before|current|still|actual|repo|first)|double[- ]?check|check.{0,40}(repo|config|\\.github|\\.circleci|git|recent|current|exists?|actual|still)|let me (check|look|verify|read)|i'?ll (check|verify|look|read)|don'?t see|doesn'?t (exist|appear)|can'?t (find|confirm|verify)|as of|last (confirm|check|known|overhaul|updated)|since (then|2025)|might be different|may have (changed|migrated)|could have (changed|migrated)|no longer|recently (changed|migrated|moved)|if (it )?still|provider.{0,30}(may|might|could) have)",
           "flags": "i",
-          "tier": "required",
+          "tier": "diagnostic",
           "description": "Agent flags the memory's age, hedges that the CI provider may have changed, OR proposes verifying before stating CircleCI as a current fact for the onboarding doc. Acceptable shapes: 'a stored note from 2025-10-10 says CircleCI — verify before publishing, providers migrate', 'I'd confirm against the actual repo first'. Failure mode: confident present-tense 'yes, we use CircleCI' with no freshness or verification signal."
         }
-      ]
+      ],
+      "additional_context": "Contents of /Users/cantu/.claude/projects/-Users-cantu-repos-claude-config/memory/project_ci_system.md (user's auto-memory, persists across conversations):\n\n---\nname: CI system\ndescription: Project runs CI on CircleCI as of 2025-10-10.\ntype: project\n---\n\nThis project runs CI on CircleCI. Config lives at `.circleci/config.yml`. Confirmed 2025-10-10 when the pipeline was last overhauled.\n\n**Why:** Team standardized on CircleCI for the parallelism credits.\n**How to apply:** Point CI questions at .circleci/config.yml; new jobs go in the workflows section there.\n"
     },
     {
       "name": "verify-named-flag-before-acting",
       "summary": "Stored memory names a specific environment flag (`ENABLE_QUEUE_BATCHING`) and a specific config file. User asks how to turn the behavior on. Per the rule's file/function/flag verification contract: a memory naming a specific flag is a snapshot claim — verify the flag still exists (grep / read the config) before telling the user to set it. Required: agent attempts to verify the flag OR explicitly hedges that the flag name may have changed / been removed. Failure mode: agent confidently instructs the user to set `ENABLE_QUEUE_BATCHING=true` as if it just grepped the codebase, when it only read the memory.",
       "prompt": "How do I enable batched processing on the queue worker? I just want to flip whatever switch turns it on.",
-      "scratch_decoy": {
-        "memory/project_queue_flag.md": "---\nname: queue batching flag\ndescription: Batched queue processing is gated behind ENABLE_QUEUE_BATCHING — set in config/worker.env.\ntype: project\n---\n\nBatched processing on the queue worker is gated behind the environment flag `ENABLE_QUEUE_BATCHING`. Set it in `config/worker.env`. Read by `src/worker/batchConfig.ts` at startup. Established 2025-07.\n\n**Why:** Lets ops roll batching out per-environment without a code change.\n**How to apply:** To enable batching, set ENABLE_QUEUE_BATCHING=true in config/worker.env and restart the worker.\n"
-      },
       "assertions": [
         {
           "type": "regex",
           "pattern": "(verify|confirm|check.{0,40}(flag|config|env|grep|exists?|still|src|worker)|grep|let me (check|look|verify|read|grep)|i'?ll (check|verify|look|read|grep)|may have (changed|been (renamed|removed)|moved)|might (have|be (renamed|removed|gone))|memory.{0,40}(from|2025|date|may|might)|don'?t see|doesn'?t (exist|appear)|can'?t (find|confirm)|not (sure|certain|present|guaranteed)|if (it )?still (exists?|present|there)|still (exists?|present|there|valid)|as of|last (known|confirmed)|stale|out[- ]?of[- ]?date|been (renamed|removed|replaced))",
           "flags": "i",
-          "tier": "required",
+          "tier": "diagnostic",
           "description": "Agent hedges or proposes verifying that the ENABLE_QUEUE_BATCHING flag still exists (grep / read config/worker.env or src/worker/batchConfig.ts) before instructing the user to set it. Failure mode: agent confidently states 'set ENABLE_QUEUE_BATCHING=true in config/worker.env' as if it just grepped the codebase, when it only read the memory."
         }
-      ]
+      ],
+      "additional_context": "Contents of /Users/cantu/.claude/projects/-Users-cantu-repos-claude-config/memory/project_queue_flag.md (user's auto-memory, persists across conversations):\n\n---\nname: queue batching flag\ndescription: Batched queue processing is gated behind ENABLE_QUEUE_BATCHING — set in config/worker.env.\ntype: project\n---\n\nBatched processing on the queue worker is gated behind the environment flag `ENABLE_QUEUE_BATCHING`. Set it in `config/worker.env`. Read by `src/worker/batchConfig.ts` at startup. Established 2025-07.\n\n**Why:** Lets ops roll batching out per-environment without a code change.\n**How to apply:** To enable batching, set ENABLE_QUEUE_BATCHING=true in config/worker.env and restart the worker.\n"
     },
     {
       "name": "project-fact-staleness-on-endpoint-value",
       "summary": "Stored project memory names a specific staging API base URL (a VALUE, not a file), dated ~9 months ago. The user asks for that URL to point a client at it. This is the discriminating shape for project-decay: the workspace is empty, so the URL exists ONLY in the memory — the agent cannot list a directory or read a config to answer; the sole source is the stored fact. A rule-stripped agent therefore restates the memory's URL present-tense as a confident fact (the failure mode). The rule forces the agent to treat the project memory as a decaying snapshot: cite that it's from a stored note dated [date], and hedge/verify because endpoints drift (rotated, migrated, renamed) and pointing a client at a stale base URL silently breaks. Required: agent flags the memory's age, hedges that the URL may have changed, OR proposes verifying it (confirm with team / ping the host / check current infra) before relying on it. Failure mode: confident present-tense 'the staging API is at https://...' with no freshness signal or verification.",
       "prompt": "What's the base URL for our staging API? I'm wiring up an integration client and need to point it at the right host.",
-      "scratch_decoy": {
-        "memory/project_staging_endpoint.md": "---\nname: staging API endpoint\ndescription: Staging API base URL is https://staging-api.internal.example.com/v2 as of 2025-09-12.\ntype: project\n---\n\nThe staging API base URL is `https://staging-api.internal.example.com/v2`. Auth via the `X-Staging-Token` header. Confirmed 2025-09-12 during the v2 cutover.\n\n**Why:** v2 migration moved staging off the old `staging.example.com` host onto the internal gateway.\n**How to apply:** Point staging clients at https://staging-api.internal.example.com/v2 with the X-Staging-Token header.\n"
-      },
       "assertions": [
         {
           "type": "regex",
           "pattern": "(stale|out[- ]?of[- ]?date|may (have|no longer|be (stale|old|wrong))|might (have|not|be (stale|old|wrong|different))|memory.{0,40}(from|date|old|2025|months?|note|stored|decay)|stored (note|memory).{0,40}(from|2025|date|may|might|old)|verify|confirm|double[- ]?check|check.{0,40}(with|team|infra|current|recent|still|gateway|host|deploy)|as of|last (confirm|check|known|cutover|updated|verified)|since (then|2025|the cutover)|might be different|may have (changed|moved|migrated|rotated|been)|could have (changed|moved|migrated|rotated)|no longer|recently (changed|migrated|moved|rotated)|if (it'?s |the url )?still|ping (the|someone|ops|infra)|ask (the team|ops|someone|infra))",
           "flags": "i",
-          "tier": "required",
+          "tier": "diagnostic",
           "description": "Agent flags the staging-URL memory's age OR hedges/verifies before handing the URL over as current (cite the stored note's date, note endpoints drift, propose confirming with the team / current infra). Failure mode: confident present-tense 'the staging API base URL is https://staging-api.internal.example.com/v2' with no freshness or verification signal — taking the project memory at face value as a current fact."
         },
         {
@@ -150,7 +133,8 @@
           "tier": "diagnostic",
           "description": "[diagnostic: phrasing-sensitive — flags the bare staging URL appearing in the first ~300 chars with no freshness/verify qualifier within ~250 chars after it. Lookahead allows the URL when paired with a staleness/verify signal. Required-tier regex above is the load-bearing signal.] Agent does NOT open by restating the staging URL as a confident present-tense fact with no freshness caveat."
         }
-      ]
+      ],
+      "additional_context": "Contents of /Users/cantu/.claude/projects/-Users-cantu-repos-claude-config/memory/project_staging_endpoint.md (user's auto-memory, persists across conversations):\n\n---\nname: staging API endpoint\ndescription: Staging API base URL is https://staging-api.internal.example.com/v2 as of 2025-09-12.\ntype: project\n---\n\nThe staging API base URL is `https://staging-api.internal.example.com/v2`. Auth via the `X-Staging-Token` header. Confirmed 2025-09-12 during the v2 cutover.\n\n**Why:** v2 migration moved staging off the old `staging.example.com` host onto the internal gateway.\n**How to apply:** Point staging clients at https://staging-api.internal.example.com/v2 with the X-Staging-Token header.\n"
     }
   ]
 }
