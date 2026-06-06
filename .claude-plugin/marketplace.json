@@ -1,0 +1,11 @@
+{
+  "name": "claude-config",
+  "owner": {"name": "Cantu"},
+  "plugins": [
+    {
+      "name": "claude-config",
+      "source": "./",
+      "description": "Global Claude Code config: rules, agents, skills, hooks, commands"
+    }
+  ]
+}
