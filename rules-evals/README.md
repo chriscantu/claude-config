@@ -26,6 +26,10 @@ Current suites:
   prohibition from [`rules/disagreement.md`](../rules/disagreement.md)
 - `execution-mode/` — covers the sizing-guard mode announcement (subagent-driven
   vs. single-implementer) from [`rules/execution-mode.md`](../rules/execution-mode.md)
+- `fat-marker-sketch-rule/` — covers the RULE-layer HARD-GATE (sketch produced after
+  approach selection and before any detailed design) from
+  [`rules/fat-marker-sketch.md`](../rules/fat-marker-sketch.md); complements the
+  skill-internals suite in `skills/fat-marker-sketch/evals/`
 - `goal-driven/` — covers the per-step verify checks + named-cost skip
   contract from [`rules/goal-driven.md`](../rules/goal-driven.md)
 - `hard-gate-cap/` — covers the 8-rule HARD-GATE cap + three-condition
@@ -58,7 +62,7 @@ graph.
 | HARD-GATE rule | Eval home |
 |---|---|
 | `planning-pipeline.md` / `skip-contract.md` / `pressure-framing-floor.md` (floor trio) | `skills/define-the-problem/evals/` + `skills/systems-analysis/evals/` |
-| `fat-marker-sketch.md` | `skills/fat-marker-sketch/evals/` (skill-layer boundary) |
+| `fat-marker-sketch.md` | `skills/fat-marker-sketch/evals/` (skill-layer boundary) + `rules-evals/fat-marker-sketch-rule/` (rule-layer HARD-GATE boundary) |
 | `goal-driven.md` | `rules-evals/goal-driven/` |
 | `think-before-coding.md` | `rules-evals/think-before-coding/` |
 | `pr-validation.md` | `rules-evals/pr-validation/` |
