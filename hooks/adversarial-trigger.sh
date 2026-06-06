@@ -15,6 +15,20 @@ if [[ -f "${HOME}/.claude/DISABLE_ADVERSARIAL" ]] \
 CONFIG="hooks/adversarial-config.json"
 [[ ! -f "$CONFIG" ]] && exit 0
 
+# ── Scope-tier sentinel skip ─────────────────────────────────────────────────
+# If scope-tier-memory-check classified this turn as Trivial, skip swarm.
+# Sentinel TTL bounds staleness across long-running turns.
+SENTINEL_PATH="${SCOPE_TIER_SENTINEL_PATH:-.claude/state/scope-tier-current}"
+if [[ -f "$SENTINEL_PATH" ]]; then
+  SENTINEL_TTL=$(jq -r '.scope_tier_sentinel_ttl_seconds // 600' "$CONFIG" 2>/dev/null)
+  [[ -z "$SENTINEL_TTL" || "$SENTINEL_TTL" == "null" ]] && SENTINEL_TTL=600
+  SENTINEL_TS=$(jq -r '.ts // 0' "$SENTINEL_PATH" 2>/dev/null || echo 0)
+  NOW_S=$(date +%s)
+  if [[ "$SENTINEL_TS" =~ ^[0-9]+$ ]] && (( NOW_S - SENTINEL_TS < SENTINEL_TTL )); then
+    exit 0
+  fi
+fi
+
 # ── Load thresholds ──────────────────────────────────────────────────────────
 LOC_THRESHOLD=$(jq -r '.loc_threshold' "$CONFIG")
 FILE_THRESHOLD=$(jq -r '.file_threshold' "$CONFIG")

@@ -309,3 +309,60 @@ repo stars (trend only).
 Roadmap PRs that do not plausibly move LE7 / RU30 / SMB30 (or a measured
 proxy) should justify themselves on a different axis (correctness,
 contributor velocity, governance) — not by default.
+
+## Usage Log Hook (opt-in)
+
+A `UserPromptSubmit` hook at [`hooks/usage-log.sh`](../hooks/usage-log.sh) detects
+leadership-toolkit slash-command invocations and appends one JSONL line per event to
+`~/.claude/usage.jsonl`. This feeds the LE7 / RU30 / SMB30 metrics defined in the
+[Remit Metrics](#remit-metrics) section.
+
+Detected slashes: `/onboard`, `/strategy-doc`, `/stakeholder-map`, `/swot`,
+`/1on1-prep`, `/present`, `/architecture-overview`.
+
+Schema per ADR #0021:
+```jsonl
+{"ts":"2026-05-24T18:00:00Z","event":"skill_invoked","skill":"/onboard","session":"<id>"}
+```
+
+No skill-argument content. No PII. Only `ts`, `event`, `skill`, `session`.
+
+### Install
+
+```sh
+fish bin/link-config.fish
+fish bin/install-usage-hook.fish
+```
+
+`bin/link-config.fish` symlinks `hooks/usage-log.sh` into `~/.claude/hooks/`. Run it
+first on a fresh clone. `bin/install-usage-hook.fish` adds a `UserPromptSubmit` entry
+to `~/.claude/settings.json`. Both are idempotent.
+
+### Verify
+
+```sh
+fish bin/install-usage-hook.fish --check
+bash tests/hooks/usage-log.test.sh
+```
+
+### Remove
+
+```sh
+fish bin/install-usage-hook.fish --remove
+```
+
+### Share your usage data
+
+To view your local summary (counts only — no timestamps or sessions):
+
+```sh
+fish bin/share-usage.fish
+```
+
+To get a pre-filled `gh issue create` command you can run to share with the maintainer:
+
+```sh
+fish bin/share-usage.fish --gh
+```
+
+The command prints to stdout. You run it manually — nothing is sent automatically.

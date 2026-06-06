@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Proposed
+Proposed — the `memory-discipline.md` row is partially superseded by [ADR #0023](./0023-discrimination-must-be-measured-before-sizing-hard-gate-rules.md) (count-based sizing overturned by measured discrimination). The rest of this audit stands.
 
 ## Context
 
@@ -98,7 +98,7 @@ assertion count.
 | `execution-mode.md` | 109 | Contributor / senior IC | direct (12 required) | 12 | **Demote candidate (deliberate).** Earns load for contributors running subagent-driven-development; rarely fires for VP-tier daily use. Two options: (a) keep HARD-GATE, accept audience-mismatch as cost of contributor-grade discipline; (b) demote to soft rule, retain eval suite as guardrail. Recommend (a) — eval lift is strong (12 required-tier), removing it would regress contributor-side rigor. Tag as "contributor-tier HARD-GATE" in `GOVERNANCE.md`. |
 | `pr-validation.md` | 187 | Contributor / senior IC | direct (13 required) | 13 | **Largest trim candidate.** 187 LOC for a rule that VP-tier users rarely encounter (they don't run `gh pr ready`). Mechanical adjudication block (zero-functional-change carve-out, mechanical `git diff --stat` quoting requirement) is ~40 LOC of contributor-specific procedure. Propose: extract mechanical carve-out into `rules/references/pr-validation-carveout.md`; keep trigger surface + test plan locator + skip contract in main rule. Target: ~130 LOC. |
 | `disagreement.md` | 79 | Universal | direct (22 required) | 22 | **Keep as-is.** Anti-sycophancy core — the rule the README sells the project on. Strongest eval coverage (22 required-tier). Size is already tight. |
-| `memory-discipline.md` | 75 | Universal | direct (4 required) | 4 | **Keep + boost evals.** Size appropriate. 4 required-tier is single-digit — file follow-up to lift to 8+, matching the universal-HARD-GATE bar. |
+| `memory-discipline.md` | 75 | Universal | direct (4 required) | 4 | ~~**Keep + boost evals.** Size appropriate. 4 required-tier is single-digit — file follow-up to lift to 8+, matching the universal-HARD-GATE bar.~~ **Withdrawn — see [ADR #0023](./0023-discrimination-must-be-measured-before-sizing-hard-gate-rules.md).** A RED/GREEN audit (PR #461) found the eval count was measuring a broken injection path; only 2 of 8 scenarios discriminate. Rule shrunk 75→26 LOC; suite retiered 4 required → 2 required + 6 diagnostic. The "lift to 8+" follow-up (#425) is closed by the opposite outcome. |
 
 **Totals:**
 - Current: 1,183 LOC across 10 files (8 cap slots after Decision 1)
@@ -143,7 +143,7 @@ assertion count.
 - Issue: trim `pressure-framing-floor.md` per recommendation (~71 LOC reduction).
 - Issue: trim `think-before-coding.md` per recommendation (~38 LOC reduction) + boost eval coverage 4 → 8+.
 - Issue: add `rules-evals/fat-marker-sketch/` suite with discriminating assertions (closes the ADR #0019 gap at the rules layer).
-- Issue: boost `memory-discipline` eval coverage 4 → 8+.
+- ~~Issue: boost `memory-discipline` eval coverage 4 → 8+.~~ (#425 — closed by the opposite outcome; see [ADR #0023](./0023-discrimination-must-be-measured-before-sizing-hard-gate-rules.md).)
 - Issue: update `rules/GOVERNANCE.md` HARD-GATE Cap section per Decisions 1 + 2.
 
 ## Alternatives considered
@@ -190,3 +190,6 @@ regression.
 - PR #385 (floor-trio split — origin of the cap-drift this ADR resolves)
 - ADR #0019 (skill-eval discriminating-signal discipline — the
   fat-marker-sketch eval gap is a rule-layer analogue)
+- [`rules/references/hard-gate-pattern-justification.md`](../rules/references/hard-gate-pattern-justification.md)
+  (external grounding for the cap — forcing-function / poka-yoke canon
+  and the alert-fatigue anti-pattern boundary the cap defends against)

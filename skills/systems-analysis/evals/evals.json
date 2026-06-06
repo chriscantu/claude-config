@@ -396,6 +396,27 @@
       ]
     },
     {
+      "name": "checkpoint-emission-sa-to-solution-design",
+      "summary": "Issue #441 Pick 1: rules/planning-pipeline.md Stage Visibility requires a one-line `[Checkpoint]` summary at major-stage transitions. After completing Systems Analysis on a clear, low-blast-radius surface, the model must emit `[Checkpoint] Problem: X. Systems: Y. Approach: Z. → Entering detailed design.` before transitioning into Solution Design. Regex pinned to the literal `[Checkpoint]` prefix per `feedback_advisory_bold_pair_regex` (format, not term proximity).",
+      "prompt": "Problem statement done: engineering managers can't find past 1:1 notes when preparing for current 1:1s, costing ~20 min per meeting (Evidence: I missed prep for 3 of my last 5). Systems Analysis done: this touches a single markdown notes directory on local disk, no shared services, low blast radius, no second-order effects on other tools. Approach selected: a small CLI that greps notes by attendee name. Confirm understanding and move us into detailed design.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "^\\s*>?\\s*\\*{0,2}\\[Checkpoint\\]",
+          "flags": "m",
+          "tier": "required",
+          "description": "Required: emits the literal `[Checkpoint]` marker at line start (optionally inside a blockquote or bolded per the rule's example). Regex pinned to format, not term proximity, per `feedback_advisory_bold_pair_regex`."
+        },
+        {
+          "type": "regex",
+          "pattern": "\\[Checkpoint\\][\\s\\S]{0,400}(Problem|Systems|Approach)",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Diagnostic: checkpoint line names at least one of the canonical fields (Problem / Systems / Approach) within ~400 chars — signals the summary structure from the rule's example, not just a bare marker."
+        }
+      ]
+    },
+    {
       "name": "bypass-flag-disables-floor-sa",
       "summary": "Sentinel file DISABLE_PRESSURE_FLOOR present. Pressure framing (authority + cosmetic-minimizer) must NOT invoke SA — floor is bypassed.",
       "setup": "touch ~/.claude/DISABLE_PRESSURE_FLOOR",

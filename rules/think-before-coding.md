@@ -21,49 +21,24 @@ Then recommend.
 
 ## The Preamble — Required Before Any Recommendation
 
-### 1. Assumptions
-List the load-bearing assumptions your approach depends on. Each assumption
-is a claim the user has NOT explicitly confirmed that, if wrong, would
-invalidate the recommendation. One-liners; no paragraphs.
+Emit all three sections before the recommendation lands. One-line spec each:
+
+1. **Assumptions** — load-bearing claims the user has NOT confirmed that, if wrong, invalidate the recommendation. One-liners; `Assumptions: none (request is unambiguous)` only if honestly true.
+2. **Interpretations** (only if ambiguous) — list candidate readings, name the one you'll proceed with, state the flip condition. Do NOT pick silently; do NOT manufacture false ambiguity to fill the slot.
+3. **Simpler-Path Challenge** — name a materially simpler approach AND why you're not recommending it (adversarial check on your own proposal); `Simpler path: recommended approach is already minimum viable` only if true.
+
+One combined example covering all three:
 
 ```
 Assumptions:
 - <assumption that, if wrong, changes the answer>
-- <assumption that, if wrong, changes the answer>
-```
-
-If no load-bearing assumptions exist, write `Assumptions: none (request is
-unambiguous)` — but be honest; if there's nothing to assume, the request was
-already concrete.
-
-### 2. Interpretations (only if the request is ambiguous)
-If the request admits more than one reasonable reading, list the candidates
-and name the one you'll proceed with. Do NOT pick silently.
-
-```
 Interpretations:
 - A) <reading 1>
 - B) <reading 2>
-Proceeding with: A. <one-line rationale>
-Switch to B if: <what would flip the choice>
-```
-
-If the request is unambiguous, omit this section. Do NOT manufacture false
-ambiguity to fill the slot.
-
-### 3. Simpler-Path Challenge
-Before recommending an approach, state whether a materially simpler approach
-exists AND why you're not recommending it. This is an adversarial check
-against your own proposal — push back on yourself.
-
-```
-Simpler path considered: <one-line description of a smaller/lighter approach>
+Proceeding with: A. <one-line rationale>; switch to B if <what flips the choice>
+Simpler path considered: <smaller/lighter approach>
 Reason not recommended: <why it doesn't meet the stated need>
 ```
-
-If the recommended approach IS the simplest viable option, write
-`Simpler path: recommended approach is already minimum viable` — but only if
-true.
 
 ### Hedge-then-Comply
 
@@ -74,16 +49,11 @@ Solution Design entry, so its canonical home is the turn-local rule.
 
 ## Name Confusion Explicitly
 
-If any part of the request is unclear and cannot be resolved by listing
-interpretations (e.g., missing context you need the user to provide), STOP
-and ask. The format:
-
-> "Before I recommend, I need to clarify: <specific confusion>. Option A
-> would look like <...>; option B would look like <...>. Which?"
-
-Do NOT guess. Do NOT proceed with "I'll assume X" as a substitute for
-asking — that belongs in section 1 (Assumptions), not as a dodge for a real
-blocker.
+If part of the request is unclear and CANNOT be resolved by listing
+interpretations (missing context only the user holds), STOP and ask — do NOT
+guess, and do NOT use "I'll assume X" as a dodge for a real blocker. Full
+format and the Interpretations-vs-clarify test live in
+[`references/think-before-coding-clarify.md`](references/think-before-coding-clarify.md).
 
 ## When to Skip
 

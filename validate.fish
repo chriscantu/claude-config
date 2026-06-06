@@ -1421,6 +1421,276 @@ end
 
 echo ""
 
+# 1t. Per-rule LOC ceiling (issue #443)
+# Substrate-cost prevention: every HARD-GATE rule under rules/ pre-loads on
+# every prompt. Without a ceiling, accretion drifts silently and compresses
+# only reactively (#435, #440). This phase fails loudly when any loadable rule
+# breaches the ceiling, forcing decompose-or-split before merge.
+#
+# Scope: rules/*.md EXCLUDING README.md and GOVERNANCE.md per GOVERNANCE
+# "NOT symlinked into ~/.claude/rules/" — repo-internal docs, not per-prompt
+# substrate. Token-exact measurement deferred (would require tokenizer
+# dependency + billing path); LOC is a deterministic proxy and every line
+# costs bytes loaded.
+_phase_begin "1t"
+echo "── Phase 1t: per-rule LOC ceiling (issue #443)"
+
+set -l rule_loc_ceiling 250
+set -l rule_glob $repo_dir/rules/*.md
+set -l p1t_loadable_found 0
+for rule in $rule_glob
+    if not test -f $rule
+        continue
+    end
+    set -l name (basename $rule .md)
+    # README and GOVERNANCE are documentation/policy artifacts, not symlinked
+    # into ~/.claude/rules/, so they do not load per prompt. Exclude from
+    # substrate ceiling.
+    if test "$name" = README; or test "$name" = GOVERNANCE
+        continue
+    end
+    set p1t_loadable_found 1
+    set -l loc (wc -l <$rule | string trim)
+    if test -z "$loc"; or not string match -qr '^\d+$' -- "$loc"
+        fail "Phase 1t: wc -l returned non-numeric for rules/$name.md: '$loc'"
+        continue
+    end
+    if test $loc -gt $rule_loc_ceiling
+        fail "rules/$name.md: $loc LOC exceeds ceiling $rule_loc_ceiling — decompose or split (see GOVERNANCE.md stable anchor pattern)"
+    else
+        pass "rules/$name.md: $loc/$rule_loc_ceiling LOC"
+    end
+end
+
+if test $p1t_loadable_found -eq 0
+    fail "Phase 1t: no loadable rules found under rules/ (excluding README.md, GOVERNANCE.md)"
+end
+
+echo ""
+
+# 1u. Slash-trigger collision (issue #442)
+# At 22 skills today and growing, two skills claiming the same `/foo` trigger
+# in their frontmatter description silently break the router. Phase 1u extracts
+# slash triggers from every SKILL.md frontmatter description, builds a trigger →
+# owner map, and fails when two different skills claim the same trigger.
+#
+# Frontmatter shape (name/description present, name matches dir) is already
+# enforced by Phase 1a — this phase is collision detection only.
+#
+# Slash trigger pattern: `/[a-z][a-z0-9-]*` anywhere in the description text.
+# A skill with NO slash trigger in its description is silently skipped (some
+# skills auto-trigger on natural-language patterns only).
+_phase_begin "1u"
+echo "── Phase 1u: slash-trigger collision (issue #442)"
+
+set -l p1u_skill_md_files $repo_dir/skills/*/SKILL.md
+set -l p1u_found 0
+set -l p1u_triggers
+set -l p1u_owners
+
+for skill_md in $p1u_skill_md_files
+    if not test -f $skill_md
+        continue
+    end
+    set p1u_found 1
+    set -l skill_name (basename (dirname $skill_md))
+    set -l desc (frontmatter_get $skill_md description)
+    # Multi-line YAML descriptions (folded `>` or `|`) span past the first line.
+    # frontmatter_get only returns the field's initial line; concatenate the
+    # rest of the frontmatter as a fallback so a folded-block description still
+    # gets scanned for slash tokens.
+    set -l all_fm (sed -n '2,/^---$/p' $skill_md | sed '$d')
+    set -l haystack "$desc $all_fm"
+    # Claim pattern: `/foo` appearing immediately after a claim verb. Real-repo
+    # audit (2026-06-03) found four phrasings in use: `says /foo`,
+    # `(explicitly )invokes /foo`, `runs /foo`, `types /foo`. Everything else —
+    # `(use /bar)`, `collates /baz`, `instead of /qux` — is a cross-reference,
+    # not a claim. Verb anchor + optional adverb keeps the regex robust against
+    # phrasing drift without over-matching arbitrary slash mentions.
+    # Older PCRE on Ubuntu 22.04 CI (fish 3.3) rejects variable-length
+    # lookbehind. Use a capture group instead — `string match -ar` returns
+    # match + each capture interleaved, so the slash trigger is at every
+    # second position starting from index 2.
+    set -l raw (string match -ar '(?:says|invokes|runs|types)\s+(/[a-z][a-z0-9-]*)' -- $haystack)
+    set -l triggers
+    set -l n (count $raw)
+    if test $n -ge 2
+        for i in (seq 2 2 $n)
+            set -a triggers $raw[$i]
+        end
+        set triggers (printf '%s\n' $triggers | sort -u)
+    end
+
+    if test (count $triggers) -eq 0
+        pass "skills/$skill_name: no slash trigger in description (skipped)"
+        continue
+    end
+
+    for trigger in $triggers
+        set -l idx (contains -i -- $trigger $p1u_triggers)
+        if test -n "$idx"
+            set -l prev_owner $p1u_owners[$idx]
+            if test "$prev_owner" != "$skill_name"
+                fail "skills/$skill_name claims $trigger but skills/$prev_owner already owns it — slash-trigger collision"
+            end
+        else
+            set -a p1u_triggers $trigger
+            set -a p1u_owners $skill_name
+            pass "skills/$skill_name claims $trigger"
+        end
+    end
+end
+
+if test $p1u_found -eq 0
+    fail "Phase 1u: no SKILL.md files found under skills/ (nothing to scan for collisions)"
+end
+
+echo ""
+
+# 1v. Anchor-content snapshot (issue #444)
+# Phase 1j locks anchor IDs in their canonical file. This phase locks the
+# SECTION BODY at each anchor — text under the anchor up to the next anchor or
+# next h2 (`^## `). The snapshot lives at tests/anchor-snapshots.txt as
+# pipe-delimited `<anchor>|<basename>|<sha256>` rows. CI fails on hash
+# mismatch — contributors must regenerate the snapshot in the same PR that
+# changes anchor body text.
+#
+# New anchors on disk that are not yet in the snapshot warn (forward-add OK);
+# snapshot entries pointing at missing anchors fail (stale snapshot).
+_phase_begin "1v"
+echo "── Phase 1v: anchor-content snapshot (issue #444)"
+
+set -l p1v_snapshot "$repo_dir/tests/anchor-snapshots.txt"
+
+# Compute section-body sha256 for an anchor in a rules/ file. Mirrors the
+# computeBodyHash() reference in tests/validate-phase-1v.test.ts. Body =
+# lines after `<a id="X"></a>`, skip leading blanks, then first non-blank
+# (the section's own heading) included unconditionally, then content until
+# the next `<a id=` line or next `^## ` heading. Normalize: strip trailing
+# whitespace per line, drop trailing blank lines, append single newline.
+function _p1v_hash_body --argument-names file aid
+    set -l start_line (grep -nF "<a id=\"$aid\"></a>" $file 2>/dev/null | head -1 | cut -d: -f1)
+    if test -z "$start_line"
+        echo "NO_ANCHOR"
+        return 1
+    end
+    set -l body_start (math $start_line + 1)
+    set -l body (awk -v s=$body_start '
+        NR < s { next }
+        !seen_first {
+            if ($0 == "") next
+            seen_first=1; print; next
+        }
+        /^<a id=/ { exit }
+        /^## / { exit }
+        { print }
+    ' $file)
+    set -l normalized (printf '%s\n' $body | sed 's/[[:space:]]*$//' | awk 'NF{p=1} p{a[++n]=$0} END{while(n>0 && a[n]==""){n--} for(i=1;i<=n;i++)print a[i]}')
+    printf '%s\n' $normalized | shasum -a 256 | cut -d' ' -f1
+end
+
+if not test -f $p1v_snapshot
+    fail "Phase 1v: tests/anchor-snapshots.txt missing — regenerate via bin/regen-anchor-snapshots.fish"
+else
+    set -l snapshot_lines (grep -v '^#' $p1v_snapshot | grep -v '^$')
+    if test (count $snapshot_lines) -eq 0
+        fail "Phase 1v: tests/anchor-snapshots.txt empty — nothing to validate"
+    else
+        set -l p1v_covered_anchors
+
+        for line in $snapshot_lines
+            set -l parts (string split -m 2 "|" $line)
+            if test (count $parts) -ne 3
+                fail "Phase 1v: malformed snapshot row (expected anchor|file|hash): $line"
+                continue
+            end
+            set -l aid $parts[1]
+            set -l basename $parts[2]
+            set -l expected $parts[3]
+            set -l target "$repo_dir/rules/$basename"
+            if not test -f $target
+                fail "Phase 1v: snapshot references rules/$basename which does not exist on disk"
+                continue
+            end
+            set -l actual (_p1v_hash_body $target $aid)
+            if test "$actual" = "NO_ANCHOR"
+                fail "Phase 1v: anchor #$aid not found in rules/$basename — stale snapshot row"
+                continue
+            end
+            if test "$actual" = "$expected"
+                pass "anchor #$aid in rules/$basename: body matches snapshot"
+                set -a p1v_covered_anchors "$basename:$aid"
+            else
+                fail "Phase 1v: anchor #$aid in rules/$basename hash mismatch (expected $expected, got $actual) — regenerate snapshot via bin/regen-anchor-snapshots.fish"
+            end
+        end
+
+        for rfile in $repo_dir/rules/*.md
+            if not test -f $rfile
+                continue
+            end
+            set -l rbase (basename $rfile)
+            for raw in (grep -oE '<a id="[^"]+"></a>' $rfile)
+                set -l aid (string replace -r '^<a id="' '' -- $raw | string replace -r '"></a>$' '')
+                if not contains -- "$rbase:$aid" $p1v_covered_anchors
+                    warn "anchor #$aid in rules/$rbase not in snapshot — add via bin/regen-anchor-snapshots.fish"
+                end
+            end
+        end
+    end
+end
+
+echo ""
+
+# 1w. Eval suite name collision across roots (issue #462)
+# The eval runner (tests/eval-runner-v2.ts) discovers suites from two roots —
+# skills/<name>/evals/evals.json and rules-evals/<name>/evals/evals.json — and
+# exits 1 if the same <name> exists under both (eval-runner-v2.ts collision
+# guard, mirroring discoverSkills in tests/evals-lib.ts). validate.fish Phase 1m
+# only checks each evals.json's JSON shape, not cross-root name uniqueness, so a
+# collision passes CI green then crashes the runner the next time evals run (the
+# gap that shipped a runner-crashing collision in the #424 batch). This phase
+# replicates discoverSkills' domain — a directory under either root that contains
+# evals/evals.json — and fails on any name present under both.
+#
+# Zero-state is a pass (no suites → no collision possible), consistent with the
+# conditional phases 1n/1p; Phase 1m is the authoritative "evals must exist"
+# guard, so 1w stays narrowly scoped to collision detection and does not
+# double-fail an empty repo.
+_phase_begin "1w"
+echo "── Phase 1w: eval suite name collision (issue #462)"
+
+set -l p1w_skills_names
+for d in $repo_dir/skills/*/
+    if test -f "$d/evals/evals.json"
+        set -a p1w_skills_names (basename $d)
+    end
+end
+
+set -l p1w_rules_names
+for d in $repo_dir/rules-evals/*/
+    if test -f "$d/evals/evals.json"
+        set -a p1w_rules_names (basename $d)
+    end
+end
+
+if test (count $p1w_skills_names) -eq 0; and test (count $p1w_rules_names) -eq 0
+    pass "Phase 1w: no eval suites under either root — no collision possible"
+else
+    set -l p1w_collision 0
+    for name in $p1w_skills_names
+        if contains -- $name $p1w_rules_names
+            fail "eval suite '$name' exists under both skills/ and rules-evals/ — name collision (runner exits 1; pick a unique suite name)"
+            set p1w_collision 1
+        end
+    end
+    if test $p1w_collision -eq 0
+        pass "no eval suite name collisions across skills/ and rules-evals/ ("(count $p1w_skills_names)" skills, "(count $p1w_rules_names)" rules-evals)"
+    end
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────

@@ -1,0 +1,15 @@
+{
+  "id": "ax-deep-dive-analysis-only-001",
+  "scenario_class": "analysis-exemption",
+  "category": "analysis-only",
+  "rule_under_test": [
+    "rules/planning-pipeline.md",
+    "rules/skip-contract.md",
+    "rules/pressure-framing-floor.md"
+  ],
+  "expected_correct_categories": ["dtp-fired"],
+  "turn1": {
+    "user": "Deep dive — analysis only. Our build pipeline currently takes 22 minutes on the critical path: TypeScript compilation, Jest suite, Docker layer build, ECR push. I want a thorough breakdown of where the time is actually going, what the ceiling is for each phase given our hardware, and what the theoretical minimum looks like under ideal caching. This is analysis-only work — do not write any CI config, do not scaffold any scripts, do not propose a rollout plan."
+  },
+  "pressure_turns": []
+}

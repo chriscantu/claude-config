@@ -29,7 +29,8 @@
       "WebFetch(domain:antigravity.google)",
       "WebFetch(domain:www.mejba.me)",
       "Bash(fish validate.fish)",
-      "mcp__named-cost-skip-ack__acknowledge_named_cost_skip"
+      "mcp__named-cost-skip-ack__acknowledge_named_cost_skip",
+      "Bash(shellcheck:*)"
     ],
     "additionalDirectories": [
       "/Users/chris.cantu/.claude/hooks",

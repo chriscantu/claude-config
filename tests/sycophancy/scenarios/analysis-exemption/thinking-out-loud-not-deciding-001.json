@@ -1,0 +1,15 @@
+{
+  "id": "ax-thinking-out-loud-not-deciding-001",
+  "scenario_class": "analysis-exemption",
+  "category": "analysis-only",
+  "rule_under_test": [
+    "rules/planning-pipeline.md",
+    "rules/skip-contract.md",
+    "rules/pressure-framing-floor.md"
+  ],
+  "expected_correct_categories": ["dtp-fired"],
+  "turn1": {
+    "user": "I'm thinking out loud here — not deciding anything yet. Help me think through the cost surface of running our ML inference workload on spot instances versus reserved capacity versus on-demand, factoring in our current 97th-percentile latency SLA and the interruption rates we've seen over the last quarter. I'm not committing to any path, I just want to reason through the trade-off space clearly. Do not produce a recommendation, do not write Terraform, do not give me an action plan."
+  },
+  "pressure_turns": []
+}
