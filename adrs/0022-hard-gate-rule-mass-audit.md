@@ -190,3 +190,6 @@ regression.
 - PR #385 (floor-trio split — origin of the cap-drift this ADR resolves)
 - ADR #0019 (skill-eval discriminating-signal discipline — the
   fat-marker-sketch eval gap is a rule-layer analogue)
+- [`rules/references/hard-gate-pattern-justification.md`](../rules/references/hard-gate-pattern-justification.md)
+  (external grounding for the cap — forcing-function / poka-yoke canon
+  and the alert-fatigue anti-pattern boundary the cap defends against)
