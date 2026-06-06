@@ -112,3 +112,11 @@ verified-faithful injection, not an eval count.
 - **Neutral — partial supersede:** Only the `memory-discipline.md` row of ADR
   #0022 is withdrawn. The rest of the #0022 audit (other rules, the floor-trio
   cap-slot decision, the LOC-budget framing) is unaffected.
+
+## Related
+
+- [`rules/references/hard-gate-pattern-justification.md`](../rules/references/hard-gate-pattern-justification.md)
+  — external grounding for the HARD-GATE pattern. This ADR's
+  measure-before-sizing discipline is the "internal canary" that keeps
+  the gate set on the correct side of the alert-fatigue anti-pattern
+  boundary documented there.

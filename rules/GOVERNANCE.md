@@ -66,6 +66,13 @@ not retroactively prune. Splitting an existing concern across multiple
 files for cognitive-load reasons (as in #375) is structural, not
 accretive — it does not consume cap budget.
 
+External grounding for why a non-bypassable process gate is a sound
+pattern at all — and the precise condition (alert fatigue) under which
+it degrades into an anti-pattern — lives in
+[`references/hard-gate-pattern-justification.md`](references/hard-gate-pattern-justification.md)
+(forcing-function / poka-yoke canon + clinical-decision-support
+hard-stop evidence). Loaded on demand, not per prompt.
+
 ### Adding a 9th HARD-GATE rule requires:
 
 1. **Extension-first audit.** Name the specific existing rule the concern
