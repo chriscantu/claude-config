@@ -10,6 +10,8 @@ excalidraw.log.*
 .claude/memory/session-log.md
 .harness-mem/
 ruvector.db
+agentdb.rvf
+agentdb.rvf.lock
 
 # Ruflo / claude-flow runtime caches — adversarial-ring shared memory + daemon state.
 # Preserved on disk for cross-session learning; never tracked.
