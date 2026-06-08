@@ -1,0 +1,22 @@
+{
+  "skill": "org-design",
+  "description": "Phase 1 evals — analyze-inherited mode. Guards the core regression: given a populated org/structure.md (and an absent stakeholder memory entity → graceful degrade), the skill writes a 7-section descriptive analysis with an annotated Mermaid chart, section-fence sentinels, and a real SPOF read of the structure (not an empty skeleton). Skill-invocation assertions are diagnostic-tier per strategy-doc/#157 (slash-prefix Skill re-emit is unreliable under single-turn `claude --print`); the load-bearing signals are required-tier Write-content substrings (survive caveman/terseness compression per #298).",
+  "evals": [
+    {
+      "name": "analyze-structure-only",
+      "summary": "analyze-inherited happy path: populated structure.md, no stakeholder entity. Writes 7-section analysis with Mermaid chart, fences, and names the sole-owner SPOF (billing-service).",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/structure-only /tmp/od-eval-analyze-structure-only",
+      "teardown": "rm -rf /tmp/od-eval-analyze-structure-only",
+      "prompt": "/org-design orgfix-acme --mode=analyze --workspace /tmp/od-eval-analyze-structure-only",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "org-design", "tier": "diagnostic", "description": "diagnostic structural anchor: skill should route on /org-design slash command. Diagnostic per strategy-doc/sdr precedent — Skill tool re-emit on slash-prefix prompts is unreliable across single-turn `claude --print` (#157); the Write-content regexes below are the load-bearing required signals"},
+        {"type": "tool_input_matches", "tool": "Skill", "input_key": "skill", "input_value": "org-design", "tier": "diagnostic", "description": "diagnostic: Skill tool surface contract — pins skill input value"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "## 1. Inherited structure", "tier": "required", "description": "Section 1 heading present in written analysis (Write tool input — survives prose compression per #298)"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "```mermaid", "tier": "required", "description": "annotated org chart emitted as a Mermaid fenced block in §1"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "## 3. Single points of failure", "tier": "required", "description": "Section 3 (SPOF) heading present in written analysis"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "billing-service", "tier": "required", "description": "DISCRIMINATOR: the sole-owner critical system from structure.md surfaces in the SPOF analysis — distinguishes a real structural read from an empty skeleton or drive-by skill mention"},
+        {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "<!-- org-design:auto -->", "tier": "required", "description": "section-fence sentinel present in written analysis (idempotent re-run contract)"}
+      ]
+    }
+  ]
+}
