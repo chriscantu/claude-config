@@ -12,6 +12,14 @@ on:
 
 jobs:
   claude-review:
+    # Skip Dependabot PRs. Dependabot bumps actions/* pins inside this very
+    # workflow file, making its content differ from the default branch.
+    # claude-code-action self-validates the calling workflow against the
+    # default-branch version and 401s on any mismatch (security guard against
+    # secret exfiltration via rewritten review jobs). Benign here but reports
+    # red on every dependabot action bump. See PR #427.
+    if: github.actor != 'dependabot[bot]'
+
     # Optional: Filter by PR author
     # if: |
     #   github.event.pull_request.user.login == 'external-contributor' ||
