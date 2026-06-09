@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure } from "./scenario-scorer.ts";
+import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult } from "./scenario-scorer.ts";
 
 const FIXTURE = `# Org structure — orgfix-acme
 <!-- org-design:structure -->
@@ -148,5 +148,31 @@ describe("checkValidity", () => {
     const cyc = checkValidity(people).filter((f) => f.kind === "reporting_cycle");
     expect(cyc.length).toBe(1);                              // one cycle, not duplicated by entry point
     expect([...cyc[0].involved].sort()).toEqual(["Riley", "Sam"]); // Jordan (prefix) excluded
+  });
+});
+
+describe("run", () => {
+  test("valid split returns valid result with before/after metrics and deltas", () => {
+    const res: ScenarioResult = run(FIXTURE, SPLIT);
+    expect(res.valid).toBe(true);
+    expect(res.failures).toEqual([]);
+    expect(res.deltas.addedTeams.sort()).toEqual(["Payments-Core", "Payments-Infra"]);
+    expect(res.deltas.removedTeams).toEqual(["Payments"]);
+    expect(res.metrics.span["Sam"]).toEqual({ before: 2, after: 2 });
+    expect(res.metrics.spof.before).toContain("billing-service");
+  });
+
+  test("invalid split (0-report manager) returns valid:false with the failure", () => {
+    const spec: SplitTeamSpec = {
+      type: "split-team", targetTeam: "Payments",
+      into: [
+        { name: "Pay-A", lead: "Jordan", members: ["Jordan"] },
+        { name: "Pay-B", lead: "Riley", members: ["Riley"] },
+      ],
+      newReporting: { "Pay-A": "Dana", "Pay-B": "Dana" }, // Sam keeps team Payments, loses both reports
+    };
+    const res = run(FIXTURE, spec);
+    expect(res.valid).toBe(false);
+    expect(res.failures.map((f) => f.kind)).toContain("zero_report_manager");
   });
 });

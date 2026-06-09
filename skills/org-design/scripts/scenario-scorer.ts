@@ -168,3 +168,77 @@ export function checkValidity(people: Person[]): ValidityFailure[] {
     seenCycle.add(key); return true;
   });
 }
+
+export interface ScenarioResult {
+  valid: boolean;
+  failures: ValidityFailure[];
+  deltas: {
+    teamsBefore: string[]; teamsAfter: string[];
+    movedReports: { person: string; from: string; to: string }[];
+    addedTeams: string[]; removedTeams: string[];
+  };
+  metrics: {
+    span: Record<string, { before: number; after: number }>;
+    spof: { before: string[]; after: string[] };
+    oncall: Record<string, { before: number; after: number }>;
+    ratio: Record<string, { m: number; ic: number }>;
+  };
+}
+
+const teams = (people: Person[]): string[] => [...new Set(people.map((p) => p.team).filter(Boolean))].sort();
+const mergeKeys = <T>(a: Record<string, T>, b: Record<string, T>): string[] =>
+  [...new Set([...Object.keys(a), ...Object.keys(b)])].sort();
+
+export function run(structureMd: string, spec: SplitTeamSpec): ScenarioResult {
+  const before = parseStructure(structureMd);
+  const after = applySplit(before, spec);
+  const failures = checkValidity(after);
+  const mb = computeMetrics(before);
+  const ma = computeMetrics(after);
+
+  const span: ScenarioResult["metrics"]["span"] = {};
+  for (const k of mergeKeys(mb.span, ma.span)) span[k] = { before: mb.span[k] ?? 0, after: ma.span[k] ?? 0 };
+  const oncall: ScenarioResult["metrics"]["oncall"] = {};
+  for (const k of mergeKeys(mb.oncall, ma.oncall)) oncall[k] = { before: mb.oncall[k] ?? 0, after: ma.oncall[k] ?? 0 };
+
+  const beforeByPerson = new Map(before.map((p) => [p.person, p]));
+  const movedReports = after
+    .filter((p) => beforeByPerson.get(p.person)?.reportsTo !== p.reportsTo)
+    .map((p) => ({ person: p.person, from: beforeByPerson.get(p.person)!.reportsTo, to: p.reportsTo }));
+
+  const tb = teams(before), ta = teams(after);
+  // For split-team deltas: the targetTeam is always treated as removed (even if the former
+  // manager still carries the old team label), and the new sub-teams are added.
+  const splitTeams = new Set(spec.into.map((g) => g.name));
+  const addedTeams = ta.filter((t) => !tb.includes(t) || splitTeams.has(t));
+  const removedTeams = tb.filter((t) => !ta.includes(t) || t === spec.targetTeam);
+  return {
+    valid: failures.length === 0,
+    failures,
+    deltas: {
+      teamsBefore: tb, teamsAfter: ta,
+      movedReports,
+      addedTeams,
+      removedTeams,
+    },
+    metrics: { span, spof: { before: mb.spof, after: ma.spof }, oncall, ratio: ma.ratio },
+  };
+}
+
+// --- CLI entrypoint: scenario-scorer.ts <structure.md path> <scenario.json path> ---
+if (import.meta.main) {
+  const [structPath, specPath] = process.argv.slice(2);
+  if (!structPath || !specPath) {
+    console.error("usage: scenario-scorer.ts <structure.md path> <scenario.json path>");
+    process.exit(64); // EX_USAGE
+  }
+  try {
+    const md = await Bun.file(structPath).text();
+    const spec = JSON.parse(await Bun.file(specPath).text()) as SplitTeamSpec;
+    if (spec.type !== "split-team") throw new Error(`unsupported scenario type: ${spec.type}`);
+    process.stdout.write(JSON.stringify(run(md, spec), null, 2) + "\n");
+  } catch (e) {
+    console.error(`scenario-scorer error: ${(e as Error).message}`);
+    process.exit(65); // EX_DATAERR
+  }
+}
