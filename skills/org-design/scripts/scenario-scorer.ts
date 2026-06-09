@@ -104,10 +104,25 @@ export function isScenarioType(t: string): t is ScenarioSpec["type"] {
   return (KNOWN_SCENARIO_TYPES as readonly string[]).includes(t);
 }
 
+export function applyMerge(people: Person[], spec: MergeTeamsSpec): Person[] {
+  const inMerge = new Set(spec.teams);
+  return people.map((p) => {
+    if (!inMerge.has(p.team)) return p;
+    const nonSurvivingManager = p.role === "M" && p.person !== spec.survivingManager;
+    return {
+      ...p,
+      team: spec.newName,
+      reportsTo: nonSurvivingManager ? spec.survivingManager : p.reportsTo,
+    };
+  });
+}
+
 function applyMutation(people: Person[], spec: ScenarioSpec): Person[] {
   switch (spec.type) {
     case "split-team":
       return applySplit(people, spec);
+    case "merge-teams":
+      return applyMerge(people, spec);
     default:
       throw new Error(`unsupported scenario type: ${(spec as { type: string }).type}`);
   }

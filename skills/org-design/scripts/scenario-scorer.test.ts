@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult } from "./scenario-scorer.ts";
+import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult, applyMerge, type MergeTeamsSpec, applyAdd, type AddHeadcountSpec, applyReporting, type ChangeReportingSpec, isScenarioType } from "./scenario-scorer.ts";
 
 const FIXTURE = `# Org structure — orgfix-acme
 <!-- org-design:structure -->
@@ -174,5 +174,40 @@ describe("run", () => {
     const res = run(FIXTURE, spec);
     expect(res.valid).toBe(false);
     expect(res.failures.map((f) => f.kind)).toContain("zero_report_manager");
+  });
+});
+
+describe("applyMerge", () => {
+  test("folds teams under surviving manager; non-surviving manager stays M as sub-manager", () => {
+    const spec: MergeTeamsSpec = {
+      type: "merge-teams", teams: ["Platform", "Payments"], newName: "Eng", survivingManager: "Dana",
+    };
+    const after = applyMerge(acme(), spec);
+    const sam = after.find((r) => r.person === "Sam")!;
+    expect(sam.team).toBe("Eng");
+    expect(sam.role).toBe("M");          // non-surviving manager keeps M
+    expect(sam.reportsTo).toBe("Dana");  // now reports to surviving manager
+    expect(after.find((r) => r.person === "Jordan")!.reportsTo).toBe("Sam"); // sub-hierarchy intact
+    expect(after.find((r) => r.person === "Jordan")!.team).toBe("Eng");
+    expect(checkValidity(after).length).toBe(0);
+  });
+
+  test("merge that loops a surviving/non-surviving pair trips reporting_cycle", () => {
+    // survivingManager Sam; Dana (non-surviving M) -> Sam, but Sam still -> Dana = cycle
+    const spec: MergeTeamsSpec = {
+      type: "merge-teams", teams: ["Platform", "Payments"], newName: "Eng", survivingManager: "Sam",
+    };
+    const res = run(FIXTURE, spec);
+    expect(res.valid).toBe(false);
+    expect(res.failures.map((f) => f.kind)).toContain("reporting_cycle");
+  });
+
+  test("run deltas: merged teams removed, new team added", () => {
+    const spec: MergeTeamsSpec = {
+      type: "merge-teams", teams: ["Platform", "Payments"], newName: "Eng", survivingManager: "Dana",
+    };
+    const res = run(FIXTURE, spec);
+    expect(res.deltas.addedTeams).toEqual(["Eng"]);
+    expect(res.deltas.removedTeams.sort()).toEqual(["Payments", "Platform"]);
   });
 });
