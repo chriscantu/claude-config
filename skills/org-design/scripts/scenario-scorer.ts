@@ -104,6 +104,11 @@ export function isScenarioType(t: string): t is ScenarioSpec["type"] {
   return (KNOWN_SCENARIO_TYPES as readonly string[]).includes(t);
 }
 
+export function applyReporting(people: Person[], spec: ChangeReportingSpec): Person[] {
+  return people.map((p) =>
+    spec.reassign[p.person] !== undefined ? { ...p, reportsTo: spec.reassign[p.person] } : p);
+}
+
 export function applyAdd(people: Person[], spec: AddHeadcountSpec): Person[] {
   const reassigned = people.map((p) =>
     spec.reassign && spec.reassign[p.person] !== undefined
@@ -133,6 +138,8 @@ function applyMutation(people: Person[], spec: ScenarioSpec): Person[] {
       return applyMerge(people, spec);
     case "add-headcount":
       return applyAdd(people, spec);
+    case "change-reporting":
+      return applyReporting(people, spec);
     default:
       throw new Error(`unsupported scenario type: ${(spec as { type: string }).type}`);
   }

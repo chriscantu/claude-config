@@ -247,3 +247,23 @@ describe("applyAdd", () => {
     expect(res.failures.map((f) => f.kind)).toContain("orphaned_report");
   });
 });
+
+describe("applyReporting", () => {
+  test("reparents a person without changing their team", () => {
+    const spec: ChangeReportingSpec = { type: "change-reporting", reassign: { Jordan: "Dana" } };
+    const after = applyReporting(acme(), spec);
+    const jordan = after.find((r) => r.person === "Jordan")!;
+    expect(jordan.reportsTo).toBe("Dana");
+    expect(jordan.team).toBe("Payments"); // team unchanged
+    expect(computeMetrics(after).span["Sam"]).toBe(1); // only Riley left under Sam
+    expect(checkValidity(after).length).toBe(0);
+  });
+
+  test("a reassignment that loops the chain trips reporting_cycle", () => {
+    // Sam -> Jordan, but Jordan -> Sam = cycle
+    const spec: ChangeReportingSpec = { type: "change-reporting", reassign: { Sam: "Jordan" } };
+    const res = run(FIXTURE, spec);
+    expect(res.valid).toBe(false);
+    expect(res.failures.map((f) => f.kind)).toContain("reporting_cycle");
+  });
+});
