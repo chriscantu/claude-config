@@ -74,3 +74,34 @@ export function applySplit(people: Person[], spec: SplitTeamSpec): Person[] {
     return { ...p, team: newTeam, reportsTo };
   });
 }
+
+export interface Metrics {
+  span: Record<string, number>;
+  spof: string[];
+  oncall: Record<string, number>;
+  ratio: Record<string, { m: number; ic: number }>;
+}
+
+export function computeMetrics(people: Person[]): Metrics {
+  const span: Record<string, number> = {};
+  for (const p of people) {
+    if (p.reportsTo) span[p.reportsTo] = (span[p.reportsTo] ?? 0) + 1;
+  }
+  const sysOwners = new Map<string, Set<string>>();
+  for (const p of people) {
+    for (const s of p.systems) {
+      (sysOwners.get(s) ?? sysOwners.set(s, new Set()).get(s)!).add(p.person);
+    }
+  }
+  const spof = [...sysOwners.entries()].filter(([, owners]) => owners.size === 1).map(([s]) => s).sort();
+  const oncall: Record<string, number> = {};
+  for (const p of people) oncall[p.person] = p.oncall.length;
+  const ratio: Record<string, { m: number; ic: number }> = {};
+  for (const p of people) {
+    if (!p.team) continue;
+    const r = (ratio[p.team] ??= { m: 0, ic: 0 });
+    if (p.role === "M") r.m += 1;
+    else if (p.role === "IC") r.ic += 1;
+  }
+  return { span, spof, oncall, ratio };
+}

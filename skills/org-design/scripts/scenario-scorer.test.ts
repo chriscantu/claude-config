@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseStructure, type Person, applySplit, type SplitTeamSpec } from "./scenario-scorer.ts";
+import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics } from "./scenario-scorer.ts";
 
 const FIXTURE = `# Org structure — orgfix-acme
 <!-- org-design:structure -->
@@ -81,5 +81,28 @@ describe("applySplit", () => {
       into: [{ name: "X", lead: "Alex", members: ["Alex"] }],
     };
     expect(() => applySplit(acme(), bad)).toThrow(/not in target team/i);
+  });
+});
+
+describe("computeMetrics", () => {
+  test("span counts direct reports per manager", () => {
+    const m = computeMetrics(acme());
+    expect(m.span["Dana"]).toBe(1);  // only Sam reports to Dana in this 4-row fixture
+    expect(m.span["Sam"]).toBe(2);   // Jordan + Riley
+  });
+
+  test("system-SPOF = systems owned by exactly one person", () => {
+    const m = computeMetrics(acme());
+    expect(m.spof).toContain("billing-service"); // only Jordan owns it
+  });
+
+  test("oncall counts rotations per person", () => {
+    const m = computeMetrics(acme());
+    expect(m.oncall["Jordan"]).toBe(1);
+  });
+
+  test("ratio counts M vs IC per team", () => {
+    const m = computeMetrics(acme());
+    expect(m.ratio["Payments"]).toEqual({ m: 1, ic: 2 });
   });
 });
