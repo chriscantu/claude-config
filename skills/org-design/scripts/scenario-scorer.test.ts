@@ -267,3 +267,14 @@ describe("applyReporting", () => {
     expect(res.failures.map((f) => f.kind)).toContain("reporting_cycle");
   });
 });
+
+describe("isScenarioType", () => {
+  test("accepts the four 2b-i modes, rejects unknown and the deferred reduce-headcount", () => {
+    expect(isScenarioType("split-team")).toBe(true);
+    expect(isScenarioType("add-headcount")).toBe(true);
+    expect(isScenarioType("merge-teams")).toBe(true);
+    expect(isScenarioType("change-reporting")).toBe(true);
+    expect(isScenarioType("reduce-headcount")).toBe(false); // Phase 2b-ii, not yet
+    expect(isScenarioType("bogus")).toBe(false);
+  });
+});

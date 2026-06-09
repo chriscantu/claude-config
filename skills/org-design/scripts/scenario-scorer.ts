@@ -313,8 +313,9 @@ if (import.meta.main) {
   }
   try {
     const md = await Bun.file(structPath).text();
-    const spec = JSON.parse(await Bun.file(specPath).text()) as SplitTeamSpec;
-    if (spec.type !== "split-team") throw new Error(`unsupported scenario type: ${spec.type}`);
+    const spec = JSON.parse(await Bun.file(specPath).text()) as ScenarioSpec;
+    const t = (spec as { type?: string }).type ?? "";
+    if (!isScenarioType(t)) throw new Error(`unsupported scenario type: ${t}`);
     process.stdout.write(JSON.stringify(run(md, spec), null, 2) + "\n");
   } catch (e) {
     console.error(`scenario-scorer error: ${(e as Error).message}`);
