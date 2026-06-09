@@ -43,8 +43,9 @@ export interface SplitTeamSpec {
 
 export function applySplit(people: Person[], spec: SplitTeamSpec): Person[] {
   const inTarget = new Set(people.filter((p) => p.team === spec.targetTeam).map((p) => p.person));
-  // former manager of the target team = the M-role person in that team,
-  // or the person the ICs reported to if no explicit M exists
+  // The split's new sub-team leads report to the target team's existing manager
+  // (the M-role person in that team) by default; newReporting overrides per team.
+  // Fallback: if the team has no M-role person, use the first member's reportsTo.
   const formerManager =
     people.find((p) => p.team === spec.targetTeam && p.role === "M")?.person
     ?? people.find((p) => p.team === spec.targetTeam)?.reportsTo
@@ -56,6 +57,8 @@ export function applySplit(people: Person[], spec: SplitTeamSpec): Person[] {
     leadOf.set(grp.name, grp.lead);
     for (const m of grp.members) {
       if (!inTarget.has(m)) throw new Error(`member ${m} is not in target team ${spec.targetTeam}`);
+      // last-write-wins if a member is listed in multiple groups; Task 4 validity
+      // (orphaned_report / reporting_cycle) catches the resulting structural breakage.
       teamOf.set(m, grp.name);
     }
   }
