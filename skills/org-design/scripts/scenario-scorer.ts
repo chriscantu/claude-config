@@ -75,6 +75,44 @@ export function applySplit(people: Person[], spec: SplitTeamSpec): Person[] {
   });
 }
 
+export interface AddHeadcountSpec {
+  type: "add-headcount";
+  hires: Person[];
+  reassign?: Record<string, string>; // existing person -> new manager
+}
+
+export interface MergeTeamsSpec {
+  type: "merge-teams";
+  teams: string[];
+  newName: string;
+  survivingManager: string;
+}
+
+export interface ChangeReportingSpec {
+  type: "change-reporting";
+  reassign: Record<string, string>; // person -> new manager
+}
+
+export type ScenarioSpec =
+  | SplitTeamSpec
+  | AddHeadcountSpec
+  | MergeTeamsSpec
+  | ChangeReportingSpec;
+
+export const KNOWN_SCENARIO_TYPES = ["split-team", "add-headcount", "merge-teams", "change-reporting"] as const;
+export function isScenarioType(t: string): t is ScenarioSpec["type"] {
+  return (KNOWN_SCENARIO_TYPES as readonly string[]).includes(t);
+}
+
+function applyMutation(people: Person[], spec: ScenarioSpec): Person[] {
+  switch (spec.type) {
+    case "split-team":
+      return applySplit(people, spec);
+    default:
+      throw new Error(`unsupported scenario type: ${(spec as { type: string }).type}`);
+  }
+}
+
 export interface Metrics {
   span: Record<string, number>;
   spof: string[];
@@ -191,9 +229,9 @@ const teams = (people: Person[]): string[] => [...new Set(people.map((p) => p.te
 const mergeKeys = <T>(a: Record<string, T>, b: Record<string, T>): string[] =>
   [...new Set([...Object.keys(a), ...Object.keys(b)])].sort();
 
-export function run(structureMd: string, spec: SplitTeamSpec): ScenarioResult {
+export function run(structureMd: string, spec: ScenarioSpec): ScenarioResult {
   const before = parseStructure(structureMd);
-  const after = applySplit(before, spec);
+  const after = applyMutation(before, spec);
   const failures = checkValidity(after);
   const mb = computeMetrics(before);
   const ma = computeMetrics(after);
@@ -209,11 +247,17 @@ export function run(structureMd: string, spec: SplitTeamSpec): ScenarioResult {
     .map((p) => ({ person: p.person, from: beforeByPerson.get(p.person)!.reportsTo, to: p.reportsTo }));
 
   const tb = teams(before), ta = teams(after);
-  // For split-team deltas: the targetTeam is always treated as removed (even if the former
-  // manager still carries the old team label), and the new sub-teams are added.
-  const splitTeams = new Set(spec.into.map((g) => g.name));
-  const addedTeams = ta.filter((t) => !tb.includes(t) || splitTeams.has(t));
-  const removedTeams = tb.filter((t) => !ta.includes(t) || t === spec.targetTeam);
+  let addedTeams: string[], removedTeams: string[];
+  if (spec.type === "split-team") {
+    // split: the targetTeam is always treated as removed (even if the former manager
+    // still carries the old team label), and the new sub-teams are added.
+    const splitTeams = new Set(spec.into.map((g) => g.name));
+    addedTeams = ta.filter((t) => !tb.includes(t) || splitTeams.has(t));
+    removedTeams = tb.filter((t) => !ta.includes(t) || t === spec.targetTeam);
+  } else {
+    addedTeams = ta.filter((t) => !tb.includes(t));
+    removedTeams = tb.filter((t) => !ta.includes(t));
+  }
   return {
     valid: failures.length === 0,
     failures,
