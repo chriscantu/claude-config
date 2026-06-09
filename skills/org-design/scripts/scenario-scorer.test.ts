@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics } from "./scenario-scorer.ts";
+import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure } from "./scenario-scorer.ts";
 
 const FIXTURE = `# Org structure — orgfix-acme
 <!-- org-design:structure -->
@@ -104,5 +104,37 @@ describe("computeMetrics", () => {
   test("ratio counts M vs IC per team", () => {
     const m = computeMetrics(acme());
     expect(m.ratio["Payments"]).toEqual({ m: 1, ic: 2 });
+  });
+});
+
+const kinds = (f: ValidityFailure[]) => f.map((x) => x.kind).sort();
+
+describe("checkValidity", () => {
+  test("clean split is valid", () => {
+    expect(checkValidity(applySplit(acme(), SPLIT)).length).toBe(0);
+  });
+
+  test("orphaned_report: report points at a manager not present", () => {
+    const people = acme().map((p) => p.person === "Jordan" ? { ...p, reportsTo: "Ghost" } : p);
+    expect(kinds(checkValidity(people))).toContain("orphaned_report");
+  });
+
+  test("reporting_cycle: A->B->A", () => {
+    const people = acme().map((p) =>
+      p.person === "Dana" ? { ...p, reportsTo: "Sam" } : p); // Dana->Sam->Dana
+    expect(kinds(checkValidity(people))).toContain("reporting_cycle");
+  });
+
+  test("zero_report_manager: an M with no direct reports", () => {
+    // move Jordan + Riley off Sam, leaving Sam (M) with 0 reports
+    const people = acme().map((p) =>
+      (p.person === "Jordan" || p.person === "Riley") ? { ...p, reportsTo: "Dana" } : p);
+    expect(kinds(checkValidity(people))).toContain("zero_report_manager");
+  });
+
+  test("subviable_oncall: rotation with <=1 person is invalid; exactly 2 is valid", () => {
+    const one = acme().map((p) => p.person === "Riley" ? { ...p, oncall: [] } : p);
+    expect(kinds(checkValidity(one))).toContain("subviable_oncall"); // payments-primary down to Jordan only
+    expect(checkValidity(acme()).filter((f) => f.kind === "subviable_oncall").length).toBe(0); // 2 people = ok
   });
 });

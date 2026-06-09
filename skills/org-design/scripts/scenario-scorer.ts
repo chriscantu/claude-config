@@ -105,3 +105,63 @@ export function computeMetrics(people: Person[]): Metrics {
   }
   return { span, spof, oncall, ratio };
 }
+
+export type ValidityFailure = {
+  kind: "orphaned_report" | "reporting_cycle" | "zero_report_manager" | "subviable_oncall";
+  detail: string; involved: string[];
+};
+
+export function checkValidity(people: Person[]): ValidityFailure[] {
+  const names = new Set(people.map((p) => p.person));
+  const failures: ValidityFailure[] = [];
+
+  // 1. orphaned_report
+  for (const p of people) {
+    if (p.reportsTo && !names.has(p.reportsTo)) {
+      failures.push({ kind: "orphaned_report", detail: `${p.person} reports to missing ${p.reportsTo}`, involved: [p.person, p.reportsTo] });
+    }
+  }
+
+  // 2. reporting_cycle (walk each chain, detect revisit)
+  const mgr = new Map(people.map((p) => [p.person, p.reportsTo]));
+  for (const p of people) {
+    const seen = new Set<string>();
+    let cur: string | undefined = p.person;
+    while (cur && mgr.get(cur)) {
+      if (seen.has(cur)) {
+        failures.push({ kind: "reporting_cycle", detail: `cycle through ${[...seen].join(" -> ")}`, involved: [...seen] });
+        break;
+      }
+      seen.add(cur);
+      cur = mgr.get(cur);
+    }
+  }
+
+  // 3. zero_report_manager (role M, or appears as a lead, but nobody reports to them)
+  const hasReports = new Set(people.filter((p) => p.reportsTo).map((p) => p.reportsTo));
+  for (const p of people) {
+    if (p.role === "M" && !hasReports.has(p.person)) {
+      failures.push({ kind: "zero_report_manager", detail: `${p.person} is a manager with zero reports`, involved: [p.person] });
+    }
+  }
+
+  // 4. subviable_oncall (rotation staffed by <=1 person)
+  const rota = new Map<string, Set<string>>();
+  for (const p of people) for (const r of p.oncall) {
+    (rota.get(r) ?? rota.set(r, new Set()).get(r)!).add(p.person);
+  }
+  for (const [r, members] of rota) {
+    if (members.size <= 1) {
+      failures.push({ kind: "subviable_oncall", detail: `rotation ${r} staffed by ${members.size} person`, involved: [...members] });
+    }
+  }
+
+  // dedupe reporting_cycle (same cycle found from multiple entry points)
+  const seenCycle = new Set<string>();
+  return failures.filter((f) => {
+    if (f.kind !== "reporting_cycle") return true;
+    const key = [...f.involved].sort().join(",");
+    if (seenCycle.has(key)) return false;
+    seenCycle.add(key); return true;
+  });
+}
