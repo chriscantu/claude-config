@@ -1,6 +1,6 @@
 {
   "skill": "org-design",
-  "description": "Phase 1 evals — analyze-inherited mode. Guards the core regression: given a populated org/structure.md (and an absent stakeholder memory entity → graceful degrade), the skill writes a 7-section descriptive analysis with an annotated Mermaid chart, section-fence sentinels, and a real SPOF read of the structure (not an empty skeleton). Skill-invocation assertions are diagnostic-tier per strategy-doc/#157 (slash-prefix Skill re-emit is unreliable under single-turn `claude --print`); the load-bearing signals are required-tier Write-content substrings (survive caveman/terseness compression per #298).",
+  "description": "Phase 1 (analyze) + Phase 2a (scenario split-team) evals. Phase 1 guards the descriptive 7-section analysis with Mermaid chart, fences, and a real SPOF read. Phase 2a guards the split-team scenario path: the deterministic scenario-scorer.ts is actually invoked (Bash discriminator), the validity gate refuses structurally-broken splits (zero_report_manager) and passes valid ones, the review gate stops for explicit confirm before persisting, and the mode wall keeps scenario writes out of the analyze namespace. Skill-invocation assertions are diagnostic-tier per strategy-doc/#157 (slash-prefix Skill re-emit is unreliable under single-turn `claude --print`); load-bearing signals are required-tier Bash/Write-content + regex shapes (survive caveman/terseness compression per #298). Scenario evals are text-tier-sensitive — tune via RED/GREEN per rules_evals_redgreen_procedure, re-run 3-5x.",
   "evals": [
     {
       "name": "analyze-structure-only",
@@ -16,6 +16,45 @@
         {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "## 3. Single points of failure", "tier": "required", "description": "Section 3 (SPOF) heading present in written analysis"},
         {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "billing-service", "tier": "required", "description": "DISCRIMINATOR: the sole-owner critical system from structure.md surfaces in the SPOF analysis — distinguishes a real structural read from an empty skeleton or drive-by skill mention"},
         {"type": "tool_input_matches", "tool": "Write", "input_key": "content", "input_value": "<!-- org-design:auto -->", "tier": "required", "description": "section-fence sentinel present in written analysis (idempotent re-run contract)"}
+      ]
+    },
+    {
+      "name": "scenario-split-valid",
+      "summary": "split-team valid path: splitting Payments into two staffed teams invokes the scorer, passes the validity gate, and stops at the review gate for explicit confirm WITHOUT auto-persisting.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-split-valid",
+      "teardown": "rm -rf /tmp/od-eval-split-valid",
+      "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-split-valid  — split the Payments team into Payments-Core (lead Jordan) and Payments-Infra (lead Riley).",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "org-design", "tier": "diagnostic", "description": "diagnostic structural anchor; Bash/regex below are load-bearing"},
+        {"type": "tool_input_matches", "tool": "Bash", "input_key": "command", "input_value": "scenario-scorer.ts", "tier": "required", "description": "DISCRIMINATOR: the deterministic scorer is actually invoked (not an LLM hand-wave of the math/validity)"},
+        {"type": "regex", "pattern": "validity:?\\s*passed", "flags": "i", "tier": "required", "description": "validity gate passed before render"},
+        {"type": "regex", "pattern": "confirm", "flags": "i", "tier": "required", "description": "review gate reached — asks for explicit confirmation before writing"},
+        {"type": "not_regex", "pattern": "(wrote|saved|created)\\b[^.]{0,40}org-scenario", "flags": "i", "tier": "required", "description": "DISCRIMINATOR: no auto-persist — the artifact is NOT reported as already-written before the user confirms (review gate holds). Future-tense 'will write' is allowed."}
+      ]
+    },
+    {
+      "name": "scenario-invalid-refusal",
+      "summary": "split-team invalid path: a split that strands manager Sam with zero reports is refused by the validity gate; nothing is written.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-invalid /tmp/od-eval-split-invalid",
+      "teardown": "rm -rf /tmp/od-eval-split-invalid",
+      "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-split-invalid  — split Payments so Jordan and Riley both move onto new teams reporting to Dana, leaving Sam as the Payments manager.",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "org-design", "tier": "diagnostic", "description": "diagnostic structural anchor"},
+        {"type": "tool_input_matches", "tool": "Bash", "input_key": "command", "input_value": "scenario-scorer.ts", "tier": "required", "description": "scorer invoked"},
+        {"type": "regex", "pattern": "zero[_ -]?report", "flags": "i", "tier": "required", "description": "DISCRIMINATOR: the specific structural failure (0-report manager) is surfaced — proves the deterministic gate ran, not a vibe-check"},
+        {"type": "not_regex", "pattern": "validity:?\\s*passed", "flags": "i", "tier": "required", "description": "validity did NOT pass — the broken split is refused"}
+      ]
+    },
+    {
+      "name": "scenario-mode-wall",
+      "summary": "mode wall: a scenario run targets the org-scenario namespace and never writes *-org-analysis.md.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-mode-wall",
+      "teardown": "rm -rf /tmp/od-eval-mode-wall",
+      "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-mode-wall  — split Payments into Payments-Core (lead Jordan) and Payments-Infra (lead Riley). After I confirm, write it.",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "org-design", "tier": "diagnostic", "description": "diagnostic structural anchor"},
+        {"type": "not_regex", "pattern": "org-analysis\\.md", "flags": "i", "tier": "required", "description": "DISCRIMINATOR: scenario route never writes the analyze namespace (mode wall holds)"},
+        {"type": "regex", "pattern": "org-scenario", "flags": "i", "tier": "required", "description": "scenario artifact targets the new namespace"}
       ]
     }
   ]
