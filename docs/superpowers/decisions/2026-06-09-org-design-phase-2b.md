@@ -2,7 +2,10 @@
 
 **Date**: 2026-06-09
 **Issue**: #35 (Phase 2b)
-**Pipeline state**: DTP ✅ + systems-analysis ✅ done (this breadcrumb). **Resume at: `superpowers:brainstorming`.**
+**Pipeline state**: DTP ✅ + systems-analysis ✅ done (this breadcrumb).
+- **2b-i SHIPPED** — add/merge/change-reporting; [spec](../specs/2026-06-09-org-design-scenario-modeling-phase-2b-i-design.md), MERGED PR #471 (main 48e3d56).
+- **2b-ii brainstorming ✅** — reduce-headcount + layoff ack; [spec](../specs/2026-06-09-org-design-scenario-modeling-phase-2b-ii-design.md) written. Branch `feature/org-design-phase-2b-ii` (off main). **Resume at: `superpowers:writing-plans` against the 2b-ii spec.**
+- **2b-iii** — matrix + recommended-option + experimental→stable eval flip. Not started.
 **Predecessors**: [Phase 1 spec](../specs/2026-06-08-org-design-analyze-inherited-design.md) · [Phase 2a spec](../specs/2026-06-08-org-design-scenario-modeling-phase-2a-design.md) (split-team, MERGED PR #470, commit 45a8ba3 on main).
 
 ## Resume instructions
