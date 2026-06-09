@@ -140,7 +140,9 @@ export function checkValidity(people: Person[]): ValidityFailure[] {
     }
   }
 
-  // 3. zero_report_manager (role M, or appears as a lead, but nobody reports to them)
+  // 3. zero_report_manager — a role-M person nobody reports to. (New-team leads
+  //    default-report to the former manager, so they are never stranded zero-report
+  //    in the split-team model; a single-person new team is a valid thin team.)
   const hasReports = new Set(people.filter((p) => p.reportsTo).map((p) => p.reportsTo));
   for (const p of people) {
     if (p.role === "M" && !hasReports.has(p.person)) {

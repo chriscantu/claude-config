@@ -26,19 +26,20 @@ Descriptive read of the org a new senior leader inherited — **before** proposi
 ## When NOT to Use
 
 - Codebase / service architecture — use `/architecture-overview` (no people/team data here).
-- Proposing org *changes* (splits, merges, headcount moves) — that's Phase 2 scenario modeling, not yet implemented.
+- Proposing team merges, headcount moves, or reporting-line changes — those are Phase 2b scenario modes, not yet implemented. (Team *splits* are supported now via `--mode=scenario`.)
 - A single political-relationship map — use `/stakeholder-map` (this skill *reads* its output).
 
 ## Invocation
 
 ```
-/org-design <org> [--mode=analyze] [--workspace <path>]
+/org-design <org> [--mode=analyze|scenario] [--workspace <path>]
 ```
 
-`<org>` is required. Default (and only Phase-1) mode is `analyze`.
+`<org>` is required. Default mode is `analyze`.
 
 **Flags:**
-- `--mode=analyze` — descriptive pass. See [Mode routing](#mode-routing).
+- `--mode=analyze` (default) — descriptive pass. See [Mode routing](#mode-routing).
+- `--mode=scenario` — prescriptive split-team modeling (Phase 2a). See [Scenario mode (split-team)](#scenario-mode-split-team).
 - `--workspace <path>` — override the default `~/repos/onboard-<org>/` resolution. Supports eval fixtures and custom locations.
 
 **Workspace resolution order:**
