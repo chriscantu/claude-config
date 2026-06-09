@@ -104,6 +104,14 @@ export function isScenarioType(t: string): t is ScenarioSpec["type"] {
   return (KNOWN_SCENARIO_TYPES as readonly string[]).includes(t);
 }
 
+export function applyAdd(people: Person[], spec: AddHeadcountSpec): Person[] {
+  const reassigned = people.map((p) =>
+    spec.reassign && spec.reassign[p.person] !== undefined
+      ? { ...p, reportsTo: spec.reassign[p.person] }
+      : p);
+  return [...reassigned, ...spec.hires];
+}
+
 export function applyMerge(people: Person[], spec: MergeTeamsSpec): Person[] {
   const inMerge = new Set(spec.teams);
   return people.map((p) => {
@@ -123,6 +131,8 @@ function applyMutation(people: Person[], spec: ScenarioSpec): Person[] {
       return applySplit(people, spec);
     case "merge-teams":
       return applyMerge(people, spec);
+    case "add-headcount":
+      return applyAdd(people, spec);
     default:
       throw new Error(`unsupported scenario type: ${(spec as { type: string }).type}`);
   }
@@ -258,7 +268,8 @@ export function run(structureMd: string, spec: ScenarioSpec): ScenarioResult {
 
   const beforeByPerson = new Map(before.map((p) => [p.person, p]));
   const movedReports = after
-    .filter((p) => beforeByPerson.get(p.person)?.reportsTo !== p.reportsTo)
+    // new hires (absent from `before`) are additions, not moved reports
+    .filter((p) => beforeByPerson.has(p.person) && beforeByPerson.get(p.person)!.reportsTo !== p.reportsTo)
     .map((p) => ({ person: p.person, from: beforeByPerson.get(p.person)!.reportsTo, to: p.reportsTo }));
 
   const tb = teams(before), ta = teams(after);

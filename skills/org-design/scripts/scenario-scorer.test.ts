@@ -211,3 +211,39 @@ describe("applyMerge", () => {
     expect(res.deltas.removedTeams.sort()).toEqual(["Payments", "Platform"]);
   });
 });
+
+describe("applyAdd", () => {
+  test("appends a hire and recomputes span on their manager", () => {
+    const spec: AddHeadcountSpec = {
+      type: "add-headcount",
+      hires: [{ person: "Pat", role: "IC", team: "Payments", reportsTo: "Sam", systems: [], oncall: [], skills: ["Go"] }],
+    };
+    const after = applyAdd(acme(), spec);
+    expect(after.length).toBe(5);
+    expect(after.find((r) => r.person === "Pat")!.team).toBe("Payments");
+    expect(computeMetrics(after).span["Sam"]).toBe(3); // Jordan + Riley + Pat
+    expect(checkValidity(after).length).toBe(0);
+  });
+
+  test("reassign gives a new manager hire reports (no zero_report_manager)", () => {
+    const spec: AddHeadcountSpec = {
+      type: "add-headcount",
+      hires: [{ person: "Alex", role: "M", team: "Payments", reportsTo: "Dana", systems: [], oncall: [], skills: ["leadership"] }],
+      reassign: { Jordan: "Alex" }, // Sam keeps Riley, so Sam is not stranded
+    };
+    const after = applyAdd(acme(), spec);
+    expect(after.find((r) => r.person === "Jordan")!.reportsTo).toBe("Alex");
+    expect(computeMetrics(after).span["Alex"]).toBe(1);
+    expect(checkValidity(after).filter((f) => f.kind === "zero_report_manager").length).toBe(0);
+  });
+
+  test("hire reporting to a missing manager trips orphaned_report", () => {
+    const spec: AddHeadcountSpec = {
+      type: "add-headcount",
+      hires: [{ person: "Pat", role: "IC", team: "Payments", reportsTo: "Ghost", systems: [], oncall: [], skills: [] }],
+    };
+    const res = run(FIXTURE, spec);
+    expect(res.valid).toBe(false);
+    expect(res.failures.map((f) => f.kind)).toContain("orphaned_report");
+  });
+});
