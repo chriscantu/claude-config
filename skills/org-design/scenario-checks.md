@@ -32,6 +32,69 @@ Spec rules (the orchestrator validates BEFORE calling the scorer):
 
 A malformed spec is a usage error — fix it with the user, do not call the scorer.
 
+## Phase 2b-i spec blocks (add-headcount / merge-teams / change-reporting)
+
+`--mode=scenario` routes four operations. The orchestrator gathers intent
+conversationally, transcribes it into one of these blocks, then serializes to JSON
+for the scorer. `reduce-headcount` is NOT yet supported (Phase 2b-ii).
+
+**add-headcount** — append new hires; optionally reparent existing people onto a new
+hire (so a new-manager hire is not an instant `zero_report_manager`).
+
+```markdown
+<!-- org-design:scenario -->
+type: add-headcount
+hires:
+  - person: <name>
+    role: <M|IC>
+    team: <team>
+    reports_to: <manager>
+    systems: [<system>, ...]
+    oncall: [<rotation>, ...]
+    skills: [<skill>, ...]
+reassign:            # optional; existing person -> new manager (e.g. give a new EM reports)
+  <existing person>: <new hire>
+<!-- /org-design:scenario -->
+```
+
+**merge-teams** — fold ≥2 teams into one under a surviving manager. Each non-surviving
+manager keeps role `M` and reports to the surviving manager (sub-hierarchy preserved);
+their reports are unchanged. Span on the surviving manager grows — reported in the
+delta table, not a validity failure.
+
+```markdown
+<!-- org-design:scenario -->
+type: merge-teams
+teams: [<team A>, <team B>, ...]
+new_name: <merged team name>
+surviving_manager: <person who leads the merged team>
+<!-- /org-design:scenario -->
+```
+
+**change-reporting** — re-wire reporting lines only (no team relabel).
+
+```markdown
+<!-- org-design:scenario -->
+type: change-reporting
+reassign:
+  <person>: <new manager>
+<!-- /org-design:scenario -->
+```
+
+Spec rules (orchestrator validates BEFORE scoring):
+- add-headcount: each hire has all seven columns; a `reassign` key must be an existing
+  person and its value an existing person or one of the new hires.
+- merge-teams: `teams` lists ≥2 existing teams; `surviving_manager` is an existing
+  role-`M` person in one of those teams.
+- change-reporting: every `reassign` key is an existing person; values should be
+  existing people (a missing target surfaces as `orphaned_report` from the scorer).
+
+Field names map snake_case prose → camelCase JSON for the scorer (`new_name`→`newName`,
+`surviving_manager`→`survivingManager`, `reports_to`→`reportsTo`), consistent with the
+2a `target_team`→`targetTeam` precedent. A malformed spec is a usage error — fix it
+with the user, do not call the scorer. The validity rules below are unchanged and
+apply to all four modes.
+
 ## Scorer
 
 `scripts/scenario-scorer.ts <structure.md path> <scenario.json path>` → `ScenarioResult` JSON on stdout.
