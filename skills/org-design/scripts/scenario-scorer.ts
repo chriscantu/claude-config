@@ -129,7 +129,10 @@ export function checkValidity(people: Person[]): ValidityFailure[] {
     let cur: string | undefined = p.person;
     while (cur && mgr.get(cur)) {
       if (seen.has(cur)) {
-        failures.push({ kind: "reporting_cycle", detail: `cycle through ${[...seen].join(" -> ")}`, involved: [...seen] });
+        const cycleNodes: string[] = [];
+        let c: string | undefined = cur;
+        do { cycleNodes.push(c!); c = mgr.get(c!); } while (c && c !== cur);
+        failures.push({ kind: "reporting_cycle", detail: `cycle through ${cycleNodes.join(" -> ")}`, involved: cycleNodes });
         break;
       }
       seen.add(cur);
@@ -152,7 +155,7 @@ export function checkValidity(people: Person[]): ValidityFailure[] {
   }
   for (const [r, members] of rota) {
     if (members.size <= 1) {
-      failures.push({ kind: "subviable_oncall", detail: `rotation ${r} staffed by ${members.size} person`, involved: [...members] });
+      failures.push({ kind: "subviable_oncall", detail: `rotation ${r} staffed by ${members.size} ${members.size === 1 ? "person" : "people"}`, involved: [...members] });
     }
   }
 

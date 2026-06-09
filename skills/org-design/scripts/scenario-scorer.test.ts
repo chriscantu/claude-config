@@ -137,4 +137,16 @@ describe("checkValidity", () => {
     expect(kinds(checkValidity(one))).toContain("subviable_oncall"); // payments-primary down to Jordan only
     expect(checkValidity(acme()).filter((f) => f.kind === "subviable_oncall").length).toBe(0); // 2 people = ok
   });
+
+  test("reporting_cycle involved excludes non-cycle prefix nodes and dedupes to one record", () => {
+    // Jordan -> Sam (prefix) into a Sam <-> Riley 2-cycle
+    const people = acme().map((p) => {
+      if (p.person === "Sam") return { ...p, reportsTo: "Riley" };
+      if (p.person === "Riley") return { ...p, reportsTo: "Sam" };
+      return p; // Jordan still reports to Sam — a prefix INTO the cycle
+    });
+    const cyc = checkValidity(people).filter((f) => f.kind === "reporting_cycle");
+    expect(cyc.length).toBe(1);                              // one cycle, not duplicated by entry point
+    expect([...cyc[0].involved].sort()).toEqual(["Riley", "Sam"]); // Jordan (prefix) excluded
+  });
 });
