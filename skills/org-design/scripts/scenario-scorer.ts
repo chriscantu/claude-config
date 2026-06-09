@@ -33,3 +33,41 @@ export function parseStructure(md: string): Person[] {
   }
   return rows;
 }
+
+export interface SplitTeamSpec {
+  type: "split-team";
+  targetTeam: string;
+  into: { name: string; lead: string; members: string[] }[];
+  newReporting?: Record<string, string>;
+}
+
+export function applySplit(people: Person[], spec: SplitTeamSpec): Person[] {
+  const inTarget = new Set(people.filter((p) => p.team === spec.targetTeam).map((p) => p.person));
+  // former manager of the target team = the M-role person in that team,
+  // or the person the ICs reported to if no explicit M exists
+  const formerManager =
+    people.find((p) => p.team === spec.targetTeam && p.role === "M")?.person
+    ?? people.find((p) => p.team === spec.targetTeam)?.reportsTo
+    ?? "";
+
+  const teamOf = new Map<string, string>();   // person -> new team
+  const leadOf = new Map<string, string>();   // new team -> lead
+  for (const grp of spec.into) {
+    leadOf.set(grp.name, grp.lead);
+    for (const m of grp.members) {
+      if (!inTarget.has(m)) throw new Error(`member ${m} is not in target team ${spec.targetTeam}`);
+      teamOf.set(m, grp.name);
+    }
+  }
+
+  return people.map((p) => {
+    const newTeam = teamOf.get(p.person);
+    if (newTeam === undefined) return p;
+    const lead = leadOf.get(newTeam)!;
+    const reportsTo =
+      p.person === lead
+        ? (spec.newReporting?.[newTeam] ?? formerManager)
+        : lead;
+    return { ...p, team: newTeam, reportsTo };
+  });
+}
