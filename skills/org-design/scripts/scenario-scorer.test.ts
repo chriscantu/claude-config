@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult } from "./scenario-scorer.ts";
+import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult, applyMerge, type MergeTeamsSpec, applyAdd, type AddHeadcountSpec, applyReporting, type ChangeReportingSpec, isScenarioType } from "./scenario-scorer.ts";
 
 const FIXTURE = `# Org structure — orgfix-acme
 <!-- org-design:structure -->
@@ -174,5 +174,107 @@ describe("run", () => {
     const res = run(FIXTURE, spec);
     expect(res.valid).toBe(false);
     expect(res.failures.map((f) => f.kind)).toContain("zero_report_manager");
+  });
+});
+
+describe("applyMerge", () => {
+  test("folds teams under surviving manager; non-surviving manager stays M as sub-manager", () => {
+    const spec: MergeTeamsSpec = {
+      type: "merge-teams", teams: ["Platform", "Payments"], newName: "Eng", survivingManager: "Dana",
+    };
+    const after = applyMerge(acme(), spec);
+    const sam = after.find((r) => r.person === "Sam")!;
+    expect(sam.team).toBe("Eng");
+    expect(sam.role).toBe("M");          // non-surviving manager keeps M
+    expect(sam.reportsTo).toBe("Dana");  // now reports to surviving manager
+    expect(after.find((r) => r.person === "Jordan")!.reportsTo).toBe("Sam"); // sub-hierarchy intact
+    expect(after.find((r) => r.person === "Jordan")!.team).toBe("Eng");
+    expect(checkValidity(after).length).toBe(0);
+  });
+
+  test("merge that loops a surviving/non-surviving pair trips reporting_cycle", () => {
+    // survivingManager Sam; Dana (non-surviving M) -> Sam, but Sam still -> Dana = cycle
+    const spec: MergeTeamsSpec = {
+      type: "merge-teams", teams: ["Platform", "Payments"], newName: "Eng", survivingManager: "Sam",
+    };
+    const res = run(FIXTURE, spec);
+    expect(res.valid).toBe(false);
+    expect(res.failures.map((f) => f.kind)).toContain("reporting_cycle");
+  });
+
+  test("run deltas: merged teams removed, new team added", () => {
+    const spec: MergeTeamsSpec = {
+      type: "merge-teams", teams: ["Platform", "Payments"], newName: "Eng", survivingManager: "Dana",
+    };
+    const res = run(FIXTURE, spec);
+    expect(res.deltas.addedTeams).toEqual(["Eng"]);
+    expect(res.deltas.removedTeams.sort()).toEqual(["Payments", "Platform"]);
+  });
+});
+
+describe("applyAdd", () => {
+  test("appends a hire and recomputes span on their manager", () => {
+    const spec: AddHeadcountSpec = {
+      type: "add-headcount",
+      hires: [{ person: "Pat", role: "IC", team: "Payments", reportsTo: "Sam", systems: [], oncall: [], skills: ["Go"] }],
+    };
+    const after = applyAdd(acme(), spec);
+    expect(after.length).toBe(5);
+    expect(after.find((r) => r.person === "Pat")!.team).toBe("Payments");
+    expect(computeMetrics(after).span["Sam"]).toBe(3); // Jordan + Riley + Pat
+    expect(checkValidity(after).length).toBe(0);
+  });
+
+  test("reassign gives a new manager hire reports (no zero_report_manager)", () => {
+    const spec: AddHeadcountSpec = {
+      type: "add-headcount",
+      hires: [{ person: "Alex", role: "M", team: "Payments", reportsTo: "Dana", systems: [], oncall: [], skills: ["leadership"] }],
+      reassign: { Jordan: "Alex" }, // Sam keeps Riley, so Sam is not stranded
+    };
+    const after = applyAdd(acme(), spec);
+    expect(after.find((r) => r.person === "Jordan")!.reportsTo).toBe("Alex");
+    expect(computeMetrics(after).span["Alex"]).toBe(1);
+    expect(checkValidity(after).filter((f) => f.kind === "zero_report_manager").length).toBe(0);
+  });
+
+  test("hire reporting to a missing manager trips orphaned_report", () => {
+    const spec: AddHeadcountSpec = {
+      type: "add-headcount",
+      hires: [{ person: "Pat", role: "IC", team: "Payments", reportsTo: "Ghost", systems: [], oncall: [], skills: [] }],
+    };
+    const res = run(FIXTURE, spec);
+    expect(res.valid).toBe(false);
+    expect(res.failures.map((f) => f.kind)).toContain("orphaned_report");
+  });
+});
+
+describe("applyReporting", () => {
+  test("reparents a person without changing their team", () => {
+    const spec: ChangeReportingSpec = { type: "change-reporting", reassign: { Jordan: "Dana" } };
+    const after = applyReporting(acme(), spec);
+    const jordan = after.find((r) => r.person === "Jordan")!;
+    expect(jordan.reportsTo).toBe("Dana");
+    expect(jordan.team).toBe("Payments"); // team unchanged
+    expect(computeMetrics(after).span["Sam"]).toBe(1); // only Riley left under Sam
+    expect(checkValidity(after).length).toBe(0);
+  });
+
+  test("a reassignment that loops the chain trips reporting_cycle", () => {
+    // Sam -> Jordan, but Jordan -> Sam = cycle
+    const spec: ChangeReportingSpec = { type: "change-reporting", reassign: { Sam: "Jordan" } };
+    const res = run(FIXTURE, spec);
+    expect(res.valid).toBe(false);
+    expect(res.failures.map((f) => f.kind)).toContain("reporting_cycle");
+  });
+});
+
+describe("isScenarioType", () => {
+  test("accepts the four 2b-i modes, rejects unknown and the deferred reduce-headcount", () => {
+    expect(isScenarioType("split-team")).toBe(true);
+    expect(isScenarioType("add-headcount")).toBe(true);
+    expect(isScenarioType("merge-teams")).toBe(true);
+    expect(isScenarioType("change-reporting")).toBe(true);
+    expect(isScenarioType("reduce-headcount")).toBe(false); // Phase 2b-ii, not yet
+    expect(isScenarioType("bogus")).toBe(false);
   });
 });
