@@ -148,7 +148,7 @@ export function parseClaudePrintOutput(stdout: string): { text: string; sessionI
 export interface SubscriptionClientOptions {
   claudeBin?: string;
   model?: string;
-  /** Per-call timeout in ms. Default 120s — claude startup + multi-turn budget. */
+  /** Per-call timeout in ms. Default 300s — accommodates cold-wake claude --print startup (OAuth refresh, keychain unlock, network reconnect). */
   timeoutMs?: number;
 }
 
@@ -161,7 +161,7 @@ export class SubscriptionClient implements ModelClient {
   constructor(opts: SubscriptionClientOptions = {}) {
     this.bin = opts.claudeBin ?? process.env.CLAUDE_BIN ?? "claude";
     this.model = opts.model;
-    this.timeoutMs = opts.timeoutMs ?? 120_000;
+    this.timeoutMs = opts.timeoutMs ?? 300_000;
   }
 
   async call(systemPrompt: string, messages: CallTurn[], sessionKey: string): Promise<string> {
