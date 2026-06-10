@@ -8,6 +8,10 @@ excalidraw.log.*
 .claude/state/
 .claude/sessions/
 .claude/memory/session-log.md
+# Nested skill/sub-agent runtime state (e.g. skills/*/.claude/state/) — root patterns above are anchored, so catch any depth too.
+**/.claude/state/
+**/.claude/worktrees/
+**/.claude/sessions/
 .harness-mem/
 ruvector.db
 agentdb.rvf
