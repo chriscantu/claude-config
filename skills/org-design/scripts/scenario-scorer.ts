@@ -406,21 +406,45 @@ export function compareScenarios(
   };
 }
 
-// --- CLI entrypoint: scenario-scorer.ts <structure.md path> <scenario.json path> ---
+// --- CLI entrypoint ---
+//   single:  scenario-scorer.ts <structure.md path> <scenario.json path>
+//   matrix:  scenario-scorer.ts --matrix <structure.md path> <manifest.json path>
+//            manifest = [{ "label": string, "spec": ScenarioSpec }, ...]
 if (import.meta.main) {
-  const [structPath, specPath] = process.argv.slice(2);
-  if (!structPath || !specPath) {
-    console.error("usage: scenario-scorer.ts <structure.md path> <scenario.json path>");
-    process.exit(64); // EX_USAGE
-  }
-  try {
-    const md = await Bun.file(structPath).text();
-    const spec = JSON.parse(await Bun.file(specPath).text()) as ScenarioSpec;
-    const t = (spec as { type?: string }).type ?? "";
-    if (!isScenarioType(t)) throw new Error(`unsupported scenario type: ${t}`);
-    process.stdout.write(JSON.stringify(run(md, spec), null, 2) + "\n");
-  } catch (e) {
-    console.error(`scenario-scorer error: ${(e as Error).message}`);
-    process.exit(65); // EX_DATAERR
+  const argv = process.argv.slice(2);
+  if (argv[0] === "--matrix") {
+    const [, structPath, manifestPath] = argv;
+    if (!structPath || !manifestPath) {
+      console.error("usage: scenario-scorer.ts --matrix <structure.md path> <manifest.json path>");
+      process.exit(64); // EX_USAGE
+    }
+    try {
+      const md = await Bun.file(structPath).text();
+      const manifest = JSON.parse(await Bun.file(manifestPath).text()) as { label: string; spec: ScenarioSpec }[];
+      for (const entry of manifest) {
+        const t = (entry.spec as { type?: string })?.type ?? "";
+        if (!isScenarioType(t)) throw new Error(`unsupported scenario type: ${t}`);
+      }
+      process.stdout.write(JSON.stringify(compareScenarios(md, manifest), null, 2) + "\n");
+    } catch (e) {
+      console.error(`scenario-scorer error: ${(e as Error).message}`);
+      process.exit(65); // EX_DATAERR
+    }
+  } else {
+    const [structPath, specPath] = argv;
+    if (!structPath || !specPath) {
+      console.error("usage: scenario-scorer.ts <structure.md path> <scenario.json path>");
+      process.exit(64); // EX_USAGE
+    }
+    try {
+      const md = await Bun.file(structPath).text();
+      const spec = JSON.parse(await Bun.file(specPath).text()) as ScenarioSpec;
+      const t = (spec as { type?: string }).type ?? "";
+      if (!isScenarioType(t)) throw new Error(`unsupported scenario type: ${t}`);
+      process.stdout.write(JSON.stringify(run(md, spec), null, 2) + "\n");
+    } catch (e) {
+      console.error(`scenario-scorer error: ${(e as Error).message}`);
+      process.exit(65); // EX_DATAERR
+    }
   }
 }

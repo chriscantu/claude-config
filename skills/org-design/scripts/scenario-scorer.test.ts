@@ -541,3 +541,63 @@ describe("compareScenarios", () => {
     ).toThrow(/acknowledgment gate/i);
   });
 });
+
+describe("CLI --matrix", () => {
+  const script = `${import.meta.dir}/scenario-scorer.ts`;
+  let dir: string;
+  let STRUCT: string;
+  let MANIFEST: string;
+
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "matrix-cli-"));
+    STRUCT = join(dir, "struct.md");
+    MANIFEST = join(dir, "manifest.json");
+  });
+  afterAll(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  const cli = async (manifest: unknown): Promise<{ code: number; out: string; err: string }> => {
+    await Bun.write(STRUCT, FIXTURE);
+    await Bun.write(MANIFEST, JSON.stringify(manifest));
+    const proc = Bun.spawn(["bun", script, "--matrix", STRUCT, MANIFEST], { stdout: "pipe", stderr: "pipe" });
+    const code = await proc.exited;
+    const out = await new Response(proc.stdout).text();
+    const err = await new Response(proc.stderr).text();
+    return { code, out, err };
+  };
+
+  test("valid manifest dispatches: exit 0 + MatrixResult with concrete validLabels", async () => {
+    const { code, out } = await cli([
+      { label: "split", spec: { type: "split-team", targetTeam: "Payments", into: [
+        { name: "Payments-Core", lead: "Jordan", members: ["Jordan"] },
+        { name: "Payments-Infra", lead: "Riley", members: ["Riley"] },
+      ] } },
+      { label: "merge", spec: { type: "merge-teams", teams: ["Platform", "Payments"], newName: "Eng", survivingManager: "Dana" } },
+    ]);
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out);
+    expect(parsed.validLabels.sort()).toEqual(["merge", "split"]);
+    expect(parsed.scenarios.length).toBe(2);
+  });
+
+  test("a manifest with an unacknowledged reduce exits 65 via the inherited ack gate", async () => {
+    const { code, err } = await cli([
+      { label: "cut", spec: { type: "reduce-headcount", cut: ["Riley"], acknowledged: false } },
+    ]);
+    expect(code).toBe(65);
+    expect(err).toMatch(/acknowledgment gate/i);
+  });
+
+  test("a manifest with an unknown scenario type exits 65 (EX_DATAERR)", async () => {
+    const { code, err } = await cli([{ label: "bogus", spec: { type: "teleport" } }]);
+    expect(code).toBe(65);
+    expect(err).toMatch(/unsupported scenario type/i);
+  });
+
+  test("--matrix with a missing manifest path exits 64 (EX_USAGE)", async () => {
+    await Bun.write(STRUCT, FIXTURE);
+    const proc = Bun.spawn(["bun", script, "--matrix", STRUCT], { stdout: "pipe", stderr: "pipe" });
+    expect(await proc.exited).toBe(64);
+  });
+});
