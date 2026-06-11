@@ -304,7 +304,7 @@ describe("applyReduce", () => {
     // Set membership matches nothing; nobody is removed. Pinned so a future
     // "throw on unknown cut" change is a conscious break, not a silent regression.
     const after = applyReduce(acme(), { type: "reduce-headcount", cut: ["Ghost"], acknowledged: true });
-    expect(after.length).toBe(4);
+    expect(after).toEqual(parseStructure(FIXTURE)); // true deep no-op, not just row count
   });
 
   test("partial reassign: listed report re-homed, unlisted left orphaned", () => {
@@ -360,34 +360,55 @@ describe("CLI dispatch", () => {
   const STRUCT = "/tmp/scenario-cli-struct-2bii.md";
   const SPEC = "/tmp/scenario-cli-spec-2bii.json";
 
-  const cli = async (specObj: unknown): Promise<{ code: number; out: string }> => {
+  const cli = async (specObj: unknown): Promise<{ code: number; out: string; err: string }> => {
     await Bun.write(STRUCT, FIXTURE);
     await Bun.write(SPEC, JSON.stringify(specObj));
     const proc = Bun.spawn(["bun", script, STRUCT, SPEC], { stdout: "pipe", stderr: "pipe" });
     const code = await proc.exited;
     const out = await new Response(proc.stdout).text();
-    return { code, out };
+    const err = await new Response(proc.stderr).text();
+    return { code, out, err };
   };
 
-  test("valid reduce-headcount dispatches: exit 0 + parseable ScenarioResult", async () => {
-    const { code, out } = await cli({ type: "reduce-headcount", cut: ["Riley"], acknowledged: true });
+  test("valid reduce-headcount dispatches: exit 0 + concrete ScenarioResult values", async () => {
+    // Cut Jordan (sole owner of billing-service) so unownedAfter pins a real value,
+    // not an always-defined []; valid:false (subviable_oncall) proves exit code is
+    // decoupled from scenario validity. A broken scorer can't false-green this.
+    const { code, out } = await cli({ type: "reduce-headcount", cut: ["Jordan"], acknowledged: true });
     expect(code).toBe(0);
-    expect(JSON.parse(out).metrics.unownedAfter).toBeDefined();
+    const parsed = JSON.parse(out);
+    expect(parsed.metrics.unownedAfter).toEqual(["billing-service"]);
+    expect(parsed.valid).toBe(false);
+    expect(parsed.deltas).toBeDefined();
   });
 
-  test("acknowledged:false exits 65 (ack gate caught by CLI)", async () => {
-    const { code } = await cli({ type: "reduce-headcount", cut: ["Riley"], acknowledged: false });
+  test("acknowledged:false exits 65 AND the ack gate is the named cause", async () => {
+    const { code, err } = await cli({ type: "reduce-headcount", cut: ["Riley"], acknowledged: false });
     expect(code).toBe(65);
+    expect(err).toMatch(/acknowledgment gate/i); // not just "something threw"
   });
 
-  test("acknowledged field absent exits 65 (fail-closed, not a bypass)", async () => {
-    const { code } = await cli({ type: "reduce-headcount", cut: ["Riley"] });
+  test("acknowledged absent exits 65 via the ack gate (fail-closed, not a bypass)", async () => {
+    const { code, err } = await cli({ type: "reduce-headcount", cut: ["Riley"] });
     expect(code).toBe(65);
+    expect(err).toMatch(/acknowledgment gate/i);
   });
 
-  test("unknown scenario type exits 65 (EX_DATAERR)", async () => {
-    const { code } = await cli({ type: "bogus" });
+  test("acknowledged non-boolean-truthy ('true' / 1) still exits 65 (strict !== true)", async () => {
+    // The entire reason the guard is `!== true` not `!spec.acknowledged`: a JSON
+    // spec with "true" or 1 is truthy but must still refuse. Pins the hardening.
+    const asString = await cli({ type: "reduce-headcount", cut: ["Riley"], acknowledged: "true" });
+    expect(asString.code).toBe(65);
+    expect(asString.err).toMatch(/acknowledgment gate/i);
+    const asNumber = await cli({ type: "reduce-headcount", cut: ["Riley"], acknowledged: 1 });
+    expect(asNumber.code).toBe(65);
+    expect(asNumber.err).toMatch(/acknowledgment gate/i);
+  });
+
+  test("unknown scenario type exits 65 with the unsupported-type cause (EX_DATAERR)", async () => {
+    const { code, err } = await cli({ type: "bogus" });
     expect(code).toBe(65);
+    expect(err).toMatch(/unsupported scenario type/i);
   });
 });
 
