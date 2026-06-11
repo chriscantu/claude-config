@@ -166,7 +166,11 @@ function applyMutation(people: Person[], spec: ScenarioSpec): Person[] {
       // deliberate acknowledged:true. The CLI catches this and exits 65. The
       // machine guarantees no accidental layoff modeling; SKILL.md prose binds
       // the flag-flip to an explicit user confirmation after gravity is surfaced.
-      if (!spec.acknowledged) {
+      // Strict `!== true` (not falsy `!spec.acknowledged`): fail-closed on a
+      // field-absent JSON spec AND resistant to a future refactor that inverts
+      // the guard to `=== false`, which would silently admit field-absent specs.
+      // See ADR #0024 for the accepted residual risk (self-attestation ceiling).
+      if (spec.acknowledged !== true) {
         throw new Error("reduce-headcount requires acknowledged:true (layoff acknowledgment gate)");
       }
       return applyReduce(people, spec);
