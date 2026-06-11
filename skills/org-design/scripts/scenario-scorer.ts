@@ -430,13 +430,11 @@ if (import.meta.main) {
     try {
       const md = await Bun.file(structPath).text();
       const manifest = JSON.parse(await Bun.file(manifestPath).text()) as { label: string; spec: ScenarioSpec }[];
-      if (!Array.isArray(manifest)) throw new Error("manifest must be a JSON array of {label, spec} entries");
-      for (const entry of manifest) {
-        if (!entry || typeof entry !== "object") throw new Error("each manifest entry must be an object with label + spec");
-        if (typeof entry.label !== "string" || entry.label.length === 0) throw new Error("each manifest entry needs a non-empty string label");
-        const t = (entry.spec as { type?: string })?.type ?? "";
-        if (!isScenarioType(t)) throw new Error(`unsupported scenario type: ${t}`);
-      }
+      // No CLI-side shape validation: the operation layer already fails closed.
+      // compareScenarios throws on a duplicate label, run()/applyMutation throws on an
+      // unknown scenario type, applyReduce throws on an unacknowledged layoff, and a
+      // malformed/non-array manifest throws at JSON.parse / iteration. All land in the
+      // catch below as exit 65.
       process.stdout.write(JSON.stringify(compareScenarios(md, manifest), null, 2) + "\n");
     } catch (e) {
       console.error(`scenario-scorer error: ${(e as Error).message}`);

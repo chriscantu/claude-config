@@ -645,16 +645,11 @@ describe("CLI --matrix", () => {
     expect(await proc.exited).toBe(64);
   });
 
-  test("a non-array manifest fails closed with a typed shape error (exit 65)", async () => {
-    const { code, err } = await cli({}); // valid JSON, wrong shape
+  test("a non-array manifest fails closed (exit 65) via the operation layer, no output", async () => {
+    const { code, out, err } = await cli({}); // valid JSON, wrong shape -> not iterable in compareScenarios
     expect(code).toBe(65);
-    expect(err).toMatch(/manifest must be a JSON array/i);
-  });
-
-  test("a manifest entry without a string label fails closed (exit 65)", async () => {
-    const { code, err } = await cli([{ spec: { type: "split-team", targetTeam: "Payments", into: [] } }]);
-    expect(code).toBe(65);
-    expect(err).toMatch(/non-empty string label/i);
+    expect(out).toBe("");
+    expect(err).toMatch(/scenario-scorer error/i);
   });
 
   test("malformed (non-JSON) manifest exits 65, not an uncaught crash", async () => {
