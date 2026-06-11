@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult, applyMerge, type MergeTeamsSpec, applyAdd, type AddHeadcountSpec, applyReporting, type ChangeReportingSpec, isScenarioType } from "./scenario-scorer.ts";
+import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult, applyMerge, type MergeTeamsSpec, applyAdd, type AddHeadcountSpec, applyReporting, type ChangeReportingSpec, applyReduce, type ReduceHeadcountSpec, isScenarioType } from "./scenario-scorer.ts";
 
 const FIXTURE = `# Org structure — orgfix-acme
 <!-- org-design:structure -->
@@ -268,13 +268,136 @@ describe("applyReporting", () => {
   });
 });
 
+describe("applyReduce", () => {
+  test("cuts an IC and recomputes survivor metrics", () => {
+    const spec: ReduceHeadcountSpec = { type: "reduce-headcount", cut: ["Riley"], acknowledged: true };
+    const after = applyReduce(acme(), spec);
+    expect(after.find((p) => p.person === "Riley")).toBeUndefined();
+    expect(after.length).toBe(3);
+    expect(computeMetrics(after).span["Sam"]).toBe(1); // only Jordan left under Sam
+  });
+
+  test("reassign re-homes displaced reports before dropping cut rows (valid)", () => {
+    const spec: ReduceHeadcountSpec = {
+      type: "reduce-headcount", cut: ["Sam"], reassign: { Jordan: "Dana", Riley: "Dana" }, acknowledged: true,
+    };
+    const after = applyReduce(acme(), spec);
+    expect(after.find((p) => p.person === "Sam")).toBeUndefined();
+    expect(after.find((p) => p.person === "Jordan")!.reportsTo).toBe("Dana");
+    expect(after.find((p) => p.person === "Riley")!.reportsTo).toBe("Dana");
+    expect(checkValidity(after).length).toBe(0); // reports re-homed, rotation intact
+  });
+
+  test("cutting a manager without reassigning their reports trips orphaned_report", () => {
+    const res = run(FIXTURE, { type: "reduce-headcount", cut: ["Sam"], acknowledged: true });
+    expect(res.valid).toBe(false);
+    expect(res.failures.map((f) => f.kind)).toContain("orphaned_report"); // Jordan/Riley -> missing Sam
+  });
+
+  test("cutting a rotation member down to <=1 trips subviable_oncall", () => {
+    const res = run(FIXTURE, { type: "reduce-headcount", cut: ["Riley"], acknowledged: true });
+    expect(res.valid).toBe(false);
+    expect(res.failures.map((f) => f.kind)).toContain("subviable_oncall"); // payments-primary -> Jordan only
+  });
+
+  test("cutting a non-existent person is a silent no-op (pinned behavior)", () => {
+    // Set membership matches nothing; nobody is removed. Pinned so a future
+    // "throw on unknown cut" change is a conscious break, not a silent regression.
+    const after = applyReduce(acme(), { type: "reduce-headcount", cut: ["Ghost"], acknowledged: true });
+    expect(after.length).toBe(4);
+  });
+
+  test("partial reassign: listed report re-homed, unlisted left orphaned", () => {
+    const spec: ReduceHeadcountSpec = {
+      type: "reduce-headcount", cut: ["Sam"], reassign: { Jordan: "Dana" }, acknowledged: true,
+    };
+    const after = applyReduce(acme(), spec);
+    expect(after.find((p) => p.person === "Jordan")!.reportsTo).toBe("Dana"); // re-homed
+    expect(after.find((p) => p.person === "Riley")!.reportsTo).toBe("Sam");   // unchanged -> now orphaned
+    expect(checkValidity(after).map((f) => f.kind)).toContain("orphaned_report");
+  });
+});
+
+describe("reduce-headcount ack gate", () => {
+  test("run refuses (throws) without acknowledged:true", () => {
+    expect(() =>
+      run(FIXTURE, { type: "reduce-headcount", cut: ["Riley"], acknowledged: false }),
+    ).toThrow(/acknowledgment gate/i);
+  });
+
+  test("run proceeds with acknowledged:true and returns a result", () => {
+    const res: ScenarioResult = run(FIXTURE, { type: "reduce-headcount", cut: ["Riley"], acknowledged: true });
+    expect(res.deltas.teamsAfter).toBeDefined();
+    expect(res.metrics.unownedAfter).toBeDefined();
+  });
+});
+
+describe("metrics.unownedAfter", () => {
+  test("cutting the sole owner of a system lists it as unowned", () => {
+    const res = run(FIXTURE, { type: "reduce-headcount", cut: ["Jordan"], acknowledged: true });
+    expect(res.metrics.unownedAfter).toContain("billing-service"); // Jordan was its only owner
+  });
+
+  test("a non-removing mode leaves unownedAfter empty", () => {
+    const res = run(FIXTURE, SPLIT);
+    expect(res.metrics.unownedAfter).toEqual([]); // split keeps every owner
+  });
+
+  test("a system that keeps another owner is NOT unowned (2->1, the core discriminator)", () => {
+    // billing-service co-owned by Jordan AND Riley; cutting Jordan leaves Riley.
+    const coOwned = FIXTURE.replace(
+      "| Riley  | IC | Payments | Sam | | payments-primary | Go |",
+      "| Riley  | IC | Payments | Sam | billing-service | payments-primary | Go |",
+    );
+    const res = run(coOwned, { type: "reduce-headcount", cut: ["Jordan"], acknowledged: true });
+    expect(res.metrics.unownedAfter).not.toContain("billing-service"); // Riley still owns it
+    expect(res.metrics.spof.after).toContain("billing-service");        // now sole-owned by Riley
+  });
+});
+
+describe("CLI dispatch", () => {
+  const script = `${import.meta.dir}/scenario-scorer.ts`;
+  const STRUCT = "/tmp/scenario-cli-struct-2bii.md";
+  const SPEC = "/tmp/scenario-cli-spec-2bii.json";
+
+  const cli = async (specObj: unknown): Promise<{ code: number; out: string }> => {
+    await Bun.write(STRUCT, FIXTURE);
+    await Bun.write(SPEC, JSON.stringify(specObj));
+    const proc = Bun.spawn(["bun", script, STRUCT, SPEC], { stdout: "pipe", stderr: "pipe" });
+    const code = await proc.exited;
+    const out = await new Response(proc.stdout).text();
+    return { code, out };
+  };
+
+  test("valid reduce-headcount dispatches: exit 0 + parseable ScenarioResult", async () => {
+    const { code, out } = await cli({ type: "reduce-headcount", cut: ["Riley"], acknowledged: true });
+    expect(code).toBe(0);
+    expect(JSON.parse(out).metrics.unownedAfter).toBeDefined();
+  });
+
+  test("acknowledged:false exits 65 (ack gate caught by CLI)", async () => {
+    const { code } = await cli({ type: "reduce-headcount", cut: ["Riley"], acknowledged: false });
+    expect(code).toBe(65);
+  });
+
+  test("acknowledged field absent exits 65 (fail-closed, not a bypass)", async () => {
+    const { code } = await cli({ type: "reduce-headcount", cut: ["Riley"] });
+    expect(code).toBe(65);
+  });
+
+  test("unknown scenario type exits 65 (EX_DATAERR)", async () => {
+    const { code } = await cli({ type: "bogus" });
+    expect(code).toBe(65);
+  });
+});
+
 describe("isScenarioType", () => {
-  test("accepts the four 2b-i modes, rejects unknown and the deferred reduce-headcount", () => {
+  test("accepts all five scenario modes, rejects unknown", () => {
     expect(isScenarioType("split-team")).toBe(true);
     expect(isScenarioType("add-headcount")).toBe(true);
     expect(isScenarioType("merge-teams")).toBe(true);
     expect(isScenarioType("change-reporting")).toBe(true);
-    expect(isScenarioType("reduce-headcount")).toBe(false); // Phase 2b-ii, not yet
+    expect(isScenarioType("reduce-headcount")).toBe(true); // Phase 2b-ii
     expect(isScenarioType("bogus")).toBe(false);
   });
 });
