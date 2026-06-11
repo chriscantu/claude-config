@@ -2,7 +2,7 @@
 name: org-design
 description: Use when the user says /org-design <org>, "analyze the org I inherited", "inherited org analysis", "span of control / SPOF / on-call distribution review", or wants a descriptive read of the org structure they just walked into during a senior eng leader ramp. The analyze mode reads a manual org/structure.md + stakeholder memory graph into a 7-section analysis under ~/repos/onboard-<org>/decisions/. The scenario mode projects a reorg (split-team, add-headcount, merge-teams, change-reporting, reduce-headcount), validates it structurally, and gates on explicit user review before writing. reduce-headcount adds a machine layoff-acknowledgment gate (machine-enforced deliberateness; the human confirmation behind the flag is prose-bound, not machine-verified). Do NOT use for codebase architecture (use /architecture-overview).
 disable-model-invocation: true
-status: experimental
+status: stable
 version: 0.5.0
 ---
 
