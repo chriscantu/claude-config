@@ -62,6 +62,7 @@ Positive:
 - **The strongest zero-added-friction gate the architecture supports is in place and honestly labeled.** The machine guarantees a layoff projection is impossible without a deliberate `acknowledged:true` flag-flip — the exact "accidental or casual layoff modeling" failure the systems-analysis named is closed. (A higher-friction option could raise the accident bar marginally further — see the Decision's mitigation analysis — at a cost judged not worth it.)
 - **The documented claim matches reality.** `scenario-checks.md` states the machine "CANNOT verify a human actually confirmed... no false claim of full enforcement," and the SKILL.md `description` was corrected (finding F2) to add the "machine-enforced deliberateness; human confirm is prose-bound" caveat to the authoritative routing surface.
 - **No theater shipped.** Effort was not spent on circumventable hardening that would imply an enforcement boundary that does not exist.
+- **The gate is operation-level, not dispatch-level.** It lives at the top of `applyReduce`, so any caller — including a future in-repo import that bypasses `applyMutation` — inherits the refusal. Defense-in-depth, consistent with `applySplit`'s in-function precondition throw. (Closes a round-2 security finding: the gate is a property of the operation, not the call site.)
 
 Negative / residual risk (accepted):
 
@@ -84,6 +85,6 @@ An accepted-risk ADR needs a signal that the risk fired, not just an acceptance.
 
 - Spec: `docs/superpowers/specs/2026-06-09-org-design-scenario-modeling-phase-2b-ii-design.md` (§Machine ack gate — "the strongest gate the filesystem/LLM architecture supports")
 - Commit `b4d805b` — Phase 2b-ii implementation (Re #35)
-- `skills/org-design/scripts/scenario-scorer.ts` — gate at the `reduce-headcount` case in `applyMutation`
+- `skills/org-design/scripts/scenario-scorer.ts` — gate at the top of `applyReduce` (operation-level; the `applyMutation` dispatch just routes to it)
 - `skills/org-design/scenario-checks.md` — the honest machine-vs-prose boundary doc
 - Issue #35 — `/org-design` scenario modeling (parent, open through 2b-iii)

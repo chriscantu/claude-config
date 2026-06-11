@@ -139,6 +139,18 @@ export function applyMerge(people: Person[], spec: MergeTeamsSpec): Person[] {
 }
 
 export function applyReduce(people: Person[], spec: ReduceHeadcountSpec): Person[] {
+  // Machine layoff-acknowledgment gate, at the OPERATION (not the dispatch) so
+  // every caller of applyReduce inherits it — closes the surface where a future
+  // in-repo caller importing applyReduce directly would skip a dispatch-level
+  // gate. Precondition throw, consistent with applySplit's "member not in target
+  // team"; the CLI catches it and exits 65. Strict `!== true` fails closed on a
+  // field-absent or non-boolean-truthy ("true"/1) spec and resists a future
+  // refactor to `=== false`. The machine guarantees no accidental layoff
+  // modeling; SKILL.md prose binds the flag-flip to an explicit user confirmation
+  // after gravity is surfaced. See ADR #0024 for the accepted residual risk.
+  if (spec.acknowledged !== true) {
+    throw new Error("reduce-headcount requires acknowledged:true (layoff acknowledgment gate)");
+  }
   const cut = new Set(spec.cut);
   // Re-home displaced reports onto surviving managers FIRST, then drop cut rows.
   // A report of a cut person who is NOT reassigned still points at the now-removed
@@ -161,18 +173,8 @@ function applyMutation(people: Person[], spec: ScenarioSpec): Person[] {
     case "change-reporting":
       return applyReporting(people, spec);
     case "reduce-headcount":
-      // Machine layoff-acknowledgment gate: refuse (precondition throw, like
-      // applySplit's "member not in target team") unless the spec carries a
-      // deliberate acknowledged:true. The CLI catches this and exits 65. The
-      // machine guarantees no accidental layoff modeling; SKILL.md prose binds
-      // the flag-flip to an explicit user confirmation after gravity is surfaced.
-      // Strict `!== true` (not falsy `!spec.acknowledged`): fail-closed on a
-      // field-absent JSON spec AND resistant to a future refactor that inverts
-      // the guard to `=== false`, which would silently admit field-absent specs.
-      // See ADR #0024 for the accepted residual risk (self-attestation ceiling).
-      if (spec.acknowledged !== true) {
-        throw new Error("reduce-headcount requires acknowledged:true (layoff acknowledgment gate)");
-      }
+      // The layoff-acknowledgment gate lives in applyReduce (operation-level),
+      // so it cannot be skipped by any caller that bypasses this dispatch.
       return applyReduce(people, spec);
     default:
       throw new Error(`unsupported scenario type: ${(spec as { type: string }).type}`);

@@ -1,4 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { describe, expect, test, beforeAll, afterAll } from "bun:test";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult, applyMerge, type MergeTeamsSpec, applyAdd, type AddHeadcountSpec, applyReporting, type ChangeReportingSpec, applyReduce, type ReduceHeadcountSpec, isScenarioType } from "./scenario-scorer.ts";
 
 const FIXTURE = `# Org structure — orgfix-acme
@@ -330,6 +333,14 @@ describe("reduce-headcount ack gate", () => {
     expect(res.deltas.teamsAfter).toBeDefined();
     expect(res.metrics.unownedAfter).toBeDefined();
   });
+
+  test("gate lives in applyReduce: a direct call bypassing applyMutation still refuses", () => {
+    // Defense-in-depth — the gate is a property of the operation, not the
+    // dispatch, so an in-repo caller importing applyReduce directly cannot skip it.
+    expect(() =>
+      applyReduce(acme(), { type: "reduce-headcount", cut: ["Riley"], acknowledged: false }),
+    ).toThrow(/acknowledgment gate/i);
+  });
 });
 
 describe("metrics.unownedAfter", () => {
@@ -357,8 +368,18 @@ describe("metrics.unownedAfter", () => {
 
 describe("CLI dispatch", () => {
   const script = `${import.meta.dir}/scenario-scorer.ts`;
-  const STRUCT = "/tmp/scenario-cli-struct-2bii.md";
-  const SPEC = "/tmp/scenario-cli-spec-2bii.json";
+  let dir: string;
+  let STRUCT: string;
+  let SPEC: string;
+
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "scenario-cli-")); // hermetic, unique per run
+    STRUCT = join(dir, "struct.md");
+    SPEC = join(dir, "spec.json");
+  });
+  afterAll(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
 
   const cli = async (specObj: unknown): Promise<{ code: number; out: string; err: string }> => {
     await Bun.write(STRUCT, FIXTURE);
@@ -368,6 +389,11 @@ describe("CLI dispatch", () => {
     const out = await new Response(proc.stdout).text();
     const err = await new Response(proc.stderr).text();
     return { code, out, err };
+  };
+
+  const exitForArgs = async (...args: string[]): Promise<number> => {
+    const proc = Bun.spawn(["bun", script, ...args], { stdout: "pipe", stderr: "pipe" });
+    return await proc.exited;
   };
 
   test("valid reduce-headcount dispatches: exit 0 + concrete ScenarioResult values", async () => {
@@ -409,6 +435,11 @@ describe("CLI dispatch", () => {
     const { code, err } = await cli({ type: "bogus" });
     expect(code).toBe(65);
     expect(err).toMatch(/unsupported scenario type/i);
+  });
+
+  test("missing args exits 64 (EX_USAGE), distinct from data errors", async () => {
+    expect(await exitForArgs()).toBe(64);        // no paths at all
+    expect(await exitForArgs(STRUCT)).toBe(64);  // only the structure path
   });
 });
 
