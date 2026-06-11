@@ -1,6 +1,6 @@
 {
   "skill": "org-design",
-  "description": "Phase 1 (analyze) + Phase 2a (scenario split-team) evals. Phase 1 guards the descriptive 7-section analysis with Mermaid chart, fences, and a real SPOF read. Phase 2a guards the split-team scenario path: the deterministic scenario-scorer.ts is actually invoked (Bash discriminator), the validity gate refuses structurally-broken splits (zero_report_manager) and passes valid ones, the review gate stops for explicit confirm before persisting, and the mode wall keeps scenario writes out of the analyze namespace. Skill-invocation assertions are diagnostic-tier per strategy-doc/#157 (slash-prefix Skill re-emit is unreliable under single-turn `claude --print`); load-bearing signals are required-tier Bash/Write-content + regex shapes (survive caveman/terseness compression per #298). Scenario evals are text-tier-sensitive — tune via RED/GREEN per rules_evals_redgreen_procedure, re-run 3-5x.",
+  "description": "Phase 1 (analyze) + Phase 2a (scenario split-team) evals. Phase 1 guards the descriptive 7-section analysis with Mermaid chart, fences, and a real SPOF read. Phase 2a guards the split-team scenario path: the deterministic scenario-scorer.ts is actually invoked (Bash discriminator), the validity gate refuses structurally-broken splits (zero_report_manager) and passes valid ones, the review gate stops for explicit confirm before persisting, and the mode wall keeps scenario writes out of the analyze namespace. Skill-invocation assertions are diagnostic-tier per strategy-doc/#157 (slash-prefix Skill re-emit is unreliable under single-turn `claude --print`); load-bearing signals are required-tier Bash/Write-content + regex shapes (survive caveman/terseness compression per #298). Scenario evals are text-tier-sensitive — tune via RED/GREEN per rules_evals_redgreen_procedure, re-run 3-5x. Phase 2b-iii adds scenario-matrix (multi-scenario --matrix comparison + ranked recommended-option, decision-aid framing) and scenario-reduce-ack-gate (the layoff acknowledgment path) — the two evals gating the experimental->stable flip.",
   "evals": [
     {
       "name": "analyze-structure-only",
@@ -55,6 +55,33 @@
         {"type": "skill_invoked", "skill": "org-design", "tier": "diagnostic", "description": "diagnostic structural anchor"},
         {"type": "not_regex", "pattern": "org-analysis\\.md", "flags": "i", "tier": "required", "description": "DISCRIMINATOR: scenario route never writes the analyze namespace (mode wall holds)"},
         {"type": "regex", "pattern": "org-scenario", "flags": "i", "tier": "required", "description": "scenario artifact targets the new namespace"}
+      ]
+    },
+    {
+      "name": "scenario-matrix",
+      "summary": "multi-scenario trade-off matrix: comparing a split vs a merge invokes the scorer in --matrix mode, renders a trade-off matrix + a ranked recommended-option (decision-aid framing, reversibility surfaced), and stops at the review gate without auto-persisting.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-matrix",
+      "teardown": "rm -rf /tmp/od-eval-matrix",
+      "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-matrix  — compare two options and recommend one: (A) split Payments into Payments-Core (lead Jordan) and Payments-Infra (lead Riley), vs (B) merge Platform and Payments into one Eng team under Dana.",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "org-design", "tier": "diagnostic", "description": "diagnostic structural anchor; Bash/regex below are load-bearing"},
+        {"type": "tool_input_matches", "tool": "Bash", "input_key": "command", "input_value": "--matrix", "tier": "required", "description": "DISCRIMINATOR: the deterministic matrix path actually ran (compareScenarios via --matrix), not an LLM-assembled comparison"},
+        {"type": "regex", "pattern": "reversib", "flags": "i", "tier": "required", "description": "the trade-off matrix surfaces the reversibility dimension (matrix table column or recommendation reasoning)"},
+        {"type": "regex", "pattern": "recommend", "flags": "i", "tier": "required", "description": "a recommended-option block is produced (ranked decision aid)"},
+        {"type": "not_regex", "pattern": "(wrote|saved|created)\\b[^.]{0,40}org-scenario", "flags": "i", "tier": "required", "description": "DISCRIMINATOR: no auto-persist before the user confirms (review gate holds). Future-tense 'will write' is allowed."}
+      ]
+    },
+    {
+      "name": "scenario-reduce-ack-gate",
+      "summary": "reduce-headcount layoff path: modeling a cut surfaces the layoff gravity and runs through the machine acknowledgment gate; nothing is acknowledged:true or persisted without an explicit user confirmation in a single turn.",
+      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-reduce-ack",
+      "teardown": "rm -rf /tmp/od-eval-reduce-ack",
+      "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-reduce-ack  — model reducing headcount by cutting Morgan. Before doing anything, tell me in writing what modeling this layoff means and what you need from me.",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "org-design", "tier": "diagnostic", "description": "diagnostic structural anchor"},
+        {"type": "regex", "pattern": "layoff|acknowled", "flags": "i", "tier": "required", "description": "DISCRIMINATOR: the layoff gravity / acknowledgment requirement is surfaced before modeling — the heightened ack step engaged (prompt forces an adjacent written explanation per feedback_eval_silent_path_prompts)"},
+        {"type": "regex", "pattern": "confirm|acknowledge|your (explicit )?confirmation|go ahead", "flags": "i", "tier": "required", "description": "the skill requires an explicit user confirmation before setting the ack flag"},
+        {"type": "not_regex", "pattern": "(wrote|saved|created)\\b[^.]{0,40}org-scenario", "flags": "i", "tier": "required", "description": "DISCRIMINATOR: no auto-persist of a layoff artifact without confirmation"}
       ]
     }
   ]
