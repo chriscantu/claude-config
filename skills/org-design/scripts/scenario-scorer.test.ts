@@ -467,9 +467,22 @@ describe("compareScenarios", () => {
     expect(m.scenarios.map((s) => s.label)).toEqual(["split", "merge"]);
     expect(m.validLabels.sort()).toEqual(["merge", "split"]);
     expect(m.invalidLabels).toEqual([]);
-    // structural guarantee: facts only, never a collapsed score or a pick
+    // structural guarantee: facts only, never a collapsed score or a pick —
+    // pinned on BOTH the top-level result AND a per-scenario element (the per-option
+    // object is where a rubber-stamp "score" would realistically be smuggled in).
     expect(m).not.toHaveProperty("winner");
     expect(m).not.toHaveProperty("score");
+    expect(m.scenarios[0]).not.toHaveProperty("score");
+    expect(m.scenarios[0]).not.toHaveProperty("recommended");
+  });
+
+  test("duplicate scenario labels fail closed (ambiguous gate partition forbidden)", () => {
+    expect(() =>
+      compareScenarios(FIXTURE, [
+        { label: "opt", spec: SPLIT },
+        { label: "opt", spec: MERGE },
+      ]),
+    ).toThrow(/duplicate scenario label/i);
   });
 
   test("mixed valid/invalid: partition + the invalid scenario's failure kind surfaces as a risk flag", () => {
@@ -480,7 +493,38 @@ describe("compareScenarios", () => {
     expect(m.validLabels).toEqual(["split"]);
     expect(m.invalidLabels).toEqual(["cut-sam"]);
     const cutSam = m.scenarios.find((s) => s.label === "cut-sam")!;
-    expect(cutSam.riskFlags).toContain("orphaned_report"); // Jordan/Riley -> removed Sam
+    // exact, deduped flag set — pins the dedup (Jordan AND Riley orphan Sam, one
+    // "orphaned_report" kind), the cascade (cutting Sam strands Dana with zero reports),
+    // and the failure+metric interaction (billing-service stays sole-owned -> spof-after)
+    expect(cutSam.riskFlags).toEqual(["orphaned_report", "zero_report_manager", "spof-after"]);
+  });
+
+  test("riskFlags passthrough: every validity kind reaches the matrix consumer, not just orphaned_report", () => {
+    // The deriveRiskFlags failure-kind loop is the seam between checkValidity (producer)
+    // and the matrix (consumer). Assert the OTHER three kinds flow through, so a future
+    // filter on that loop can't silently drop risk signals the human reads at the gate.
+    const cycle = compareScenarios(FIXTURE, [
+      { label: "cycle", spec: { type: "change-reporting", reassign: { Sam: "Jordan" } } }, // Sam->Jordan->Sam
+    ]);
+    expect(cycle.scenarios[0].riskFlags).toContain("reporting_cycle");
+
+    const zeroReport = compareScenarios(FIXTURE, [
+      // split that strands Sam (Payments M) with both reports moved to Dana
+      { label: "strand-sam", spec: {
+        type: "split-team", targetTeam: "Payments",
+        into: [
+          { name: "Pay-A", lead: "Jordan", members: ["Jordan"] },
+          { name: "Pay-B", lead: "Riley", members: ["Riley"] },
+        ],
+        newReporting: { "Pay-A": "Dana", "Pay-B": "Dana" },
+      } },
+    ]);
+    expect(zeroReport.scenarios[0].riskFlags).toContain("zero_report_manager");
+
+    const subviable = compareScenarios(FIXTURE, [
+      { label: "cut-riley", spec: { type: "reduce-headcount", cut: ["Riley"], acknowledged: true } }, // payments-primary -> Jordan only
+    ]);
+    expect(subviable.scenarios[0].riskFlags).toContain("subviable_oncall");
   });
 
   test("all-invalid: validLabels is empty (drives the no-recommendation branch)", () => {
@@ -599,5 +643,27 @@ describe("CLI --matrix", () => {
     await Bun.write(STRUCT, FIXTURE);
     const proc = Bun.spawn(["bun", script, "--matrix", STRUCT], { stdout: "pipe", stderr: "pipe" });
     expect(await proc.exited).toBe(64);
+  });
+
+  test("a non-array manifest fails closed with a typed shape error (exit 65)", async () => {
+    const { code, err } = await cli({}); // valid JSON, wrong shape
+    expect(code).toBe(65);
+    expect(err).toMatch(/manifest must be a JSON array/i);
+  });
+
+  test("a manifest entry without a string label fails closed (exit 65)", async () => {
+    const { code, err } = await cli([{ spec: { type: "split-team", targetTeam: "Payments", into: [] } }]);
+    expect(code).toBe(65);
+    expect(err).toMatch(/non-empty string label/i);
+  });
+
+  test("malformed (non-JSON) manifest exits 65, not an uncaught crash", async () => {
+    await Bun.write(STRUCT, FIXTURE);
+    await Bun.write(MANIFEST, "this is not json {");
+    const proc = Bun.spawn(["bun", script, "--matrix", STRUCT, MANIFEST], { stdout: "pipe", stderr: "pipe" });
+    const code = await proc.exited;
+    const err = await new Response(proc.stderr).text();
+    expect(code).toBe(65);
+    expect(err).toMatch(/scenario-scorer error/i);
   });
 });

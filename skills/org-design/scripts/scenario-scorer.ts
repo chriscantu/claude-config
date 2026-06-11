@@ -384,7 +384,7 @@ function deriveRiskFlags(r: ScenarioResult): string[] {
   if (r.metrics.spof.after.length > 0) flags.push("spof-after");        // >=1 system still single-owned after
   const widest = Math.max(0, ...Object.values(r.metrics.span).map((s) => s.after));
   if (widest > 7) flags.push("wide-span");                              // span threshold reused from analysis-checks
-  return flags;
+  return [...new Set(flags)];                                           // distinct risk kinds — the matrix "Key risks" cell wants categories, not repeats
 }
 
 // Multi-scenario comparison. Calls run() per scenario, so every validity rule,
@@ -395,6 +395,15 @@ export function compareScenarios(
   structureMd: string,
   specs: { label: string; spec: ScenarioSpec }[],
 ): MatrixResult {
+  // Label integrity at the operation (not just the CLI), mirroring the ack-gate-in-
+  // applyReduce precedent: validLabels/invalidLabels are the gate signal a human reads
+  // before an irreversible reorg, so a duplicate label that makes two options
+  // indistinguishable in that partition must fail closed for every caller.
+  const seenLabels = new Set<string>();
+  for (const { label } of specs) {
+    if (seenLabels.has(label)) throw new Error(`duplicate scenario label: ${label}`);
+    seenLabels.add(label);
+  }
   const scenarios: ScenarioComparison[] = specs.map(({ label, spec }) => {
     const result = run(structureMd, spec);
     return { label, type: spec.type, reversibility: REVERSIBILITY[spec.type], result, riskFlags: deriveRiskFlags(result) };
@@ -421,7 +430,10 @@ if (import.meta.main) {
     try {
       const md = await Bun.file(structPath).text();
       const manifest = JSON.parse(await Bun.file(manifestPath).text()) as { label: string; spec: ScenarioSpec }[];
+      if (!Array.isArray(manifest)) throw new Error("manifest must be a JSON array of {label, spec} entries");
       for (const entry of manifest) {
+        if (!entry || typeof entry !== "object") throw new Error("each manifest entry must be an object with label + spec");
+        if (typeof entry.label !== "string" || entry.label.length === 0) throw new Error("each manifest entry needs a non-empty string label");
         const t = (entry.spec as { type?: string })?.type ?? "";
         if (!isScenarioType(t)) throw new Error(`unsupported scenario type: ${t}`);
       }
