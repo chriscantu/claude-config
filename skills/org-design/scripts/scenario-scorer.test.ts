@@ -2,7 +2,7 @@ import { describe, expect, test, beforeAll, afterAll } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult, applyMerge, type MergeTeamsSpec, applyAdd, type AddHeadcountSpec, applyReporting, type ChangeReportingSpec, applyReduce, type ReduceHeadcountSpec, isScenarioType } from "./scenario-scorer.ts";
+import { parseStructure, type Person, type Role, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult, applyMerge, type MergeTeamsSpec, applyAdd, type AddHeadcountSpec, applyReporting, type ChangeReportingSpec, applyReduce, type ReduceHeadcountSpec, isScenarioType, compareScenarios, type MatrixResult } from "./scenario-scorer.ts";
 
 const FIXTURE = `# Org structure — orgfix-acme
 <!-- org-design:structure -->
@@ -451,5 +451,214 @@ describe("isScenarioType", () => {
     expect(isScenarioType("change-reporting")).toBe(true);
     expect(isScenarioType("reduce-headcount")).toBe(true); // Phase 2b-ii
     expect(isScenarioType("bogus")).toBe(false);
+  });
+});
+
+describe("compareScenarios", () => {
+  const MERGE: MergeTeamsSpec = {
+    type: "merge-teams", teams: ["Platform", "Payments"], newName: "Eng", survivingManager: "Dana",
+  };
+
+  test("partitions two valid scenarios; no winner/scalar emitted", () => {
+    const m: MatrixResult = compareScenarios(FIXTURE, [
+      { label: "split", spec: SPLIT },
+      { label: "merge", spec: MERGE },
+    ]);
+    expect(m.scenarios.map((s) => s.label)).toEqual(["split", "merge"]);
+    expect(m.validLabels.sort()).toEqual(["merge", "split"]);
+    expect(m.invalidLabels).toEqual([]);
+    // structural guarantee: facts only, never a collapsed score or a pick —
+    // pinned on BOTH the top-level result AND a per-scenario element (the per-option
+    // object is where a rubber-stamp "score" would realistically be smuggled in).
+    expect(m).not.toHaveProperty("winner");
+    expect(m).not.toHaveProperty("score");
+    expect(m.scenarios[0]).not.toHaveProperty("score");
+    expect(m.scenarios[0]).not.toHaveProperty("recommended");
+  });
+
+  test("duplicate scenario labels fail closed (ambiguous gate partition forbidden)", () => {
+    expect(() =>
+      compareScenarios(FIXTURE, [
+        { label: "opt", spec: SPLIT },
+        { label: "opt", spec: MERGE },
+      ]),
+    ).toThrow(/duplicate scenario label/i);
+  });
+
+  test("mixed valid/invalid: partition + the invalid scenario's failure kind surfaces as a risk flag", () => {
+    const m = compareScenarios(FIXTURE, [
+      { label: "split", spec: SPLIT },
+      { label: "cut-sam", spec: { type: "reduce-headcount", cut: ["Sam"], acknowledged: true } },
+    ]);
+    expect(m.validLabels).toEqual(["split"]);
+    expect(m.invalidLabels).toEqual(["cut-sam"]);
+    const cutSam = m.scenarios.find((s) => s.label === "cut-sam")!;
+    // exact, deduped flag set — pins the dedup (Jordan AND Riley orphan Sam, one
+    // "orphaned_report" kind), the cascade (cutting Sam strands Dana with zero reports),
+    // and the failure+metric interaction (billing-service stays sole-owned -> spof-after)
+    expect(cutSam.riskFlags).toEqual(["orphaned_report", "zero_report_manager", "spof-after"]);
+  });
+
+  test("riskFlags passthrough: every validity kind reaches the matrix consumer, not just orphaned_report", () => {
+    // The deriveRiskFlags failure-kind loop is the seam between checkValidity (producer)
+    // and the matrix (consumer). Assert the OTHER three kinds flow through, so a future
+    // filter on that loop can't silently drop risk signals the human reads at the gate.
+    const cycle = compareScenarios(FIXTURE, [
+      { label: "cycle", spec: { type: "change-reporting", reassign: { Sam: "Jordan" } } }, // Sam->Jordan->Sam
+    ]);
+    expect(cycle.scenarios[0].riskFlags).toContain("reporting_cycle");
+
+    const zeroReport = compareScenarios(FIXTURE, [
+      // split that strands Sam (Payments M) with both reports moved to Dana
+      { label: "strand-sam", spec: {
+        type: "split-team", targetTeam: "Payments",
+        into: [
+          { name: "Pay-A", lead: "Jordan", members: ["Jordan"] },
+          { name: "Pay-B", lead: "Riley", members: ["Riley"] },
+        ],
+        newReporting: { "Pay-A": "Dana", "Pay-B": "Dana" },
+      } },
+    ]);
+    expect(zeroReport.scenarios[0].riskFlags).toContain("zero_report_manager");
+
+    const subviable = compareScenarios(FIXTURE, [
+      { label: "cut-riley", spec: { type: "reduce-headcount", cut: ["Riley"], acknowledged: true } }, // payments-primary -> Jordan only
+    ]);
+    expect(subviable.scenarios[0].riskFlags).toContain("subviable_oncall");
+  });
+
+  test("all-invalid: validLabels is empty (drives the no-recommendation branch)", () => {
+    const m = compareScenarios(FIXTURE, [
+      { label: "cut-sam", spec: { type: "reduce-headcount", cut: ["Sam"], acknowledged: true } },
+      { label: "cut-riley", spec: { type: "reduce-headcount", cut: ["Riley"], acknowledged: true } },
+    ]);
+    expect(m.validLabels).toEqual([]);
+    expect(m.invalidLabels.sort()).toEqual(["cut-riley", "cut-sam"]);
+  });
+
+  test("3-tier reversibility tag is attached per mode regardless of validity", () => {
+    const m = compareScenarios(FIXTURE, [
+      { label: "a", spec: SPLIT },
+      { label: "b", spec: { type: "add-headcount", hires: [{ person: "Pat", role: "IC", team: "Payments", reportsTo: "Sam", systems: [], oncall: [], skills: [] }] } },
+      { label: "c", spec: { type: "change-reporting", reassign: { Jordan: "Dana" } } },
+      { label: "d", spec: MERGE },
+      { label: "e", spec: { type: "reduce-headcount", cut: ["Riley"], acknowledged: true } },
+    ]);
+    const rev = Object.fromEntries(m.scenarios.map((s) => [s.type, s.reversibility]));
+    expect(rev["split-team"]).toBe("reversible");
+    expect(rev["add-headcount"]).toBe("reversible");
+    expect(rev["change-reporting"]).toBe("reversible");
+    expect(rev["merge-teams"]).toBe("costly-to-reverse");
+    expect(rev["reduce-headcount"]).toBe("irreversible");
+  });
+
+  test("riskFlags: cutting a sole system owner flags unowned-systems", () => {
+    const m = compareScenarios(FIXTURE, [
+      { label: "cut-jordan", spec: { type: "reduce-headcount", cut: ["Jordan"], acknowledged: true } },
+    ]);
+    expect(m.scenarios[0].riskFlags).toContain("unowned-systems"); // billing-service 1->0
+  });
+
+  test("riskFlags: a span wider than 7 flags wide-span", () => {
+    const hires: Person[] = Array.from({ length: 8 }, (_, i) => ({
+      person: `H${i}`, role: "IC" as Role, team: "Platform", reportsTo: "Dana", systems: [], oncall: [], skills: [],
+    }));
+    const m = compareScenarios(FIXTURE, [
+      { label: "stack-dana", spec: { type: "add-headcount", hires } },
+    ]);
+    expect(m.scenarios[0].riskFlags).toContain("wide-span"); // Dana 1 -> 9 reports
+  });
+
+  test("riskFlags: a valid split flags the persisting SPOF but NOT unowned-systems", () => {
+    const m = compareScenarios(FIXTURE, [{ label: "split", spec: SPLIT }]);
+    const flags = m.scenarios[0].riskFlags;
+    expect(flags).toContain("spof-after");        // billing-service still sole-owned by Jordan
+    expect(flags).not.toContain("unowned-systems"); // split keeps every owner
+  });
+
+  test("ack gate is inherited: an unacknowledged reduce in the set throws", () => {
+    expect(() =>
+      compareScenarios(FIXTURE, [
+        { label: "split", spec: SPLIT },
+        { label: "cut", spec: { type: "reduce-headcount", cut: ["Riley"], acknowledged: false } },
+      ]),
+    ).toThrow(/acknowledgment gate/i);
+  });
+});
+
+describe("CLI --matrix", () => {
+  const script = `${import.meta.dir}/scenario-scorer.ts`;
+  let dir: string;
+  let STRUCT: string;
+  let MANIFEST: string;
+
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "matrix-cli-"));
+    STRUCT = join(dir, "struct.md");
+    MANIFEST = join(dir, "manifest.json");
+  });
+  afterAll(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  const cli = async (manifest: unknown): Promise<{ code: number; out: string; err: string }> => {
+    await Bun.write(STRUCT, FIXTURE);
+    await Bun.write(MANIFEST, JSON.stringify(manifest));
+    const proc = Bun.spawn(["bun", script, "--matrix", STRUCT, MANIFEST], { stdout: "pipe", stderr: "pipe" });
+    const code = await proc.exited;
+    const out = await new Response(proc.stdout).text();
+    const err = await new Response(proc.stderr).text();
+    return { code, out, err };
+  };
+
+  test("valid manifest dispatches: exit 0 + MatrixResult with concrete validLabels", async () => {
+    const { code, out } = await cli([
+      { label: "split", spec: { type: "split-team", targetTeam: "Payments", into: [
+        { name: "Payments-Core", lead: "Jordan", members: ["Jordan"] },
+        { name: "Payments-Infra", lead: "Riley", members: ["Riley"] },
+      ] } },
+      { label: "merge", spec: { type: "merge-teams", teams: ["Platform", "Payments"], newName: "Eng", survivingManager: "Dana" } },
+    ]);
+    expect(code).toBe(0);
+    const parsed = JSON.parse(out);
+    expect(parsed.validLabels.sort()).toEqual(["merge", "split"]);
+    expect(parsed.scenarios.length).toBe(2);
+  });
+
+  test("a manifest with an unacknowledged reduce exits 65 via the inherited ack gate", async () => {
+    const { code, err } = await cli([
+      { label: "cut", spec: { type: "reduce-headcount", cut: ["Riley"], acknowledged: false } },
+    ]);
+    expect(code).toBe(65);
+    expect(err).toMatch(/acknowledgment gate/i);
+  });
+
+  test("a manifest with an unknown scenario type exits 65 (EX_DATAERR)", async () => {
+    const { code, err } = await cli([{ label: "bogus", spec: { type: "teleport" } }]);
+    expect(code).toBe(65);
+    expect(err).toMatch(/unsupported scenario type/i);
+  });
+
+  test("--matrix with a missing manifest path exits 64 (EX_USAGE)", async () => {
+    await Bun.write(STRUCT, FIXTURE);
+    const proc = Bun.spawn(["bun", script, "--matrix", STRUCT], { stdout: "pipe", stderr: "pipe" });
+    expect(await proc.exited).toBe(64);
+  });
+
+  test("a non-array manifest fails closed (exit 65) via the operation layer, no output", async () => {
+    const { code, out, err } = await cli({}); // valid JSON, wrong shape -> not iterable in compareScenarios
+    expect(code).toBe(65);
+    expect(out).toBe("");
+    expect(err).toMatch(/scenario-scorer error/i);
+  });
+
+  test("malformed (non-JSON) manifest exits 65, not an uncaught crash", async () => {
+    await Bun.write(STRUCT, FIXTURE);
+    await Bun.write(MANIFEST, "this is not json {");
+    const proc = Bun.spawn(["bun", script, "--matrix", STRUCT, MANIFEST], { stdout: "pipe", stderr: "pipe" });
+    const code = await proc.exited;
+    const err = await new Response(proc.stderr).text();
+    expect(code).toBe(65);
+    expect(err).toMatch(/scenario-scorer error/i);
   });
 });

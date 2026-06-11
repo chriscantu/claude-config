@@ -178,3 +178,78 @@ Atomic write-temp-rename to `decisions/<date>-org-scenario-<slug>.md`
 (`<slug>` = `<target_team>-split`, kebab-cased), with `<!-- org-design:auto -->`
 fences. Multiple scenario files coexist (different slugs); same-slug-same-day
 mutates in place; 2+ same-slug refuses + lists.
+
+## Multi-scenario trade-off matrix (Phase 2b-iii)
+
+When the user asks to compare ≥2 options, the orchestrator gathers each scenario
+(reusing the per-mode gather, including the reduce-headcount gather-then-acknowledge
+step for any reduce in the set), builds a **manifest**, and calls the scorer in matrix
+mode:
+
+```
+bun run scripts/scenario-scorer.ts --matrix <structure.md> <manifest.json>
+```
+
+`manifest.json` is a JSON array of `{ "label": "<short name>", "spec": { ...scenario spec... } }`.
+The scorer returns a `MatrixResult`:
+
+- `scenarios[]` — one entry per option: `label`, `type`, `reversibility`, the full
+  single-scenario `result`, and `riskFlags`.
+- `validLabels` / `invalidLabels` — the objective valid/invalid partition.
+
+The matrix emits **facts only** — no score, no winner. Ranking is the orchestrator's
+judgment (below), never the scorer's.
+
+### Reversibility tag (per mode, fixed)
+
+| Mode | Reversibility |
+|---|---|
+| `split-team`, `add-headcount`, `change-reporting` | `reversible` |
+| `merge-teams` | `costly-to-reverse` |
+| `reduce-headcount` | `irreversible` |
+
+### Risk flags (objective, derived from each result)
+
+- a validity failure `kind` (e.g. `orphaned_report`) — one per failure on an invalid option
+- `unowned-systems` — a system lost its last owner (1→0); from `metrics.unownedAfter`
+- `spof-after` — ≥1 system is still single-owned after; from `metrics.spof.after`
+- `wide-span` — a manager ends with >7 direct reports; from `metrics.span[*].after`
+
+### Layoff ack gate is inherited
+
+Each scenario goes through `run()`, so a manifest containing a `reduce-headcount` spec
+without `acknowledged: true` makes the scorer exit 65 with the layoff-acknowledgment-gate
+message. There is **no separate matrix gate** — batching cannot bypass the layoff gate.
+
+### Recommended-option contract (orchestrator judgment)
+
+Output a ranked list **with shown work**, framed as a decision aid:
+
+- Header reads literally **"Recommended (decision aid — you decide)."** Never a bare "do this."
+- Order: valid options first; among valid, fewer risk flags ranks higher; surface genuine
+  ties as ties (do not break a tie arbitrarily).
+- Each entry states its reasoning: which risk flags, what the metric deltas show, the
+  reversibility tag.
+- Flag irreversibility prominently: an `irreversible` option (reduce-headcount) carries a
+  heightened-caution line even when it ranks well — it demands the layoff review, never a
+  rubber-stamp.
+- **All-invalid** (`validLabels` empty): list each option's failure reasons and emit **no
+  recommendation** — tell the user to fix the structural break first.
+
+### Matrix render
+
+A markdown table, one row per scenario:
+
+```
+| Scenario | Valid | Reversibility | SPOF after | Unowned after | Widest span | Key risks |
+```
+
+Then full before/after Mermaid `graph TD` for the **top-ranked option only** (others on
+request) to keep the artifact bounded for large N. Any non-empty `unownedAfter` still gets
+its loud per-scenario line.
+
+### Matrix persistence
+
+Atomic write-temp-rename to `decisions/<date>-org-scenario-matrix.md` (fixed `matrix`
+slug), `<!-- org-design:auto -->` fences. Same-day mutates in place; 2+ `matrix` files
+refuse + list. Universal review gate (print → explicit confirm) unchanged.

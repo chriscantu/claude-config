@@ -349,21 +349,112 @@ export function run(structureMd: string, spec: ScenarioSpec): ScenarioResult {
   };
 }
 
-// --- CLI entrypoint: scenario-scorer.ts <structure.md path> <scenario.json path> ---
-if (import.meta.main) {
-  const [structPath, specPath] = process.argv.slice(2);
-  if (!structPath || !specPath) {
-    console.error("usage: scenario-scorer.ts <structure.md path> <scenario.json path>");
-    process.exit(64); // EX_USAGE
+export type Reversibility = "reversible" | "costly-to-reverse" | "irreversible";
+
+// Exhaustive over ScenarioSpec["type"] — a future 6th mode forces a compile
+// error here, so the reversibility tag can never silently default to a wrong tier.
+const REVERSIBILITY: Record<ScenarioSpec["type"], Reversibility> = {
+  "split-team": "reversible",
+  "add-headcount": "reversible",
+  "change-reporting": "reversible",
+  "merge-teams": "costly-to-reverse",
+  "reduce-headcount": "irreversible",
+};
+
+export interface ScenarioComparison {
+  label: string;
+  type: ScenarioSpec["type"];
+  reversibility: Reversibility;
+  result: ScenarioResult;
+  riskFlags: string[];
+}
+
+export interface MatrixResult {
+  scenarios: ScenarioComparison[];
+  validLabels: string[];
+  invalidLabels: string[];
+}
+
+// Objective risk-flag tally, derived ONLY from a ScenarioResult (no new inputs).
+// Eval-pinnable and metric-free: every flag traces to a field already on the result.
+function deriveRiskFlags(r: ScenarioResult): string[] {
+  const flags: string[] = [];
+  for (const f of r.failures) flags.push(f.kind);                       // invalid scenarios surface each failure kind
+  if (r.metrics.unownedAfter.length > 0) flags.push("unowned-systems"); // a system that lost its last owner (1->0)
+  if (r.metrics.spof.after.length > 0) flags.push("spof-after");        // >=1 system still single-owned after
+  const widest = Math.max(0, ...Object.values(r.metrics.span).map((s) => s.after));
+  if (widest > 7) flags.push("wide-span");                              // span threshold reused from analysis-checks
+  return [...new Set(flags)];                                           // distinct risk kinds — the matrix "Key risks" cell wants categories, not repeats
+}
+
+// Multi-scenario comparison. Calls run() per scenario, so every validity rule,
+// metric, and the reduce-headcount layoff ack gate are inherited unchanged. Emits
+// objective facts only — NO scalar score, NO winner; ranking is the orchestrator's
+// judgment (SKILL.md), reconciling observe-before-act / rubber-stamp risk.
+export function compareScenarios(
+  structureMd: string,
+  specs: { label: string; spec: ScenarioSpec }[],
+): MatrixResult {
+  // Label integrity at the operation (not just the CLI), mirroring the ack-gate-in-
+  // applyReduce precedent: validLabels/invalidLabels are the gate signal a human reads
+  // before an irreversible reorg, so a duplicate label that makes two options
+  // indistinguishable in that partition must fail closed for every caller.
+  const seenLabels = new Set<string>();
+  for (const { label } of specs) {
+    if (seenLabels.has(label)) throw new Error(`duplicate scenario label: ${label}`);
+    seenLabels.add(label);
   }
-  try {
-    const md = await Bun.file(structPath).text();
-    const spec = JSON.parse(await Bun.file(specPath).text()) as ScenarioSpec;
-    const t = (spec as { type?: string }).type ?? "";
-    if (!isScenarioType(t)) throw new Error(`unsupported scenario type: ${t}`);
-    process.stdout.write(JSON.stringify(run(md, spec), null, 2) + "\n");
-  } catch (e) {
-    console.error(`scenario-scorer error: ${(e as Error).message}`);
-    process.exit(65); // EX_DATAERR
+  const scenarios: ScenarioComparison[] = specs.map(({ label, spec }) => {
+    const result = run(structureMd, spec);
+    return { label, type: spec.type, reversibility: REVERSIBILITY[spec.type], result, riskFlags: deriveRiskFlags(result) };
+  });
+  return {
+    scenarios,
+    validLabels: scenarios.filter((s) => s.result.valid).map((s) => s.label),
+    invalidLabels: scenarios.filter((s) => !s.result.valid).map((s) => s.label),
+  };
+}
+
+// --- CLI entrypoint ---
+//   single:  scenario-scorer.ts <structure.md path> <scenario.json path>
+//   matrix:  scenario-scorer.ts --matrix <structure.md path> <manifest.json path>
+//            manifest = [{ "label": string, "spec": ScenarioSpec }, ...]
+if (import.meta.main) {
+  const argv = process.argv.slice(2);
+  if (argv[0] === "--matrix") {
+    const [, structPath, manifestPath] = argv;
+    if (!structPath || !manifestPath) {
+      console.error("usage: scenario-scorer.ts --matrix <structure.md path> <manifest.json path>");
+      process.exit(64); // EX_USAGE
+    }
+    try {
+      const md = await Bun.file(structPath).text();
+      const manifest = JSON.parse(await Bun.file(manifestPath).text()) as { label: string; spec: ScenarioSpec }[];
+      // No CLI-side shape validation: the operation layer already fails closed.
+      // compareScenarios throws on a duplicate label, run()/applyMutation throws on an
+      // unknown scenario type, applyReduce throws on an unacknowledged layoff, and a
+      // malformed/non-array manifest throws at JSON.parse / iteration. All land in the
+      // catch below as exit 65.
+      process.stdout.write(JSON.stringify(compareScenarios(md, manifest), null, 2) + "\n");
+    } catch (e) {
+      console.error(`scenario-scorer error: ${(e as Error).message}`);
+      process.exit(65); // EX_DATAERR
+    }
+  } else {
+    const [structPath, specPath] = argv;
+    if (!structPath || !specPath) {
+      console.error("usage: scenario-scorer.ts <structure.md path> <scenario.json path>");
+      process.exit(64); // EX_USAGE
+    }
+    try {
+      const md = await Bun.file(structPath).text();
+      const spec = JSON.parse(await Bun.file(specPath).text()) as ScenarioSpec;
+      const t = (spec as { type?: string }).type ?? "";
+      if (!isScenarioType(t)) throw new Error(`unsupported scenario type: ${t}`);
+      process.stdout.write(JSON.stringify(run(md, spec), null, 2) + "\n");
+    } catch (e) {
+      console.error(`scenario-scorer error: ${(e as Error).message}`);
+      process.exit(65); // EX_DATAERR
+    }
   }
 }
