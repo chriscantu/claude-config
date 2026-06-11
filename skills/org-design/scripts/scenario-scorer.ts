@@ -93,13 +93,21 @@ export interface ChangeReportingSpec {
   reassign: Record<string, string>; // person -> new manager
 }
 
+export interface ReduceHeadcountSpec {
+  type: "reduce-headcount";
+  cut: string[];                       // people to remove
+  reassign?: Record<string, string>;   // displaced report -> new manager
+  acknowledged: boolean;               // machine layoff-acknowledgment gate
+}
+
 export type ScenarioSpec =
   | SplitTeamSpec
   | AddHeadcountSpec
   | MergeTeamsSpec
-  | ChangeReportingSpec;
+  | ChangeReportingSpec
+  | ReduceHeadcountSpec;
 
-export const KNOWN_SCENARIO_TYPES = ["split-team", "add-headcount", "merge-teams", "change-reporting"] as const;
+export const KNOWN_SCENARIO_TYPES = ["split-team", "add-headcount", "merge-teams", "change-reporting", "reduce-headcount"] as const;
 export function isScenarioType(t: string): t is ScenarioSpec["type"] {
   return (KNOWN_SCENARIO_TYPES as readonly string[]).includes(t);
 }
@@ -130,6 +138,30 @@ export function applyMerge(people: Person[], spec: MergeTeamsSpec): Person[] {
   });
 }
 
+export function applyReduce(people: Person[], spec: ReduceHeadcountSpec): Person[] {
+  // Machine layoff-acknowledgment gate, at the OPERATION (not the dispatch) so
+  // every caller of applyReduce inherits it — closes the surface where a future
+  // in-repo caller importing applyReduce directly would skip a dispatch-level
+  // gate. Precondition throw, consistent with applySplit's "member not in target
+  // team"; the CLI catches it and exits 65. Strict `!== true` fails closed on a
+  // field-absent or non-boolean-truthy ("true"/1) spec and resists a future
+  // refactor to `=== false`. The machine guarantees no accidental layoff
+  // modeling; SKILL.md prose binds the flag-flip to an explicit user confirmation
+  // after gravity is surfaced. See ADR #0024 for the accepted residual risk.
+  if (spec.acknowledged !== true) {
+    throw new Error("reduce-headcount requires acknowledged:true (layoff acknowledgment gate)");
+  }
+  const cut = new Set(spec.cut);
+  // Re-home displaced reports onto surviving managers FIRST, then drop cut rows.
+  // A report of a cut person who is NOT reassigned still points at the now-removed
+  // manager -> orphaned_report -> the projection is invalid (no silent roll-up).
+  const reassigned = people.map((p) =>
+    spec.reassign && spec.reassign[p.person] !== undefined
+      ? { ...p, reportsTo: spec.reassign[p.person] }
+      : p);
+  return reassigned.filter((p) => !cut.has(p.person));
+}
+
 function applyMutation(people: Person[], spec: ScenarioSpec): Person[] {
   switch (spec.type) {
     case "split-team":
@@ -140,6 +172,10 @@ function applyMutation(people: Person[], spec: ScenarioSpec): Person[] {
       return applyAdd(people, spec);
     case "change-reporting":
       return applyReporting(people, spec);
+    case "reduce-headcount":
+      // The layoff-acknowledgment gate lives in applyReduce (operation-level),
+      // so it cannot be skipped by any caller that bypasses this dispatch.
+      return applyReduce(people, spec);
     default:
       throw new Error(`unsupported scenario type: ${(spec as { type: string }).type}`);
   }
@@ -254,6 +290,11 @@ export interface ScenarioResult {
     spof: { before: string[]; after: string[] };
     oncall: Record<string, { before: number; after: number }>;
     ratio: Record<string, { m: number; ic: number }>;
+    // systems with >=1 owner before and 0 owners after (lost ALL owners).
+    // Distinct from a resolved SPOF: a 1->0 system silently leaves spof.after,
+    // so the most dangerous reduce outcome needs its own loud field. Additive
+    // and mode-agnostic: non-removing modes never drop a system, so always [].
+    unownedAfter: string[];
   };
 }
 
@@ -272,6 +313,10 @@ export function run(structureMd: string, spec: ScenarioSpec): ScenarioResult {
   for (const k of mergeKeys(mb.span, ma.span)) span[k] = { before: mb.span[k] ?? 0, after: ma.span[k] ?? 0 };
   const oncall: ScenarioResult["metrics"]["oncall"] = {};
   for (const k of mergeKeys(mb.oncall, ma.oncall)) oncall[k] = { before: mb.oncall[k] ?? 0, after: ma.oncall[k] ?? 0 };
+
+  const ownedBefore = new Set(before.flatMap((p) => p.systems));
+  const ownedAfter = new Set(after.flatMap((p) => p.systems));
+  const unownedAfter = [...ownedBefore].filter((s) => !ownedAfter.has(s)).sort();
 
   const beforeByPerson = new Map(before.map((p) => [p.person, p]));
   const movedReports = after
@@ -300,7 +345,7 @@ export function run(structureMd: string, spec: ScenarioSpec): ScenarioResult {
       addedTeams,
       removedTeams,
     },
-    metrics: { span, spof: { before: mb.spof, after: ma.spof }, oncall, ratio: ma.ratio },
+    metrics: { span, spof: { before: mb.spof, after: ma.spof }, oncall, ratio: ma.ratio, unownedAfter },
   };
 }
 

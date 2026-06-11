@@ -1,9 +1,9 @@
 ---
 name: org-design
-description: Use when the user says /org-design <org>, "analyze the org I inherited", "inherited org analysis", "span of control / SPOF / on-call distribution review", or wants a descriptive read of the org structure they just walked into during a senior eng leader ramp. The analyze mode reads a manual org/structure.md + stakeholder memory graph into a 7-section analysis under ~/repos/onboard-<org>/decisions/. The scenario mode projects a reorg (split-team, add-headcount, merge-teams, change-reporting), validates it structurally, and gates on explicit user review before writing. reduce-headcount + layoff modeling is Phase 2b-ii. Do NOT use for codebase architecture (use /architecture-overview).
+description: Use when the user says /org-design <org>, "analyze the org I inherited", "inherited org analysis", "span of control / SPOF / on-call distribution review", or wants a descriptive read of the org structure they just walked into during a senior eng leader ramp. The analyze mode reads a manual org/structure.md + stakeholder memory graph into a 7-section analysis under ~/repos/onboard-<org>/decisions/. The scenario mode projects a reorg (split-team, add-headcount, merge-teams, change-reporting, reduce-headcount), validates it structurally, and gates on explicit user review before writing. reduce-headcount adds a machine layoff-acknowledgment gate (machine-enforced deliberateness; the human confirmation behind the flag is prose-bound, not machine-verified). Do NOT use for codebase architecture (use /architecture-overview).
 disable-model-invocation: true
 status: experimental
-version: 0.3.0
+version: 0.4.0
 ---
 
 # /org-design — Inherited-Org Analysis (Phase 1)
@@ -26,7 +26,7 @@ Descriptive read of the org a new senior leader inherited — **before** proposi
 ## When NOT to Use
 
 - Codebase / service architecture — use `/architecture-overview` (no people/team data here).
-- Modeling layoffs / headcount reduction — that is Phase 2b-ii (`reduce-headcount`), not yet implemented. (Splits, additive hires, team merges, and reporting-line changes are supported now via `--mode=scenario`.)
+- Multi-scenario trade-off matrix + recommended-option output — that is Phase 2b-iii, not yet implemented. (Splits, additive hires, team merges, reporting-line changes, and headcount reduction are all supported now via `--mode=scenario`; `reduce-headcount` gates on a machine layoff acknowledgment.)
 - A single political-relationship map — use `/stakeholder-map` (this skill *reads* its output).
 
 ## Invocation
@@ -59,7 +59,7 @@ Do not check stakeholder-graph / interview availability here — those are grace
 | Mode | Effect |
 |---|---|
 | `analyze` (default) | If `org/structure.md` is absent or template-only, scaffold the seed and stop (see [Structure-file gate](#structure-file-gate)). Otherwise: read the structure file, cross-reference the stakeholder memory graph + `interviews/sanitized/`, run the six analyses per [analysis-checks.md](analysis-checks.md), regenerate `<!-- org-design:auto -->` blocks in the analysis artifact, preserve user prose below the fences, emit the annotated Mermaid chart. **After writing, print the complete file content verbatim** so the user can review it — do NOT substitute a summary. |
-| `scenario` (Phase 2b-i) | Route a reorg operation per [scenario-checks.md](scenario-checks.md): gather intent conversationally → build the `org-design:scenario` spec → call `scripts/scenario-scorer.ts` → **validity gate** (refuse on invalid, no write) → render before/after charts + delta table → **review gate** (print, require explicit confirm) → atomic write to `decisions/<date>-org-scenario-<slug>.md`. See [Scenario mode](#scenario-mode). Routes four operations: `split-team`, `add-headcount`, `merge-teams`, `change-reporting`. `reduce-headcount` still refuses: "reduce-headcount + its layoff acknowledgment are Phase 2b-ii." |
+| `scenario` (Phase 2b) | Route a reorg operation per [scenario-checks.md](scenario-checks.md): gather intent conversationally → build the `org-design:scenario` spec → call `scripts/scenario-scorer.ts` → **validity gate** (refuse on invalid, no write) → render before/after charts + delta table → **review gate** (print, require explicit confirm) → atomic write to `decisions/<date>-org-scenario-<slug>.md`. See [Scenario mode](#scenario-mode). Routes five operations: `split-team`, `add-headcount`, `merge-teams`, `change-reporting`, `reduce-headcount`. `reduce-headcount` adds a gather-then-acknowledge step + a machine ack gate (the scorer refuses unless `acknowledged:true`). |
 
 ## Mode wall (analyze vs scenario)
 
@@ -161,12 +161,12 @@ Prescriptive. Routed from `--mode=scenario`. Rules + the scenario-spec formats
    - **add-headcount** — each hire's seven columns; optional reassignments of existing people onto a new hire.
    - **merge-teams** — which teams (≥2), the new name, the surviving manager (an existing role-M person in one of the teams).
    - **change-reporting** — which person(s) and their new manager(s).
-   - **reduce-headcount** — refuse: Phase 2b-ii.
-4. **Score** — write the spec to a temp JSON, run `bun run skills/org-design/scripts/scenario-scorer.ts <structure.md> <spec.json>`, parse the `ScenarioResult`.
+   - **reduce-headcount** — gather the `cut` list (people to remove) and any optional `reassign` (displaced report → surviving manager). THEN **surface the gravity**: this models a real layoff, names specific people, and persists them to an NDA workspace. Require an explicit user confirmation. Only on confirm, set `acknowledged: true` in the serialized spec — without it, leave the flag off and the scorer refuses (machine ack gate). Reports of a cut person who are not reassigned are left orphaned on purpose (no silent roll-up); the validity gate forces the user to re-home them.
+4. **Score** — write the spec to a temp JSON, run `bun run skills/org-design/scripts/scenario-scorer.ts <structure.md> <spec.json>`, parse the `ScenarioResult`. A `reduce-headcount` spec missing `acknowledged:true` makes the scorer exit 65 with the layoff-acknowledgment-gate message — surface that refusal and stop; no projection is produced.
 5. **Validity gate** — if `valid:false`: print each failure (`kind` + `detail` + `involved`), state no file was written, STOP. Do not render, do not persist.
-6. **Render** (valid only) — emit two Mermaid `graph TD` charts (before = current; after = projected with new teams/leads heavier, moved reports labeled) + the delta table (`metric | before | after | note`, flag any 2-person rotation) + a short narrative. Overlay authority-SPOF from the stakeholder memory graph; if memory is down, add the Phase-1 degradation caveat.
+6. **Render** (valid only) — emit two Mermaid `graph TD` charts (before = current; after = projected with new teams/leads heavier, moved reports labeled) + the delta table (`metric | before | after | note`, flag any 2-person rotation) + a short narrative. If `metrics.unownedAfter` is non-empty, surface it **prominently** ("systems left UNOWNED: …") — these are systems whose every owner was cut, distinct from a SPOF that was genuinely resolved; a 1→0 system silently leaves the after-SPOF list, so it gets its own loud line. Overlay authority-SPOF from the stakeholder memory graph; if memory is down, add the Phase-1 degradation caveat.
 7. **Review gate** — print the full rendered artifact + a `validity: passed` line, then STOP and ask the user to confirm explicitly before writing. No auto-persist.
-8. **Persist** (on confirm) — atomic write-temp-rename to `decisions/<date>-org-scenario-<slug>.md` (`<slug>` per mode, kebab-cased: `<target_team>-split`, `<new_name>-merge`, `<hire>-add`, `<person>-reporting`), `<!-- org-design:auto -->` fences. Same-slug-same-day mutates in place; 2+ same-slug refuses + lists. On decline, discard — nothing written.
+8. **Persist** (on confirm) — atomic write-temp-rename to `decisions/<date>-org-scenario-<slug>.md` (`<slug>` per mode, kebab-cased: `<target_team>-split`, `<new_name>-merge`, `<hire>-add`, `<person>-reporting`, `<first-cut-person>-reduce`), `<!-- org-design:auto -->` fences. Same-slug-same-day mutates in place; 2+ same-slug refuses + lists. On decline, discard — nothing written.
 
 ## Backtracking
 
@@ -183,11 +183,10 @@ Prescriptive. Routed from `--mode=scenario`. Rules + the scenario-spec formats
 
 **Not used by this skill:** auto-memory MD, ruflo MCP, scheduled-tasks MCP, arch-overview output. No org-design memory entity Phase 1 (filesystem only).
 
-## Out of scope (Phase 2b-i)
+## Out of scope (Phase 2b-ii)
 
-Phase 2b-i ships `--mode=scenario` `split-team` + `add-headcount` + `merge-teams` + `change-reporting`. Deferred:
+Phase 2b-ii ships `--mode=scenario` with all five operations — `split-team` + `add-headcount` + `merge-teams` + `change-reporting` + `reduce-headcount` (the last gated by a machine layoff acknowledgment). Deferred:
 
-- `reduce-headcount` + the **heightened layoff acknowledgment** (Phase 2b-ii).
 - Multi-scenario trade-off matrix + recommended-option output (Phase 2b-iii).
 - Excalidraw rendering (Mermaid only).
 - HRIS / directory auto-import — structure is manual by design (issue #35: no HRIS).

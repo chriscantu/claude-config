@@ -6,7 +6,16 @@
     "./skills/"
   ],
   "agents": [
-    "./agents/"
+    "./agents/arbiter.md",
+    "./agents/decision-challenger.md",
+    "./agents/deck-audience-reviewer.md",
+    "./agents/perf-adversary.md",
+    "./agents/platform-reviewer.md",
+    "./agents/scope-adversary.md",
+    "./agents/security-adversary.md",
+    "./agents/security-reviewer.md",
+    "./agents/surgical-diff-reviewer.md",
+    "./agents/test-gap-adversary.md"
   ],
   "commands": [
     "./commands/"
