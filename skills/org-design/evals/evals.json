@@ -59,10 +59,10 @@
     },
     {
       "name": "scenario-matrix",
-      "summary": "multi-scenario trade-off matrix: comparing a split vs a merge invokes the scorer in --matrix mode, renders a trade-off matrix + a ranked recommended-option (decision-aid framing, reversibility surfaced), and stops at the review gate without auto-persisting.",
+      "summary": "multi-scenario trade-off matrix: comparing a split vs a merge invokes the scorer in --matrix mode, renders a trade-off matrix + a ranked recommended-option (decision-aid framing, reversibility surfaced), and stops at the review gate without auto-persisting. Prompt bounds the turn to a compact table + brief recommendation (skip the on-request org charts) so a heavy 2-scenario turn fits the runner's 300s per-turn cap; the asserted discriminators (--matrix path, reversibility, recommendation, no-persist) are unaffected.",
       "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-matrix",
       "teardown": "rm -rf /tmp/od-eval-matrix",
-      "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-matrix  — compare two options and recommend one: (A) split Payments into Payments-Core (lead Jordan) and Payments-Infra (lead Riley), vs (B) merge Platform and Payments into one Eng team under Dana.",
+      "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-matrix  — compare two options and recommend one. Keep it tight: a compact trade-off matrix table and a brief recommendation, and skip the org charts for now. (A) split Payments into Payments-Core (lead Jordan) and Payments-Infra (lead Riley), vs (B) merge Platform and Payments into one Eng team under Dana.",
       "assertions": [
         {"type": "skill_invoked", "skill": "org-design", "tier": "diagnostic", "description": "diagnostic structural anchor; Bash/regex below are load-bearing"},
         {"type": "tool_input_matches", "tool": "Bash", "input_key": "command", "input_value": "--matrix", "tier": "required", "description": "DISCRIMINATOR: the deterministic matrix path actually ran (compareScenarios via --matrix), not an LLM-assembled comparison"},
