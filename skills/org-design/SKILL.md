@@ -3,7 +3,7 @@ name: org-design
 description: Use when the user says /org-design <org>, "analyze the org I inherited", "inherited org analysis", "span of control / SPOF / on-call distribution review", or wants a descriptive read of the org structure they just walked into during a senior eng leader ramp. The analyze mode reads a manual org/structure.md + stakeholder memory graph into a 7-section analysis under ~/repos/onboard-<org>/decisions/. The scenario mode projects a reorg (split-team, add-headcount, merge-teams, change-reporting, reduce-headcount), validates it structurally, and gates on explicit user review before writing. reduce-headcount adds a machine layoff-acknowledgment gate (machine-enforced deliberateness; the human confirmation behind the flag is prose-bound, not machine-verified). Do NOT use for codebase architecture (use /architecture-overview).
 disable-model-invocation: true
 status: experimental
-version: 0.4.0
+version: 0.5.0
 ---
 
 # /org-design — Inherited-Org Analysis (Phase 1)
@@ -59,7 +59,7 @@ Do not check stakeholder-graph / interview availability here — those are grace
 | Mode | Effect |
 |---|---|
 | `analyze` (default) | If `org/structure.md` is absent or template-only, scaffold the seed and stop (see [Structure-file gate](#structure-file-gate)). Otherwise: read the structure file, cross-reference the stakeholder memory graph + `interviews/sanitized/`, run the six analyses per [analysis-checks.md](analysis-checks.md), regenerate `<!-- org-design:auto -->` blocks in the analysis artifact, preserve user prose below the fences, emit the annotated Mermaid chart. **After writing, print the complete file content verbatim** so the user can review it — do NOT substitute a summary. |
-| `scenario` (Phase 2b) | Route a reorg operation per [scenario-checks.md](scenario-checks.md): gather intent conversationally → build the `org-design:scenario` spec → call `scripts/scenario-scorer.ts` → **validity gate** (refuse on invalid, no write) → render before/after charts + delta table → **review gate** (print, require explicit confirm) → atomic write to `decisions/<date>-org-scenario-<slug>.md`. See [Scenario mode](#scenario-mode). Routes five operations: `split-team`, `add-headcount`, `merge-teams`, `change-reporting`, `reduce-headcount`. `reduce-headcount` adds a gather-then-acknowledge step + a machine ack gate (the scorer refuses unless `acknowledged:true`). |
+| `scenario` (Phase 2b) | Route a reorg operation per [scenario-checks.md](scenario-checks.md): gather intent conversationally → build the `org-design:scenario` spec → call `scripts/scenario-scorer.ts` → **validity gate** (refuse on invalid, no write) → render before/after charts + delta table → **review gate** (print, require explicit confirm) → atomic write to `decisions/<date>-org-scenario-<slug>.md`. See [Scenario mode](#scenario-mode). Routes five operations: `split-team`, `add-headcount`, `merge-teams`, `change-reporting`, `reduce-headcount`. `reduce-headcount` adds a gather-then-acknowledge step + a machine ack gate (the scorer refuses unless `acknowledged:true`). The skill can also **compare ≥2 scenarios** in one pass — a trade-off matrix + a ranked recommended-option (decision aid, never a bare prescription); see [Multi-scenario comparison](#multi-scenario-comparison-compare-2-options). |
 
 ## Mode wall (analyze vs scenario)
 
@@ -168,6 +168,19 @@ Prescriptive. Routed from `--mode=scenario`. Rules + the scenario-spec formats
 7. **Review gate** — print the full rendered artifact + a `validity: passed` line, then STOP and ask the user to confirm explicitly before writing. No auto-persist.
 8. **Persist** (on confirm) — atomic write-temp-rename to `decisions/<date>-org-scenario-<slug>.md` (`<slug>` per mode, kebab-cased: `<target_team>-split`, `<new_name>-merge`, `<hire>-add`, `<person>-reporting`, `<first-cut-person>-reduce`), `<!-- org-design:auto -->` fences. Same-slug-same-day mutates in place; 2+ same-slug refuses + lists. On decline, discard — nothing written.
 
+### Multi-scenario comparison (compare ≥2 options)
+
+When the user asks to weigh several options against each other:
+
+1. **Gather each scenario** — run the per-mode gather (step 3 above) once per option, including the reduce-headcount gather-then-acknowledge step for any reduce in the set (gravity surfaced + explicit confirm before that scenario's `acknowledged:true` is set). Build a manifest: a JSON array of `{ "label": "<short name>", "spec": {...} }`.
+2. **Score** — write the manifest to a temp JSON, run `bun run skills/org-design/scripts/scenario-scorer.ts --matrix <structure.md> <manifest.json>`, parse the `MatrixResult`. An unacknowledged reduce in the set exits 65 with the ack-gate message — surface the refusal and stop (no matrix produced).
+3. **Render the trade-off matrix** — a markdown table, one row per scenario: `| Scenario | Valid | Reversibility | SPOF after | Unowned after | Widest span | Key risks |`. Then full before/after Mermaid `graph TD` for the top-ranked option only (others on request). Any non-empty `unownedAfter` keeps its loud per-scenario line.
+4. **Recommended option** — a ranked list WITH shown work, headed **"Recommended (decision aid — you decide)"**. Order: valid first; among valid, fewer risk flags higher; surface ties as ties. Each entry states its reasoning (risk flags + deltas + reversibility). Flag irreversibility prominently — an `irreversible` option carries a heightened-caution line even when it ranks well; never a bare "do this". If `validLabels` is empty, list why each option breaks and emit NO recommendation.
+5. **Review gate** — print the full matrix artifact + a `validity:` summary, STOP, require explicit confirm before writing. No auto-persist.
+6. **Persist** (on confirm) — atomic write-temp-rename to `decisions/<date>-org-scenario-matrix.md` (fixed `matrix` slug), `<!-- org-design:auto -->` fences. Same-day mutates in place; 2+ `matrix` files refuse + list.
+
+Rules, the manifest shape, risk-flag derivation, and the recommended-option contract live in [scenario-checks.md](scenario-checks.md).
+
 ## Backtracking
 
 **Applies to `--mode=analyze` output only** (per the [Mode wall](#mode-wall-analyze-vs-scenario) — scenario output is prescriptive by design and is exempt). If the rendered **analyze** artifact proposes a change anywhere (§§3–7 contain a recommendation, not just an observation), return to the section and rewrite it as a descriptive flag. Analyze is observe-before-act; a prescriptive line is a known-wrong shape there — do not ship it.
@@ -183,11 +196,11 @@ Prescriptive. Routed from `--mode=scenario`. Rules + the scenario-spec formats
 
 **Not used by this skill:** auto-memory MD, ruflo MCP, scheduled-tasks MCP, arch-overview output. No org-design memory entity Phase 1 (filesystem only).
 
-## Out of scope (Phase 2b-ii)
+## Out of scope (Phase 2b-iii)
 
-Phase 2b-ii ships `--mode=scenario` with all five operations — `split-team` + `add-headcount` + `merge-teams` + `change-reporting` + `reduce-headcount` (the last gated by a machine layoff acknowledgment). Deferred:
+Phase 2b ships `--mode=scenario` with all five operations — `split-team` + `add-headcount` + `merge-teams` + `change-reporting` + `reduce-headcount` (the last gated by a machine layoff acknowledgment) — plus the multi-scenario trade-off matrix and recommended-option output. Deferred beyond 2b:
 
-- Multi-scenario trade-off matrix + recommended-option output (Phase 2b-iii).
 - Excalidraw rendering (Mermaid only).
 - HRIS / directory auto-import — structure is manual by design (issue #35: no HRIS).
 - Automated hand-off into `/strategy-doc` — the user folds output into their notes manually.
+- Any scalar org-quality score or auto-applied recommendation — the matrix is facts-only; ranking is a decision aid the user adjudicates.
