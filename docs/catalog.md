@@ -78,7 +78,7 @@ Precedence on conflict: User instructions > `rules/*.md` HARD-GATEs > Karpathy C
 | `/stakeholder-map` | Political-topology map for new leadership ramps. Coverage-review queries; meet-in-what-order guidance. |
 | `/org-design <org>` | Inherited-org analysis (Phase 1, `analyze` mode). Descriptive read of the org a new leader walked into — span of control, single points of failure, on-call distribution, skill gaps, manager:IC ratio, inherited-shape flags — into a 7-section artifact under `~/repos/onboard-<org>/decisions/`. Sole structural source is a manual `org/structure.md`; authority-SPOF reads the `/stakeholder-map` memory graph. Phase 2a adds `--mode=scenario` (`split-team`): projects a reorg, validates it structurally (orphan / reporting cycle / 0-report manager / sub-viable on-call), and gates on explicit user review before writing a `*-org-scenario-<slug>.md` artifact. Other scenario modes (merge / headcount / reporting-change), the trade-off matrix, and recommended-option are Phase 2b. |
 | `/1on1-prep` | Per-person 1:1 preparation from accumulated context. |
-| `/present` | Slidev presentation builder — consumes structured artifacts (SWOT exports, 90-day plan sections) and renders aggregate-framed reflect-back decks. |
+| `/present` | Slidev presentation builder — consumes structured artifacts (SWOT exports, 90-day plan sections) and renders aggregate-framed reflect-back decks. Markdown source (`slides.md`), integrates with `/strategy-doc`, `/onboard`, `deck-audience-reviewer`. Use for exec/leadership decks where source control + audience-content rules matter. |
 
 ### Other operational skills
 
@@ -109,5 +109,6 @@ Precedence on conflict: User instructions > `rules/*.md` HARD-GATEs > Karpathy C
 |--------|---------|
 | [caveman](https://github.com/JuliusBrussee/caveman) | Optional ultra-compressed communication mode. ~75% token reduction by speaking like a smart caveman while preserving full technical accuracy. Opt-in via `/caveman` (lite / full / ultra levels). Skill bodies, commits, and security warnings stay in normal English; only assistant prose is compressed. |
 | [superpowers](https://github.com/anthropics/claude-code-plugins) | Anthropic's official plugin bundle providing `brainstorming`, `writing-plans`, `subagent-driven-development`, `executing-plans`, `using-git-worktrees`, and `requesting-code-review` skills that the planning pipeline invokes. |
+| [frontend-slides](https://github.com/zarazhangrui/frontend-slides) | HTML-first presentation skill (`/frontend-slides`). Zero-dep single-HTML decks with animations, 12 curated style presets, PPT→web conversion, Vercel deploy. Use for pitch decks, keynotes, talks where visual punch + animation matter — NOT for `/strategy-doc`/`/onboard` reflect-backs (those stay on `/present`). Install: `/plugin marketplace add zarazhangrui/frontend-slides` then `/plugin install frontend-slides@frontend-slides`. |
 
 External plugins are not symlinked or managed by `bin/link-config.fish`; install per their own instructions. The rules in this repo do not require any of these — they layer cleanly when present.
