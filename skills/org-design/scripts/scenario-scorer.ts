@@ -349,6 +349,63 @@ export function run(structureMd: string, spec: ScenarioSpec): ScenarioResult {
   };
 }
 
+export type Reversibility = "reversible" | "costly-to-reverse" | "irreversible";
+
+// Exhaustive over ScenarioSpec["type"] — a future 6th mode forces a compile
+// error here, so the reversibility tag can never silently default to a wrong tier.
+const REVERSIBILITY: Record<ScenarioSpec["type"], Reversibility> = {
+  "split-team": "reversible",
+  "add-headcount": "reversible",
+  "change-reporting": "reversible",
+  "merge-teams": "costly-to-reverse",
+  "reduce-headcount": "irreversible",
+};
+
+export interface ScenarioComparison {
+  label: string;
+  type: ScenarioSpec["type"];
+  reversibility: Reversibility;
+  result: ScenarioResult;
+  riskFlags: string[];
+}
+
+export interface MatrixResult {
+  scenarios: ScenarioComparison[];
+  validLabels: string[];
+  invalidLabels: string[];
+}
+
+// Objective risk-flag tally, derived ONLY from a ScenarioResult (no new inputs).
+// Eval-pinnable and metric-free: every flag traces to a field already on the result.
+function deriveRiskFlags(r: ScenarioResult): string[] {
+  const flags: string[] = [];
+  for (const f of r.failures) flags.push(f.kind);                       // invalid scenarios surface each failure kind
+  if (r.metrics.unownedAfter.length > 0) flags.push("unowned-systems"); // a system that lost its last owner (1->0)
+  if (r.metrics.spof.after.length > 0) flags.push("spof-after");        // >=1 system still single-owned after
+  const widest = Math.max(0, ...Object.values(r.metrics.span).map((s) => s.after));
+  if (widest > 7) flags.push("wide-span");                              // span threshold reused from analysis-checks
+  return flags;
+}
+
+// Multi-scenario comparison. Calls run() per scenario, so every validity rule,
+// metric, and the reduce-headcount layoff ack gate are inherited unchanged. Emits
+// objective facts only — NO scalar score, NO winner; ranking is the orchestrator's
+// judgment (SKILL.md), reconciling observe-before-act / rubber-stamp risk.
+export function compareScenarios(
+  structureMd: string,
+  specs: { label: string; spec: ScenarioSpec }[],
+): MatrixResult {
+  const scenarios: ScenarioComparison[] = specs.map(({ label, spec }) => {
+    const result = run(structureMd, spec);
+    return { label, type: spec.type, reversibility: REVERSIBILITY[spec.type], result, riskFlags: deriveRiskFlags(result) };
+  });
+  return {
+    scenarios,
+    validLabels: scenarios.filter((s) => s.result.valid).map((s) => s.label),
+    invalidLabels: scenarios.filter((s) => !s.result.valid).map((s) => s.label),
+  };
+}
+
 // --- CLI entrypoint: scenario-scorer.ts <structure.md path> <scenario.json path> ---
 if (import.meta.main) {
   const [structPath, specPath] = process.argv.slice(2);

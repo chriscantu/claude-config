@@ -2,7 +2,7 @@ import { describe, expect, test, beforeAll, afterAll } from "bun:test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { parseStructure, type Person, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult, applyMerge, type MergeTeamsSpec, applyAdd, type AddHeadcountSpec, applyReporting, type ChangeReportingSpec, applyReduce, type ReduceHeadcountSpec, isScenarioType } from "./scenario-scorer.ts";
+import { parseStructure, type Person, type Role, applySplit, type SplitTeamSpec, computeMetrics, checkValidity, type ValidityFailure, run, type ScenarioResult, applyMerge, type MergeTeamsSpec, applyAdd, type AddHeadcountSpec, applyReporting, type ChangeReportingSpec, applyReduce, type ReduceHeadcountSpec, isScenarioType, compareScenarios, type MatrixResult } from "./scenario-scorer.ts";
 
 const FIXTURE = `# Org structure — orgfix-acme
 <!-- org-design:structure -->
@@ -451,5 +451,93 @@ describe("isScenarioType", () => {
     expect(isScenarioType("change-reporting")).toBe(true);
     expect(isScenarioType("reduce-headcount")).toBe(true); // Phase 2b-ii
     expect(isScenarioType("bogus")).toBe(false);
+  });
+});
+
+describe("compareScenarios", () => {
+  const MERGE: MergeTeamsSpec = {
+    type: "merge-teams", teams: ["Platform", "Payments"], newName: "Eng", survivingManager: "Dana",
+  };
+
+  test("partitions two valid scenarios; no winner/scalar emitted", () => {
+    const m: MatrixResult = compareScenarios(FIXTURE, [
+      { label: "split", spec: SPLIT },
+      { label: "merge", spec: MERGE },
+    ]);
+    expect(m.scenarios.map((s) => s.label)).toEqual(["split", "merge"]);
+    expect(m.validLabels.sort()).toEqual(["merge", "split"]);
+    expect(m.invalidLabels).toEqual([]);
+    // structural guarantee: facts only, never a collapsed score or a pick
+    expect(m).not.toHaveProperty("winner");
+    expect(m).not.toHaveProperty("score");
+  });
+
+  test("mixed valid/invalid: partition + the invalid scenario's failure kind surfaces as a risk flag", () => {
+    const m = compareScenarios(FIXTURE, [
+      { label: "split", spec: SPLIT },
+      { label: "cut-sam", spec: { type: "reduce-headcount", cut: ["Sam"], acknowledged: true } },
+    ]);
+    expect(m.validLabels).toEqual(["split"]);
+    expect(m.invalidLabels).toEqual(["cut-sam"]);
+    const cutSam = m.scenarios.find((s) => s.label === "cut-sam")!;
+    expect(cutSam.riskFlags).toContain("orphaned_report"); // Jordan/Riley -> removed Sam
+  });
+
+  test("all-invalid: validLabels is empty (drives the no-recommendation branch)", () => {
+    const m = compareScenarios(FIXTURE, [
+      { label: "cut-sam", spec: { type: "reduce-headcount", cut: ["Sam"], acknowledged: true } },
+      { label: "cut-riley", spec: { type: "reduce-headcount", cut: ["Riley"], acknowledged: true } },
+    ]);
+    expect(m.validLabels).toEqual([]);
+    expect(m.invalidLabels.sort()).toEqual(["cut-riley", "cut-sam"]);
+  });
+
+  test("3-tier reversibility tag is attached per mode regardless of validity", () => {
+    const m = compareScenarios(FIXTURE, [
+      { label: "a", spec: SPLIT },
+      { label: "b", spec: { type: "add-headcount", hires: [{ person: "Pat", role: "IC", team: "Payments", reportsTo: "Sam", systems: [], oncall: [], skills: [] }] } },
+      { label: "c", spec: { type: "change-reporting", reassign: { Jordan: "Dana" } } },
+      { label: "d", spec: MERGE },
+      { label: "e", spec: { type: "reduce-headcount", cut: ["Riley"], acknowledged: true } },
+    ]);
+    const rev = Object.fromEntries(m.scenarios.map((s) => [s.type, s.reversibility]));
+    expect(rev["split-team"]).toBe("reversible");
+    expect(rev["add-headcount"]).toBe("reversible");
+    expect(rev["change-reporting"]).toBe("reversible");
+    expect(rev["merge-teams"]).toBe("costly-to-reverse");
+    expect(rev["reduce-headcount"]).toBe("irreversible");
+  });
+
+  test("riskFlags: cutting a sole system owner flags unowned-systems", () => {
+    const m = compareScenarios(FIXTURE, [
+      { label: "cut-jordan", spec: { type: "reduce-headcount", cut: ["Jordan"], acknowledged: true } },
+    ]);
+    expect(m.scenarios[0].riskFlags).toContain("unowned-systems"); // billing-service 1->0
+  });
+
+  test("riskFlags: a span wider than 7 flags wide-span", () => {
+    const hires: Person[] = Array.from({ length: 8 }, (_, i) => ({
+      person: `H${i}`, role: "IC" as Role, team: "Platform", reportsTo: "Dana", systems: [], oncall: [], skills: [],
+    }));
+    const m = compareScenarios(FIXTURE, [
+      { label: "stack-dana", spec: { type: "add-headcount", hires } },
+    ]);
+    expect(m.scenarios[0].riskFlags).toContain("wide-span"); // Dana 1 -> 9 reports
+  });
+
+  test("riskFlags: a valid split flags the persisting SPOF but NOT unowned-systems", () => {
+    const m = compareScenarios(FIXTURE, [{ label: "split", spec: SPLIT }]);
+    const flags = m.scenarios[0].riskFlags;
+    expect(flags).toContain("spof-after");        // billing-service still sole-owned by Jordan
+    expect(flags).not.toContain("unowned-systems"); // split keeps every owner
+  });
+
+  test("ack gate is inherited: an unacknowledged reduce in the set throws", () => {
+    expect(() =>
+      compareScenarios(FIXTURE, [
+        { label: "split", spec: SPLIT },
+        { label: "cut", spec: { type: "reduce-headcount", cut: ["Riley"], acknowledged: false } },
+      ]),
+    ).toThrow(/acknowledgment gate/i);
   });
 });
