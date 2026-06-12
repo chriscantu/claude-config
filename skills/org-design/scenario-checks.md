@@ -174,10 +174,15 @@ reported loudly as `metrics.unownedAfter` (below). The user decides at the revie
 
 ## Persistence
 
-Atomic write-temp-rename to `decisions/<date>-org-scenario-<slug>.md`
-(`<slug>` = `<target_team>-split`, kebab-cased), with `<!-- org-design:auto -->`
-fences. Multiple scenario files coexist (different slugs); same-slug-same-day
-mutates in place; 2+ same-slug refuses + lists.
+Atomic write-temp-rename to `decisions/<date>-org-scenario-<slug>.md`. `<slug>` is
+the scenario **mode** alone, kebab-cased — `split`, `add`, `merge`, `reporting`, or
+`reduce` — with **no person or team name embedded**. The filename is surfaced by
+`ls`, `git log`, and tab-complete without opening the file, and this is an NDA
+workspace; a name there leaks a cut/hire/reporting decision (F3 / ADR #0024). When a
+*distinct* scenario of the same mode already exists that day, append a numeric
+disambiguator: `reduce`, then `reduce-2`, `reduce-3`. With `<!-- org-design:auto -->`
+fences. Multiple scenario files coexist (different slugs); re-running the same logical
+scenario mutates its file in place; 2+ files sharing one slug refuses + lists.
 
 ## Multi-scenario trade-off matrix (Phase 2b-iii)
 
