@@ -1,0 +1,12 @@
+# claude-code-harness session-monitor config for this repo.
+#
+# This repo uses GitHub issues as the SSOT (see Plans.md preamble), so Plans.md
+# is intentionally kept empty/quiet — it exists only to satisfy the PreCompact
+# and Stop WIP-guard hooks. The session monitor's Plans.md drift check has no
+# off-flag, only thresholds (see monitor.go checkPlansDrift), so we max both
+# arms to silence the recurring "plans drift: WIP=0, stale_for=…" warning.
+# Rationale: docs/operations.md "Plans.md drift".
+monitor:
+  plans_drift:
+    wip_threshold: 999999
+    stale_hours: 999999999
