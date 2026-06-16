@@ -26,9 +26,21 @@ transcripts: `tests/results/execution-mode-*-v2-*.md`.
 | **evals passed** | **5/5, 5/5, 5/5** | **1/5, 1/5** | **1/5, 1/5** | **5/5, 5/5** |
 | **assertions** | 15/16 each | 11/16, 12/16 | 11/16, 11/16 | 15/16 each |
 
-The 16th assertion is cell 4's `not_skill_invoked`, intentionally demoted `required → diagnostic`
-(it silent-fires — a required negative passes only against an empty signal channel; see its note
-in `evals.json`). It is reported, never gates.
+The one non-passing assertion in GREEN (the 15/16) is **cell 1's "Forward progress" diagnostic**
+("controller actually routes through the subagent-driven-development skill after announcing the
+mode"). It does not pass because the announce-then-pause prompt makes the model correctly *pause
+for confirmation* instead of dispatching — so no skill is invoked. It is a diagnostic and never
+gates; GREEN is 5/5 evals regardless. (Separately, this PR demotes cell 4's `not_skill_invoked`
+from `required → diagnostic` because a required negative silent-fires on an empty signal channel —
+but that assertion *passes* in GREEN; it is not the 15/16 non-pass.)
+
+**Run-state caveat (important).** No single captured log exercises the *committed* `evals.json`
+verbatim. The runs reflect a hybrid intermediate config: cell 4 was already demoted to diagnostic
+(matches HEAD), but cell 5's rationale assertion still used the OLD wide regex at `required`
+(matches the pre-fix state, not HEAD). The matrix numbers are correct **for the state that ran**;
+the cell-5 regex tightening and its `required → diagnostic` demotion are **offline-validated only**
+(against the 7 captured c5 transcripts). Live re-run of the committed JSON deferred per cost
+decision (ship-B).
 
 **Symlink restored to `main` after every phase** (`ln -sf`, `fish_exit` trap; never `rm`).
 
@@ -81,9 +93,18 @@ cell 5's boundary claim. It surfaced two real defects the JSON review and the wi
    This is a legitimate §4 outcome — **a claimed boundary that cannot be cleanly demonstrated because
    the rule states it redundantly.** Recorded, not papered over.
 
-**Residual risk from the tightening:** the narrower regex removes flake-cushion the wide alternation
-provided. GREEN matched 3/3 on captured transcripts, but future GREEN phrasings could miss the
-narrower pattern (text-tier flake). Accepted: correctness over a cushion that was masking a leak.
+**Resolution: cell 5's rationale assertion is demoted `required → diagnostic`.** PR #369 had promoted
+it to `required` to bind the eval to the tie-break clause. The findings above prove that binding is
+unachievable — the marker (always reachable via the disjunctive) can't discriminate the clause, and
+the tightened rationale regex *still matches* the over-determined re-derivation (transcript 19-37,
+"Both gates trip"), so it does not reliably fail on the broken state it claims to guard. Kept as
+`required` it would be a flaky text-tier exit-gate (validated against only 3 near-tautological GREEN
+matches) buying no discrimination the required markers don't already provide. Demoting aligns cell 5
+with the identical rationale assertions in cells 1/2/3 (all `diagnostic`) and with the suite's
+`_contract_note` (required marker + diagnostic rationale). The regex is still tightened (the leak is a
+real defect regardless of tier); it now reports auditability without gating. **Suite-level
+discrimination is unchanged** — it rests on the required *markers* (GREEN 5/5 vs RED-strip 1/5), never
+on this rationale.
 
 ## Transcript references
 
