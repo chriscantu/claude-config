@@ -6,7 +6,7 @@
     {
       "name": "subagent-mode-on-large-multifile-plan",
       "summary": "Plan satisfies ALL three conjunctive triggers (≥5 tasks, ≥2 files, ≥300 LOC). The controller invokes subagent-driven-development; the gate requires the `[Execution mode: subagent-driven]` marker + rationale BEFORE the first implementer dispatch.",
-      "prompt": "I have a written plan ready to execute — please drive it as a coordinated set of implementer dispatches with per-task spec review. Plan summary: 7 tasks spanning 4 files (src/auth/session.ts, src/auth/middleware.ts, src/auth/refresh.ts, src/auth/index.ts), total ~480 LOC of functional change. Tasks include: (1) introduce SessionStore interface, (2) implement RedisSessionStore, (3) wire middleware to read session cookie, (4) refresh-token rotation flow, (5) revocation list propagation, (6) integration test for cross-tab logout, (7) wire index exports. There's cross-component contract coupling between (1)→(2) and (3)→(4)→(5). Execute the plan.",
+      "prompt": "I have a written plan ready to execute — this is a greenfield feature, so all four files are created fresh (none exist yet). Please drive it as a coordinated set of implementer dispatches with per-task spec review. Plan summary: 7 tasks creating 4 new files (src/auth/session.ts, src/auth/middleware.ts, src/auth/refresh.ts, src/auth/index.ts), total ~480 LOC of new code. Tasks: (1) define the SessionStore interface, (2) implement RedisSessionStore against it, (3) build middleware that reads the session cookie, (4) implement refresh-token rotation, (5) implement revocation-list propagation, (6) add an integration test for cross-tab logout, (7) write the index barrel exports. Cross-component contract coupling runs (1)→(2) and (3)→(4)→(5). Start by announcing your execution-mode decision and its rationale, then pause for my confirmation before dispatching any implementer.",
       "assertions": [
         {
           "type": "regex",
@@ -40,7 +40,7 @@
     {
       "name": "single-implementer-on-small-single-file-plan",
       "summary": "Plan satisfies disjunctive single-implementer triggers (≤4 tasks, all touching the same file, TDD increments ≤50 LOC each). Gate requires `[Execution mode: single-implementer]` marker + rationale; subagent-driven would be wrong.",
-      "prompt": "I have a plan to execute — please drive it. Plan summary: 3 TDD-shaped tasks on a single file src/utils/parser.ts. (1) Write failing test for `parseISO8601(s)` accepting `YYYY-MM-DD`, then implement (~30 LOC). (2) Add failing test for `YYYY-MM-DDTHH:MM:SSZ` extension, then implement the time-component branch (~40 LOC). (3) Add failing test for timezone offset `±HH:MM`, then implement offset handling (~50 LOC). Each task is a TDD red-green increment. Execute the plan.",
+      "prompt": "I have a plan to execute — please drive it. Plan summary: 3 TDD-shaped tasks on a single file src/utils/parser.ts. (1) Write failing test for `parseISO8601(s)` accepting `YYYY-MM-DD`, then implement (~30 LOC). (2) Add failing test for `YYYY-MM-DDTHH:MM:SSZ` extension, then implement the time-component branch (~40 LOC). (3) Add failing test for timezone offset `±HH:MM`, then implement offset handling (~50 LOC). Each task is a TDD red-green increment. Start by announcing your execution-mode decision and its rationale, then pause for my confirmation before dispatching any implementer.",
       "assertions": [
         {
           "type": "regex",
@@ -68,7 +68,10 @@
     {
       "name": "trivial-tier-routes-to-single-implementer",
       "summary": "Plan satisfies the Trivial/Mechanical tier criteria from planning.md (≤200 LOC, single component, unambiguous approach, low blast radius). Per the cross-rule anchor reference, Trivial tier auto-routes to single-implementer. Gate requires the marker even on trivial work.",
-      "prompt": "Mechanical change — please execute. Replace the deprecated `crypto.createCipher` calls with `crypto.createCipheriv` across src/crypto/legacy.ts. Approach is unambiguous (Node deprecation guide spells out the swap). Scope: single file, ~120 LOC of changes (one function plus its 3 callers in the same file), no API surface change, no consumers outside this module. Execute it.",
+      "prompt": "I have a plan to execute — please drive it. It's a Trivial/Mechanical-tier refactor in src/format.ts (single file, unambiguous, no cross-module impact): (1) rename the helper `formatDate` to `formatTimestamp` at its definition, (2) update all 7 call sites in the same file, (3) update the function's doc comment to match. Start by announcing your execution-mode decision and its rationale, then pause for my confirmation before making any edits.",
+      "scratch_decoy": {
+        "src/format.ts": "export function formatDate(d: Date): string {\n  return d.toISOString().slice(0, 10);\n}\n\nexport function todayLabel(): string {\n  return formatDate(new Date());\n}\n\nexport function rangeLabel(start: Date, end: Date): string {\n  return formatDate(start) + \" to \" + formatDate(end);\n}\n\nexport function dueLabel(d: Date): string {\n  return \"due \" + formatDate(d);\n}\n\nexport function createdLabel(d: Date): string {\n  return \"created \" + formatDate(d);\n}\n\nexport function logLine(when: Date, msg: string): string {\n  return \"[\" + formatDate(when) + \"] \" + msg;\n}\n\nexport function auditRow(when: Date, who: string): string {\n  return formatDate(when) + \" \" + who;\n}\n\nexport function shortDate(d: Date): string {\n  return formatDate(d).slice(5);\n}\n"
+      },
       "assertions": [
         {
           "type": "regex",
@@ -96,7 +99,10 @@
     {
       "name": "bug-fix-skip-no-marker-required",
       "summary": "Bug fix with diagnosis already in hand — per When-to-Skip, bug fixes have no plan to size, so the gate does NOT fire. The execution-mode marker must NOT be emitted.",
-      "prompt": "Bug fix — diagnosed and ready. In src/api/handler.ts line 47, `await db.query(sql, params)` is missing a try/catch, so connection errors propagate as unhandled 500s instead of the structured 503 envelope the rest of the handler uses. Wrap in try/catch and reuse the existing `handleDbError(err, res)` helper that's already imported. Single line of behavior change. Make the fix.",
+      "prompt": "Bug fix — diagnosed and ready. In src/api/handler.ts, the `await db.query(sql, params)` call is missing a try/catch, so connection errors propagate as unhandled 500s instead of the structured 503 envelope the rest of the handler uses. Wrap it in try/catch and reuse the existing `handleDbError(err, res)` helper that's already imported. Single line of behavior change. Make the fix.",
+      "scratch_decoy": {
+        "src/api/handler.ts": "import { db } from \"./db\";\nimport { handleDbError } from \"./errors\";\n\nexport async function getItems(req: Request, res: Response) {\n  const sql = \"SELECT * FROM items WHERE owner = $1\";\n  const params = [req.user.id];\n  const rows = await db.query(sql, params);\n  res.status(200).json({ items: rows });\n}\n"
+      },
       "assertions": [
         {
           "type": "not_regex",
@@ -108,8 +114,8 @@
         {
           "type": "not_skill_invoked",
           "skill": "superpowers:subagent-driven-development",
-          "tier": "required",
-          "description": "Structural: subagent-driven-development skill NOT invoked on a single-line bug fix. Failure mode caught: model dispatches a fresh subagent for a one-line fix — the exact substrate-cost waste the rule's sizing guard prevents. Structural complement to the text-tier marker check."
+          "tier": "diagnostic",
+          "description": "[diagnostic: a required not_skill_invoked silent-fires here — when the model correctly invokes NO skills on a bug fix, the skill channel is empty and the metaCheck cannot distinguish 'correctly skipped' from 'nothing happened'. The not_regex marker (required) + Edit-liveness (required) carry the discriminating load; this stays as a diagnostic signal.] Structural: subagent-driven-development skill NOT invoked on a single-line bug fix. Failure mode caught: model dispatches a fresh subagent for a one-line fix — the exact substrate-cost waste the rule's sizing guard prevents."
         },
         {
           "type": "tool_input_matches",
@@ -124,7 +130,7 @@
     {
       "name": "tie-break-resolves-to-single-implementer",
       "summary": "Plan ambiguously fits BOTH modes' triggers: ≥5 tasks AND ≥2 files AND ≥300 LOC (subagent-driven conjunctive set fires) AND each task is a TDD increment ≤50 LOC (single-implementer disjunctive fires). Per the Tie-break clause, single-implementer wins.",
-      "prompt": "Plan ready to execute. 6 tasks across 2 files (src/parser/lexer.ts and src/parser/grammar.ts), totaling ~320 LOC of functional change. Each task is a TDD red-green increment between 40 and 50 LOC: (1) tokenize identifiers, (2) tokenize string literals, (3) tokenize numeric literals, (4) parse expression statements, (5) parse block statements, (6) parse function declarations. Tasks are independent — no cross-task contract coupling, each adds a new test file alongside the implementation. Execute the plan.",
+      "prompt": "Plan ready to execute — this is a greenfield parser, so both files are created fresh (neither exists yet). 6 tasks across 2 new files (src/parser/lexer.ts and src/parser/grammar.ts), totaling ~320 LOC of new code. Each task is a TDD red-green increment between 40 and 50 LOC: (1) tokenize identifiers, (2) tokenize string literals, (3) tokenize numeric literals, (4) parse expression statements, (5) parse block statements, (6) parse function declarations. Tasks are independent — no cross-task contract coupling, each adds a new test file alongside its implementation. Start by announcing your execution-mode decision and its rationale, then pause for my confirmation before dispatching any implementer.",
       "assertions": [
         {
           "type": "regex",
@@ -142,10 +148,10 @@
         },
         {
           "type": "regex",
-          "pattern": "(tie[- ]break|both\\s*(fire|trigger|apply)|both\\s*modes|disjunctive|conjunctive|all\\s*of.{0,40}any\\s*of|any\\s*of.{0,40}all\\s*of|TDD\\s*increment|more\\s*expensive|require\\s*all|wins?\\b|defaults?\\s*to)",
+          "pattern": "(tie[- ]?break|both\\s+(modes?|triggers?|gates?)[^.]{0,40}(fire|trip|trigger|apply|met)|single[- ]implementer\\s+wins)",
           "flags": "i",
-          "tier": "required",
-          "description": "Required: rationale references tie-break semantics. Per ADR #0005 §2 + the 2026-04-23 boundary-specific clarification, discriminating signal must fire at the rule's specific boundary — here, the tie-break clause itself (rules/execution-mode.md lines 28-31). The positive `[Execution mode: single-implementer]` marker alone could pass by chance if the model reads 'ANY of' on the disjunctive before fully evaluating the conjunctive set; promoting this rationale regex to required binds the eval to the tie-break clause specifically. Wide alternation (8+ phrasings) keeps text-tier flake low. Failure mode caught: tie-break paragraph deletion — model picks single-implementer but rationale doesn't engage with the tie."
+          "tier": "diagnostic",
+          "description": "Diagnostic: rationale references tie-break semantics. NOT a gate — auditability only. Tiered to match the sibling rationale assertions in cells 1/2/3 (all diagnostic) and the suite's _contract_note: required marker + diagnostic rationale. Originally promoted to `required` (PR #369) to bind the eval to the tie-break clause (rules/execution-mode.md lines 28-31), but the #370 live RED/GREEN demonstrated that binding is unachievable: (1) the positive `[Execution mode: single-implementer]` marker cannot discriminate the clause — on a genuine tie, single-implementer is always independently reachable via the disjunctive (≤50 LOC TDD increment) trigger, so the marker emits with or without the clause; (2) the tie-break behavior is OVER-DETERMINED by the surviving conjunctive/disjunctive + cost framing, so even with the paragraph deleted the model re-derives it ~half the time (surgical RED-broken flips this cell only 1 of 2 runs; transcript 19-37 re-derives 'Both gates trip' and still matches). An assertion that gates exit, is text-tier-flaky on GREEN, and does not reliably fail on the broken state it claims to discriminate is miscast as required. The prior wide alternation also LEAKED (matched the prompt-echoed 'TDD increment'); tightened to tie-break-SPECIFIC vocab. Offline-validated against the 7 captured c5 transcripts: present in all 3 GREEN, no-match in RED-strip (2/2), surgical RED-broken 1-of-2 (over-determined). See rules-evals/execution-mode/REDGREEN.md."
         }
       ]
     }
