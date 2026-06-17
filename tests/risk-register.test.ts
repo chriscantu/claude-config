@@ -127,3 +127,62 @@ describe("list", () => {
     expect(r.out).toContain("resolved");
   });
 });
+
+describe("review", () => {
+  const build = (ws: string): void => {
+    // R-1 fresh high/high active; R-2 stale med/high; R-3 escalated; R-4 resolved; R-5 fresh low/low
+    run(["add", ws, "--desc", "fresh hh", "--likelihood", "high", "--impact", "high", "--today", "2026-06-15"]);
+    run(["add", ws, "--desc", "stale mh", "--likelihood", "med", "--impact", "high", "--today", "2026-05-01"]);
+    run(["add", ws, "--desc", "to escalate", "--likelihood", "high", "--impact", "high", "--today", "2026-06-15"]);
+    run(["escalate", ws, "R-3", "--today", "2026-06-15"]);
+    run(["add", ws, "--desc", "to resolve", "--today", "2026-06-15"]);
+    run(["resolve", ws, "R-4", "--today", "2026-06-15"]);
+    run(["add", ws, "--desc", "fresh ll", "--likelihood", "low", "--impact", "low", "--today", "2026-06-15"]);
+  };
+
+  test("header counts: active(stale) · escalated · resolved", () => {
+    const ws = freshWs(); build(ws);
+    const r = run(["review", ws, "--today", "2026-06-16", "--stale-days", "14"]);
+    expect(r.out).toContain("3 active (1 stale) · 1 escalated · 1 resolved");
+  });
+
+  test("resolved excluded from all sections", () => {
+    const ws = freshWs(); build(ws);
+    const r = run(["review", ws, "--today", "2026-06-16"]);
+    expect(r.out).not.toContain("to resolve");
+  });
+
+  test("stale section shows age annotation; escalated section present", () => {
+    const ws = freshWs(); build(ws);
+    const r = run(["review", ws, "--today", "2026-06-16"]);
+    expect(r.out).toContain("ESCALATED (1)");
+    expect(r.out).toContain("NEEDS REVIEW — stale >14d (1)");
+    expect(r.out).toMatch(/\(\d+ days\)/);
+  });
+
+  test("two-letter severity tag rendered; no numeric sum", () => {
+    const ws = freshWs(); build(ws);
+    const r = run(["review", ws, "--today", "2026-06-16"]);
+    expect(r.out).toContain("[HH]");
+    expect(r.out).not.toMatch(/\bsum\b/i);
+  });
+
+  test("top active surfaces fresh high-severity risk", () => {
+    const ws = freshWs(); build(ws);
+    const r = run(["review", ws, "--today", "2026-06-16"]);
+    expect(r.out).toContain("TOP ACTIVE");
+    expect(r.out).toContain("fresh hh");
+  });
+
+  test("empty register prints No risks tracked", () => {
+    const ws = freshWs();
+    expect(run(["review", ws]).out).toContain("No risks tracked.");
+  });
+
+  test("all-fresh-no-escalated still lists top active", () => {
+    const ws = freshWs();
+    run(["add", ws, "--desc", "only one", "--today", "2026-06-16"]);
+    const r = run(["review", ws, "--today", "2026-06-16"]);
+    expect(r.out).toContain("TOP ACTIVE (1 of 1)");
+  });
+});

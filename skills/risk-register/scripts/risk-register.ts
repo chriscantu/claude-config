@@ -205,6 +205,67 @@ const cmdList = (ws: string): number => {
   return 0;
 };
 
+const daysBetween = (from: string, to: string): number => {
+  const a = Date.parse(from + "T00:00:00Z");
+  const b = Date.parse(to + "T00:00:00Z");
+  return Math.round((b - a) / 86400000);
+};
+
+const cmdReview = (ws: string, flags: Flags): number => {
+  const p = regPath(ws);
+  if (!existsSync(p)) { process.stdout.write("No risks tracked.\n"); return 0; }
+  const { org, risks } = parseRegister(readFileSync(p, "utf8"));
+  if (!risks.length) { process.stdout.write("No risks tracked.\n"); return 0; }
+  const staleDays = flags.staleDays ?? 14;
+  const date = today(flags.today);
+
+  const resolved = risks.filter((r) => r.status === "resolved");
+  const escalated = risks.filter((r) => r.status === "escalated");
+  const active = risks.filter((r) => r.status === "active");
+  const isStale = (r: Risk): boolean =>
+    r.lastReviewed !== "" && daysBetween(r.lastReviewed, date) > staleDays;
+  const staleActive = active.filter(isStale);
+  const freshActive = active.filter((r) => !isStale(r));
+  const topActive = [...freshActive].sort(cmpSev).slice(0, 3);
+
+  const line2 = (r: Risk): string => {
+    const tail = isStale(r)
+      ? `last seen ${r.lastReviewed}  (${daysBetween(r.lastReviewed, date)} days)`
+      : `reviewed ${r.lastReviewed}`;
+    return `            owner: ${r.owner} · ${tail}`;
+  };
+  const render = (r: Risk): string[] => [`  [${tag(r)}] R-${r.id}  ${r.desc}`, line2(r)];
+
+  const out: string[] = [];
+  out.push(`RISK REVIEW — ${org}          ${active.length} active (${staleActive.length} stale) · ${escalated.length} escalated · ${resolved.length} resolved`);
+  out.push("================================================================");
+
+  const escSorted = [...escalated].sort(cmpSev);
+  if (escSorted.length) {
+    out.push("");
+    out.push(`ESCALATED (${escSorted.length})`);
+    for (const r of escSorted) out.push(...render(r));
+  }
+  const staleSorted = [...staleActive].sort(cmpSev);
+  if (staleSorted.length) {
+    out.push("");
+    out.push(`NEEDS REVIEW — stale >${staleDays}d (${staleSorted.length})`);
+    for (const r of staleSorted) out.push(...render(r));
+  }
+  if (topActive.length) {
+    out.push("");
+    out.push(`TOP ACTIVE (${topActive.length} of ${freshActive.length})`);
+    for (const r of topActive) out.push(...render(r));
+  }
+
+  if (!escSorted.length && !staleSorted.length && !topActive.length) {
+    process.stdout.write("No risks require attention.\n");
+    return 0;
+  }
+  process.stdout.write(out.join("\n") + "\n");
+  return 0;
+};
+
 const main = (): number => {
   const argv = process.argv.slice(2);
   banner();
@@ -228,6 +289,7 @@ const main = (): number => {
   const idArg = argv[2] && !argv[2].startsWith("--") ? argv[2] : undefined;
   switch (action) {
     case "add": return cmdAdd(ws, flags);
+    case "review": return cmdReview(ws, flags);
     case "ack": return cmdAck(ws, idArg, flags);
     case "escalate": return cmdEscalate(ws, idArg, flags);
     case "resolve": return cmdResolve(ws, idArg, flags);
