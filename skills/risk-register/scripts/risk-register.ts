@@ -159,6 +159,35 @@ const cmdAdd = (ws: string, flags: Flags): number => {
   return 0;
 };
 
+const cmdAck = (ws: string, idArg: string | undefined, flags: Flags): number => {
+  const { org, risks } = loadOrDie(ws);
+  const r = findRisk(risks, idArg);
+  r.lastReviewed = today(flags.today);
+  save(ws, org, risks);
+  process.stdout.write(`R-${r.id} acked.\n`);
+  return 0;
+};
+
+const cmdEscalate = (ws: string, idArg: string | undefined, flags: Flags): number => {
+  const { org, risks } = loadOrDie(ws);
+  const r = findRisk(risks, idArg);
+  r.status = "escalated";
+  r.lastReviewed = today(flags.today);
+  save(ws, org, risks);
+  process.stdout.write(`R-${r.id} escalated.\n`);
+  return 0;
+};
+
+const cmdResolve = (ws: string, idArg: string | undefined, flags: Flags): number => {
+  const { org, risks } = loadOrDie(ws);
+  const r = findRisk(risks, idArg);
+  r.status = "resolved";
+  r.lastReviewed = today(flags.today);
+  save(ws, org, risks);
+  process.stdout.write(`R-${r.id} resolved.\n`);
+  return 0;
+};
+
 const main = (): number => {
   const argv = process.argv.slice(2);
   banner();
@@ -175,12 +204,18 @@ const main = (): number => {
     else if (a === "--mitigation") flags.mitigation = argv[++i];
     else if (a === "--today") flags.today = argv[++i];
   }
-  if (action === "add") {
-    if (!ws) die(`add requires a workspace path`, 2);
-    if (!existsSync(ws)) die(`workspace not found: ${ws}. Pass your initiative workspace path, e.g. ~/ramps/cloudera.`, 1);
-    return cmdAdd(ws, flags);
+  if (!ws) die(`${action} requires a workspace path`, 2);
+  if (!existsSync(ws)) {
+    die(`workspace not found: ${ws}. Pass your initiative workspace path, e.g. ~/ramps/cloudera.`, 1);
   }
-  die(`unknown action: ${action}`, 2);
+  const idArg = argv[2] && !argv[2].startsWith("--") ? argv[2] : undefined;
+  switch (action) {
+    case "add": return cmdAdd(ws, flags);
+    case "ack": return cmdAck(ws, idArg, flags);
+    case "escalate": return cmdEscalate(ws, idArg, flags);
+    case "resolve": return cmdResolve(ws, idArg, flags);
+    default: die(`unknown action: ${action}`, 2);
+  }
   return 0;
 };
 

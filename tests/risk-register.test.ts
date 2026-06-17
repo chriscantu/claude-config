@@ -65,3 +65,49 @@ describe("add", () => {
     expect(r.err).toContain("--desc");
   });
 });
+
+describe("mutators", () => {
+  test("ack bumps last-reviewed without changing status", () => {
+    const ws = freshWs(); seed(ws);
+    const r = run(["ack", ws, "R-1", "--today", "2026-06-16"]);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("R-1 acked.");
+    const text = regOf(ws);
+    expect(text).toContain("<!-- risk:active -->");
+    expect(text).toContain("**Last reviewed**: 2026-06-16");
+  });
+
+  test("escalate flips sentinel and bumps date", () => {
+    const ws = freshWs(); seed(ws);
+    const r = run(["escalate", ws, "R-1", "--today", "2026-06-16"]);
+    expect(r.out).toContain("R-1 escalated.");
+    const text = regOf(ws);
+    expect(text).toContain("<!-- risk:escalated -->");
+    expect(text).toContain("**Last reviewed**: 2026-06-16");
+  });
+
+  test("resolve flips sentinel to resolved", () => {
+    const ws = freshWs(); seed(ws);
+    const r = run(["resolve", ws, "R-1", "--today", "2026-06-16"]);
+    expect(r.out).toContain("R-1 resolved.");
+    expect(regOf(ws)).toContain("<!-- risk:resolved -->");
+  });
+
+  test("escalate bad ID exits nonzero with list hint, file unchanged", () => {
+    const ws = freshWs(); seed(ws);
+    const before = regOf(ws);
+    const r = run(["escalate", ws, "R-99", "--today", "2026-06-16"]);
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("not found");
+    expect(r.err).toContain("list");
+    expect(r.err).toContain("R-1"); // highest existing
+    expect(regOf(ws)).toBe(before);
+  });
+
+  test("escalate on missing register exits nonzero", () => {
+    const ws = freshWs();
+    const r = run(["escalate", ws, "R-1"]);
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("no register");
+  });
+});
