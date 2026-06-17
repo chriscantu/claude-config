@@ -266,27 +266,61 @@ const cmdReview = (ws: string, flags: Flags): number => {
   return 0;
 };
 
+const HELP = `Usage: risk-register <action> <ws> [options]
+
+Actions:
+  add       Add a new risk (--desc required; --likelihood/--impact default to med)
+  review    Show stale, escalated, and top active risks (read-only; default action)
+  ack       Acknowledge a risk without changing status: ack <ws> <R-N>
+  escalate  Escalate a risk: escalate <ws> <R-N>
+  resolve   Mark a risk resolved: resolve <ws> <R-N>
+  list      List all risks including resolved
+
+Example: risk-register add ~/ramps/cloudera --desc "Vendor SSO contract expires Q3"
+`;
+
+const parseFlags = (rest: string[]): { positionals: string[]; flags: Flags } => {
+  const flags: Flags = {};
+  const positionals: string[] = [];
+  for (let i = 0; i < rest.length; i++) {
+    const a = rest[i];
+    switch (a) {
+      case "--desc": flags.desc = rest[++i]; break;
+      case "--likelihood": flags.likelihood = rest[++i]; break;
+      case "--impact": flags.impact = rest[++i]; break;
+      case "--owner": flags.owner = rest[++i]; break;
+      case "--mitigation": flags.mitigation = rest[++i]; break;
+      case "--today": flags.today = rest[++i]; break;
+      case "--stale-days": flags.staleDays = Number(rest[++i]); break;
+      default:
+        if (a.startsWith("--")) die(`unknown flag: ${a}`, 2);
+        positionals.push(a);
+    }
+  }
+  return { positionals, flags };
+};
+
+const ACTIONS = new Set(["add", "review", "ack", "escalate", "resolve", "list"]);
+
 const main = (): number => {
   const argv = process.argv.slice(2);
+  if (argv.length === 0 || argv[0] === "--help" || argv[0] === "-h") {
+    process.stdout.write(HELP);
+    return 0;
+  }
   banner();
   const action = argv[0];
-  const ws = argv[1];
-  // minimal arg handling — extended in Task 7
-  const flags: Flags = {};
-  for (let i = 2; i < argv.length; i++) {
-    const a = argv[i];
-    if (a === "--desc") flags.desc = argv[++i];
-    else if (a === "--likelihood") flags.likelihood = argv[++i];
-    else if (a === "--impact") flags.impact = argv[++i];
-    else if (a === "--owner") flags.owner = argv[++i];
-    else if (a === "--mitigation") flags.mitigation = argv[++i];
-    else if (a === "--today") flags.today = argv[++i];
-  }
+  if (!ACTIONS.has(action)) die(`unknown action: ${action}`, 2);
+  const { positionals, flags } = parseFlags(argv.slice(1));
+  const ws = positionals[0];
   if (!ws) die(`${action} requires a workspace path`, 2);
   if (!existsSync(ws)) {
     die(`workspace not found: ${ws}. Pass your initiative workspace path, e.g. ~/ramps/cloudera.`, 1);
   }
-  const idArg = argv[2] && !argv[2].startsWith("--") ? argv[2] : undefined;
+  const idArg = positionals[1];
+  if ((action === "ack" || action === "escalate" || action === "resolve") && !idArg) {
+    die(`${action} requires an R-N id`, 2);
+  }
   switch (action) {
     case "add": return cmdAdd(ws, flags);
     case "review": return cmdReview(ws, flags);
@@ -294,7 +328,6 @@ const main = (): number => {
     case "escalate": return cmdEscalate(ws, idArg, flags);
     case "resolve": return cmdResolve(ws, idArg, flags);
     case "list": return cmdList(ws);
-    default: die(`unknown action: ${action}`, 2);
   }
   return 0;
 };

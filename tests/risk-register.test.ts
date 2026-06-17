@@ -186,3 +186,53 @@ describe("review", () => {
     expect(r.out).toContain("TOP ACTIVE (1 of 1)");
   });
 });
+
+describe("cli surface", () => {
+  test("--help lists six actions, reads no register", () => {
+    const r = run(["--help"]);
+    expect(r.out).toContain("add");
+    expect(r.out).toContain("review");
+    expect(r.out).toContain("ack");
+    expect(r.out).toContain("escalate");
+    expect(r.out).toContain("resolve");
+    expect(r.out).toContain("list");
+  });
+
+  test("no args prints help", () => {
+    const r = run([]);
+    expect(r.out).toContain("Usage:");
+  });
+
+  test("--stale-days override changes stale cutoff", () => {
+    const ws = freshWs();
+    run(["add", ws, "--desc", "five days old", "--today", "2026-06-11"]);
+    const tight = run(["review", ws, "--today", "2026-06-16", "--stale-days", "3"]);
+    expect(tight.out).toContain("NEEDS REVIEW");
+    const loose = run(["review", ws, "--today", "2026-06-16", "--stale-days", "30"]);
+    expect(loose.out).not.toContain("NEEDS REVIEW");
+  });
+
+  test("workspace not found gives example-path hint", () => {
+    const r = run(["review", "/no/such/ws/here"]);
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("workspace not found");
+    expect(r.err).toContain("~/ramps/cloudera");
+  });
+
+  test("malformed register names a fix path", () => {
+    const ws = freshWs();
+    mkdirSync(join(ws, "risks"), { recursive: true });
+    writeFileSync(join(ws, "risks", "register.md"), "# Risk Register — x\n<!-- risk-register:auto -->\n\n### garbage line with no id\n");
+    const r = run(["list", ws]);
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("malformed");
+    expect(r.err).toContain("restore from git");
+  });
+
+  test("unknown action exits nonzero", () => {
+    const ws = freshWs();
+    const r = run(["frobnicate", ws]);
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("unknown action");
+  });
+});
