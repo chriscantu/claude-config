@@ -3,10 +3,11 @@ name: onboard
 description: >
   Use when the user says /onboard <org>, "scaffold a new ramp", "set up
   onboarding workspace for <org>", or starts a new senior eng leader role.
-  Day-0 scaffolder for a per-org ramp workspace; Phase 1 only — cadence nags,
-  confidentiality enforcement, Calendar integration, and graduation ship in
-  later phases. Do NOT use for codebase / architecture onboarding (see
-  `architecture-overview` skill, issue #44).
+  Day-0 scaffolder plus 90-day ramp orchestrator for a per-org workspace:
+  scaffold, cadence nags, 1:1 capture/sanitize with confidentiality
+  enforcement, and graduation are ready; live Calendar scan is deferred
+  (manual paste only). Do NOT use for codebase / architecture onboarding
+  (see `architecture-overview` skill, issue #44).
 status: experimental
 version: 0.1.0
 ---

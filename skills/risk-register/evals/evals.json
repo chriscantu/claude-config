@@ -1,0 +1,84 @@
+{
+  "skill": "risk-register",
+  "description": "Guards the six-action /risk-register helper. Discriminators are required-tier Bash invocation of scripts/risk-register.ts plus stdout regex — file-mutation correctness is proven by tests/risk-register.test.ts, not here (the helper writes via writeFileSync in a Bash subprocess, so no Write tool call exists in the transcript). Skill-invocation assertions are diagnostic-tier per strategy-doc/#157.",
+  "evals": [
+    {
+      "name": "add-writes-block",
+      "summary": "One-liner add with all defaults: invokes the helper and confirms applied defaults in stdout.",
+      "setup": "mkdir -p /tmp/rr-eval-add",
+      "teardown": "rm -rf /tmp/rr-eval-add",
+      "prompt": "/risk-register /tmp/rr-eval-add add \"API auth not rotated in 90 days\"",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "risk-register", "tier": "diagnostic", "description": "diagnostic anchor; Bash + stdout regex are load-bearing"},
+        {"type": "tool_input_matches", "tool": "Bash", "input_key": "command", "input_value": "risk-register.ts add", "tier": "required", "description": "DISCRIMINATOR: helper actually invoked with add action"},
+        {"type": "regex", "pattern": "Added R-1", "flags": "", "tier": "required", "description": "new entry ID confirmed in stdout"},
+        {"type": "regex", "pattern": "med/med", "flags": "", "tier": "required", "description": "applied likelihood/impact defaults surfaced"},
+        {"type": "regex", "pattern": "owner TBD", "flags": "i", "tier": "required", "description": "owner default surfaced"}
+      ]
+    },
+    {
+      "name": "review-surfaces-stale",
+      "summary": "Stale fixture + fixed --today: stale entry surfaces in review.",
+      "setup": "mkdir -p /tmp/rr-eval-review && cp -r /Users/cantu/repos/claude-config/tests/fixtures/risk-register/register-stale/. /tmp/rr-eval-review/",
+      "teardown": "rm -rf /tmp/rr-eval-review",
+      "prompt": "/risk-register /tmp/rr-eval-review review --today 2026-06-16",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "risk-register", "tier": "diagnostic", "description": "diagnostic anchor"},
+        {"type": "tool_input_matches", "tool": "Bash", "input_key": "command", "input_value": "risk-register.ts review", "tier": "required", "description": "DISCRIMINATOR: review action invoked"},
+        {"type": "regex", "pattern": "stale", "flags": "i", "tier": "required", "description": "stale section heading present"},
+        {"type": "regex", "pattern": "R-1", "flags": "", "tier": "required", "description": "stale entry ID surfaces — proves a real file read"}
+      ]
+    },
+    {
+      "name": "escalate-flips-sentinel",
+      "summary": "Escalate R-1 on the active fixture: confirms escalation in stdout.",
+      "setup": "mkdir -p /tmp/rr-eval-esc && cp -r /Users/cantu/repos/claude-config/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-esc/",
+      "teardown": "rm -rf /tmp/rr-eval-esc",
+      "prompt": "/risk-register /tmp/rr-eval-esc escalate R-1 --today 2026-06-16",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "risk-register", "tier": "diagnostic", "description": "diagnostic anchor"},
+        {"type": "tool_input_matches", "tool": "Bash", "input_key": "command", "input_value": "risk-register.ts escalate", "tier": "required", "description": "DISCRIMINATOR: escalate action invoked"},
+        {"type": "regex", "pattern": "R-1 escalated", "flags": "", "tier": "required", "description": "escalation confirmed in stdout"}
+      ]
+    },
+    {
+      "name": "escalate-bad-id-refuses",
+      "summary": "Escalate R-99 (absent): refuses with a list hint, no success output.",
+      "setup": "mkdir -p /tmp/rr-eval-bad && cp -r /Users/cantu/repos/claude-config/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-bad/",
+      "teardown": "rm -rf /tmp/rr-eval-bad",
+      "prompt": "/risk-register /tmp/rr-eval-bad escalate R-99",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "risk-register", "tier": "diagnostic", "description": "diagnostic anchor"},
+        {"type": "tool_input_matches", "tool": "Bash", "input_key": "command", "input_value": "R-99", "tier": "required", "description": "DISCRIMINATOR: helper invoked with the bad id"},
+        {"type": "not_regex", "pattern": "R-99 escalated", "flags": "", "tier": "required", "description": "no false success"},
+        {"type": "regex", "pattern": "not found", "flags": "i", "tier": "required", "description": "error surfaced"},
+        {"type": "regex", "pattern": "list", "flags": "i", "tier": "required", "description": "recovery hint references list action"}
+      ]
+    },
+    {
+      "name": "ack-bumps-date",
+      "summary": "Ack R-1 on the active fixture: confirms ack in stdout without status change.",
+      "setup": "mkdir -p /tmp/rr-eval-ack && cp -r /Users/cantu/repos/claude-config/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-ack/",
+      "teardown": "rm -rf /tmp/rr-eval-ack",
+      "prompt": "/risk-register /tmp/rr-eval-ack ack R-1 --today 2026-06-16",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "risk-register", "tier": "diagnostic", "description": "diagnostic anchor"},
+        {"type": "tool_input_matches", "tool": "Bash", "input_key": "command", "input_value": "risk-register.ts ack", "tier": "required", "description": "DISCRIMINATOR: ack action invoked"},
+        {"type": "regex", "pattern": "R-1 acked", "flags": "", "tier": "required", "description": "ack confirmed in stdout"}
+      ]
+    },
+    {
+      "name": "resolve-drops-from-review",
+      "summary": "Resolve R-1 then review: resolved risk no longer appears in review output.",
+      "setup": "mkdir -p /tmp/rr-eval-res && cp -r /Users/cantu/repos/claude-config/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-res/",
+      "teardown": "rm -rf /tmp/rr-eval-res",
+      "prompt": "/risk-register /tmp/rr-eval-res resolve R-1 --today 2026-06-16, then /risk-register /tmp/rr-eval-res review --today 2026-06-16",
+      "assertions": [
+        {"type": "skill_invoked", "skill": "risk-register", "tier": "diagnostic", "description": "diagnostic anchor"},
+        {"type": "tool_input_matches", "tool": "Bash", "input_key": "command", "input_value": "risk-register.ts resolve", "tier": "required", "description": "DISCRIMINATOR: resolve action invoked"},
+        {"type": "regex", "pattern": "R-1 resolved", "flags": "", "tier": "required", "description": "resolve confirmed in stdout"},
+        {"type": "not_regex", "pattern": "R-1  API auth", "flags": "", "tier": "required", "description": "resolved risk absent from the review render"}
+      ]
+    }
+  ]
+}
