@@ -111,3 +111,19 @@ describe("mutators", () => {
     expect(r.err).toContain("no register");
   });
 });
+
+describe("list", () => {
+  test("empty register prints No risks tracked", () => {
+    const ws = freshWs();
+    const r = run(["list", ws]);
+    expect(r.out).toContain("No risks tracked.");
+  });
+
+  test("list includes resolved entries with R-N IDs", () => {
+    const ws = freshWs(); seed(ws);
+    run(["resolve", ws, "R-1", "--today", "2026-06-16"]);
+    const r = run(["list", ws]);
+    expect(r.out).toContain("R-1");
+    expect(r.out).toContain("resolved");
+  });
+});

@@ -188,6 +188,23 @@ const cmdResolve = (ws: string, idArg: string | undefined, flags: Flags): number
   return 0;
 };
 
+const sevKey = (r: Risk): number => SEV[r.likelihood] + SEV[r.impact];
+const cmpSev = (a: Risk, b: Risk): number =>
+  sevKey(b) - sevKey(a) || SEV[b.impact] - SEV[a.impact] || a.id - b.id;
+const tag = (r: Risk): string =>
+  `${r.likelihood[0].toUpperCase()}${r.impact[0].toUpperCase()}`;
+
+const cmdList = (ws: string): number => {
+  const p = regPath(ws);
+  if (!existsSync(p)) { process.stdout.write("No risks tracked.\n"); return 0; }
+  const { risks } = parseRegister(readFileSync(p, "utf8"));
+  if (!risks.length) { process.stdout.write("No risks tracked.\n"); return 0; }
+  for (const r of risks) {
+    process.stdout.write(`[${tag(r)}] R-${r.id}  ${r.desc}  (${r.status}) — owner: ${r.owner} · reviewed ${r.lastReviewed}\n`);
+  }
+  return 0;
+};
+
 const main = (): number => {
   const argv = process.argv.slice(2);
   banner();
@@ -214,6 +231,7 @@ const main = (): number => {
     case "ack": return cmdAck(ws, idArg, flags);
     case "escalate": return cmdEscalate(ws, idArg, flags);
     case "resolve": return cmdResolve(ws, idArg, flags);
+    case "list": return cmdList(ws);
     default: die(`unknown action: ${action}`, 2);
   }
   return 0;
