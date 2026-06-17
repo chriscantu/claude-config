@@ -28,7 +28,7 @@ bun run "$CLAUDE_PROJECT_DIR/skills/risk-register/scripts/risk-register.ts" <act
 
 (`CLAUDE_PROJECT_DIR` is harness-provided. If unset, walk up from CWD until a
 `.git` directory is found.) The script is **action-first**. When the user phrases
-it workspace-first ("/risk-register ~/ramps/cloudera review"), reorder to
+it workspace-first ("/risk-register ~/ramps/acme review"), reorder to
 action-first before calling.
 
 ## Actions

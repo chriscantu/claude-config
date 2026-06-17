@@ -216,17 +216,28 @@ describe("cli surface", () => {
     const r = run(["review", "/no/such/ws/here"]);
     expect(r.code).not.toBe(0);
     expect(r.err).toContain("workspace not found");
-    expect(r.err).toContain("~/ramps/cloudera");
+    expect(r.err).toContain("~/ramps/acme");
   });
 
-  test("malformed register names a fix path", () => {
+  test("malformed register (no id) names a fix path with the expected shape", () => {
     const ws = freshWs();
     mkdirSync(join(ws, "risks"), { recursive: true });
     writeFileSync(join(ws, "risks", "register.md"), "# Risk Register — x\n<!-- risk-register:auto -->\n\n### garbage line with no id\n");
     const r = run(["list", ws]);
     expect(r.code).not.toBe(0);
     expect(r.err).toContain("malformed");
+    expect(r.err).toContain("R-N"); // discriminator: the no-id (Step 1) path, not the no-sentinel (Step 2) path
     expect(r.err).toContain("restore from git");
+  });
+
+  test("valid id line with no trailing sentinel hits the Step-2 die (distinct message)", () => {
+    const ws = freshWs();
+    mkdirSync(join(ws, "risks"), { recursive: true });
+    writeFileSync(join(ws, "risks", "register.md"),
+      "# Risk Register — acme\n<!-- risk-register:auto -->\n\n### R-1: desc with no sentinel\n- **Likelihood**: med  **Impact**: med\n- **Owner**: TBD\n- **Mitigation**: TBD\n- **Last reviewed**: 2026-06-01\n");
+    const r = run(["list", ws]);
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("missing trailing"); // discriminates Step 2 from Step 1
   });
 
   test("unknown action exits nonzero", () => {
@@ -287,5 +298,92 @@ describe("robustness (review-driven)", () => {
     const r = run(["review", f]);
     expect(r.code).not.toBe(0);
     expect(r.err.toLowerCase()).toMatch(/director/);
+  });
+
+  test("newline in --desc is rejected (no entry forgery)", () => {
+    const ws = freshWs();
+    const r = run(["add", ws, "--desc", "line1\n### R-9: forged   <!-- risk:resolved -->", "--today", "2026-06-16"]);
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("single-line");
+  });
+
+  test("malformed header with long trailing whitespace fails fast, no ReDoS", () => {
+    const ws = freshWs();
+    mkdirSync(join(ws, "risks"), { recursive: true });
+    const spaces = " ".repeat(6000); // would hang for seconds under catastrophic backtracking
+    writeFileSync(join(ws, "risks", "register.md"),
+      `# Risk Register — acme\n<!-- risk-register:auto -->\n\n### R-1: desc${spaces}\n`);
+    const r = run(["list", ws]); // must return well within the default test timeout
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("missing trailing");
+  });
+});
+
+describe("ordering & thresholds", () => {
+  test("severity tie-break: equal sum, higher impact ranks first", () => {
+    const ws = freshWs();
+    run(["add", ws, "--desc", "lowhigh", "--likelihood", "low", "--impact", "high", "--today", "2026-06-16"]);
+    run(["add", ws, "--desc", "medmed", "--likelihood", "med", "--impact", "med", "--today", "2026-06-16"]);
+    run(["add", ws, "--desc", "highlow", "--likelihood", "high", "--impact", "low", "--today", "2026-06-16"]);
+    const out = run(["review", ws, "--today", "2026-06-16"]).out;
+    // all sum=4; impact ranks 3 > 2 > 1
+    expect(out.indexOf("lowhigh")).toBeLessThan(out.indexOf("medmed"));
+    expect(out.indexOf("medmed")).toBeLessThan(out.indexOf("highlow"));
+  });
+
+  test("--stale-days boundary: exactly N not stale, N-1 stale", () => {
+    const ws = freshWs();
+    run(["add", ws, "--desc", "boundary", "--today", "2026-06-02"]); // 14 days before 2026-06-16
+    const at14 = run(["review", ws, "--today", "2026-06-16", "--stale-days", "14"]);
+    expect(at14.out).not.toContain("NEEDS REVIEW");
+    const at13 = run(["review", ws, "--today", "2026-06-16", "--stale-days", "13"]);
+    expect(at13.out).toContain("NEEDS REVIEW");
+  });
+
+  test("escalated risk past threshold shows stale annotation inside ESCALATED", () => {
+    const ws = freshWs();
+    run(["add", ws, "--desc", "old esc", "--likelihood", "high", "--impact", "high", "--today", "2026-05-01"]);
+    run(["escalate", ws, "R-1", "--today", "2026-05-01"]);
+    const out = run(["review", ws, "--today", "2026-06-16"]).out;
+    expect(out).toContain("ESCALATED (1)");
+    expect(out.slice(out.indexOf("ESCALATED"))).toMatch(/last seen 2026-05-01\s+\(\d+ days\)/);
+  });
+});
+
+describe("arg validation (exit codes)", () => {
+  test("bad --likelihood rejected with allowed values, exit 2", () => {
+    const ws = freshWs();
+    const r = run(["add", ws, "--desc", "x", "--likelihood", "frobnicate", "--today", "2026-06-16"]);
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("low|med|high");
+  });
+
+  test("bad --today format rejected, exit 2", () => {
+    const ws = freshWs();
+    const r = run(["add", ws, "--desc", "x", "--today", "06/16/2026"]);
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("YYYY-MM-DD");
+  });
+
+  test("bad R-N id format rejected, exit 2", () => {
+    const ws = freshWs(); seed(ws);
+    const r = run(["ack", ws, "Rxyz", "--today", "2026-06-16"]);
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("R-N");
+  });
+
+  test("unknown flag rejected, exit 2", () => {
+    const ws = freshWs();
+    const r = run(["add", ws, "--desc", "x", "--bogus", "--today", "2026-06-16"]);
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("unknown flag");
+  });
+
+  test("orgFromWs strips onboard- prefix in the register title", () => {
+    const base = freshWs();
+    const ws = join(base, "onboard-acme");
+    mkdirSync(ws, { recursive: true });
+    run(["add", ws, "--desc", "x", "--today", "2026-06-16"]);
+    expect(readFileSync(join(ws, "risks", "register.md"), "utf8")).toContain("# Risk Register — acme");
   });
 });

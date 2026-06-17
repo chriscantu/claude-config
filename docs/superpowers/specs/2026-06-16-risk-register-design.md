@@ -8,7 +8,7 @@
 
 ## Problem Statement
 
-A senior eng leader (VP or Director) starting a new role at Cloudera is accountable for org-level technical risk during a 90-day ramp. Risk state today is scattered across tickets, notes, and memory. There is no fast review surface before planning meetings or leadership syncs. Stale risks go invisible and escalations get missed.
+A senior eng leader (VP or Director) starting a new senior leadership role is accountable for org-level technical risk during a 90-day ramp. Risk state today is scattered across tickets, notes, and memory. There is no fast review surface before planning meetings or leadership syncs. Stale risks go invisible and escalations get missed.
 
 The `/risk-register` skill gives the leader a single, durable risk register in any initiative workspace. They can add risks, review what is stale or escalated, ack a risk (bump its reviewed date without changing status), escalate it, resolve it, or list everything — all before a meeting catches them off guard.
 
@@ -39,11 +39,12 @@ skills/risk-register/
 tests/                                ← repo-root, per house convention
   risk-register.test.ts               ← bun unit tests
   fixtures/risk-register/
-    register-stale.md     ← fixture: two risks, one with old last-reviewed date
-    register-active.md    ← fixture: fresh risks, none stale
-    register-bad-id.md    ← fixture: well-formed register, no R-99
-    register-escalated.md ← fixture: one active, one escalated, one resolved
+    README.md             ← fixture↔eval contract matrix
+    register-active/risks/register.md  ← fixture: one fresh active R-1 (reused for escalate/ack/resolve/bad-id evals)
+    register-stale/risks/register.md   ← fixture: one risk with an old last-reviewed date
 ```
+
+Fixtures are directory-shaped workspaces (matching `org-design`), consumed by the evals via `cp -r <fixture>/. <tmp-ws>/`.
 
 Unit tests and fixtures live at the repo root `tests/` (matching `org-design`), NOT under the skill dir.
 
@@ -290,10 +291,10 @@ risk-register.ts --help
     resolve   Mark a risk resolved: resolve <ws> <R-N>
     list      List all risks including resolved
 
-  Example: risk-register add ~/ramps/cloudera --desc "Vendor SSO contract expires Q3"
+  Example: risk-register add ~/ramps/acme --desc "Vendor SSO contract expires Q3"
   ```
 
-**Arg order:** the script `risk-register.ts` is action-first (`<action> <ws>`), matching `onboard-status.ts`. The SKILL.md slash layer accepts natural ws-first phrasing (`/risk-register ~/ramps/cloudera review`) and reorders to action-first before calling the script. Evals invoke the slash form; the script contract stays action-first.
+**Arg order:** the script `risk-register.ts` is action-first (`<action> <ws>`), matching `onboard-status.ts`. The SKILL.md slash layer accepts natural ws-first phrasing (`/risk-register ~/ramps/acme review`) and reorders to action-first before calling the script. Evals invoke the slash form; the script contract stays action-first.
 
 #### ID acquisition and substring resolution
 
@@ -311,7 +312,7 @@ The deterministic CLI contract (`risk-register.ts`) takes `R-N` IDs only. Substr
 
 | Condition | Behavior |
 |-----------|----------|
-| `<ws>` dir does not exist | `die("workspace not found: <ws>. Pass your initiative workspace path, e.g. ~/ramps/cloudera.", 1)` |
+| `<ws>` dir does not exist | `die("workspace not found: <ws>. Pass your initiative workspace path, e.g. ~/ramps/acme.", 1)` |
 | `<ws>/risks/` dir missing on `add` | Create it with `mkdirSync(..., { recursive: true })` |
 | `register.md` missing on `review` or `list` | Print `No risks tracked.` and exit 0 |
 | `register.md` missing on `escalate` | `die("no register at <ws>/risks/register.md", 1)` |

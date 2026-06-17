@@ -71,31 +71,38 @@ const parseRegister = (text: string): { prefix: string; org: string; risks: Risk
   const blocks = body.split(/^(?=###\s)/m).filter((b) => b.trim().startsWith("###"));
   const risks: Risk[] = [];
   for (const block of blocks) {
-    // Greedy desc + end-anchored sentinel: a desc that itself contains a
+    // Two-step header parse (no overlapping quantifiers → no catastrophic
+    // backtracking on malformed lines). Step 1: id + rest-of-line. Step 2:
+    // the END-anchored status sentinel, so a desc that itself contains a
     // "<!-- risk:... -->" string does not hijack the status — the real
-    // trailing sentinel (at line end) wins.
-    const head = block.match(/^###\s+R-(\d+):\s*(.*)\s*<!--\s*risk:(active|escalated|resolved)\s*-->\s*$/m);
-    if (!head) {
-      const near = block.split("\n")[0].slice(0, 40);
+    // trailing sentinel wins, and desc is everything before it.
+    const firstLine = block.split("\n", 1)[0] ?? "";
+    const idm = firstLine.match(/^###\s+R-(\d+):\s*(.*)$/);
+    const near = firstLine.slice(0, 40);
+    if (!idm) {
       die(`malformed entry near '${near}': expected '### R-N: <desc> <!-- risk:STATUS -->'. Open the register to fix, or restore from git.`, 1);
+    }
+    const sm = idm[2].match(/<!--\s*risk:(active|escalated|resolved)\s*-->\s*$/);
+    if (!sm) {
+      die(`malformed entry near '${near}': missing trailing '<!-- risk:STATUS -->' sentinel. Open the register to fix, or restore from git.`, 1);
     }
     const li = block.match(/^- \*\*Likelihood\*\*:\s*(low|med|high)\s+\*\*Impact\*\*:\s*(low|med|high)/m);
     if (!li) {
-      die(`malformed entry R-${head[1]}: bad Likelihood/Impact line. Open the register to fix, or restore from git.`, 1);
+      die(`malformed entry R-${idm[1]}: bad Likelihood/Impact line. Open the register to fix, or restore from git.`, 1);
     }
     const field = (label: string): string => {
       const m = block.match(new RegExp(`^- \\*\\*${label}\\*\\*:\\s*(.*)$`, "m"));
       return m ? m[1].trim() : "";
     };
     risks.push({
-      id: Number(head[1]),
-      desc: head[2].trim(),
+      id: Number(idm[1]),
+      desc: idm[2].slice(0, sm.index).trim(),
       likelihood: li[1] as Level,
       impact: li[2] as Level,
       owner: field("Owner") || "TBD",
       mitigation: field("Mitigation") || "TBD",
       lastReviewed: field("Last reviewed"),
-      status: head[3] as Status,
+      status: sm[1] as Status,
     });
   }
   return { prefix, org, risks };
@@ -140,6 +147,11 @@ const banner = (): void => process.stderr.write("Status: ready (risk-register)\n
 
 const cmdAdd = (ws: string, flags: Flags): number => {
   if (!flags.desc) die(`add requires --desc "<text>"`, 2);
+  // Free-text fields are written verbatim into single-line markdown; a newline
+  // would forge a new entry / strip a sentinel and brick the register.
+  for (const [name, val] of [["--desc", flags.desc], ["--owner", flags.owner], ["--mitigation", flags.mitigation]] as const) {
+    if (val !== undefined && /[\r\n]/.test(val)) die(`${name} must be single-line`, 2);
+  }
   const likelihood = flags.likelihood ?? "med";
   const impact = flags.impact ?? "med";
   if (!isLevel(likelihood)) die(`bad --likelihood: ${likelihood} (low|med|high)`, 2);
@@ -287,7 +299,7 @@ Actions:
   resolve   Mark a risk resolved: resolve <ws> <R-N>
   list      List all risks including resolved
 
-Example: risk-register add ~/ramps/cloudera --desc "Vendor SSO contract expires Q3"
+Example: risk-register add ~/ramps/acme --desc "Vendor SSO contract expires Q3"
 `;
 
 const parseFlags = (rest: string[]): { positionals: string[]; flags: Flags } => {
@@ -329,10 +341,10 @@ const main = (): number => {
   const ws = positionals[0];
   if (!ws) die(`${action} requires a workspace path`, 2);
   if (!existsSync(ws)) {
-    die(`workspace not found: ${ws}. Pass your initiative workspace path, e.g. ~/ramps/cloudera.`, 1);
+    die(`workspace not found: ${ws}. Pass your initiative workspace path, e.g. ~/ramps/acme.`, 1);
   }
   if (!statSync(ws).isDirectory()) {
-    die(`not a directory: ${ws}. Pass your initiative workspace path, e.g. ~/ramps/cloudera.`, 1);
+    die(`not a directory: ${ws}. Pass your initiative workspace path, e.g. ~/ramps/acme.`, 1);
   }
   const idArg = positionals[1];
   if ((action === "ack" || action === "escalate" || action === "resolve") && !idArg) {
