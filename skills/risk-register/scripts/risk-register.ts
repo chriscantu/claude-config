@@ -3,7 +3,7 @@
 // Actions: add | review | ack | escalate | resolve | list | --help
 // Arg order: <action> <ws> [<R-N>] [flags]
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 type Level = "low" | "med" | "high";
@@ -56,18 +56,25 @@ const orgFromWs = (ws: string): string => {
 };
 
 // ---------- parse ----------
-const parseRegister = (text: string): { org: string; risks: Risk[] } => {
+// Returns the literal header region (everything up to AND including the
+// sentinel) so callers can round-trip it verbatim — the script owns only the
+// content AFTER the sentinel (spec D-1 / data-model rule).
+const parseRegister = (text: string): { prefix: string; org: string; risks: Risk[] } => {
   const orgM = text.match(/^#\s*Risk Register\s*—\s*(.+?)\s*$/m);
   const org = orgM ? orgM[1].trim() : "";
   const sIdx = text.indexOf(SENTINEL);
   if (sIdx < 0) {
     die(`malformed register: missing '${SENTINEL}'. Open the register to fix, or restore from git.`, 1);
   }
+  const prefix = text.slice(0, sIdx + SENTINEL.length);
   const body = text.slice(sIdx + SENTINEL.length);
   const blocks = body.split(/^(?=###\s)/m).filter((b) => b.trim().startsWith("###"));
   const risks: Risk[] = [];
   for (const block of blocks) {
-    const head = block.match(/^###\s+R-(\d+):\s*(.*?)\s*<!--\s*risk:(active|escalated|resolved)\s*-->/);
+    // Greedy desc + end-anchored sentinel: a desc that itself contains a
+    // "<!-- risk:... -->" string does not hijack the status — the real
+    // trailing sentinel (at line end) wins.
+    const head = block.match(/^###\s+R-(\d+):\s*(.*)\s*<!--\s*risk:(active|escalated|resolved)\s*-->\s*$/m);
     if (!head) {
       const near = block.split("\n")[0].slice(0, 40);
       die(`malformed entry near '${near}': expected '### R-N: <desc> <!-- risk:STATUS -->'. Open the register to fix, or restore from git.`, 1);
@@ -91,7 +98,7 @@ const parseRegister = (text: string): { org: string; risks: Risk[] } => {
       status: head[3] as Status,
     });
   }
-  return { org, risks };
+  return { prefix, org, risks };
 };
 
 // ---------- serialize ----------
@@ -102,14 +109,14 @@ const serializeRisk = (r: Risk): string =>
   `- **Mitigation**: ${r.mitigation}\n` +
   `- **Last reviewed**: ${r.lastReviewed}\n`;
 
-const serializeRegister = (org: string, risks: Risk[]): string =>
-  `# Risk Register — ${org}\n${SENTINEL}\n\n` + risks.map(serializeRisk).join("\n");
-
-const save = (ws: string, org: string, risks: Risk[]): void => {
-  writeFileSync(regPath(ws), serializeRegister(org, risks));
+// Writes the verbatim header region (prefix, through the sentinel) followed by
+// the regenerated risk blocks. Content before the sentinel is preserved.
+const save = (ws: string, prefix: string, risks: Risk[]): void => {
+  const body = risks.length ? "\n\n" + risks.map(serializeRisk).join("\n") : "\n";
+  writeFileSync(regPath(ws), prefix + body);
 };
 
-const loadOrDie = (ws: string): { org: string; risks: Risk[] } => {
+const loadOrDie = (ws: string): { prefix: string; org: string; risks: Risk[] } => {
   const p = regPath(ws);
   if (!existsSync(p)) die(`no register at ${p}`, 1);
   return parseRegister(readFileSync(p, "utf8"));
@@ -144,46 +151,46 @@ const cmdAdd = (ws: string, flags: Flags): number => {
   const dir = join(ws, "risks");
   if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   const p = regPath(ws);
-  let org: string;
+  let prefix: string;
   let risks: Risk[];
   if (existsSync(p)) {
-    ({ org, risks } = parseRegister(readFileSync(p, "utf8")));
+    ({ prefix, risks } = parseRegister(readFileSync(p, "utf8")));
   } else {
-    org = orgFromWs(ws);
+    prefix = `# Risk Register — ${orgFromWs(ws)}\n${SENTINEL}`;
     risks = [];
   }
   const id = risks.length ? Math.max(...risks.map((r) => r.id)) + 1 : 1;
   risks.push({ id, desc: flags.desc, likelihood, impact, owner, mitigation, lastReviewed: date, status: "active" });
-  save(ws, org, risks);
+  save(ws, prefix, risks);
   process.stdout.write(`Added R-${id} (${likelihood}/${impact}, owner ${owner}) — refine with escalate/ack or re-add\n`);
   return 0;
 };
 
 const cmdAck = (ws: string, idArg: string | undefined, flags: Flags): number => {
-  const { org, risks } = loadOrDie(ws);
+  const { prefix, risks } = loadOrDie(ws);
   const r = findRisk(risks, idArg);
   r.lastReviewed = today(flags.today);
-  save(ws, org, risks);
+  save(ws, prefix, risks);
   process.stdout.write(`R-${r.id} acked.\n`);
   return 0;
 };
 
 const cmdEscalate = (ws: string, idArg: string | undefined, flags: Flags): number => {
-  const { org, risks } = loadOrDie(ws);
+  const { prefix, risks } = loadOrDie(ws);
   const r = findRisk(risks, idArg);
   r.status = "escalated";
   r.lastReviewed = today(flags.today);
-  save(ws, org, risks);
+  save(ws, prefix, risks);
   process.stdout.write(`R-${r.id} escalated.\n`);
   return 0;
 };
 
 const cmdResolve = (ws: string, idArg: string | undefined, flags: Flags): number => {
-  const { org, risks } = loadOrDie(ws);
+  const { prefix, risks } = loadOrDie(ws);
   const r = findRisk(risks, idArg);
   r.status = "resolved";
   r.lastReviewed = today(flags.today);
-  save(ws, org, risks);
+  save(ws, prefix, risks);
   process.stdout.write(`R-${r.id} resolved.\n`);
   return 0;
 };
@@ -222,17 +229,21 @@ const cmdReview = (ws: string, flags: Flags): number => {
   const resolved = risks.filter((r) => r.status === "resolved");
   const escalated = risks.filter((r) => r.status === "escalated");
   const active = risks.filter((r) => r.status === "active");
-  const isStale = (r: Risk): boolean =>
-    r.lastReviewed !== "" && daysBetween(r.lastReviewed, date) > staleDays;
+  // Unparseable / empty dates surface as stale (fail toward visibility — the
+  // point of the tool is not to hide neglected risks behind a bad date).
+  const isStale = (r: Risk): boolean => {
+    const d = daysBetween(r.lastReviewed, date);
+    return Number.isNaN(d) || d > staleDays;
+  };
   const staleActive = active.filter(isStale);
   const freshActive = active.filter((r) => !isStale(r));
   const topActive = [...freshActive].sort(cmpSev).slice(0, 3);
 
   const line2 = (r: Risk): string => {
-    const tail = isStale(r)
-      ? `last seen ${r.lastReviewed}  (${daysBetween(r.lastReviewed, date)} days)`
-      : `reviewed ${r.lastReviewed}`;
-    return `            owner: ${r.owner} · ${tail}`;
+    if (!isStale(r)) return `            owner: ${r.owner} · reviewed ${r.lastReviewed}`;
+    const d = daysBetween(r.lastReviewed, date);
+    const age = Number.isNaN(d) ? "date unreadable" : `${d} days`;
+    return `            owner: ${r.owner} · last seen ${r.lastReviewed}  (${age})`;
   };
   const render = (r: Risk): string[] => [`  [${tag(r)}] R-${r.id}  ${r.desc}`, line2(r)];
 
@@ -312,10 +323,16 @@ const main = (): number => {
   const action = argv[0];
   if (!ACTIONS.has(action)) die(`unknown action: ${action}`, 2);
   const { positionals, flags } = parseFlags(argv.slice(1));
+  if (flags.staleDays !== undefined && (!Number.isInteger(flags.staleDays) || flags.staleDays < 0)) {
+    die(`bad --stale-days: must be a non-negative integer`, 2);
+  }
   const ws = positionals[0];
   if (!ws) die(`${action} requires a workspace path`, 2);
   if (!existsSync(ws)) {
     die(`workspace not found: ${ws}. Pass your initiative workspace path, e.g. ~/ramps/cloudera.`, 1);
+  }
+  if (!statSync(ws).isDirectory()) {
+    die(`not a directory: ${ws}. Pass your initiative workspace path, e.g. ~/ramps/cloudera.`, 1);
   }
   const idArg = positionals[1];
   if ((action === "ack" || action === "escalate" || action === "resolve") && !idArg) {

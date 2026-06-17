@@ -236,3 +236,56 @@ describe("cli surface", () => {
     expect(r.err).toContain("unknown action");
   });
 });
+
+describe("robustness (review-driven)", () => {
+  test("mutation preserves content before the sentinel", () => {
+    const ws = freshWs();
+    mkdirSync(join(ws, "risks"), { recursive: true });
+    writeFileSync(join(ws, "risks", "register.md"),
+      "# Risk Register — acme\nOwned by platform team. Do not hand-edit blocks.\n<!-- risk-register:auto -->\n\n### R-1: thing   <!-- risk:active -->\n- **Likelihood**: med  **Impact**: med\n- **Owner**: TBD\n- **Mitigation**: TBD\n- **Last reviewed**: 2026-05-01\n");
+    run(["ack", ws, "R-1", "--today", "2026-06-16"]);
+    const text = regOf(ws);
+    expect(text).toContain("Owned by platform team. Do not hand-edit blocks.");
+    expect(text).toContain("**Last reviewed**: 2026-06-16");
+  });
+
+  test("desc containing a sentinel round-trips without hijacking status", () => {
+    const ws = freshWs();
+    run(["add", ws, "--desc", "fake <!-- risk:resolved --> tail", "--today", "2026-06-16"]);
+    expect(regOf(ws)).toContain("<!-- risk:active -->");
+    const r = run(["list", ws]);
+    expect(r.out).toContain("tail");
+    expect(r.out).toContain("(active)");
+  });
+
+  test("--stale-days non-numeric exits nonzero", () => {
+    const ws = freshWs(); seed(ws);
+    const r = run(["review", ws, "--stale-days", "abc", "--today", "2026-06-16"]);
+    expect(r.code).not.toBe(0);
+    expect(r.err).toContain("stale-days");
+  });
+
+  test("--stale-days negative exits nonzero", () => {
+    const ws = freshWs(); seed(ws);
+    const r = run(["review", ws, "--stale-days", "-5", "--today", "2026-06-16"]);
+    expect(r.code).not.toBe(0);
+  });
+
+  test("unparseable last-reviewed date surfaces as stale, not fresh", () => {
+    const ws = freshWs();
+    mkdirSync(join(ws, "risks"), { recursive: true });
+    writeFileSync(join(ws, "risks", "register.md"),
+      "# Risk Register — acme\n<!-- risk-register:auto -->\n\n### R-1: bad date   <!-- risk:active -->\n- **Likelihood**: high  **Impact**: high\n- **Owner**: TBD\n- **Mitigation**: TBD\n- **Last reviewed**: someday\n");
+    const r = run(["review", ws, "--today", "2026-06-16"]);
+    expect(r.out).toContain("NEEDS REVIEW");
+  });
+
+  test("workspace that is a file exits nonzero with actionable error", () => {
+    const base = freshWs();
+    const f = join(base, "afile");
+    writeFileSync(f, "x");
+    const r = run(["review", f]);
+    expect(r.code).not.toBe(0);
+    expect(r.err.toLowerCase()).toMatch(/director/);
+  });
+});
