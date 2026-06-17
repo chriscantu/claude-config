@@ -9,8 +9,15 @@ import { join } from "node:path";
 type Level = "low" | "med" | "high";
 type Status = "active" | "escalated" | "resolved";
 
+// Severity rank for sorting (higher = worse). Never shown to the user.
 const SEV: Record<Level, number> = { low: 1, med: 2, high: 3 };
+// Marks the start of the script-owned region of the register. Everything
+// before it (title + any human prose) is preserved verbatim on rewrite.
 const SENTINEL = "<!-- risk-register:auto -->";
+// A risk is "stale" when its last-reviewed date is older than this many days.
+const DEFAULT_STALE_DAYS = 14;
+// ISO calendar date, YYYY-MM-DD (e.g. 2026-06-17). Used to validate --today.
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 interface Risk {
   id: number;
@@ -42,7 +49,7 @@ const isLevel = (s: string): s is Level => s === "low" || s === "med" || s === "
 
 const today = (flag?: string): string => {
   if (flag !== undefined) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(flag)) die(`bad --today: ${flag} (want YYYY-MM-DD)`, 2);
+    if (!ISO_DATE_RE.test(flag)) die(`bad --today: ${flag} (want YYYY-MM-DD)`, 2);
     return flag;
   }
   return new Date().toISOString().slice(0, 10);
@@ -55,54 +62,66 @@ const orgFromWs = (ws: string): string => {
   return base.replace(/^onboard-/, "");
 };
 
-// ---------- parse ----------
+// ---------- register format ----------
+// The register is markdown by design (D-1) so a leader can read and hand-edit
+// it. The format lives in exactly two functions that must stay in sync:
+// serializeRisk() writes one block; parseRegister() reads one. A heavier
+// approach (a parser library or a structured store) was rejected as
+// over-engineering for a single small, human-owned file (YAGNI).
+//
+// Reads a single "- **Label**: value" bullet from a risk block.
+const bulletField = (block: string, label: string): string => {
+  const m = block.match(new RegExp(`^- \\*\\*${label}\\*\\*:\\s*(.*)$`, "m"));
+  return m ? m[1].trim() : "";
+};
+
 // Returns the literal header region (everything up to AND including the
 // sentinel) so callers can round-trip it verbatim — the script owns only the
 // content AFTER the sentinel (spec D-1 / data-model rule).
 const parseRegister = (text: string): { prefix: string; org: string; risks: Risk[] } => {
-  const orgM = text.match(/^#\s*Risk Register\s*—\s*(.+?)\s*$/m);
-  const org = orgM ? orgM[1].trim() : "";
-  const sIdx = text.indexOf(SENTINEL);
-  if (sIdx < 0) {
+  const orgMatch = text.match(/^#\s*Risk Register\s*—\s*(.+?)\s*$/m);
+  const org = orgMatch ? orgMatch[1].trim() : "";
+  const sentinelIdx = text.indexOf(SENTINEL);
+  if (sentinelIdx < 0) {
     die(`malformed register: missing '${SENTINEL}'. Open the register to fix, or restore from git.`, 1);
   }
-  const prefix = text.slice(0, sIdx + SENTINEL.length);
-  const body = text.slice(sIdx + SENTINEL.length);
+  // Header region (title + prose + sentinel) kept verbatim; only the blocks
+  // after the sentinel are parsed and regenerated.
+  const prefix = text.slice(0, sentinelIdx + SENTINEL.length);
+  const body = text.slice(sentinelIdx + SENTINEL.length);
   const blocks = body.split(/^(?=###\s)/m).filter((b) => b.trim().startsWith("###"));
   const risks: Risk[] = [];
   for (const block of blocks) {
-    // Two-step header parse (no overlapping quantifiers → no catastrophic
-    // backtracking on malformed lines). Step 1: id + rest-of-line. Step 2:
-    // the END-anchored status sentinel, so a desc that itself contains a
-    // "<!-- risk:... -->" string does not hijack the status — the real
-    // trailing sentinel wins, and desc is everything before it.
     const firstLine = block.split("\n", 1)[0] ?? "";
-    const idm = firstLine.match(/^###\s+R-(\d+):\s*(.*)$/);
     const near = firstLine.slice(0, 40);
-    if (!idm) {
+    // Two-step header parse (no overlapping quantifiers → no catastrophic
+    // backtracking on malformed lines).
+    // Step 1 — capture the id and the rest of the header line:
+    //   "### R-12: some description <!-- risk:active -->"
+    const headerMatch = firstLine.match(/^###\s+R-(\d+):\s*(.*)$/);
+    if (!headerMatch) {
       die(`malformed entry near '${near}': expected '### R-N: <desc> <!-- risk:STATUS -->'. Open the register to fix, or restore from git.`, 1);
     }
-    const sm = idm[2].match(/<!--\s*risk:(active|escalated|resolved)\s*-->\s*$/);
-    if (!sm) {
+    // Step 2 — find the END-anchored status sentinel, so a description that
+    // itself contains a "<!-- risk:... -->" string cannot hijack the status;
+    // the real trailing sentinel wins and desc is everything before it.
+    const statusMatch = headerMatch[2].match(/<!--\s*risk:(active|escalated|resolved)\s*-->\s*$/);
+    if (!statusMatch) {
       die(`malformed entry near '${near}': missing trailing '<!-- risk:STATUS -->' sentinel. Open the register to fix, or restore from git.`, 1);
     }
-    const li = block.match(/^- \*\*Likelihood\*\*:\s*(low|med|high)\s+\*\*Impact\*\*:\s*(low|med|high)/m);
-    if (!li) {
-      die(`malformed entry R-${idm[1]}: bad Likelihood/Impact line. Open the register to fix, or restore from git.`, 1);
+    const levelMatch = block.match(/^- \*\*Likelihood\*\*:\s*(low|med|high)\s+\*\*Impact\*\*:\s*(low|med|high)/m);
+    if (!levelMatch) {
+      die(`malformed entry R-${headerMatch[1]}: bad Likelihood/Impact line. Open the register to fix, or restore from git.`, 1);
     }
-    const field = (label: string): string => {
-      const m = block.match(new RegExp(`^- \\*\\*${label}\\*\\*:\\s*(.*)$`, "m"));
-      return m ? m[1].trim() : "";
-    };
     risks.push({
-      id: Number(idm[1]),
-      desc: idm[2].slice(0, sm.index).trim(),
-      likelihood: li[1] as Level,
-      impact: li[2] as Level,
-      owner: field("Owner") || "TBD",
-      mitigation: field("Mitigation") || "TBD",
-      lastReviewed: field("Last reviewed"),
-      status: sm[1] as Status,
+      id: Number(headerMatch[1]),
+      desc: headerMatch[2].slice(0, statusMatch.index).trim(),
+      likelihood: levelMatch[1] as Level,
+      impact: levelMatch[2] as Level,
+      owner: bulletField(block, "Owner") || "TBD",
+      mitigation: bulletField(block, "Mitigation") || "TBD",
+      lastReviewed: bulletField(block, "Last reviewed"),
+      status: statusMatch[1] as Status,
     });
   }
   return { prefix, org, risks };
@@ -235,7 +254,7 @@ const cmdReview = (ws: string, flags: Flags): number => {
   if (!existsSync(p)) { process.stdout.write("No risks tracked.\n"); return 0; }
   const { org, risks } = parseRegister(readFileSync(p, "utf8"));
   if (!risks.length) { process.stdout.write("No risks tracked.\n"); return 0; }
-  const staleDays = flags.staleDays ?? 14;
+  const staleDays = flags.staleDays ?? DEFAULT_STALE_DAYS;
   const date = today(flags.today);
 
   const resolved = risks.filter((r) => r.status === "resolved");
@@ -259,6 +278,8 @@ const cmdReview = (ws: string, flags: Flags): number => {
   };
   const render = (r: Risk): string[] => [`  [${tag(r)}] R-${r.id}  ${r.desc}`, line2(r)];
 
+  // Render the one-glance report: a count header, then severity-sorted
+  // Escalated / Stale / Top-active sections (empty sections are omitted).
   const out: string[] = [];
   out.push(`RISK REVIEW — ${org}          ${active.length} active (${staleActive.length} stale) · ${escalated.length} escalated · ${resolved.length} resolved`);
   out.push("================================================================");
