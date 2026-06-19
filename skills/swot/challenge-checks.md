@@ -3,6 +3,12 @@
 Four quality checks run in challenge mode (`--mode=challenge`) or after a capture
 when the user accepts the offer.
 
+These run against written entries as a backstop. Observation-first capture (see
+[capture-form.md](capture-form.md)) is designed to *prevent* the vagueness (Check 1) and
+mis-sorting (Check 4) at the source rather than patch them after — so on a clean capture
+run these two checks should flag few or no entries. The checks stay because artifact
+imports, `--from` handoffs, and older entries can still drift.
+
 Read entity: `mcp__memory__open_nodes({ names: ["<Org Name> SWOT"] })`
 
 ## Check 1: Specific?
