@@ -19,8 +19,11 @@ const GIT_ENV = {
   GIT_COMMITTER_EMAIL: "onboard-scaffold-test@example.invalid",
 };
 
+// `--no-config` stops fish from rebuilding PATH via config.fish / fish_user_paths
+// on startup. Without it, an installed `gh` (e.g. Homebrew) shadows the test
+// stub and the real `gh repo create` runs against a live GitHub account.
 const runScaffold = (cwd: string, ...args: string[]): RunResult => {
-  const result = spawnSync("fish", [SCRIPT, ...args], {
+  const result = spawnSync("fish", ["--no-config", SCRIPT, ...args], {
     cwd,
     encoding: "utf8",
     env: { ...process.env, ...GIT_ENV },
@@ -53,7 +56,7 @@ const makeGhStub = (root: string, behavior: GhStubBehavior = {}): GhStub => {
 };
 
 const runWithStub = (cwd: string, stub: GhStub, ...args: string[]): RunResult => {
-  const result = spawnSync("fish", [SCRIPT, ...args], {
+  const result = spawnSync("fish", ["--no-config", SCRIPT, ...args], {
     cwd,
     encoding: "utf8",
     env: { ...process.env, ...GIT_ENV, PATH: `${stub.stubDir}:${process.env.PATH}` },
