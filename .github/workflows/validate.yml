@@ -13,7 +13,7 @@ jobs:
   validate:
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
 
       - name: Install fish shell
         # Use Ubuntu universe (fish 3.3+ on 22.04) instead of the upstream
