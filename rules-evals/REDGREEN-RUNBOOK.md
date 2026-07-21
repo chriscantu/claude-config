@@ -6,10 +6,15 @@ eval suite must pass with the rule present (**GREEN**) and fail with the rule re
 (**RED**), with the eval output from both recorded in a `REDGREEN.md` beside the suite.
 
 This runbook is the procedure. `rules-evals/execution-mode/REDGREEN.md` is the worked
-reference example. `rules-evals/verification/REDGREEN.md` is a cautionary case: its first
-run was invalidated by a harness bug (`@file` prompts the runner never expands, so the model
-never saw the scenario) — read it before trusting a matrix, and confirm the model actually
-received the scenario before drawing any §4 conclusion.
+reference example. `rules-evals/verification/REDGREEN.md` is a cautionary case worth reading
+in full: its first run was invalidated by a harness bug (`@file` prompts the runner never
+expands, so the model never saw the scenario), and its repaired re-proof then found **no
+discrimination** — the soft rule's gap-surfacing overlaps base-model habit (survives
+RED-strip), and its positive "declare done cleanly" case is **not elicitable** in the
+`--print` empty-sandbox harness (the model correctly refuses to declare done on a narrated
+repo it cannot inspect). Two lessons: confirm the model actually received the scenario before
+trusting any matrix, and remember that a scenario narrating repo state the model can't
+materialize will not elicit verify-then-declare behavior.
 
 ## The harness
 
@@ -62,7 +67,7 @@ outcome — evidence the rule is partly redundant with default behavior — and 
 | Suite | HARD-GATE? | Status |
 |---|---|---|
 | `execution-mode` | yes | ✅ proof committed (reference) |
-| `verification` | no (soft) | 🔧 suite repaired (harness bug fixed); live re-proof queued |
+| `verification` | no (soft) | ✅ re-proof committed — verdict: NO discrimination (soft-rule redundancy + positive case not elicitable in empty-sandbox harness) |
 | `goal-driven` | yes | ⬜ backlog |
 | `pr-validation` | yes | ⬜ backlog |
 | `disagreement` | yes | ⬜ backlog |
