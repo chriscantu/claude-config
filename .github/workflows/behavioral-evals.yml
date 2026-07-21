@@ -1,0 +1,97 @@
+name: Behavioral Evals (scheduled)
+
+# Runs the LIVE behavioral eval suite (the runner shells `claude --print`) on a
+# schedule — NOT per-PR. Rationale: the full 198-eval suite would exhaust the Max
+# usage window and gate merges on a flaky text-tier signal. This job is a periodic
+# regression detector over a bounded rule-suite subset.
+#
+# Auth & billing: uses CLAUDE_CODE_OAUTH_TOKEN (from `claude setup-token`) so runs
+# draw on the Max subscription — NO separate pay-per-token API fee. Do NOT add
+# ANTHROPIC_API_KEY (it takes precedence → metered billing) and do NOT pass --bare
+# (bare mode ignores CLAUDE_CODE_OAUTH_TOKEN). One-time setup in docs/operations.md.
+#
+# "red = real regression": the default subset excludes `pr-validation` because it has
+# a known-failing required-structural eval (see tests/EVAL_BASELINE.md) that a flag
+# cannot neutralize; and the job runs with --text-nonblocking so only required-
+# STRUCTURAL failures (the runner's "reliable" axis) gate. Add suites via the
+# workflow_dispatch input once their baseline is clear.
+
+on:
+  workflow_dispatch:
+    inputs:
+      suites:
+        description: "Space-separated suite names to run (blank = default HARD-GATE rule subset)"
+        required: false
+        default: ""
+  schedule:
+    # Mondays 08:17 UTC — off-peak, deliberately not on the :00 mark.
+    - cron: "17 8 * * 1"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: behavioral-evals
+  cancel-in-progress: false
+
+jobs:
+  evals:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 60
+    env:
+      CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Install Claude Code CLI
+        # Native installer → ~/.local/bin/claude (per Claude Code setup docs).
+        run: curl -fsSL https://claude.ai/install.sh | bash
+
+      - name: Add claude to PATH
+        # A PATH export inside a step does not survive to later steps; use
+        # $GITHUB_PATH so subsequent steps find `claude`.
+        run: echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+
+      - name: Guard — OAuth token present
+        # Fail loud, not silent: without the secret the eval runner's own auth
+        # pre-flight would fail anyway, but this pinpoints the cause.
+        run: |
+          if [ -z "$CLAUDE_CODE_OAUTH_TOKEN" ]; then
+            echo "::error::CLAUDE_CODE_OAUTH_TOKEN secret is not set. Generate with 'claude setup-token' and add it as a repo secret (see docs/operations.md)."
+            exit 1
+          fi
+          claude --version
+
+      - name: Run behavioral eval subset
+        # `bun run evals` → tests/eval-runner-v2.ts, which filters to ONE suite per
+        # invocation (first positional; see eval-runner-v2.ts:120) — so loop, one
+        # suite per run, and aggregate exit codes. --concurrency 1 keeps window
+        # pressure gentle; --text-nonblocking makes the reliable structural axis the
+        # exit gate. NO --bare (subscription auth).
+        run: |
+          SUITES="${{ github.event.inputs.suites }}"
+          if [ -z "$SUITES" ]; then
+            SUITES="verification goal-driven disagreement think-before-coding memory-discipline execution-mode fat-marker-sketch-rule"
+          fi
+          echo "Running suites: $SUITES"
+          rc=0
+          for s in $SUITES; do
+            echo "::group::eval suite: $s"
+            bun run evals "$s" --concurrency 1 --text-nonblocking || rc=1
+            echo "::endgroup::"
+          done
+          exit $rc
+
+      - name: Upload transcripts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-transcripts
+          path: tests/results/*.md
+          if-no-files-found: ignore

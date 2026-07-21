@@ -221,6 +221,55 @@ cat .claude/state/critiques/<dir>/{security,perf,scope,test-gap}.md  # individua
 rm -rf .claude/state/critiques/*                     # clear when done (or just leave them — gitignored)
 ```
 
+## Behavioral Evals in CI (scheduled)
+
+The structural checks (`validate.fish`, `bun test`) and the sycophancy classifier run
+per-PR and are free — none of them call the model. The **live** behavioral eval suite
+(the runner shells `claude --print`) is different: it exercises whether Claude actually
+follows the HARD-GATEs. It runs on a schedule, not per-PR, via
+[`.github/workflows/behavioral-evals.yml`](../.github/workflows/behavioral-evals.yml).
+
+### Auth & billing — no separate API fee
+
+The workflow authenticates with `CLAUDE_CODE_OAUTH_TOKEN`, so runs draw on the Max
+subscription rather than metered API billing. It deliberately does **not** set
+`ANTHROPIC_API_KEY` (it would take precedence → pay-per-token) and does **not** pass
+`--bare` (bare mode ignores the OAuth token).
+
+> **Usage-window caveat.** "No fee" is not "no cost." Subscription runs consume the
+> shared Max usage limits (rolling 5-hour + weekly windows) — the same pool as your
+> interactive Claude Code and chat use. This is why the job is scheduled + scoped to a
+> bounded rule-suite subset, not run per-PR on the full 198-eval suite.
+
+### One-time setup
+
+```sh
+claude setup-token          # generates a one-year OAuth token (requires Pro/Max/Team/Enterprise)
+```
+
+Add the printed token as a repository secret named `CLAUDE_CODE_OAUTH_TOKEN`
+(`gh secret set CLAUDE_CODE_OAUTH_TOKEN`, or Settings → Secrets and variables → Actions).
+Without it, the job's guard step fails loud with a setup pointer.
+
+### What runs
+
+- **Schedule:** weekly (Mondays 08:17 UTC). **Manual:** `workflow_dispatch` with an
+  optional `suites` input (space-separated) to override the default set.
+- **Default subset:** the HARD-GATE rule suites, run one-per-invocation (the runner
+  filters to one suite per call) with `--concurrency 1 --text-nonblocking` so only the
+  reliable *structural* axis gates. `pr-validation` is **excluded** from the default
+  because it has a known-failing required-structural eval (see
+  [`tests/EVAL_BASELINE.md`](../tests/EVAL_BASELINE.md)); add it via the dispatch input
+  once that baseline is cleared, so "red = real regression" holds.
+
+### Discrimination proofs (RED/GREEN)
+
+The companion to running evals is proving each rule actually *discriminates* behavior
+(ADR #0005 §4). See [`rules-evals/REDGREEN-RUNBOOK.md`](../rules-evals/REDGREEN-RUNBOOK.md)
+and the harness [`bin/redgreen.fish`](../bin/redgreen.fish). Live proofs consume the same
+Max usage window and briefly strip a rule from `~/.claude` — don't run concurrent
+interactive sessions during one.
+
 ## Log Hygiene
 
 ### `excalidraw.log` rotation
