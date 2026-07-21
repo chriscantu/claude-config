@@ -1,87 +1,77 @@
-# verification — live RED/GREEN demonstration (ADR #0005 §4)
+# verification — RED/GREEN status (ADR #0005 §4)
 
 Per [ADR #0005](../../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md) §4,
-discrimination must be **demonstrated, not asserted**. This file records the live runs for
-the `verification` suite, produced by [`bin/redgreen.fish`](../../bin/redgreen.fish).
+discrimination must be **demonstrated, not asserted**. This file tracks the `verification` suite.
 
-**Result: `verification` does NOT demonstrate discrimination at the strip level.** This is
-an expected, documented outcome — [`rules-evals/README.md`](../README.md) already classifies
-`verification/` as *"bonus coverage, not a policy requirement"* because `verification.md` is a
-soft rule (no `<HARD-GATE>` block) whose behavior overlaps base-model habit. Recorded honestly
-per §4, not papered over.
+> **Status: re-proof PENDING.** The first live run (2026-07-21) was invalid — it measured a
+> broken harness, not the rule. The suite has since been repaired; a fresh live RED/GREEN run
+> is queued (window-budgeted). Do **not** cite the withdrawn matrix below as a §4 finding.
 
-## Method
+## What went wrong in the first run (harness bug, now fixed)
 
-The only variable is the `~/.claude/rules/verification.md` symlink target (the harness globs
-`~/.claude/rules/*.md`). GREEN = symlink intact; RED-strip = symlink repointed to an emptied
-file. Suite JSON is pinned to this repo and is never the variable. Runs:
-`env -u ANTHROPIC_API_KEY EVAL_SKIP_AUTH_PROBE=1`, `--concurrency 1`, subscription auth.
-Logs: `/tmp/redgreen-verification-logs/`.
+The three evals referenced their scenario via `@tests/fixtures/verification/<case>/prompt.md`.
+**The eval runner does not expand `@file` references** (confirmed: no `@`-handling anywhere in
+`tests/eval-runner-v2.ts`; it does not execute `setup.sh`, which was a no-op anyway). So
+`claude` received the literal string `@tests/fixtures/...`, tried to resolve it against its
+empty scratch sandbox, and failed. Every transcript is the model reporting *"the working
+directory is empty and the file you referenced doesn't exist … the fixture was expected to be
+created/copied in first and that step didn't happen."* **The model never saw any of the three
+scenarios.** `verification` was the only suite in the repo using `@file` prompts; every other
+suite inlines the scenario text.
 
-## Result matrix
+Consequence: the earlier conclusion ("verification does not discriminate — soft rule, bonus
+coverage") was an **artifact of the broken harness**, not evidence about the rule. It is
+withdrawn.
 
-`✓` = eval passes (all required assertions pass). `✗` = ≥1 required assertion fails.
+## The fix (committed, static — not yet live-validated)
 
-| Eval | GREEN ×3 (rule present) | RED-strip ×2 (rule emptied) |
-|---|:--:|:--:|
-| goal-gap-surfaces-before-result-emission | ✗ ✗ ✗ | ✗ ✓ |
-| aligned-delta-emits-result-cleanly | ✗ ✗ ✗ | ✗ ✗ |
-| scope-creep-surfaces-before-result | ✓ ✓ ✓ | ✓ ✓ |
-| **evals passed** | **1/3, 1/3, 1/3** | **1/3, 2/3** |
-| **required-text assertions** | 4/6 each | 4/6, 5/6 |
-| **required-structural assertions** | 0/0 | 0/0 |
+1. **Inlined** all three scenarios into `evals/evals.json` `prompt` fields (matching every
+   other suite). The `@file` references are gone; the fixtures under
+   `tests/fixtures/verification/` are now redundant source-of-truth (left in place, not
+   deleted — see note below).
+2. **Rewrote the three `result:`-based assertions.** The prior `(^|\n)\s*result:` sentinel
+   bound to a token the model never emits in a `--print` prose turn, so the positive assertion
+   failed in all runs and the negative assertions passed vacuously. Replacements match actual
+   **completion-declaration language**:
+   - Positive (aligned-delta): recall-biased — matches "declare/mark/call it done", "this is
+     done", "good to go", "ship it", "safe to declare", etc.
+   - Negative (two gap cases): precision-biased — matches only unambiguous affirmative closure
+     (`ship it`, `good to go`, `it's done`) so a *correct* gap-surfacing response (which states
+     the work is NOT done) does not false-fail. Trade-off: biased to under-flag rather than
+     false-fail correct behavior, since it could not be tuned against live output.
+3. Patterns were behavior-checked offline against representative correct/incorrect responses
+   (positive matches clean declarations; negative ignores gap-surfacing prose, catches blatant
+   "ship it"). This is **not** a substitute for a live run — it only rules out obvious
+   regex defects.
 
-## Discrimination: NOT demonstrated
+## Withdrawn matrix (INVALID — kept for provenance only)
 
-GREEN (1/3, flake-stable ×3) is **not** better than RED-strip (1/3, 2/3) — RED run 2 scored
-*higher*. No eval flips in the discriminating direction (pass-with-rule → fail-without). Three
-distinct reasons, none of which is discrimination:
+The 2026-07-21 run recorded GREEN 1/3,1/3,1/3 and RED-strip 1/3,2/3. **These numbers describe
+a "file not found" turn, not the goal-verification gate.** Do not use them.
 
-1. **The suite is entirely required-*text* (0 required-structural).** Every gate is a regex
-   over free-form prose. Text-tier assertions are the runner's designated *flaky* axis; they
-   cannot supply spoof-resistant discrimination the way `tool_called` / `skill_invoked` do.
+## Live re-proof — queued
 
-2. **Two assertions fail in GREEN — brittle regex, not signal.**
-   - `aligned-delta-emits-result-cleanly` expects a literal `^result:` line
-     (`/(^|\n)\s*result:/i`). The model does not emit that harness sentinel in a `--print`
-     turn regardless of the rule, so the assertion fails in **all 5 runs** (GREEN and RED
-     alike). It binds to nothing.
-   - `goal-gap-surfaces-before-result-emission` requires the model to name a sign/direction
-     mismatch using one of an enumerated regex vocabulary. It fails stably in GREEN ×3: either
-     the enumerated phrasings are too narrow, or the soft rule does not reliably trigger the
-     behavior. Its single RED pass (run 2) is the model re-deriving the gap from base habit —
-     the opposite of rule-driven discrimination.
+Run `./bin/redgreen.fish verification` after the harness fix and record the real matrix here.
+Because the scenarios now reach the model, this run will show, for the first time, whether the
+gate's behavior differs with the rule present vs. stripped. Expected outcome is still uncertain:
+`verification.md` is a *soft* rule (no `<HARD-GATE>`) whose behavior overlaps base-model habit,
+so GREEN ≈ RED remains a legitimate possible finding — but it must be measured, not assumed.
 
-3. **`scope-creep-surfaces-before-result` passes in every condition** — a control, not a
-   discriminator: surfacing an obvious 124-LOC/11-file scope blowup is base-model default.
+## Notes
 
-## Verdict & recommendation
-
-`verification` supplies **no discriminating signal** and its text assertions are partly
-brittle (2/3 evals fail even with the rule present). Options, in order of preference:
-
-1. **Accept as documented non-discriminating bonus coverage** (status quo per README) — this
-   file is the honest record. No promotion claim is made for `verification.md`.
-2. **Repair the suite** if discrimination is wanted: drop the `^result:` sentinel assertion
-   (it binds to a token the model never emits here), and either widen the direction-of-delta
-   regex to the model's actual phrasing or replace prose-regex gates with a structural signal.
-3. Do **not** manufacture a RED flip by deleting adjacent rule text — that would violate §4
-   ("target ONLY the rule state the claim adds").
-
-## CI note
-
-Because **all** verification failures are required-*text* (0 structural), the scheduled
-`behavioral-evals.yml` job — which runs with `--text-nonblocking` (only structural gates) —
-keeps `verification` in its default subset without turning red on these known text failures.
-
-## Transcript references
-
-- GREEN ×3 / RED-strip ×2 logs: `/tmp/redgreen-verification-logs/{GREEN-run{1,2,3},RED-strip-run{1,2}}.log`
-- Harness: `./bin/redgreen.fish verification --green 3 --red 2`
+- The redundant fixtures (`tests/fixtures/verification/*/prompt.md`, `setup.sh`) are left in
+  place rather than deleted — removing test fixtures is out of the scope of this repair and
+  `README.md` references them. Flag for a follow-up cleanup.
+- CI safety unchanged: `behavioral-evals.yml` runs `--text-nonblocking`, and this suite has 0
+  required-*structural* assertions, so it cannot turn the scheduled job red regardless of the
+  text-tier outcome.
 
 ## Acceptance
 
-- [x] 3 GREEN runs documented (flake-stable 1/3)
-- [x] 2 RED-strip runs documented (1/3, 2/3)
-- [x] Discrimination outcome recorded honestly (NOT demonstrated — soft rule, bonus coverage)
-- [x] Suite defects surfaced (brittle `^result:` sentinel; narrow direction-of-delta regex)
+- [x] Harness bug root-caused (runner does not expand `@file`; scenarios never loaded)
+- [x] Scenarios inlined into evals.json; `@` references removed
+- [x] `result:` sentinel assertions replaced with completion-declaration vocabulary
+- [x] New patterns compile (7/7) and pass offline behavior checks
+- [x] Suite discovered in `--dry-run`
+- [x] Prior (invalid) matrix withdrawn with provenance note
+- [ ] **Live RED/GREEN re-proof executed and recorded** (queued — window-budgeted)

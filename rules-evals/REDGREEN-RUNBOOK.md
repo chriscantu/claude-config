@@ -6,8 +6,10 @@ eval suite must pass with the rule present (**GREEN**) and fail with the rule re
 (**RED**), with the eval output from both recorded in a `REDGREEN.md` beside the suite.
 
 This runbook is the procedure. `rules-evals/execution-mode/REDGREEN.md` is the worked
-reference example; `rules-evals/verification/REDGREEN.md` is the second (and a documented
-*weak-discrimination* case — read it before assuming every rule flips cleanly).
+reference example. `rules-evals/verification/REDGREEN.md` is a cautionary case: its first
+run was invalidated by a harness bug (`@file` prompts the runner never expands, so the model
+never saw the scenario) — read it before trusting a matrix, and confirm the model actually
+received the scenario before drawing any §4 conclusion.
 
 ## The harness
 
@@ -60,7 +62,7 @@ outcome — evidence the rule is partly redundant with default behavior — and 
 | Suite | HARD-GATE? | Status |
 |---|---|---|
 | `execution-mode` | yes | ✅ proof committed (reference) |
-| `verification` | no (soft) | ✅ proof committed (weak-discrimination case) |
+| `verification` | no (soft) | 🔧 suite repaired (harness bug fixed); live re-proof queued |
 | `goal-driven` | yes | ⬜ backlog |
 | `pr-validation` | yes | ⬜ backlog |
 | `disagreement` | yes | ⬜ backlog |
