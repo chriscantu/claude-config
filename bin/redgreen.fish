@@ -118,12 +118,17 @@ echo "  → original target: $__rg_orig_target"
 
 # ---- restore machinery (trap + explicit) ------------------------------------
 # Idempotent: ln -sf is safe to call more than once. Never rm the repo file.
-function __rg_restore
+# The RED phase repoints the LIVE ~/.claude symlink for ALL sessions, so restore
+# MUST cover every exit path — normal return, error abort, and interrupt — not
+# just Ctrl-C. A missed restore leaves the HARD-GATE globally stripped with no
+# recovery. fish_exit fires on any non-signal exit; the signal handler covers
+# INT/TERM/HUP (terminal close). Both funnel through __rg_restore (idempotent).
+function __rg_restore --on-event fish_exit
     if test -n "$__rg_orig_target"
         ln -sf $__rg_orig_target $__rg_live_link
     end
 end
-function __rg_on_signal --on-signal INT --on-signal TERM
+function __rg_on_signal --on-signal INT --on-signal TERM --on-signal HUP
     echo "" >&2
     echo "⚠️  interrupted — restoring symlink" >&2
     __rg_restore

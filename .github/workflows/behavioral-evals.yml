@@ -74,8 +74,15 @@ jobs:
         # suite per run, and aggregate exit codes. --concurrency 1 keeps window
         # pressure gentle; --text-nonblocking makes the reliable structural axis the
         # exit gate. NO --bare (subscription auth).
+        #
+        # SUITES_INPUT is passed via env (NOT interpolated into the script body):
+        # `${{ }}` expansion inside run: splices untrusted workflow_dispatch input
+        # straight into the shell — a command-injection path to the OAuth token.
+        # The env indirection keeps it as inert data.
+        env:
+          SUITES_INPUT: ${{ github.event.inputs.suites }}
         run: |
-          SUITES="${{ github.event.inputs.suites }}"
+          SUITES="$SUITES_INPUT"
           if [ -z "$SUITES" ]; then
             SUITES="verification goal-driven disagreement think-before-coding memory-discipline execution-mode fat-marker-sketch-rule"
           fi
