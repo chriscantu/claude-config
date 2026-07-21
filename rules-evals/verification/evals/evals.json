@@ -41,10 +41,10 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "\\bship it\\b|\\bgood to (go|ship|merge)\\b|it'?s (done|complete)\\b|(declar\\w*|mark\\w*|call\\w*) (it|this) (as )?(done|complete|finished)|this (is|looks) (done|complete)\\b|(safe|ready|clear) to (declare|mark|ship|finish|close|call)",
+          "pattern": "(?<!\\b(?:not|never|no|cannot|can't|won't|wouldn't|isn't|aren't|wasn't|don't|doesn't|didn't)\\b[^.!?\\n]{0,15})(?:\\bship it\\b|\\bgood to (go|ship|merge)\\b|it'?s (done|complete)\\b|(declar\\w*|mark\\w*|call\\w*) (it|this) (as )?(done|complete|finished)|this (is|looks) (done|complete)\\b|(safe|ready|clear) to (declare|mark|ship|finish|close|call))",
           "flags": "i",
           "tier": "required",
-          "description": "Structural: agent declares the work done — the gate cleared because delta direction and magnitude align with intent. Matches completion-declaration language (recall-biased). Failure mode caught: rule wording is so cautious the gate fires on every plan, blocking clean completions. Replaced the prior `^result:` sentinel, which bound to a token the model never emits in a --print turn. Pending live re-validation (see rules-evals/verification/REDGREEN.md)."
+          "description": "Structural: agent declares the work done — the gate cleared because delta direction and magnitude align with intent. Matches completion-declaration language (recall-biased). The leading negative lookbehind suppresses a match when a near-adjacent negator (not/never/n't/…within ~15 chars, no sentence boundary) precedes the phrase, so a refusal like 'not ready to declare done' or 'wouldn't call it done' does NOT false-satisfy this positive gate. Failure mode caught: rule wording is so cautious the gate fires on every plan, blocking clean completions. Replaced the prior `^result:` sentinel, which bound to a token the model never emits in a --print turn."
         },
         {
           "type": "not_regex",

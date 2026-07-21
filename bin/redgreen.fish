@@ -176,6 +176,16 @@ echo "═══ RED-strip phase (rule emptied) ×$red_runs ═══"
 set -l stripped $logdir/$rule_name.stripped.md
 printf '# %s stripped for RED phase by bin/redgreen.fish — do not edit\n' $rule_name >$stripped
 ln -sf $stripped $__rg_live_link
+# Verify the repoint took. A silent ln failure (permissions, immutable target)
+# would run the RED phase against the STILL-PRESENT rule, producing GREEN≈RED
+# numbers that read as "no discrimination" on an unstripped rule — an invalid
+# proof that looks valid. Abort (restore first) rather than record a lie.
+if test (readlink $__rg_live_link) != "$stripped"
+    echo "✗ RED-strip repoint FAILED — symlink still → "(readlink $__rg_live_link) >&2
+    echo "   refusing to run RED phase on an unstripped rule (would fabricate a false result)." >&2
+    __rg_restore
+    exit 2
+end
 echo "  symlink repointed → "(string replace $HOME '~' $stripped)
 for n in (seq 1 $red_runs)
     set -l line (__rg_run RED-strip $n $repo $rule_name $logdir $dry_run)
