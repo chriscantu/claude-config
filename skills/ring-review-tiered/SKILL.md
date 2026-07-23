@@ -6,15 +6,15 @@ description: >
   critic review across one or more pull requests. Calibrates critic count to per-PR
   risk tier — trivial PRs skip the ring, surgical PRs get one cross-dimension critic,
   medium PRs get two dimension-targeted critics, large/boundary/security PRs get the
-  full 4-critic ring plus arbiter. Use even when the user names a uniform critic
+  full 5-critic ring plus arbiter. Use even when the user names a uniform critic
   count — surface the tier and let them override. Do NOT use for solo single-PR
   review where the user explicitly asks for the full ring; that's `pr-review-toolkit:review-pr`.
 ---
 
 # Tiered Antagonistic Ring Review
 
-Dispatches the antagonistic ring (security, performance, scope, test-gap critics
-plus an arbiter) at a per-PR risk-calibrated intensity. The uniform 4-critic ring
+Dispatches the antagonistic ring (security, performance, scope, test-gap, correctness
+critics plus an arbiter) at a per-PR risk-calibrated intensity. The uniform full-ring
 on every PR is theater on trivial work — burns tokens and produces low marginal
 signal. This skill picks the right N critics per PR, runs them in parallel,
 ranks findings by convergence, and emits a per-PR merge verdict.
@@ -76,9 +76,9 @@ default to this table.
 | Tier | Trigger | Dispatch |
 |---|---|---|
 | Trivial | binary-only, single-line edit, typo, dep bump | Skip ring. CI + adversarial-self brief suffice. |
-| Surgical | ≤4 tasks, single file, ≤50 LOC TDD increment, no boundary crossing | 1 cross-dim critic (combined security/perf/scope/test-gap pass). |
-| Medium | 1 boundary cross, ~100-300 LOC, 2-5 files | 2 critics: pick the 2 dimensions most relevant (e.g., security+test-gap for storage, perf+scope for hot-path) |
-| Large/boundary/security | >10 files, >300 LOC, core↔chrome boundary, messaging, manifest, storage, load-bearing invariants (debounce/idempotency/listener cleanup) | Full 4-critic ring + arbiter |
+| Surgical | ≤4 tasks, single file, ≤50 LOC TDD increment, no boundary crossing | 1 cross-dim critic (combined security/perf/scope/test-gap/correctness pass). |
+| Medium | 1 boundary cross, ~100-300 LOC, 2-5 files | 2 critics: pick the 2 dimensions most relevant (e.g., security+test-gap for storage, perf+scope for hot-path, correctness+test-gap for tricky logic) |
+| Large/boundary/security | >10 files, >300 LOC, core↔chrome boundary, messaging, manifest, storage, load-bearing invariants (debounce/idempotency/listener cleanup) | Full 5-critic ring + arbiter |
 
 Tie-break when multiple tiers fit: pick the **higher** tier. Convergence is
 the primary signal; missing a critic on a security PR is worse than running a
@@ -109,11 +109,12 @@ subagent (`Agent` tool) with the appropriate `subagent_type`:
 | Performance | `perf-adversary` |
 | Scope (Karpathy #3) | `scope-adversary` |
 | Test gap | `test-gap-adversary` |
+| Correctness | `correctness-adversary` |
 
 For surgical-tier (single cross-dim critic), use `code-analyzer` with a brief
-asking it to apply security / perf / scope / test-gap heuristics in one pass —
-this is cheaper than 4 separate adversaries when there's almost certainly only
-one finding to catch.
+asking it to apply security / perf / scope / test-gap / correctness heuristics in
+one pass — this is cheaper than 5 separate adversaries when there's almost certainly
+only one finding to catch.
 
 Each critic brief includes:
 - PR number and diff fetch instructions

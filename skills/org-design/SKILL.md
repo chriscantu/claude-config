@@ -181,6 +181,23 @@ When the user asks to weigh several options against each other:
 
 Rules, the manifest shape, risk-flag derivation, and the recommended-option contract live in [scenario-checks.md](scenario-checks.md).
 
+### Independent review (`strategy-adversary`)
+
+The validity gate and scorer check that a scenario is **well-formed and metrically
+scored** — they do not stress-test whether the reorg is *wise*. After the review
+gate (before the user folds a scenario into a strategy or presents it upward), offer
+an independent adversarial pass:
+
+> "The scenario is valid and scored. Want an independent review with
+> `strategy-adversary` before you act on it? It challenges second-order org effects,
+> attrition and SPOF risk, and — for a reduce-headcount — whether the irreversible
+> move has an explicit abort/mitigation plan."
+
+Advisory, not gating, and especially warranted for `reduce-headcount`: the machine
+ack gate (ADR #0024) enforces deliberateness, not soundness — `strategy-adversary`
+is the independent substance check on the human cost. Dispatch it with the scenario
+artifact path, type (`org-design scenario`), and decision context; it never rewrites.
+
 ## Backtracking
 
 **Applies to `--mode=analyze` output only** (per the [Mode wall](#mode-wall-analyze-vs-scenario) — scenario output is prescriptive by design and is exempt). If the rendered **analyze** artifact proposes a change anywhere (§§3–7 contain a recommendation, not just an observation), return to the section and rewrite it as a descriptive flag. Analyze is observe-before-act; a prescriptive line is a known-wrong shape there — do not ship it.

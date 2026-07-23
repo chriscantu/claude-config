@@ -170,3 +170,4 @@ Out-of-scope local files (not memory layers): `pending-sync/` (transient fallbac
 - **Reads**: `/1on1-prep` (`--from=1on1-prep`, built), `/architecture-overview`, `/stakeholder-map` (future `--from`)
 - **Writes**: knowledge graph, `docs/swot/`, excalidraw canvas, Slidev
 - **Feeds**: `/strategy-doc` (#42), `/okr` (#36)
+- **Downstream review**: this skill's Challenge Mode checks SWOT *coverage*; substance is stress-tested one level up — once these observations are synthesized into a strategy via `/strategy-doc`, that strategy gets the independent `strategy-adversary` pass. No adversary on raw observations.

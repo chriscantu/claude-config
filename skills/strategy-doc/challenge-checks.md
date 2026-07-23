@@ -51,6 +51,24 @@ Findings, not gates. Emit and continue.
 
 Output: findings table. Always end with: "Layer 3 advisory: review and resolve, or proceed to /present handoff."
 
+## Independent substance review (`strategy-adversary`)
+
+The three layers above check that the doc is **complete and well-formed** — they
+do not stress-test whether the strategy is *right*. After Layer 3 clean (or
+accepted advisory findings), offer an independent adversarial pass before any
+deck export:
+
+> "Completeness and quality are clean. Want an independent substance review with
+> `strategy-adversary` before exporting? It stress-tests the strategy the way your
+> sharpest skeptic in the room will — evidence gaps, ignored veto-holders,
+> irreversible moves, sequencing realism."
+
+This is advisory, not gating. `strategy-adversary` (`agents/strategy-adversary.md`)
+is a separate agent with no authorship bias; it reviews substance, whereas this
+skill's challenge mode reviews form. If the user accepts, dispatch it with the doc
+path, its type (`90-day strategy`), and the decision context. It never rewrites —
+the user folds its findings back via `/strategy-doc`.
+
 ## Handoff to `/present`
 
 After Layer 3 clean (or after user accepts advisory findings), prompt:

@@ -1,7 +1,8 @@
 #!/bin/bash
 # adversarial-spawn.sh — swarm fan-out coordinator
-# Spawns 4 parallel worker adversaries (security, perf, scope, test-gap),
-# waits for all (with timeout), then spawns the arbiter to synthesize.
+# Spawns the worker adversaries listed in adversarial-config.json .workers
+# (default: security, perf, scope, test-gap, correctness), waits for all
+# (with timeout), then spawns the arbiter to synthesize.
 # Args:
 #   $1 = diff hash (8-32 hex chars; rejected otherwise)
 #   $2 = trigger reason (sanitized to [a-zA-Z0-9._=/-], max 80 chars)
@@ -39,7 +40,7 @@ WORKER_TIMEOUT=$(jq -r '.worker_timeout_seconds // 180' "$CONFIG")
 ARBITER_TIMEOUT=$(jq -r '.arbiter_timeout_seconds // 180' "$CONFIG")
 MAX_BUDGET=$(jq -r '.max_budget_usd_per_agent // 0.50' "$CONFIG")
 WORKERS_JSON=$(jq -r '.workers | join(" ")' "$CONFIG")
-[[ -z "$WORKERS_JSON" || "$WORKERS_JSON" == "null" ]] && WORKERS_JSON="security perf scope test-gap"
+[[ -z "$WORKERS_JSON" || "$WORKERS_JSON" == "null" ]] && WORKERS_JSON="security perf scope test-gap correctness"
 
 BRANCH=$(git branch --show-current 2>/dev/null | tr -c 'a-zA-Z0-9._-' '_' | sed 's/__*/_/g')
 [[ -z "$BRANCH" ]] && BRANCH="detached"
@@ -129,7 +130,15 @@ done
 
 # ── Arbiter ─────────────────────────────────────────────────────────────────
 ARBITER_OUT="${SHA_DIR}/SUMMARY.md"
-ARBITER_PROMPT="Synthesize the four worker critiques in directory: ${SHA_DIR}. Branch: ${BRANCH}. SHA: ${SHA}. Read security.md, perf.md, scope.md, test-gap.md from that directory, merge, rank, and emit the consolidated summary per your output contract."
+# Build the worker-file list from the same config-driven worker set the swarm ran,
+# so adding/removing a worker keeps the arbiter prompt in sync automatically.
+WORKER_FILES=""
+WORKER_COUNT=0
+for role in $WORKERS_JSON; do
+  WORKER_FILES="${WORKER_FILES:+$WORKER_FILES, }${role}.md"
+  WORKER_COUNT=$((WORKER_COUNT + 1))
+done
+ARBITER_PROMPT="Synthesize the ${WORKER_COUNT} worker critiques in directory: ${SHA_DIR}. Branch: ${BRANCH}. SHA: ${SHA}. Read ${WORKER_FILES} from that directory (any may be missing or a no-findings block), merge, rank, and emit the consolidated summary per your output contract."
 
 {
   echo "[$(date -u +%FT%TZ)] arbiter start timeout=${ARBITER_TIMEOUT}s"
