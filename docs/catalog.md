@@ -95,6 +95,7 @@ Precedence on conflict: User instructions > `rules/*.md` HARD-GATEs > Karpathy C
 | **platform-reviewer** | Reviews code changes for API contract stability, backward compatibility, operational burden, and cross-team impact. |
 | **security-reviewer** | Reviews code changes for security vulnerabilities — OWASP categories, credential exposure, input validation, auth/authz boundaries, and dependency risks. |
 | **decision-challenger** | Devil's advocate for ADRs, SDRs, and tech radar entries. Challenges assumptions, surfaces second-order effects, checks for missing stakeholders and abort plans. |
+| **strategy-adversary** | Devil's advocate for leadership deliverables — 90-day strategy docs, org-design reorg scenarios, SWOT syntheses. Stress-tests strategic substance (evidence gaps, ignored veto-holders, irreversible moves, sequencing realism) before the leader presents upward. Complements the skills' own completeness checks. |
 | **surgical-diff-reviewer** | Karpathy #3 scope enforcement — every changed line in a diff must trace directly to the user's stated request. Catches drive-by refactors and scope creep. |
 
 ## Templates

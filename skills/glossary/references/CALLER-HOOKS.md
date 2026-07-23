@@ -223,6 +223,49 @@ Enforcement is **advisory**, not blocking. Echoes
 `rules/memory-discipline.md` — surface candidates for user
 judgment, never substitute silently.
 
+## strategy-adversary (post-challenge-pass, pre-handoff)
+
+Strategy-adversary is an **agent** (`agents/strategy-adversary.md`), not a
+skill — same agent-owns-the-hook-block, section-owns-the-contract split as
+`decision-challenger`. It reviews leadership deliverables (90-day strategy,
+org-design scenario, SWOT synthesis) rather than decision records, but the
+term-drift failure mode is identical: the adversary infers a meaning the
+deliverable's author never defined.
+
+After producing the Strategy Challenge output (Deliverable / Summary /
+Challenges / Strengths / Verdict), run one **write-offer hook** against
+`./CONTEXT.md`. No read hook — the adversary consumes an existing deliverable
+rather than producing one, mirroring `decision-challenger`. Promote to
+read+write parity only if eval signal shows adversary-author drift.
+
+### Write-offer hook — end-of-challenge, advisory
+
+Scan the Challenges section for nouns the challenge text introduced or used in
+a way not explicit in the deliverable — i.e., the adversary inferred a meaning
+the author had not defined.
+
+Pass as candidates only nouns that:
+
+- Recurred ≥2× across challenges, OR
+- Were used in a **Critical** or **Warning** finding (high stakes if the
+  author misinterprets), AND
+- Lack a `./CONTEXT.md` entry (canonical or `_Avoid_` alias).
+
+Skip the call entirely if:
+
+- `./CONTEXT.md` is absent → silent no-op
+- Every inferred term is already canonical in `./CONTEXT.md` → silent no-op
+- Adversary only quoted the deliverable verbatim (no inferred terms) → silent no-op
+
+Invoke:
+
+```
+/glossary --offer-from-caller=strategy-adversary --candidate-terms=<term1,term2,...>
+```
+
+Enforcement is **advisory**, not blocking. Echoes `rules/memory-discipline.md`
+— surface candidates for user judgment, never substitute silently.
+
 ## v2 follow-ups
 
 _All v2 caller-hook follow-ups resolved as of 2026-05-22:_
