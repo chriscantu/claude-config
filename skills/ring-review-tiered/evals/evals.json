@@ -51,7 +51,7 @@
         },
         {
           "type": "not_regex",
-          "pattern": "(dispatch(ing)?|spawn(ing)?)\\s+(4|four|all four|the full ring|security.{0,20}perf.{0,20}scope.{0,20}test)",
+          "pattern": "(dispatch(ing)?|spawn(ing)?)\\s+(4|four|5|five|all four|all five|the full ring|security.{0,20}perf.{0,20}scope.{0,20}test)",
           "flags": "i",
           "tier": "required",
           "description": "Does NOT spawn the full ring on a surgical PR"
