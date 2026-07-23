@@ -26,9 +26,45 @@ If any are missing, stop and ask. Don't guess.
 
 ## Confidentiality guard
 
-Before reading the deliverable:
+Strategy docs, reorg scenarios, and SWOT entries name real people, real org
+weaknesses, and sometimes layoffs. They must never be read into — or written
+toward — a public repo. Inline-content deliverables (no path) skip the path
+checks below; run them whenever you have a path.
 
-- **Public-repo guard.** If the deliverable path resolves under `~/repos/claude-config` or any path whose git remote is a public GitHub repo, refuse. Strategy docs, reorg scenarios, and SWOT entries describe real people, real org weaknesses, and sometimes layoffs — they must never be read into or written toward a public repo. If the guard trips, stop and tell the user where the deliverable should live instead (`~/repos/onboard-<org>/`).
+Run these checks **in order** before reading the deliverable. Any refusal →
+stop, name which check tripped, and tell the user the deliverable belongs under
+`~/repos/onboard-<org>/`. **Fail closed:** if a check can't be evaluated
+(path won't resolve, repo can't be inspected), refuse and ask — never read on
+ambiguity.
+
+1. **Resolve the real path first.** `realpath <deliverable-path>` and use the
+   resolved path for every check below — a symlink inside a safe workspace can
+   still point into this repo.
+
+2. **Deny this config repo by remote identity — not a hardcoded path.** A path
+   literal only ever names one checkout; this repo has more than one (e.g.
+   `~/repos/claude-config` *and* `~/claude-config`), and future clones add more.
+   Inspect the enclosing repo's remote instead:
+
+   ```bash
+   git -C "$(dirname "$RESOLVED")" remote get-url origin 2>/dev/null
+   ```
+
+   If the origin matches `github.com[:/]chriscantu/claude-config(\.git)?`,
+   refuse. This catches every checkout of this repo, not one path.
+
+3. **Structural fallback for non-git copies.** A scratch copy under a public
+   tree may have no git remote, so step 2 alone has a hole. Also refuse if the
+   resolved path sits inside a tree whose root carries this repo's signature —
+   a directory holding `rules/`, `adrs/`, and `agents/` together. That shape is
+   this config repo regardless of whether `.git` is present.
+
+4. **Any git remote outside the ramp workspace → ask, don't assume.** A
+   `github.com/owner/repo` URL is identical whether the repo is public or
+   private, so "is it public?" is not answerable from the URL. If the resolved
+   path is a git repo, has a remote, and is **not** under `~/repos/onboard-<org>/`,
+   stop and ask the user to confirm the target is private before you read it.
+   Silence-and-proceed is the failure mode this closes.
 
 ## Review Checklist
 
