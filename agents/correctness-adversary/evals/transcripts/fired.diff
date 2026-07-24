@@ -1,0 +1,13 @@
+diff --git a/paginate.ts b/paginate.ts
+index 3abae5f..0d04f75 100644
+--- a/paginate.ts
++++ b/paginate.ts
+@@ -10,7 +10,7 @@ export interface Page<T> {
+  */
+ export function paginate<T>(all: T[], pageNumber: number, pageSize: number): Page<T> {
+   const totalPages = Math.max(1, Math.ceil(all.length / pageSize));
+-  const start = (pageNumber - 1) * pageSize;
++  const start = pageNumber * pageSize;
+   const items = all.slice(start, start + pageSize);
+   return { items, pageNumber, totalPages };
+ }

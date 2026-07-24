@@ -1,0 +1,14 @@
+[2026-07-23T16:07:27Z] swarm start branch=main_ sha=7beb33e hash=c1624a5388330240 reason=manual-eval-run-494-495 workers=[security perf scope test-gap correctness] dir=.claude/state/critiques/main_-7beb33e-c1624a5388330240
+[2026-07-23T16:07:27Z] worker=security start timeout=240s budget=$5.00
+[2026-07-23T16:07:27Z] worker=perf start timeout=240s budget=$5.00
+[2026-07-23T16:07:27Z] worker=scope start timeout=240s budget=$5.00
+[2026-07-23T16:07:27Z] worker=test-gap start timeout=240s budget=$5.00
+[2026-07-23T16:07:27Z] worker=correctness start timeout=240s budget=$5.00
+[2026-07-23T16:07:58Z] worker=perf end exit=0 bytes=    2041
+[2026-07-23T16:08:02Z] worker=security end exit=0 bytes=     751
+[2026-07-23T16:08:04Z] worker=correctness end exit=0 bytes=    1864
+[2026-07-23T16:08:10Z] worker=test-gap end exit=0 bytes=    3301
+[2026-07-23T16:08:26Z] worker=scope end exit=0 bytes=    1920
+[2026-07-23T16:08:26Z] arbiter start timeout=240s
+[2026-07-23T16:09:18Z] arbiter end exit=0 bytes=    3808
+[2026-07-23T16:09:18Z] swarm end dir=.claude/state/critiques/main_-7beb33e-c1624a5388330240
