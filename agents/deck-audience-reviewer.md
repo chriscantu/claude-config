@@ -30,7 +30,17 @@ Prior objections, stakes, sensitivities, pre-read status, format.
 Before reading slides.md or the audience profile:
 
 1. **Onboard workspace guard.** If slides.md is under an `/onboard` workspace, run the onboard guard's `refuse-raw` check on the slides.md path. Same contract as the /present skill (see `skills/present/SKILL.md` § Confidentiality Refusal). Honor the guard's exit code.
-2. **Public-repo guard.** If the audience profile path resolves under `~/repos/claude-config` or any path with a public github remote, refuse. Audience profiles describe real people with real sensitivities and must not land in public repos.
+2. **Config-repo / public-repo guard.** Audience profiles describe real people with real sensitivities and must never be read into — or written toward — this config repo or any public repo. Run these checks **in order** on the audience-profile path. **Fail closed:** if a check can't be evaluated (path won't resolve, repo can't be inspected), refuse and ask — never read on ambiguity.
+   1. **Resolve the real path first.** `realpath <profile-path>` and use the resolved path for every check below — a symlink inside a safe workspace can still point into this repo.
+   2. **Deny this config repo by remote identity — not a hardcoded path.** A path literal only ever names one checkout; this repo has more than one (e.g. `~/repos/claude-config` *and* `~/claude-config`), and future clones add more. Inspect the enclosing repo's remote instead:
+
+      ```bash
+      git -C "$(dirname "$RESOLVED")" remote get-url origin 2>/dev/null
+      ```
+
+      If the origin matches `github.com[:/]chriscantu/claude-config(\.git)?`, refuse. This catches every checkout of this repo, not one path.
+   3. **Structural fallback for non-git copies.** A scratch copy under a public tree may have no git remote, so step 2 alone has a hole. Also refuse if the resolved path sits inside a tree whose root carries this repo's signature — a directory holding `rules/`, `adrs/`, and `agents/` together. That shape is this config repo regardless of whether `.git` is present.
+   4. **Any git remote outside the ramp workspace → ask, don't assume.** A `github.com/owner/repo` URL is identical whether the repo is public or private, so "is it public?" is not answerable from the URL. If the resolved path is a git repo, has a remote, and is **not** under `~/repos/onboard-<org>/`, stop and ask the user to confirm the target is private before you read it. Silence-and-proceed is the failure mode this closes.
 
 If either guard refuses, stop. Do not proceed with the review.
 

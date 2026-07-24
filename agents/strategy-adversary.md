@@ -37,11 +37,22 @@ stop, name which check tripped, and tell the user the deliverable belongs under
 (path won't resolve, repo can't be inspected), refuse and ask — never read on
 ambiguity.
 
-1. **Resolve the real path first.** `realpath <deliverable-path>` and use the
+1. **Onboard raw-notes guard.** If the deliverable path is under an `/onboard`
+   workspace, run the onboard guard's `refuse-raw` check before reading:
+
+   ```fish
+   bun run "$CLAUDE_PROJECT_DIR/skills/onboard/scripts/onboard-guard.ts" refuse-raw <deliverable-path>
+   ```
+
+   Honor the exit code (0 proceed / 2 abort, surface the guard's stderr, do
+   **not** read / 64 misuse bug). Same contract as deck-audience-reviewer
+   clause 1 — see `skills/onboard/refusal-contract.md`.
+
+2. **Resolve the real path first.** `realpath <deliverable-path>` and use the
    resolved path for every check below — a symlink inside a safe workspace can
    still point into this repo.
 
-2. **Deny this config repo by remote identity — not a hardcoded path.** A path
+3. **Deny this config repo by remote identity — not a hardcoded path.** A path
    literal only ever names one checkout; this repo has more than one (e.g.
    `~/repos/claude-config` *and* `~/claude-config`), and future clones add more.
    Inspect the enclosing repo's remote instead:
@@ -53,13 +64,13 @@ ambiguity.
    If the origin matches `github.com[:/]chriscantu/claude-config(\.git)?`,
    refuse. This catches every checkout of this repo, not one path.
 
-3. **Structural fallback for non-git copies.** A scratch copy under a public
+4. **Structural fallback for non-git copies.** A scratch copy under a public
    tree may have no git remote, so step 2 alone has a hole. Also refuse if the
    resolved path sits inside a tree whose root carries this repo's signature —
    a directory holding `rules/`, `adrs/`, and `agents/` together. That shape is
    this config repo regardless of whether `.git` is present.
 
-4. **Any git remote outside the ramp workspace → ask, don't assume.** A
+5. **Any git remote outside the ramp workspace → ask, don't assume.** A
    `github.com/owner/repo` URL is identical whether the repo is public or
    private, so "is it public?" is not answerable from the URL. If the resolved
    path is a git repo, has a remote, and is **not** under `~/repos/onboard-<org>/`,
