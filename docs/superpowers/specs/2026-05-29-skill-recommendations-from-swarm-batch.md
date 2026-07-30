@@ -120,7 +120,7 @@ None executable from CLI. Required user-emitted named-cost skip (`skip pr-valida
 
 ### Skill scope
 
-Project-local (`/Users/cantu/repos/speedreader-chrome/.claude/skills/` or equivalent).
+Project-local (`~/repos/speedreader-chrome/.claude/skills/` or equivalent).
 
 Inputs:
 - `pr: number`

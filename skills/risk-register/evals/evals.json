@@ -19,7 +19,7 @@
     {
       "name": "review-surfaces-stale",
       "summary": "Stale fixture + fixed --today: stale entry surfaces in review.",
-      "setup": "mkdir -p /tmp/rr-eval-review && cp -r /Users/cantu/repos/claude-config/tests/fixtures/risk-register/register-stale/. /tmp/rr-eval-review/",
+      "setup": "mkdir -p /tmp/rr-eval-review && cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/risk-register/register-stale/. /tmp/rr-eval-review/",
       "teardown": "rm -rf /tmp/rr-eval-review",
       "prompt": "/risk-register /tmp/rr-eval-review review --today 2026-06-16",
       "assertions": [
@@ -32,7 +32,7 @@
     {
       "name": "escalate-flips-sentinel",
       "summary": "Escalate R-1 on the active fixture: confirms escalation in stdout.",
-      "setup": "mkdir -p /tmp/rr-eval-esc && cp -r /Users/cantu/repos/claude-config/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-esc/",
+      "setup": "mkdir -p /tmp/rr-eval-esc && cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-esc/",
       "teardown": "rm -rf /tmp/rr-eval-esc",
       "prompt": "/risk-register /tmp/rr-eval-esc escalate R-1 --today 2026-06-16",
       "assertions": [
@@ -44,7 +44,7 @@
     {
       "name": "escalate-bad-id-refuses",
       "summary": "Escalate R-99 (absent): refuses with a list hint, no success output.",
-      "setup": "mkdir -p /tmp/rr-eval-bad && cp -r /Users/cantu/repos/claude-config/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-bad/",
+      "setup": "mkdir -p /tmp/rr-eval-bad && cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-bad/",
       "teardown": "rm -rf /tmp/rr-eval-bad",
       "prompt": "/risk-register /tmp/rr-eval-bad escalate R-99",
       "assertions": [
@@ -58,7 +58,7 @@
     {
       "name": "ack-bumps-date",
       "summary": "Ack R-1 on the active fixture: confirms ack in stdout without status change.",
-      "setup": "mkdir -p /tmp/rr-eval-ack && cp -r /Users/cantu/repos/claude-config/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-ack/",
+      "setup": "mkdir -p /tmp/rr-eval-ack && cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-ack/",
       "teardown": "rm -rf /tmp/rr-eval-ack",
       "prompt": "/risk-register /tmp/rr-eval-ack ack R-1 --today 2026-06-16",
       "assertions": [
@@ -70,7 +70,7 @@
     {
       "name": "resolve-drops-from-review",
       "summary": "Resolve R-1 then review: resolved risk no longer appears in review output.",
-      "setup": "mkdir -p /tmp/rr-eval-res && cp -r /Users/cantu/repos/claude-config/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-res/",
+      "setup": "mkdir -p /tmp/rr-eval-res && cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/risk-register/register-active/. /tmp/rr-eval-res/",
       "teardown": "rm -rf /tmp/rr-eval-res",
       "prompt": "/risk-register /tmp/rr-eval-res resolve R-1 --today 2026-06-16, then /risk-register /tmp/rr-eval-res review --today 2026-06-16",
       "assertions": [

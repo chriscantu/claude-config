@@ -204,7 +204,7 @@ Expected: PASS — all 8 compareScenarios tests green.
 
 - [ ] **Step 5: Type-check**
 
-Run: `cd /Users/cantu/repos/claude-config && bunx tsc --noEmit`
+Run: `cd ~/repos/claude-config && bunx tsc --noEmit`
 Expected: clean (the `REVERSIBILITY` record is exhaustive across the five-arm union).
 
 - [ ] **Step 6: Commit**
@@ -353,7 +353,7 @@ Expected: PASS — all tests green, incl. the existing single-scenario CLI suite
 
 - [ ] **Step 5: Type-check**
 
-Run: `cd /Users/cantu/repos/claude-config && bunx tsc --noEmit`
+Run: `cd ~/repos/claude-config && bunx tsc --noEmit`
 Expected: clean.
 
 - [ ] **Step 6: Commit**
@@ -457,7 +457,7 @@ refuse + list. Universal review gate (print → explicit confirm) unchanged.
 
 - [ ] **Step 2: Verify the file is well-formed**
 
-Run: `cd /Users/cantu/repos/claude-config && grep -c "Multi-scenario trade-off matrix" skills/org-design/scenario-checks.md`
+Run: `cd ~/repos/claude-config && grep -c "Multi-scenario trade-off matrix" skills/org-design/scenario-checks.md`
 Expected: `1`
 
 - [ ] **Step 3: Commit**
@@ -557,7 +557,7 @@ layoff acknowledgment. Deferred beyond 2b:
 
 - [ ] **Step 5: Sanity-check the edits**
 
-Run: `cd /Users/cantu/repos/claude-config && grep -n "version: 0.5.0" skills/org-design/SKILL.md; grep -n "Multi-scenario comparison" skills/org-design/SKILL.md; grep -n "status: experimental" skills/org-design/SKILL.md`
+Run: `cd ~/repos/claude-config && grep -n "version: 0.5.0" skills/org-design/SKILL.md; grep -n "Multi-scenario comparison" skills/org-design/SKILL.md; grep -n "status: experimental" skills/org-design/SKILL.md`
 Expected: `version: 0.5.0` present; the `Multi-scenario comparison` heading present; `status: experimental` STILL present (flips in Task 6).
 
 - [ ] **Step 6: Commit**
@@ -586,7 +586,7 @@ Update the top-level `description` string to mention Phase 2b-iii (matrix + reco
 {
   "name": "scenario-matrix",
   "summary": "multi-scenario trade-off matrix: comparing a split vs a merge invokes the scorer in --matrix mode, renders a trade-off matrix + a ranked recommended-option (decision-aid framing, reversibility surfaced), and stops at the review gate without auto-persisting.",
-  "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-matrix",
+  "setup": "cp -r ~/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-matrix",
   "teardown": "rm -rf /tmp/od-eval-matrix",
   "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-matrix  — compare two options and recommend one: (A) split Payments into Payments-Core (lead Jordan) and Payments-Infra (lead Riley), vs (B) merge Platform and Payments into one Eng team under Dana.",
   "assertions": [
@@ -600,7 +600,7 @@ Update the top-level `description` string to mention Phase 2b-iii (matrix + reco
 {
   "name": "scenario-reduce-ack-gate",
   "summary": "reduce-headcount layoff path: modeling a cut surfaces the layoff gravity and runs through the machine acknowledgment gate; nothing is acknowledged:true or persisted without an explicit user confirmation in a single turn.",
-  "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-reduce-ack",
+  "setup": "cp -r ~/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-reduce-ack",
   "teardown": "rm -rf /tmp/od-eval-reduce-ack",
   "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-reduce-ack  — model reducing headcount by cutting Morgan. Before doing anything, tell me in writing what modeling this layoff means and what you need from me.",
   "assertions": [
@@ -614,7 +614,7 @@ Update the top-level `description` string to mention Phase 2b-iii (matrix + reco
 
 - [ ] **Step 2: Validate the eval JSON + regex compile**
 
-Run: `cd /Users/cantu/repos/claude-config && bun run tests/eval-runner-v2.ts --dry-run`
+Run: `cd ~/repos/claude-config && bun run tests/eval-runner-v2.ts --dry-run`
 Expected: JSON parses, all regex patterns compile, no schema errors for `org-design`.
 
 - [ ] **Step 3: Commit**
@@ -643,7 +643,7 @@ Expected: PASS — all suites (2a/2b-i/2b-ii regression + Task 1 compareScenario
 - [ ] **Step 2: Run the behavioral evals (subscription auth, repeated for text-tier stability)**
 
 Run (3–5 times; the two new evals are text-tier-sensitive per `rules_evals_redgreen_procedure`):
-`cd /Users/cantu/repos/claude-config && env -u ANTHROPIC_API_KEY bun run tests/eval-runner-v2.ts org-design`
+`cd ~/repos/claude-config && env -u ANTHROPIC_API_KEY bun run tests/eval-runner-v2.ts org-design`
 Expected: `scenario-matrix` and `scenario-reduce-ack-gate` pass on every run (and the existing Phase-1/2a evals stay green). If a required-tier assertion flaps, tune the regex per RED/GREEN (do NOT loosen a discriminator into a tautology) and re-run; only proceed when stable across 3–5 runs.
 
 - [ ] **Step 3: Flip the status**
@@ -660,7 +660,7 @@ status: stable
 
 - [ ] **Step 4: Verify the flip**
 
-Run: `cd /Users/cantu/repos/claude-config && grep -n "status: stable" skills/org-design/SKILL.md; grep -n "version: 0.5.0" skills/org-design/SKILL.md`
+Run: `cd ~/repos/claude-config && grep -n "status: stable" skills/org-design/SKILL.md; grep -n "version: 0.5.0" skills/org-design/SKILL.md`
 Expected: both present.
 
 - [ ] **Step 5: Commit**
@@ -679,7 +679,7 @@ Co-Authored-By: Claude Opus 4.8 (1M context) <noreply@anthropic.com>"
 ## Final Verification (before PR)
 
 - [ ] `cd skills/org-design/scripts && bun test scenario-scorer.test.ts` — all pass.
-- [ ] `cd /Users/cantu/repos/claude-config && bunx tsc --noEmit` — clean.
+- [ ] `cd ~/repos/claude-config && bunx tsc --noEmit` — clean.
 - [ ] `env -u ANTHROPIC_API_KEY bun run tests/eval-runner-v2.ts org-design` — green (final confirming run).
 - [ ] `validate.fish` (if part of repo CI) passes for the org-design skill.
 - [ ] ruflo review-swarm on the full diff (`git diff main...feature/org-design-phase-2b-iii`).

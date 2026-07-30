@@ -59,6 +59,15 @@ import {
 } from "./evals-lib.ts";
 
 const repoDir = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+// Eval JSONs reference repo-relative fixtures via the `$CLAUDE_PROJECT_DIR`
+// token instead of a committed absolute username path (e.g.
+// `$CLAUDE_PROJECT_DIR/tests/fixtures/...`). Resolve it to this repo's root
+// before a `setup` command is shelled out or a prompt is sent to the CLI —
+// prompts are not shell-expanded, so the substitution can't be left to sh.
+const resolveProjectDir = (s: string): string =>
+  s.replaceAll("$CLAUDE_PROJECT_DIR", repoDir);
+
 const skillsDir = join(repoDir, "skills");
 const rulesEvalsDir = join(repoDir, "rules-evals");
 const resultsDir = join(repoDir, "tests", "results");
@@ -869,7 +878,7 @@ async function main() {
     if (e.teardown) pendingTeardowns.add(e.teardown);
     let workResult: EvalResult | null = null;
     const lifecycle = await runLifecycleAsync<void>({
-      setup: e.setup,
+      setup: e.setup ? resolveProjectDir(e.setup) : e.setup,
       teardown: e.teardown,
       exec: (cmd) => {
         execSync(cmd, { stdio: "inherit" });
@@ -882,7 +891,7 @@ async function main() {
       onTeardownError: (msg) =>
         out.push(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`)),
       work: async () => {
-        const { stdout, stderr, exitCode, failure } = await runClaude(buildPrompt(e), undefined, e.scratch_decoy);
+        const { stdout, stderr, exitCode, failure } = await runClaude(resolveProjectDir(buildPrompt(e)), undefined, e.scratch_decoy);
 
         if (failure || exitCode !== 0) {
           const reason = formatRunFailure(failure, exitCode, stdout, stderr, { prefix: "exit" });

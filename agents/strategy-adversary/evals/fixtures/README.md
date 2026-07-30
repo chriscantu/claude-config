@@ -40,5 +40,5 @@ $(cat agents/strategy-adversary/evals/fixtures/plan-blocked.md)"
 env -u ANTHROPIC_API_KEY claude --print --no-session-persistence \
   --agent strategy-adversary --output-format text \
   "Deliverable type: 90-day strategy. Decision context: review before my VP meeting.
-   Deliverable path: /Users/cantu/repos/claude-config/agents/strategy-adversary/evals/fixtures/plan-blocked.md"
+   Deliverable path: ~/repos/claude-config/agents/strategy-adversary/evals/fixtures/plan-blocked.md"
 ```
