@@ -5,7 +5,7 @@
     {
       "name": "analyze-structure-only",
       "summary": "analyze-inherited happy path: populated structure.md, no stakeholder entity. Writes 7-section analysis with Mermaid chart, fences, and names the sole-owner SPOF (billing-service).",
-      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/structure-only /tmp/od-eval-analyze-structure-only",
+      "setup": "cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/org-design/structure-only /tmp/od-eval-analyze-structure-only",
       "teardown": "rm -rf /tmp/od-eval-analyze-structure-only",
       "prompt": "/org-design orgfix-acme --mode=analyze --workspace /tmp/od-eval-analyze-structure-only",
       "assertions": [
@@ -21,7 +21,7 @@
     {
       "name": "scenario-split-valid",
       "summary": "split-team valid path: splitting Payments into two staffed teams invokes the scorer, passes the validity gate, and stops at the review gate for explicit confirm WITHOUT auto-persisting.",
-      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-split-valid",
+      "setup": "cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/org-design/split-valid /tmp/od-eval-split-valid",
       "teardown": "rm -rf /tmp/od-eval-split-valid",
       "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-split-valid  — split the Payments team into Payments-Core (lead Jordan) and Payments-Infra (lead Riley).",
       "assertions": [
@@ -35,7 +35,7 @@
     {
       "name": "scenario-invalid-refusal",
       "summary": "split-team invalid path: a split that strands manager Sam with zero reports is refused by the validity gate; nothing is written.",
-      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-invalid /tmp/od-eval-split-invalid",
+      "setup": "cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/org-design/split-invalid /tmp/od-eval-split-invalid",
       "teardown": "rm -rf /tmp/od-eval-split-invalid",
       "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-split-invalid  — split Payments so Jordan and Riley both move onto new teams reporting to Dana, leaving Sam as the Payments manager.",
       "assertions": [
@@ -48,7 +48,7 @@
     {
       "name": "scenario-mode-wall",
       "summary": "mode wall: a scenario run targets the org-scenario namespace and never writes *-org-analysis.md.",
-      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-mode-wall",
+      "setup": "cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/org-design/split-valid /tmp/od-eval-mode-wall",
       "teardown": "rm -rf /tmp/od-eval-mode-wall",
       "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-mode-wall  — split Payments into Payments-Core (lead Jordan) and Payments-Infra (lead Riley). After I confirm, write it.",
       "assertions": [
@@ -60,7 +60,7 @@
     {
       "name": "scenario-matrix",
       "summary": "multi-scenario trade-off matrix: comparing a split vs a merge invokes the scorer in --matrix mode, renders a trade-off matrix + a ranked recommended-option (decision-aid framing, reversibility surfaced), and stops at the review gate without auto-persisting. Prompt bounds the turn to a compact table + brief recommendation (skip the on-request org charts) so a heavy 2-scenario turn fits the runner's 300s per-turn cap; the asserted discriminators (--matrix path, reversibility, recommendation, no-persist) are unaffected.",
-      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-matrix",
+      "setup": "cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/org-design/split-valid /tmp/od-eval-matrix",
       "teardown": "rm -rf /tmp/od-eval-matrix",
       "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-matrix  — compare two options and recommend one. Keep it tight: a compact trade-off matrix table and a brief recommendation, and skip the org charts for now. (A) split Payments into Payments-Core (lead Jordan) and Payments-Infra (lead Riley), vs (B) merge Platform and Payments into one Eng team under Dana.",
       "assertions": [
@@ -74,7 +74,7 @@
     {
       "name": "scenario-reduce-ack-gate",
       "summary": "reduce-headcount layoff path: modeling a cut surfaces the layoff gravity and runs through the machine acknowledgment gate; nothing is acknowledged:true or persisted without an explicit user confirmation in a single turn.",
-      "setup": "cp -r /Users/cantu/repos/claude-config/tests/fixtures/org-design/split-valid /tmp/od-eval-reduce-ack",
+      "setup": "cp -r $CLAUDE_PROJECT_DIR/tests/fixtures/org-design/split-valid /tmp/od-eval-reduce-ack",
       "teardown": "rm -rf /tmp/od-eval-reduce-ack",
       "prompt": "/org-design orgfix-acme --mode=scenario --workspace /tmp/od-eval-reduce-ack  — model reducing headcount by cutting Morgan. Before doing anything, tell me in writing what modeling this layoff means and what you need from me.",
       "assertions": [

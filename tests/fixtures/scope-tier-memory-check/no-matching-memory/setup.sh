@@ -1,10 +1,17 @@
 #!/bin/bash
 set -e
-HOOK_ABS_PATH="/Users/cantu/.claude/hooks/scope-tier-memory-check.sh"
-mkdir -p .claude/projects/-Users-cantu-repos-claude-config/memory
+# Manual-testing helper (NOT run by the automated eval runner — see ../README.md).
+# Reproduces this fixture's scope-tier hook state in the current repo checkout.
+# Portable: no committed username paths.
+HOOK_ABS_PATH="$HOME/.claude/hooks/scope-tier-memory-check.sh"
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Claude Code derives the per-project memory dir by replacing '/' with '-' in
+# the absolute project path; derive it from $PWD so no username is hardcoded.
+PROJECT_SLUG="$(printf '%s' "$PWD" | sed 's#/#-#g')"
+mkdir -p ".claude/projects/${PROJECT_SLUG}/memory"
 cat > .claude/settings.local.json <<'JSON'
 {"hooks":{"UserPromptSubmit":[{"hooks":[{"type":"command","command":"HOOK_PATH_PLACEHOLDER"}]}]}}
 JSON
 sed -i '' "s|HOOK_PATH_PLACEHOLDER|${HOOK_ABS_PATH}|g" .claude/settings.local.json
-cp /Users/cantu/repos/claude-config/.claude/worktrees/scope-tier-memory-check/tests/fixtures/scope-tier-memory-check/no-matching-memory/memory/MEMORY.md \
-   .claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md
+cp "$SCRIPT_DIR/memory/MEMORY.md" \
+   ".claude/projects/${PROJECT_SLUG}/memory/MEMORY.md"

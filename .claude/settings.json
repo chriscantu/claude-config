@@ -1,11 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Read(//Users/chris.cantu/.claude/**)",
       "Skill(update-config)",
       "Skill(update-config:*)",
-      "Bash(/Users/chris.cantu/.claude/hooks/check-protected-file.sh)",
-      "Bash(git -C /Users/chris.cantu/repos/claude-config status)",
       "mcp__excalidraw__describe_scene",
       "mcp__excalidraw__batch_create_elements",
       "mcp__excalidraw__clear_canvas",
@@ -14,7 +11,6 @@
       "Edit(~/.claude/skills/fat-marker-sketch/**)",
       "Skill(commit-commands:commit-push-pr)",
       "Skill(commit-commands:commit-push-pr:*)",
-      "Bash(git -C /Users/cantu/repos/claude-config diff --stat)",
       "Bash(bunx slidev:*)",
       "Bash(echo \"exit: $?\")",
       "Bash(fish install.fish)",
@@ -33,11 +29,7 @@
       "Bash(shellcheck:*)"
     ],
     "additionalDirectories": [
-      "/Users/chris.cantu/.claude/hooks",
-      "/Users/chris.cantu/.claude",
-      "/private/tmp",
-      "/Users/cantu/repos/claude-config/skills",
-      "/Users/cantu/presentations"
+      "/private/tmp"
     ]
   },
   "hooks": {
