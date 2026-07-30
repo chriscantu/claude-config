@@ -31,7 +31,7 @@
 
 ## Systems Analysis Summary
 
-**Dependencies**: `~/.claude/CLAUDE.md` loading (via symlinks to `/Users/cantu/repos/claude-config/global/CLAUDE.md` and `/Users/cantu/repos/claude-config/rules/*.md`); `rules/planning.md` (HARD-GATE step 1 skip-contract coherence); `skills/define-the-problem/SKILL.md` (skip contract lives here — rule references, does not duplicate); `skills/systems-analysis/SKILL.md` (rationalization table complements this rule for stage 2); `tests/eval-runner-v2.ts` + 22 eval fixtures (verification); ADR #0004 (governance entanglement).
+**Dependencies**: `~/.claude/CLAUDE.md` loading (via symlinks to `~/repos/claude-config/global/CLAUDE.md` and `~/repos/claude-config/rules/*.md`); `rules/planning.md` (HARD-GATE step 1 skip-contract coherence); `skills/define-the-problem/SKILL.md` (skip contract lives here — rule references, does not duplicate); `skills/systems-analysis/SKILL.md` (rationalization table complements this rule for stage 2); `tests/eval-runner-v2.ts` + 22 eval fixtures (verification); ADR #0004 (governance entanglement).
 
 **Second-order effects**: Positive — ADR #0004 validates, eval gate earns trust, house-style rationalization pattern gains a third reference implementation. Negative — risks: legitimate bug-fix/refactor prompts gated accidentally (mitigated by explicit non-goal); pipeline theater (model announces stages without running them — mitigated by structural `tool_input_matches` assertions on turn 1); over-announcement on trivial prompts (mitigated by DTP's Prototype/POC Condensed Pass).
 
@@ -64,7 +64,7 @@ Three changes, all small:
 
 ### 1. New rule file
 
-Create `/Users/cantu/repos/claude-config/rules/pressure-framing-floor.md` with the following structure:
+Create `~/repos/claude-config/rules/pressure-framing-floor.md` with the following structure:
 
 ```markdown
 # Pressure-Framing Floor
@@ -126,7 +126,7 @@ Full prose for the "Why This Rule Exists" section is written during implementati
 
 ### 2. Symlink
 
-Create `~/.claude/rules/pressure-framing-floor.md` → `/Users/cantu/repos/claude-config/rules/pressure-framing-floor.md`. Matches the existing pattern for the four current rule files.
+Create `~/.claude/rules/pressure-framing-floor.md` → `~/repos/claude-config/rules/pressure-framing-floor.md`. Matches the existing pattern for the four current rule files.
 
 ### 3. Static contract test
 
@@ -213,7 +213,7 @@ These constraints apply to the implementation thread and to any follow-up work:
 Rough shape for the implementation plan that would follow this spec:
 
 1. Create `rules/pressure-framing-floor.md` with the content structure from § Architecture 1. Write the "Why This Rule Exists" section referencing the 2026-04-17 decision doc, PR #107, and ADR #0004.
-2. Create the symlink: `ln -s /Users/cantu/repos/claude-config/rules/pressure-framing-floor.md ~/.claude/rules/pressure-framing-floor.md`. Verify with `ls -la ~/.claude/rules/`.
+2. Create the symlink: `ln -s ~/repos/claude-config/rules/pressure-framing-floor.md ~/.claude/rules/pressure-framing-floor.md`. Verify with `ls -la ~/.claude/rules/`.
 3. Add the static contract test to `tests/evals-lib.test.ts`. Follow the pattern of the existing `rules/planning.md` marker contract test from PR #107.
 4. Run Layer 1 verification. Fix any failures.
 5. Run Layer 2 live-suite. Capture transcript to `tests/results/`.

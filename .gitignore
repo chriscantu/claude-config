@@ -8,6 +8,10 @@ excalidraw.log.*
 .claude/state/
 .claude/sessions/
 .claude/memory/session-log.md
+# Machine-specific project config — rendered from committed templates by
+# bin/setup-project-local.fish (never commit; carries per-machine paths).
+.claude/launch.json
+.claude/settings.local.json
 # Nested skill/sub-agent runtime state (e.g. skills/*/.claude/state/) — root patterns above are anchored, so catch any depth too.
 **/.claude/state/
 **/.claude/worktrees/

@@ -29,7 +29,7 @@ change. Evidence:
 
 1. **Claude Code already loads user-defined stdio MCP servers.** The user's
    `~/.claude.json` registers two custom servers (`memory` via `bunx` and
-   `excalidraw` via a locally-built binary at `/Users/cantu/repos/mcp_excalidraw/dist/index.js`).
+   `excalidraw` via a locally-built binary at `~/repos/mcp_excalidraw/dist/index.js`).
    An MCP server exposing a single tool (`acknowledge`) is a known, working
    pattern on this machine — the excalidraw server is the proof of concept.
 2. **MCP tools appear to the model as first-class `tool_use` blocks.** Their

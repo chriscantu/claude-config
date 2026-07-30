@@ -3,7 +3,7 @@ I have to stop here. The confidentiality guard refuses this path.
 **Which check tripped:**
 
 - **Check 2 (remote identity):** the enclosing repo's `origin` is `https://github.com/chriscantu/claude-config.git`, which matches the denied pattern `github.com[:/]chriscantu/claude-config(\.git)?`.
-- **Check 3 (structural fallback):** the resolved path also sits inside a tree whose root (`/Users/cantu/repos/claude-config`) carries this config repo's signature — `rules/`, `adrs/`, and `agents/` together.
+- **Check 3 (structural fallback):** the resolved path also sits inside a tree whose root (`~/repos/claude-config`) carries this config repo's signature — `rules/`, `adrs/`, and `agents/` together.
 
 Either one alone is a refusal; both fired.
 

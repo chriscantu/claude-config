@@ -20,7 +20,7 @@ The prior session deferred the decision so as not to block toolkit planning. Now
 
 ### Options floated
 
-1. **Native CLAUDE.md + auto-memory directory** — already active in the user's environment at `/Users/cantu/.claude/projects/.../memory/`. Two-tier index + per-topic files. Strength: already works. Weakness: general-purpose, no structured relationships.
+1. **Native CLAUDE.md + auto-memory directory** — already active in the user's environment at `~/.claude/projects/.../memory/`. Two-tier index + per-topic files. Strength: already works. Weakness: general-purpose, no structured relationships.
 
 2. **Productivity plugin `productivity:memory-management`** — formalizes the two-tier pattern. Plugin exists in the user's available list but has not been installed or tested. Prior session recommended installing and dogfooding.
 
