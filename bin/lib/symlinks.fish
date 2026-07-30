@@ -13,6 +13,7 @@
 #       agents/*.md     → file (README.md skipped)
 #       commands/*.md   → file (README.md skipped)
 #       skills/*/       → dir
+#       .claude/skills/*/ → dir (vendored engineering skills, globalized too)
 #       hooks/*.sh      → file (test-* skipped)
 #       global/CLAUDE.md → file (target dst is HOME_CLAUDE/CLAUDE.md)
 #
@@ -76,6 +77,16 @@ function each_symlink_target --argument-names repo home_claude
     set -l skills_src $repo/skills
     if test -d $skills_src
         for src_dir in $skills_src/*/
+            set -l src (string trim --right --chars=/ $src_dir)
+            set -l name (basename $src)
+            printf 'dir|%s|%s|%s\n' $src $home_claude/skills/$name "skills/$name"
+        end
+    end
+
+    # 2b. Vendored engineering skills under .claude/skills/ — globalized too.
+    set -l vendored_src $repo/.claude/skills
+    if test -d $vendored_src
+        for src_dir in $vendored_src/*/
             set -l src (string trim --right --chars=/ $src_dir)
             set -l name (basename $src)
             printf 'dir|%s|%s|%s\n' $src $home_claude/skills/$name "skills/$name"

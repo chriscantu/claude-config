@@ -28,12 +28,13 @@ end
 # Build a fixture "repo" with one entry in each managed location.
 function make_repo_fixture
     set fixture (mktemp -d)
-    mkdir -p $fixture/rules $fixture/agents $fixture/commands $fixture/skills/myskill $fixture/hooks $fixture/global
+    mkdir -p $fixture/rules $fixture/agents $fixture/commands $fixture/skills/myskill $fixture/.claude/skills/vendored $fixture/hooks $fixture/global
     echo "# rule" > $fixture/rules/foo.md
     echo "# rule README" > $fixture/rules/README.md
     echo "# agent" > $fixture/agents/bar.md
     echo "# command" > $fixture/commands/baz.md
     echo "# skill" > $fixture/skills/myskill/SKILL.md
+    echo "# vendored skill" > $fixture/.claude/skills/vendored/SKILL.md
     printf '#!/usr/bin/env bash\necho ok\n' > $fixture/hooks/real.sh
     printf '#!/usr/bin/env bash\necho fixture\n' > $fixture/hooks/test-fixture.sh
     chmod +x $fixture/hooks/*.sh
@@ -85,13 +86,14 @@ set home (make_home_fixture)
 set entries (each_symlink_target $repo $home)
 # Expected entries:
 #   rules/foo.md (README skipped), agents/bar.md, commands/baz.md,
-#   skills/myskill (dir), hooks/real.sh (test-* skipped), CLAUDE.md
-# Total = 6
+#   skills/myskill (dir), .claude/skills/vendored (dir), hooks/real.sh
+#   (test-* skipped), CLAUDE.md
+# Total = 7
 set count (count $entries)
-if test $count -eq 6
-    t_pass "iterator yields 6 entries"
+if test $count -eq 7
+    t_pass "iterator yields 7 entries"
 else
-    t_fail "expected 6 entries, got $count: $entries"
+    t_fail "expected 7 entries, got $count: $entries"
 end
 
 # Spot-check kinds and labels
@@ -119,6 +121,19 @@ if test $found_skill_dir -eq 1
     t_pass "skills/myskill yielded as kind=dir"
 else
     t_fail "skills/myskill not yielded as dir: $entries"
+end
+
+# Vendored .claude/skills/* must be yielded as kind=dir targeting home/skills/
+set found_vendored_dir 0
+for entry in $entries
+    if string match -q "dir|$repo/.claude/skills/vendored|$home/skills/vendored|*" $entry
+        set found_vendored_dir 1
+    end
+end
+if test $found_vendored_dir -eq 1
+    t_pass ".claude/skills/vendored yielded as kind=dir into home/skills/"
+else
+    t_fail ".claude/skills/vendored not yielded as dir into home/skills/: $entries"
 end
 
 # README.md must NOT appear
@@ -160,10 +175,10 @@ for r in $results
         set missing_count (math $missing_count + 1)
     end
 end
-if test $missing_count -eq 6
-    t_pass "all 6 entries report MISSING"
+if test $missing_count -eq 7
+    t_pass "all 7 entries report MISSING"
 else
-    t_fail "expected 6 MISSING, got $missing_count: $results"
+    t_fail "expected 7 MISSING, got $missing_count: $results"
 end
 cleanup_fixture $repo
 cleanup_fixture $home
@@ -180,10 +195,10 @@ for r in $results
         set ok_count (math $ok_count + 1)
     end
 end
-if test $ok_count -eq 6
-    t_pass "all 6 entries report OK"
+if test $ok_count -eq 7
+    t_pass "all 7 entries report OK"
 else
-    t_fail "expected 6 OK after install, got $ok_count: $results"
+    t_fail "expected 7 OK after install, got $ok_count: $results"
 end
 cleanup_fixture $repo
 cleanup_fixture $home
