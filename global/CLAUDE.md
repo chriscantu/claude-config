@@ -17,6 +17,7 @@
 ## Documentation & Diagrams
 - Use Markdown for all documentation and written deliverables
 - Use Mermaid syntax for all diagrams and graphs
+- **Use intuitive, simple language** — documentation, issues, and PR descriptions are read by people new to the project. Lead with *what a thing is* and *why it matters* before using its shorthand name; prefer short sentences over clauses stacked with semicolons and nested parentheses; explain jargon on first use. If a paragraph needs re-reading to parse, rewrite it.
 
 ## Git Conventions
 - Feature branches: `feature/<short-description>` (e.g., `feature/auth-middleware`)
