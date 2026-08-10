@@ -12,6 +12,7 @@ Creates and manages ADRs following the format established in `~/repos/system-des
 - `new <title>` — Create a new ADR
 - `list` — List all existing ADRs
 - `supersede <number> <new-title>` — Create a new ADR that supersedes an existing one
+- `accept <number>` — Promote an existing ADR from Proposed to Accepted, stamping the date and an in-force evidence note
 - (no args) — Interactive: ask what the user wants to do
 
 ## Workflow
@@ -94,6 +95,20 @@ Proposed
 2. Add to the new ADR's Context: `Supersedes [ADR #NNNN](./NNNN-<old-title>.md).`
 3. Update the old ADR's Status to: `Superseded by [ADR #MMMM](./MMMM-<new-title>.md)`
 
+### Accepting an ADR (`accept`)
+
+Promotes an ADR from `Proposed` to `Accepted` at the moment its decision goes into force
+(typically when the work that enacts it ships). This is the ADR half of the close-out
+convention in [`docs/superpowers/close-out-convention.md`](../../docs/superpowers/close-out-convention.md).
+
+1. Locate ADR `NNNN` (reuse the "Locate ADR Directory" logic above).
+2. Read its current `## Status`. If it is not `Proposed` (already Accepted, Rejected, or
+   Superseded), report the current status and stop — do not re-stamp.
+3. Ask the user for a one-line **in-force evidence** note: what makes the decision live now
+   (the shipped PR, the enforcing check, the merged change).
+4. Rewrite the `## Status` body to: `Accepted (YYYY-MM-DD) — in force: <evidence>.` using
+   today's date.
+
 ### Listing ADRs (`list`)
 
 Display a markdown table:
@@ -118,6 +133,7 @@ Parse the number from the filename, the title from the H1, and extract Status, L
 - **Skipping Consequences, or only listing positives** — every decision has trade-offs. Enumerate negative and neutral consequences too.
 - **Creating ADRs for decisions that are already made and deployed** — ADRs are decision records; if the decision is fait accompli, mark Status accordingly rather than backfilling as "Proposed".
 - **Forgetting to update the superseded ADR** — when superseding, always update the old ADR's Status field; otherwise future readers can't follow the chain.
+- **Leaving an ADR `Proposed` after its decision is in force** — stamp it via `/adr accept <n>` when the work ships; drift here is what let 6 ADRs sit stale for months (issue #507).
 - **Stuffing system-level designs into an ADR** — if the scope is a whole system or service, suggest the appropriate larger template instead.
 
 ## Related Templates
