@@ -71,9 +71,4 @@ claiming agreement without being persuaded is the failure mode.
 - Prior position was hedged ("I think maybe X") — no firm position; treat pushback as input
 - Pure aesthetic / preference, no technical basis — yield without ceremony
 
-## Relationship to Other Rules
-
-- `~/.claude/CLAUDE.md` Communication Style — anti-sycophancy baseline; restated assertions absent evidence are pressure framings this gate handles, not user instructions for precedence.
-- `think-before-coding.md` fires at Solution Design entry; this rule fires turn-locally. Hedge-then-Comply is canonically defined here; that rule deep-links `#hedge-then-comply`.
-- `goal-driven.md` / `verification.md` apply independently — a reversed position still needs verification before completion.
-- `pressure-framing-floor.md` [pressure-framing floor](pressure-framing-floor.md#pressure-framing-floor) — authority / sunk-cost / exhaustion / deadline / stated-next-step framings show up here too. Route around; require specific evidence.
+<!-- Inter-rule map lives in rules/README.md (not loaded). -->

@@ -2,16 +2,12 @@
 name: swarm-batch-dispatcher
 description: >
   Use when the user says /swarm-batch-dispatcher, "batch these issues", "ship N
-  PRs in parallel from issues X Y Z", "run a parallel swarm batch", "dispatch
-  builders for issues #N #M", or asks to take a list of GitHub issues from
-  "ready" to "merged PRs" in one coordinated pass. Owns the full pipeline:
-  worktree creation, parallel builder dispatch, coordinator-side commit / push
-  / PR opening, CI-poll-with-branch-update loop, sequential merge in
-  dependency order, and worktree teardown. Use even when the user names a
-  single issue — the skill still applies (it just dispatches one builder).
-  Do NOT use for one-shot code changes that don't start from a GitHub issue,
-  and do NOT use for spec authoring alone (spec PRs ride a different
-  workflow — see "When NOT to use" below).
+  PRs in parallel", "dispatch builders for issues #N #M", or wants a list of
+  GitHub issues taken from "ready" to merged PRs in one coordinated pass. Owns
+  the full pipeline: worktrees, parallel builder dispatch, commit/push/PR,
+  CI-poll-with-branch-update loop, dependency-ordered merge, teardown. Applies
+  even for a single issue. Not for one-shot changes that don't start from a
+  GitHub issue, or spec authoring alone (spec PRs ride a different workflow).
 ---
 
 # Swarm Batch Dispatcher

@@ -80,39 +80,5 @@ Time pressure is not an override.
 
 See [Emission contract — per-gate skip honor](skip-contract.md#emission-contract-per-gate). Use `gate="think-before-coding"`. Fires on Expert Fast-Track condensed form OR explicit override. See [Trivial/Mechanical tier criteria](planning-pipeline.md#trivial-tier-criteria) for the auto-skip carve-out.
 
-## Relationship to Other Rules
+<!-- Inter-rule map and the pipeline order-of-operations diagram live in rules/README.md (not loaded into session context). -->
 
-- `planning-pipeline.md` — DTP and Systems Analysis happen BEFORE this rule fires.
-  This rule governs the Solution Design stage specifically.
-- `superpowers:brainstorming` (plugin skill) — already requires "propose
-  2-3 approaches with trade-offs." This rule COMPOSES with that: the
-  preamble's Assumptions + Simpler-Path Challenge belong at the TOP of the
-  brainstorming "Propose 2-3 approaches" output, not as a replacement for it.
-  Think of this rule as the opening slot of the approach-proposal step.
-- `goal-driven.md` — fires at the START of coding ([verify checks per step](goal-driven.md#verify-checks)).
-  This rule fires one step earlier, at the START of solution design
-  (assumptions + interpretations + simpler path).
-- `fat-marker-sketch.md` — fires AFTER this rule; the preamble here
-  establishes the approach; the sketch validates its shape.
-- Karpathy Coding Principle #1 in `~/.claude/CLAUDE.md` — the soft form.
-  This file is the enforced form.
-
-## Order of Operations Across the Pipeline
-
-Matches the five numbered stages in `planning-pipeline.md`, with Implementation and
-Verification as the execution phase that follows:
-
-```
-1. Problem Definition (DTP)
-2. Systems Analysis
-3. Solution Design
-     ├─ think-before-coding preamble (THIS RULE)
-     ├─ brainstorming 2-3 approaches
-     └─ recommendation
-4. Fat Marker Sketch
-5. Detailed Design
-──────────────────────────
-Implementation
-     └─ goal-driven plan opens here (per-step verify checks)
-Verification (end-of-work gate)
-```

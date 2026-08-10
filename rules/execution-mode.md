@@ -90,20 +90,6 @@ See [pressure-framing routing](pressure-framing-floor.md#pressure-framing-floor)
 [sentinel bypass](pressure-framing-floor.md#emergency-bypass-sentinel), and
 [Trivial/Mechanical tier criteria](planning-pipeline.md#trivial-tier-criteria) —
 canonical mechanics live in `rules/planning-pipeline.md`, `rules/skip-contract.md`,
-and `rules/pressure-framing-floor.md`. Per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
-and memory note `per_gate_floor_blocks_substitutable.md`, no per-gate
-restatement is required.
+and `rules/pressure-framing-floor.md`.
 
-## Relationship to Other Rules
-
-- `rules/planning-pipeline.md` — Scope Calibration's
-  [Trivial/Mechanical tier](planning-pipeline.md#trivial-tier-criteria) feeds this
-  rule (Trivial → single-implementer). This rule fires AFTER planning has
-  produced a plan; it governs HOW the plan is executed, not whether one
-  is needed.
-- `rules/goal-driven.md` — per-step verify checks apply in BOTH modes.
-- `rules/verification.md` — end-of-work gate applies in BOTH modes.
-- `superpowers:subagent-driven-development` (plugin skill) — this rule
-  WRAPS that skill's invocation. The skill's internal mechanics
-  (implementer-prompt, spec-reviewer-prompt, code-quality-reviewer-prompt)
-  are unchanged; this rule decides whether to invoke the skill at all.
+<!-- Inter-rule map lives in rules/README.md (not loaded). -->
