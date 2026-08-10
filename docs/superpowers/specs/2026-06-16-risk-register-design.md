@@ -2,7 +2,7 @@
 
 **Date:** 2026-06-16
 **GitHub issue:** #21 (P1-high)
-**Status:** Locked — ready for writing-plans
+**Status:** Shipped (PR #481; issue #21 closed). Skill lives on disk, then pruned from live symlinks per #505 to reduce standing context.
 
 ---
 

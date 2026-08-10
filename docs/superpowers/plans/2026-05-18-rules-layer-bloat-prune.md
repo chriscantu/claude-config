@@ -1,5 +1,7 @@
 # Rules Layer Bloat Prune Implementation Plan
 
+> **Status: PARTIALLY SHIPPED. Primary intent — canonical anchors + one-line delegate-links replacing duplicated override/emission prose — shipped via the floor-trio split (PR #385/#458): the 4 delegate rules now link to `skip-contract.md` / `pressure-framing-floor.md`. Phase 1p retirement-signal validator also shipped. Residual/unconfirmed: `validate.fish --log-path` JSONL telemetry and zero-lineage phase soft-retire — triaged in the trailing-paper follow-up issue (#507).**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Consolidate ~74 lines of duplicated skip-override prose into single canonical anchors in `planning.md`, add phase-log telemetry, soft-retire validator phases with zero lineage evidence, and add Phase 1p retirement-signal validator.

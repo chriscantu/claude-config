@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Proposed
+Accepted (2026-08-10) — in force: `validate.fish` Phase 1r + its coupling test enforce ≥1 required-tier assertion per colocated `skills/<name>/evals/evals.json` (12 suites, 266 required-tier assertions live). Reconciled from Proposed (non-behavioral governance ADR; judgment-call promotion per ADR #0005).
 
 ## Context
 

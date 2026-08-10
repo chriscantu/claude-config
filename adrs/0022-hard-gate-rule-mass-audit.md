@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Proposed — the `memory-discipline.md` row is partially superseded by [ADR #0023](./0023-discrimination-must-be-measured-before-sizing-hard-gate-rules.md) (count-based sizing overturned by measured discrimination). The rest of this audit stands.
+Accepted (2026-08-10) — in force: `rules/GOVERNANCE.md` encodes floor-trio-as-one-slot + the LOC budget; `validate.fish` Phase 1t enforces the 250-LOC hard ceiling. The `memory-discipline.md` row remains partially superseded by [ADR #0023](./0023-discrimination-must-be-measured-before-sizing-hard-gate-rules.md) (count-based sizing overturned by measured discrimination); the rest of this audit stands. Reconciled from Proposed (non-behavioral governance ADR; judgment-call promotion per ADR #0005).
 
 ## Context
 

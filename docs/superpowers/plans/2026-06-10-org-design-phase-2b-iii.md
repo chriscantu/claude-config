@@ -1,5 +1,7 @@
 # org-design Phase 2b-iii Implementation Plan
 
+> **Status: SHIPPED via PR #477 (2026-06-10). Completed; checkboxes below not retroactively ticked.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Add multi-scenario trade-off matrix + recommended-option output across the 5 org-design scenario modes, then flip the skill `status: experimental → stable` after two new behavioral evals pass.

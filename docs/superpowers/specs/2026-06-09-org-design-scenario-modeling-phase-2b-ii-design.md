@@ -3,7 +3,7 @@
 **Date**: 2026-06-09
 **Issue**: #35 (Phase 2b, sub-phase ii of iii)
 **Predecessors**: [Phase 1 spec](2026-06-08-org-design-analyze-inherited-design.md) (#468) · [Phase 2a spec](2026-06-08-org-design-scenario-modeling-phase-2a-design.md) (`split-team`, #470) · [Phase 2b-i spec](2026-06-09-org-design-scenario-modeling-phase-2b-i-design.md) (`add`/`merge`/`change-reporting`, MERGED #471, commit 48e3d56 on main) · [2b breadcrumb](../decisions/2026-06-09-org-design-phase-2b.md).
-**Pipeline state**: DTP ✅ + systems-analysis ✅ (breadcrumb, covers all of 2b incl. reduce-headcount) → brainstorming ✅ (this spec). Resume at `writing-plans`.
+**Status**: Shipped (PR #474; issue #35 closed). `reduce-headcount` mode + layoff-ack gate are live in `scenario-scorer.ts`.
 
 ## Phase 2b decomposition (recap)
 
