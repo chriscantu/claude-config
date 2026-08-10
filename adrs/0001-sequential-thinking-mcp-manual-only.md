@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Proposed
+Accepted (2026-08-10) — in force: MCP registered in `.mcp.json`; manual-opt-in constraints (max 8 thoughts, 1 branch, no auto-trigger) encoded in `rules/planning-pipeline.md` §Sequential Thinking. Reconciled from Proposed (non-behavioral tooling ADR; judgment-call promotion per ADR #0005).
 
 ## Context
 

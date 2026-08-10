@@ -3,7 +3,7 @@
 **Date**: 2026-06-10
 **Issue**: #35 (Phase 2b, sub-phase iii of iii — the FINAL 2b slice; #35 closes when this ships)
 **Predecessors**: [Phase 1 spec](2026-06-08-org-design-analyze-inherited-design.md) (#468) · [Phase 2a spec](2026-06-08-org-design-scenario-modeling-phase-2a-design.md) (`split-team`, #470) · [Phase 2b-i spec](2026-06-09-org-design-scenario-modeling-phase-2b-i-design.md) (`add`/`merge`/`change-reporting`, #471) · [Phase 2b-ii spec](2026-06-09-org-design-scenario-modeling-phase-2b-ii-design.md) (`reduce-headcount` + layoff ack, MERGED #474, main 8e51323) · [2b breadcrumb](../decisions/2026-06-09-org-design-phase-2b.md).
-**Pipeline state**: DTP ✅ + systems-analysis ✅ (breadcrumb, covers all of 2b incl. matrix + recommended-option) → brainstorming ✅ (this spec, 2026-06-10 session). Resume at `writing-plans`.
+**Status**: Shipped (PR #477; issue #35 closed). `compareScenarios()` + `--matrix` CLI + the two gating evals are live; org-design `status: stable`.
 
 ## Phase 2b decomposition (recap)
 
