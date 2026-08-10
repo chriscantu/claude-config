@@ -58,10 +58,7 @@ Time pressure is not an override.
 See [pressure-framing routing](pressure-framing-floor.md#pressure-framing-floor),
 [emission contract](skip-contract.md#emission-contract), and
 [sentinel bypass](pressure-framing-floor.md#emergency-bypass-sentinel) — canonical mechanics
-live in `rules/skip-contract.md` and `rules/pressure-framing-floor.md`. Per
-[ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
-and memory note `per_gate_floor_blocks_substitutable.md`, no per-gate
-restatement is required.
+live in `rules/skip-contract.md` and `rules/pressure-framing-floor.md`.
 
 ### Emission contract — MANDATORY
 
@@ -82,16 +79,4 @@ This is what enables independent looping. Strong success criteria = you can
 work without constant clarification. Weak criteria ("make it work") = you
 will ping the user every step.
 
-## Relationship to Other Rules
-
-- `verification.md` — the gate at the END (tests run, type-check runs, no
-  "should work"). This rule (`goal-driven.md`) is the gate at the START
-  (verify check defined per step). Together: criteria up front, enforcement
-  at the finish.
-- `tdd-pragmatic.md` — provides the test-first discipline that makes most
-  verify checks cheap. For non-trivial logic, the verify check IS the failing
-  test from TDD.
-- `planning-pipeline.md` — DTP and Systems Analysis happen BEFORE this rule fires.
-  Goal-driven execution governs the implementation phase only.
-- Karpathy Coding Principle #4 in `~/.claude/CLAUDE.md` — the soft form.
-  This file is the enforced form.
+<!-- Inter-rule map lives in rules/README.md (not loaded). -->

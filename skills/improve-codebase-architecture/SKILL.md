@@ -1,14 +1,12 @@
 ---
 name: improve-codebase-architecture
 description: >
-  Slash-invoked: /improve-codebase-architecture. Surfaces deepening opportunities
-  in a codebase via deep/shallow module vocabulary, the deletion test, and seam
-  discipline. Produces a numbered candidate list, then drops into a grilling
-  loop on the user-selected candidate, with optional parallel interface-design
-  exploration. Do NOT use for whole-system mapping or inventory (use
-  /architecture-overview), a single architectural choice (use /adr), a
-  system-level design record (use /sdr), or a tool/framework adoption
-  evaluation (use /tech-radar).
+  Slash-invoked (/improve-codebase-architecture): surfaces deepening
+  opportunities via deep/shallow module vocabulary, the deletion test, and seam
+  discipline. Produces a numbered candidate list, then a grilling loop on the
+  selected candidate with optional interface-design exploration. Not for:
+  whole-system mapping (/architecture-overview), one architectural choice
+  (/adr), design record (/sdr), tool/framework adoption (/tech-radar).
 disable-model-invocation: true
 status: experimental
 version: 0.1.0

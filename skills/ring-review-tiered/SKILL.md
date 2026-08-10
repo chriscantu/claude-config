@@ -1,14 +1,12 @@
 ---
 name: ring-review-tiered
 description: >
-  Use when the user says /ring-review-tiered, "ring review these PRs", "antagonistic
-  ring on this batch", "review PR #N with the ring", or asks to run adversarial /
-  critic review across one or more pull requests. Calibrates critic count to per-PR
-  risk tier — trivial PRs skip the ring, surgical PRs get one cross-dimension critic,
-  medium PRs get two dimension-targeted critics, large/boundary/security PRs get the
-  full 5-critic ring plus arbiter. Use even when the user names a uniform critic
-  count — surface the tier and let them override. Do NOT use for solo single-PR
-  review where the user explicitly asks for the full ring; that's `pr-review-toolkit:review-pr`.
+  Use when the user says /ring-review-tiered, "ring review these PRs",
+  "antagonistic ring on this batch", or wants adversarial/critic review across
+  one or more PRs. Calibrates critic count to per-PR risk tier (trivial skips;
+  surgical=1 cross-dimension; medium=2 targeted; large/boundary/security=full
+  5-critic ring + arbiter). Surfaces the tier even when a uniform count is
+  named. Not for solo single-PR full-ring review (`pr-review-toolkit:review-pr`).
 ---
 
 # Tiered Antagonistic Ring Review

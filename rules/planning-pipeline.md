@@ -33,11 +33,7 @@ or tooling before completing the pipeline.
    risk of missed blast radius"). Generic skip framings — authority, sunk
    cost, cosmetic minimizer, fatigue, deadline — run the scan anyway and
    surface concrete concerns. A bare "skip" without naming the cost is not
-   an override.
-
-   Floor inherits from step 1 per [ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md);
-   no SA per-gate restatement is required. Reopening requires new evals
-   that fail under DTP-only AND pass under DTP+SA.
+   an override. Floor inherits from step 1.
 3. Solution Design — invoke `superpowers:brainstorming` (opt-in: Sequential Thinking available if not converging)
 4. Fat Marker Sketch — invoke `/fat-marker-sketch` (after approach selected).
    See `rules/fat-marker-sketch.md` for the sketch HARD-GATE; floor/skip
