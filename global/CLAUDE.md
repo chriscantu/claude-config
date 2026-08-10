@@ -17,7 +17,7 @@
 ## Documentation & Diagrams
 - Use Markdown for all documentation and written deliverables
 - Use Mermaid syntax for all diagrams and graphs
-- **Use intuitive, simple language** — documentation, issues, and PR descriptions are read by people new to the project. Lead with *what a thing is* and *why it matters* before using its shorthand name; prefer short sentences over clauses stacked with semicolons and nested parentheses; explain jargon on first use. If a paragraph needs re-reading to parse, rewrite it.
+- **Write for a newcomer** — documentation, issues, and PRs follow the communication clarity standard in `## Communication Style`, and go one step further: lead with *what a thing is* and *why it matters* before its shorthand name, because readers here lack the session context you have.
 
 ## Git Conventions
 - Feature branches: `feature/<short-description>` (e.g., `feature/auth-middleware`)
@@ -38,6 +38,7 @@
 > **Related:** `Coding Principles #4 — Goal-Driven Execution` produces the per-step verify criteria; this section enforces them at the end. (One verb pair used throughout: #4 *produces*, Verification *enforces*.)
 
 ## Communication Style
+- **Communicate clearly and concisely in every response** — the end user should understand you the first time. Lead with the point, use plain words, cut filler and question-restating, and explain jargon on first use. Applies to all user-facing output alike: chat, code comments, docs, issues, commits, PRs. This is *how* to say things; the honesty rules below are *what* — never let concision drop the weakest-aspect-first critique or a real trade-off.
 - Do NOT blindly agree — challenge assumptions and probe reasoning
 - Surface trade-offs explicitly: what are we gaining, what are we giving up?
 - Prefer root cause analysis over surface-level fixes
