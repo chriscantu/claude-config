@@ -1,5 +1,7 @@
 # /strategy-doc Skill — Phase 1 Implementation Plan (90-day-plan mode)
 
+> **Status: SHIPPED via PR #297 (+#349 eval fix). Completed; checkboxes below not retroactively ticked.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use `superpowers:subagent-driven-development` (recommended) or `superpowers:executing-plans` to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Ship `/strategy-doc <org> [--mode=draft|review|challenge]` skill that collates `/swot` + `/stakeholder-map` + `/architecture-overview` + `notes/*.md` into a 7-section 90-day-plan markdown artifact under `~/repos/onboard-<org>/decisions/`, with stub-and-iterate flow, layered challenge pass, and `/present` handoff.

@@ -34,8 +34,7 @@ the rationalization table in `skills/fat-marker-sketch/SKILL.md`.
 See [pressure-framing routing](pressure-framing-floor.md#pressure-framing-floor),
 [emission contract](skip-contract.md#emission-contract), and
 [sentinel bypass](pressure-framing-floor.md#emergency-bypass-sentinel) — canonical mechanics
-live in `rules/skip-contract.md` and `rules/pressure-framing-floor.md`. Per ADR #0007
-and the 2026-04-24 inverse-RED audit, no per-gate restatement is required.
+live in `rules/skip-contract.md` and `rules/pressure-framing-floor.md`.
 
 ## Producing the Sketch
 

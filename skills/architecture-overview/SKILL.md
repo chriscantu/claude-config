@@ -1,6 +1,6 @@
 ---
 name: architecture-overview
-description: Slash-invoked discovery-mode skill that scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) using the canonical LANGUAGE.md vocabulary. Use when a new senior eng leader joins and asks to "walk me through the architecture", "map the services across our repos", or needs a credible whole-system mental model on day 3-7 of a ramp. Do NOT use for single-repo deepening grading (use /improve-codebase-architecture), a single architectural choice (use /adr), a system-level design record (use /sdr), or tool/framework adoption (use /tech-radar).
+description: Slash-invoked (/architecture-overview) discovery skill — scans multiple repos and produces a 4-file landscape bundle (inventory, dependencies, data flow, integrations) in canonical LANGUAGE.md vocabulary. For a senior eng leader ramping who needs a whole-system model. Not for: single-repo deepening (/improve-codebase-architecture), one architectural choice (/adr), design record (/sdr), tool adoption (/tech-radar).
 disable-model-invocation: true
 status: experimental
 version: 0.4.0

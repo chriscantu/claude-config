@@ -26,7 +26,6 @@ Descriptive read of the org a new senior leader inherited — **before** proposi
 ## When NOT to Use
 
 - Codebase / service architecture — use `/architecture-overview` (no people/team data here).
-- Multi-scenario trade-off matrix + recommended-option output — that is Phase 2b-iii, not yet implemented. (Splits, additive hires, team merges, reporting-line changes, and headcount reduction are all supported now via `--mode=scenario`; `reduce-headcount` gates on a machine layoff acknowledgment.)
 - A single political-relationship map — use `/stakeholder-map` (this skill *reads* its output).
 
 ## Invocation

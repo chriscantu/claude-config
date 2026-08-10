@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Proposed
+Accepted (2026-08-10) — in force: `validate.fish` Phase 1s enforces single-writer discipline; 4 SKILL.md files (onboard, strategy-doc, swot, stakeholder-map) declare canonical destinations. Reconciled from Proposed (non-behavioral governance ADR; judgment-call promotion per ADR #0005).
 
 ## Context
 

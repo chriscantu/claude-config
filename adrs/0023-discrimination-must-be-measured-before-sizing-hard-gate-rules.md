@@ -16,7 +16,7 @@ Cantu
 GA
 
 ## Status
-Proposed
+Accepted (2026-08-10) — in force: `rules/memory-discipline.md` is 26 LOC; its suite uses `additional_context` faithful injection (2 required + 6 diagnostic); the principle is documented in `rules/references/hard-gate-pattern-justification.md`. Lifecycle already GA. Reconciled from Proposed (non-behavioral governance ADR; judgment-call promotion per ADR #0005).
 
 ## Context
 

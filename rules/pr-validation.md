@@ -115,10 +115,7 @@ Time pressure is not an override.
 See [pressure-framing routing](pressure-framing-floor.md#pressure-framing-floor),
 [emission contract](skip-contract.md#emission-contract), and
 [sentinel bypass](pressure-framing-floor.md#emergency-bypass-sentinel) — canonical mechanics
-live in `rules/skip-contract.md` and `rules/pressure-framing-floor.md`. Per
-[ADR #0006 rejection](../adrs/0006-systems-analysis-pressure-framing-floor.md)
-and memory note `per_gate_floor_blocks_substitutable.md`, no per-gate
-restatement is required.
+live in `rules/skip-contract.md` and `rules/pressure-framing-floor.md`.
 
 ### Emission contract — MANDATORY
 
@@ -150,23 +147,6 @@ ground truth:
 A failed item is not a checkbox to skip — it is a defect to fix
 before claiming ready.
 
-## Relationship to Other Rules
+<!-- Inter-rule map lives in rules/README.md (not loaded). -->
+<!-- Interaction with verification.md: PR validation does not re-run the type-check/test suite if verification.md passed earlier in the same session AND that verify output is quoted in the transcript; it DOES execute test-plan items (user-visible behaviors unit tests don't cover). -->
 
-- `rules/goal-driven.md` — fires at the START of coding (per-step
-  verify check defined). This rule fires at the END of the PR (test
-  plan items executed at readiness declaration). Both are verify
-  gates; they bracket the work.
-- `rules/verification.md` — end-of-implementation gate (`tsc
-  --noEmit`, project test suite). PR validation does NOT re-run
-  these if `verification.md` already passed earlier in the same
-  session AND the relevant verify command output is quoted in the
-  transcript (no quantitative trust window — agents lack a reliable
-  turn counter; either show the verify output you're relying on, or
-  re-run). PR validation DOES execute test plan items, which are
-  typically user-visible behaviors not covered by unit tests (visual
-  confirmation, multi-platform smoke tests, integration checks).
-- `rules/planning-pipeline.md` — DTP, Systems Analysis, Solution Design happen
-  BEFORE coding. This rule fires AFTER coding and verification.md, at
-  the PR boundary.
-- `~/.claude/CLAUDE.md` — Verification section's `PR Validation Gate`
-  is a thin pointer to this rule.

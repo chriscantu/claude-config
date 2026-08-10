@@ -48,6 +48,12 @@ function each_symlink_target --argument-names repo home_claude
         return 2
     end
 
+    # User-pruned skills/agents: kept in-repo but NOT symlinked into ~/.claude,
+    # to reduce always-on skill/agent-description context surfaced every session.
+    # Reversible — delete a name here and reinstall to restore it.
+    set -l pruned_skills org-design strategy-doc swot stakeholder-map 1on1-prep risk-register present
+    set -l pruned_agents strategy-adversary.md deck-audience-reviewer.md
+
     # 1. Markdown directories: rules/, agents/, commands/
     for dir in rules agents commands
         set -l src_dir $repo/$dir
@@ -69,6 +75,10 @@ function each_symlink_target --argument-names repo home_claude
             if test "$dir" = rules; and test "$name" = GOVERNANCE.md
                 continue
             end
+            # User-pruned agents (see pruned_agents above).
+            if test "$dir" = agents; and contains $name $pruned_agents
+                continue
+            end
             printf 'file|%s|%s|%s\n' $src $home_claude/$dir/$name "$dir/$name"
         end
     end
@@ -79,6 +89,10 @@ function each_symlink_target --argument-names repo home_claude
         for src_dir in $skills_src/*/
             set -l src (string trim --right --chars=/ $src_dir)
             set -l name (basename $src)
+            # User-pruned skills (see pruned_skills above).
+            if contains $name $pruned_skills
+                continue
+            end
             printf 'dir|%s|%s|%s\n' $src $home_claude/skills/$name "skills/$name"
         end
     end

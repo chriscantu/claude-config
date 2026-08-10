@@ -3,7 +3,7 @@
 **Date**: 2026-06-09
 **Issue**: #35 (Phase 2b, sub-phase i of iii)
 **Predecessors**: [Phase 1 spec](2026-06-08-org-design-analyze-inherited-design.md) (#468) · [Phase 2a spec](2026-06-08-org-design-scenario-modeling-phase-2a-design.md) (`split-team`, MERGED #470, commit 45a8ba3) · [2b breadcrumb](../decisions/2026-06-09-org-design-phase-2b.md) (DTP + systems-analysis).
-**Pipeline state**: DTP ✅ + systems-analysis ✅ (breadcrumb) → brainstorming ✅ (this spec). Resume at `writing-plans`.
+**Status**: Shipped (PR #471; issue #35 closed). `add-headcount` / `merge-teams` / `change-reporting` modes are live in `scenario-scorer.ts`.
 
 ## Phase 2b decomposition (decided this session)
 

@@ -3,12 +3,10 @@ name: sdr
 description: >
   Use when the user says /sdr, "create an SDR", "system design record", "write
   a system overview", "design doc for a new service", "blueprint", or wants to
-  document a system-level design. Routes to one of four canonical SDR templates
-  (System Overview, Service/Component Creation, Data Design, Blueprint) based
-  on artifact type. Do NOT use when the decision is a single architectural
-  choice — use /adr instead. Do NOT use when evaluating a tool or framework
-  for adoption — use /tech-radar instead. Do NOT use when documenting a
-  deviation from a tenet — use /tenet-exception instead.
+  document a system-level design. Routes to one of four SDR templates (System
+  Overview, Service/Component Creation, Data Design, Blueprint) by artifact
+  type. Not for: a single architectural choice (/adr), tool/framework adoption
+  (/tech-radar), or a tenet deviation (/tenet-exception).
 status: experimental
 version: 0.1.1
 ---

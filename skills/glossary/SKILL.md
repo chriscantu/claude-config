@@ -1,20 +1,13 @@
 ---
 name: glossary
 description: >
-  Use when the user explicitly invokes /glossary, asks to canonicalize a
-  domain term in ./CONTEXT.md, or wants to record agreed-upon
-  project-specific terminology so future sessions and downstream artifacts
-  (ADRs, SDRs, systems-analysis output) stay consistent. Also invoked by
-  define-the-problem and systems-analysis at end-of-skill via the
-  caller-hook contract to offer canonicalization for terms resolved during
-  planning. Write-only format-owner for per-project ./CONTEXT.md.
-  Lazy-create on first term resolution; never auto-write — user approval
-  gates every entry. Do NOT use for: casual term mentions in conversation,
-  code-level naming questions, architectural primitives (Module, Interface,
-  Adapter, Seam — those belong in LANGUAGE.md owned by
-  architecture-overview), general programming concepts, or decisions about
-  why a term was chosen (those belong in docs/superpowers/decisions/ or an
-  ADR).
+  Use when the user invokes /glossary, asks to canonicalize a domain term in
+  ./CONTEXT.md, or to record project-specific terminology so ADRs, SDRs, and
+  systems-analysis output stay consistent. Also called by define-the-problem
+  and systems-analysis via the caller-hook contract. Write-only owner of
+  ./CONTEXT.md; never auto-write — user approval gates every entry. Not for:
+  architectural primitives (Module, Interface, Adapter, Seam — those belong in
+  LANGUAGE.md owned by architecture-overview) or decision rationale (→ ADR).
 ---
 
 # Glossary
