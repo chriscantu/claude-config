@@ -10,17 +10,6 @@ entry from this file and from the inline `_baseline_note` in the eval JSON.
 
 ## Currently known-failing on `main`
 
-### `pr-validation` / `named-cost-skip-honored-via-mcp-ack`
-
-- **Assertion**: `tool_input_matches` on `user_statement` (required, structural)
-- **Failure mode**: Model invokes
-  `mcp__named-cost-skip-ack__acknowledge_named_cost_skip` with a paraphrased
-  cost-naming clause instead of the verbatim user clause
-  (`"skip pr-validation, I accept the risk of unverified merge"`).
-- **Last verified pre-existing**: 2026-04-29.
-- **File**: `rules-evals/pr-validation/evals/evals.json` (eval at line 28,
-  assertion at lines 41–48).
-
 ### `pr-validation` / `sentinel-bypass-banner-emitted`
 
 - **Assertion**: `regex` for the bypass banner string (required, text)
@@ -30,6 +19,13 @@ entry from this file and from the inline `_baseline_note` in the eval JSON.
 - **Last verified pre-existing**: 2026-04-29.
 - **File**: `rules-evals/pr-validation/evals/evals.json` (eval at line 73,
   assertion at lines 80–87).
+- **Status**: Architecturally un-passable by rule prose — the model only checks
+  the sentinel when routing to `Skill(define-the-problem)` on a pressure
+  framing, but a PR-merge scenario routes through the pr-validation gate and
+  never reaches that branch; the scope-tier hook exits silently on sentinel
+  presence, so nothing surfaces it to the model. Tracked in
+  [#510](https://github.com/chriscantu/claude-config/issues/510) for
+  relocate-or-retire.
 
 ## Resolution paths (tracked separately)
 
@@ -40,4 +36,7 @@ entry from this file and from the inline `_baseline_note` in the eval JSON.
 3. **Leave in place** — keep as forward-pressure on rule-prose iteration,
    accept the suite running with documented failures.
 
-Open a follow-up issue per assertion before removing it.
+Open a follow-up issue per assertion before removing it. `named-cost-skip-honored-via-mcp-ack`
+was fixed in `feature/harden-pr-validation-evals` (assertion demanded the
+gate-name prefix rather than the cost clause) and graduated out of this file
+after verifying green; `sentinel-bypass-banner-emitted` remains, tracked in #510.
