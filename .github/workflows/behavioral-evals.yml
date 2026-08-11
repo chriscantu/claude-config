@@ -10,11 +10,12 @@ name: Behavioral Evals (scheduled)
 # ANTHROPIC_API_KEY (it takes precedence → metered billing) and do NOT pass --bare
 # (bare mode ignores CLAUDE_CODE_OAUTH_TOKEN). One-time setup in docs/operations.md.
 #
-# "red = real regression": the default subset excludes `pr-validation` because it has
-# a known-failing required-structural eval (see tests/EVAL_BASELINE.md) that a flag
-# cannot neutralize; and the job runs with --text-nonblocking so only required-
-# STRUCTURAL failures (the runner's "reliable" axis) gate. Add suites via the
-# workflow_dispatch input once their baseline is clear.
+# "red = real regression": the job runs with --text-nonblocking so only required-
+# STRUCTURAL failures (the runner's "reliable" axis) gate. `pr-validation` rejoined the
+# default subset once its baseline cleared — the architecturally un-passable
+# `sentinel-bypass-banner-emitted` eval was retired (issue #510) and the suite verified
+# green on claude-opus-4-8. Add further suites via the workflow_dispatch input once their
+# baseline is clear.
 
 on:
   workflow_dispatch:
@@ -89,7 +90,7 @@ jobs:
         run: |
           SUITES="$SUITES_INPUT"
           if [ -z "$SUITES" ]; then
-            SUITES="verification goal-driven disagreement think-before-coding memory-discipline execution-mode fat-marker-sketch-rule"
+            SUITES="verification goal-driven disagreement think-before-coding memory-discipline execution-mode fat-marker-sketch-rule pr-validation"
           fi
           echo "Running suites: $SUITES"
           rc=0
