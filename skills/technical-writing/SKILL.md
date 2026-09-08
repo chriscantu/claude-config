@@ -1,14 +1,15 @@
 ---
 name: technical-writing
 description: >
-  Use when writing or revising technical documentation — READMEs, guides,
-  API docs, tutorials, PR/issue bodies, or the prose sections of ADRs/SDRs.
-  Use when writing or revising code comments or docstrings. One trigger class
-  per sentence; names WHEN to invoke, not what it does. Do NOT use for
-  reviewing existing code (→ code-review), architecture narrative
+  Concrete sentence-level style rules for technical prose and code comments,
+  derived from the Google developer documentation style guide. Use when
+  writing or revising technical documentation — READMEs, guides, API docs,
+  tutorials, PR/issue bodies, or the prose sections of ADRs/SDRs. Use when
+  writing or revising code comments or docstrings. Do NOT use for reviewing
+  existing code (→ code-review), architecture narrative
   (→ architecture-overview), decision rationale (→ adr / sdr), or the
   multi-stage long-form doc workflow (→ doc-coauthoring, which this skill
-  supplies the style rules for). Avoid trigger overlap with those skills.
+  supplies the style rules for).
 status: experimental
 version: 0.1.0
 ---
