@@ -87,6 +87,8 @@ Precedence on conflict: User instructions > `rules/*.md` HARD-GATEs > Karpathy C
 | `/catalog` | In-session inventory of rules, skills, agents, and templates — grouped by purpose. Read-only. |
 | `/new-project` | New-project scaffold from a vetted template. |
 | `/excalidraw` | Drive an Excalidraw canvas via MCP for diagrams, flowcharts, and visuals. |
+| `/technical-writing` | Concrete style rules (Google-doc-style-guide-derived) for technical prose and code comments — voice/tense/formatting + comment-the-why discipline. Complements CLAUDE.md's tone/format basics; also supplies the style rules `doc-coauthoring` applies. |
+| `/doc-coauthoring` | Anthropic's structured long-form doc workflow (context-gathering → refinement → reader-testing). Vendored from `anthropics/skills`. Use for substantial docs; pairs with `/technical-writing` for the sentence-level rules. |
 
 ## Agents (specialized reviewers)
 
