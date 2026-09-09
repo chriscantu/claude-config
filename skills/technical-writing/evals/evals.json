@@ -1,0 +1,54 @@
+{
+  "skill": "technical-writing",
+  "description": "Executable evals for the technical-writing skill. Verifies (a) a comment request produces a why/intent comment rather than a restatement of the code, and (b) a doc-prose request fires the skill and engages its style vocabulary.",
+  "_contract_note": "skill_invoked is kept diagnostic-tier: plain-English triggers do not reliably re-emit the Skill tool call in --print transcripts (same channel-reliability rationale as the adr/sdr suites). The load-bearing required signal is a content regex — for the comment eval, the intent vocabulary the prompt supplies (a why-comment MUST surface it; a what-comment cannot). The restatement not_regex is diagnostic because failure phrasing varies. Not a HARD-GATE skill, so <4 structural assertions is acceptable per ADR #0005.",
+  "evals": [
+    {
+      "name": "comment-explains-why-not-what",
+      "summary": "Guards the core rule: a comment request surfaces the supplied intent (per-batch budget), not a restatement of `retries = 0`. This is the primary discriminating signal — the prompt hands the model the 'why', so a rule-following answer includes it and a lazy what-comment omits it.",
+      "prompt": "Here's a line from our batch processor: `retries = 0`. It sits at the top of each batch because the retry budget is per-batch, not per-item. Write the code comment that should go above this line.",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "technical-writing",
+          "tier": "diagnostic",
+          "description": "diagnostic: skill_invoked channel — plain-English re-emit is unreliable per adr/sdr suite rationale; informational only"
+        },
+        {
+          "type": "regex",
+          "pattern": "(per[- ]batch|per batch|budget|not .{0,15}per[- ]item|each batch)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: the comment surfaces the WHY the prompt supplied (per-batch retry budget) — the load-bearing signal separating an intent comment from a restatement"
+        },
+        {
+          "type": "not_regex",
+          "pattern": "//\\s*(set|initiali[sz]e|reset)\\s+retries\\s+to\\s+(0|zero)\\s*$",
+          "flags": "im",
+          "tier": "diagnostic",
+          "description": "diagnostic negative: forbids a pure restatement comment ('set retries to zero') — the failure mode the why-not-what rule prevents"
+        }
+      ]
+    },
+    {
+      "name": "fires-on-doc-prose-request",
+      "summary": "A README-writing request fires the skill and engages its style guidance. Required-tier regex on skill engagement vocabulary; skill_invoked stays diagnostic for channel parity with adr/sdr.",
+      "prompt": "Write a short 'Configure the webhook' section for our API README, explaining how a user points the service at their endpoint URL.",
+      "assertions": [
+        {
+          "type": "skill_invoked",
+          "skill": "technical-writing",
+          "tier": "diagnostic",
+          "description": "diagnostic: skill_invoked channel — informational only per re-emit reliability note"
+        },
+        {
+          "type": "regex",
+          "pattern": "(technical-writing skill|second person|active voice|sentence case|\\byou\\b)",
+          "flags": "i",
+          "tier": "required",
+          "description": "required: response either announces the technical-writing skill or applies second-person/active-voice prose ('you point the service at...') — engagement signal distinguishing rule-following output from a generic dump"
+        }
+      ]
+    }
+  ]
+}

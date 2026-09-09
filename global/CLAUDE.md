@@ -18,6 +18,7 @@
 - Use Markdown for all documentation and written deliverables
 - Use Mermaid syntax for all diagrams and graphs
 - **Write for a newcomer** — documentation, issues, and PRs follow the communication clarity standard in `## Communication Style`, and go one step further: lead with *what a thing is* and *why it matters* before its shorthand name, because readers here lack the session context you have.
+- **Apply the `technical-writing` skill's mechanical style rules** when writing technical docs or code comments — voice/tense/formatting (`skills/technical-writing/references/documentation-style.md`) and comment discipline: comment the *why*, not the *what* (`skills/technical-writing/references/comment-style.md`).
 
 ## Git Conventions
 - Feature branches: `feature/<short-description>` (e.g., `feature/auth-middleware`)
