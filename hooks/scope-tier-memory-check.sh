@@ -4,8 +4,8 @@
 # Spec: docs/superpowers/specs/2026-05-17-scope-tier-memory-check-design.md
 #
 # Structure: the routing decision is two PURE functions —
-#   scope_tier_prompt_verdict PROMPT           (6-criteria prompt classifier)
-#   scope_tier_diffstat_rejects DIFFSTAT_TEXT  (git working-tree blast check)
+#   scope_tier_prompt_verdict PROMPT           (prompt criteria 1-5, six boolean signals)
+#   scope_tier_diffstat_rejects DIFFSTAT_TEXT  (criterion 6: git working-tree blast check)
 # — both taking their input as an argument with no I/O side effects, so the
 # module's own tests can cross that internal seam directly (see
 # tests/hooks/scope-tier-classify.test.sh). main() is the adapter: it does all
