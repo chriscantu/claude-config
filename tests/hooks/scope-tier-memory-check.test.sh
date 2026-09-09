@@ -11,24 +11,34 @@ FAILED_TESTS=()
 
 VALID_PROMPT='{"prompt":"implement a small feature for me"}'
 
+# Fixtures export SCOPE_TIER_MEMORY_PATH to point the hook at the fabricated
+# MEMORY.md via its highest-priority resolution seam. Since R1, the hook
+# self-resolves the memory path from its own repo root, which on a maintainer
+# machine finds the REAL (keyword-less) MEMORY.md and would shadow a fixture
+# injected only through CLAUDE_PROJECT_DIR. The explicit override is the
+# designed test seam and makes these cases deterministic on any machine.
+FIXTURE_REL=".claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md"
+
 setup_memory_fixture_positive() {
   local dir="$1"
   mkdir -p "$dir/.claude/projects/-Users-cantu-repos-claude-config/memory"
-  cat > "$dir/.claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md" <<'EOF'
+  cat > "$dir/$FIXTURE_REL" <<'EOF'
 # Memory Index
 
 - [feedback_right_size_ceremony](feedback_right_size_ceremony.md) — Right-size pipeline ceremony to feature size: small/mechanical changes should skip DTP/SA/brainstorm/FMS
 EOF
+  export SCOPE_TIER_MEMORY_PATH="$dir/$FIXTURE_REL"
 }
 
 setup_memory_fixture_negative() {
   local dir="$1"
   mkdir -p "$dir/.claude/projects/-Users-cantu-repos-claude-config/memory"
-  cat > "$dir/.claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md" <<'EOF'
+  cat > "$dir/$FIXTURE_REL" <<'EOF'
 # Memory Index
 
 - [Other memory](other.md) — Some unrelated thing
 EOF
+  export SCOPE_TIER_MEMORY_PATH="$dir/$FIXTURE_REL"
 }
 
 run_case() {
@@ -39,6 +49,9 @@ run_case() {
   local setup_cmd="${5:-true}"
   local cleanup_cmd="${6:-true}"
 
+  # Isolate the memory-path seam per test: a fixture-using setup re-exports it,
+  # fixture-less cases (no MEMORY.md, sentinel, empty stdin) see it unset.
+  unset SCOPE_TIER_MEMORY_PATH
   eval "$setup_cmd"
   local actual_stdout actual_exit
   actual_stdout=$(echo "$stdin_input" | bash "$HOOK" 2>&1)

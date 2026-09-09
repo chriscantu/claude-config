@@ -16,6 +16,12 @@
 # Dependencies: bash, jq, grep.
 
 set -u
+set -o pipefail
+
+# Shared dependency-preflight helpers. Sourced, not executed — resolves beside
+# this hook regardless of install location (plugin root or repo checkout).
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/lib/preflight.sh"
 
 if [[ -f "${HOME}/.claude/DISABLE_GIT_GUARDRAILS" ]] \
   || [[ -f ".claude/DISABLE_GIT_GUARDRAILS" ]]; then
@@ -23,7 +29,18 @@ if [[ -f "${HOME}/.claude/DISABLE_GIT_GUARDRAILS" ]] \
 fi
 
 INPUT=$(cat)
-COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+
+# A SECURITY guardrail must fail safe, not silent. With jq we parse the command
+# out of the tool_input JSON; without jq we cannot parse, but exiting 0 would
+# let every dangerous command through unseen. Instead warn loudly and scan the
+# RAW payload — the command string is a substring of INPUT, so the patterns
+# below still match (a wider net, acceptable for a degraded security posture).
+if require_cmd jq; then
+  COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+else
+  warn_degraded block-dangerous-git "jq not on PATH — scanning raw payload (degraded, fail-safe)"
+  COMMAND="$INPUT"
+fi
 
 if [[ -z "$COMMAND" ]]; then
   exit 0

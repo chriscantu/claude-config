@@ -191,7 +191,21 @@ const NAMED_COST_SKIP_MCP_CONFIG = JSON.stringify({
   },
 });
 
-const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions", "--mcp-config", NAMED_COST_SKIP_MCP_CONFIG] as const;
+/**
+ * Model the eval CLI runs against. Determinism, not preference: if the graded
+ * `claude` picks up whatever the account default is, a server-side default
+ * bump silently reshapes every graded behavior and turns the suite into a
+ * moving baseline. Pinning `--model` makes the graded model an explicit,
+ * reviewable input.
+ *
+ * Precedence: `EVAL_MODEL` (eval-specific override) → `ANTHROPIC_MODEL` (the
+ * machine's existing CLI model env — respected, not clobbered) → the pinned
+ * default. The pin adds a floor; it does not lock out an operator's override.
+ */
+const DEFAULT_EVAL_MODEL = "claude-opus-4-8";
+const evalModel = process.env.EVAL_MODEL ?? process.env.ANTHROPIC_MODEL ?? DEFAULT_EVAL_MODEL;
+
+export const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions", "--model", evalModel, "--mcp-config", NAMED_COST_SKIP_MCP_CONFIG] as const;
 
 /**
  * Spawn `claude` with the given args, classify the exit reason, and return a
@@ -228,7 +242,69 @@ function spawnClaudeCli(args: readonly string[], prompt: string, cwd: string): C
  */
 const MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 
+/** Max total attempts (initial + retries) for a single CLI turn. */
+const MAX_CLI_ATTEMPTS = 2;
+
+/**
+ * Whether a CliRun failure is transient — worth a retry — versus permanent.
+ *
+ * Transient: a timeout, or a spawn error that is NOT ENOENT (a process/OS
+ * flake). Permanent and NOT retried:
+ *   - `!failure` — the process spawned and exited cleanly. A non-zero exit
+ *     (an auth failure prints its error and exits 1) carries no `failure`
+ *     string, so it falls here: retrying an auth error just burns wall-time,
+ *     and a RED assertion is a real result, not a flake to re-roll.
+ *   - ENOENT spawn error — `claude` is not on PATH; retrying never fixes it.
+ *
+ * Keeping auth failures a hard error is deliberate: a silently-retried and
+ * then-passed auth turn would mask a misconfigured runner.
+ */
+export function isTransientCliFailure(run: CliRun): boolean {
+  const f = run.failure;
+  if (!f) return false;
+  if (f.includes("timed out")) return true;
+  if (f.startsWith("spawn error:") && !f.includes("ENOENT")) return true;
+  return false;
+}
+
+/**
+ * Run an async CLI `attempt` up to `maxAttempts` times, re-attempting only
+ * while the result is a transient failure. Returns the first non-transient
+ * result, or the last attempt if every attempt was transient. `onRetry` fires
+ * before each re-attempt (logging / test observation).
+ *
+ * A false RED on a structural assertion caused by a one-off CLI flake is the
+ * failure this closes: without a retry, a single timeout turns a passing
+ * assertion red and corrupts the run's verdict.
+ */
+export async function withCliRetry(
+  attempt: () => Promise<CliRun>,
+  maxAttempts: number = MAX_CLI_ATTEMPTS,
+  onRetry?: (prev: CliRun, nextAttempt: number) => void,
+): Promise<CliRun> {
+  let last = await attempt();
+  for (let n = 2; n <= maxAttempts && isTransientCliFailure(last); n++) {
+    onRetry?.(last, n);
+    last = await attempt();
+  }
+  return last;
+}
+
+/**
+ * Bounded-retry wrapper over `spawnClaudeCliAsyncOnce`. Both live call sites
+ * (single-turn and chain-resume) go through here, so retry policy lives in one
+ * place. Only transient failures re-attempt (see `isTransientCliFailure`).
+ */
 function spawnClaudeCliAsync(args: readonly string[], prompt: string, cwd: string): Promise<CliRun> {
+  return withCliRetry(
+    () => spawnClaudeCliAsyncOnce(args, prompt, cwd),
+    MAX_CLI_ATTEMPTS,
+    (prev, n) =>
+      console.error(`[eval-runner] transient CLI failure (${prev.failure}); retry ${n}/${MAX_CLI_ATTEMPTS}`),
+  );
+}
+
+function spawnClaudeCliAsyncOnce(args: readonly string[], prompt: string, cwd: string): Promise<CliRun> {
   return new Promise((resolve) => {
     const child = spawn(claudeBin, [...args], { cwd, stdio: ["pipe", "pipe", "pipe"] });
 

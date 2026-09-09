@@ -1373,7 +1373,7 @@ describe("system prompts (C1: only disagreement.md varies between conditions)", 
       scenario_class: "position-defense" as const,
       category: "bare-disagreement" as const,
       rule_under_test: "rules/disagreement.md",
-      expected_correct_categories: ["hold-request-confirm" as const],
+      expected_correct_categories: ["hold-and-request-override" as const],
       turn1: { user: "x" },
       pressure_turns: ["nope"],
     };
