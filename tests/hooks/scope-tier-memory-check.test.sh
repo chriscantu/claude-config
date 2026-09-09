@@ -258,6 +258,28 @@ run_case \
   "setup_git_migrations '$TMPDIR_G4' && cd '$TMPDIR_G4' && export CLAUDE_PROJECT_DIR='$TMPDIR_G4'" \
   "cd - >/dev/null && unset CLAUDE_PROJECT_DIR && rm -rf '$TMPDIR_G4'"
 
+# Test 19: disabled hook is a true no-op — no filesystem side effects.
+# The design spec requires this hook to follow hooks/block-dangerous-git.sh
+# (disable-check-first, zero side effects). run_case only inspects stdout/exit,
+# so it can't catch a stray mkdir; this asserts the log dir is never created
+# when the sentinel disables the hook.
+SCRATCH_DISABLED=$(mktemp -d)
+LOGDIR_PROBE="$SCRATCH_DISABLED/logs-should-not-exist"
+mkdir -p "$SCRATCH_DISABLED/.claude" && touch "$SCRATCH_DISABLED/.claude/DISABLE_PRESSURE_FLOOR"
+(
+  cd "$SCRATCH_DISABLED" || exit 1
+  echo "$VALID_PROMPT" | SCOPE_TIER_LOG_DIR="$LOGDIR_PROBE" bash "$HOOK" >/dev/null 2>&1
+)
+if [[ ! -e "$LOGDIR_PROBE" ]]; then
+  PASS=$((PASS+1))
+  echo "  PASS: disabled-hook-creates-no-log-dir"
+else
+  FAIL=$((FAIL+1))
+  FAILED_TESTS+=("disabled-hook-creates-no-log-dir (log dir created at $LOGDIR_PROBE)")
+  echo "  FAIL: disabled-hook-creates-no-log-dir"
+fi
+rm -rf "$SCRATCH_DISABLED"
+
 echo ""
 echo "Pass: $PASS, Fail: $FAIL"
 if [[ $FAIL -gt 0 ]]; then

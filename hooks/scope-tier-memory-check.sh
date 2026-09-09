@@ -21,7 +21,6 @@ LOG_FILE="$LOG_DIR/scope-tier-hook.log"
 LOG_ROTATED="$LOG_FILE.1"
 LOG_THRESHOLD=$((10*1024*1024))
 LOG_KEEP_TAIL=$((5*1024*1024))
-mkdir -p "$LOG_DIR" 2>/dev/null || true
 
 rotate_log_if_needed() {
   [[ ! -f "$LOG_FILE" ]] && return 0
@@ -179,6 +178,10 @@ scope_tier_diffstat_rejects() {
 main() {
   if [[ -f "${HOME}/.claude/DISABLE_PRESSURE_FLOOR" ]] \
     || [[ -f ".claude/DISABLE_PRESSURE_FLOOR" ]]; then return 0; fi
+
+  # Logging is main()-only, so the dir is created here (after the disable check)
+  # rather than at module scope — a disabled or sourced hook touches nothing.
+  mkdir -p "$LOG_DIR" 2>/dev/null || true
 
   INPUT=$(cat 2>/dev/null || true)
   [[ -z "$INPUT" ]] && return 0
