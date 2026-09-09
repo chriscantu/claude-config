@@ -56,6 +56,19 @@ make_large_diff() {
   git add big.txt
 }
 
+# Poll for the backgrounded spawn marker. adversarial-trigger.sh backgrounds
+# the spawn (`& disown`) and returns before the child writes the marker, so a
+# fixed sleep races the child under load. Poll up to ~5s in 50ms steps and
+# return the instant it appears (fast path for the common spawn case).
+await_spawn_marker() {
+  local i
+  for ((i = 0; i < 100; i++)); do
+    [[ -f .claude/state/critiques/spawn-marker ]] && return 0
+    sleep 0.05
+  done
+  return 1
+}
+
 run_case() {
   local name="$1"
   local expected="$2"   # one of: spawn / no-spawn / sentinel-exists / sentinel-absent
@@ -66,9 +79,16 @@ run_case() {
       rm -f .claude/state/critiques/spawn-marker .claude/state/critiques/.last-hash 2>/dev/null
       mkdir -p .claude/state/critiques
       bash hooks/adversarial-trigger.sh >/dev/null 2>&1
-      # spawn is backgrounded — give it a moment.
-      sleep 0.5
-      if [[ -f .claude/state/critiques/spawn-marker ]]; then actual="spawn"; else actual="no-spawn"; fi
+      if [[ "$expected" == "spawn" ]]; then
+        # Spawn is backgrounded: poll until the marker appears (bounded).
+        if await_spawn_marker; then actual="spawn"; else actual="no-spawn"; fi
+      else
+        # no-spawn: the trigger exits before backgrounding, so no child will
+        # ever write the marker. Polling can't prove a negative — settle briefly,
+        # then confirm absence.
+        sleep 0.5
+        if [[ -f .claude/state/critiques/spawn-marker ]]; then actual="spawn"; else actual="no-spawn"; fi
+      fi
       ;;
     sentinel-exists|sentinel-absent)
       if [[ -f .claude/state/scope-tier-current ]]; then actual="sentinel-exists"; else actual="sentinel-absent"; fi
