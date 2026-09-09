@@ -1,0 +1,70 @@
+{
+  "skill": "code-clarity",
+  "description": "Executable evals for the code-clarity STANDARD in rules/code-clarity.md. Unlike the HARD-GATE suites, this is a generative eval: it measures what the agent WRITES, not a gating speech-act. The standard's bright lines are max nesting depth ~3, guard clauses over the arrow anti-pattern, and extracting non-trivial nested loops. Each eval hands the model a small, self-contained, trivial-tier pure-function spec whose naive implementation invites deep nesting, and asserts the emitted code stays flat. The discriminating variable is the rule text itself (present = GREEN, stripped = RED via bin/redgreen.fish). NOTE: code-clarity.md is a SOFT rule and its behavior overlaps base-model habit — per rules-evals/REDGREEN-RUNBOOK.md, a GREEN~=RED (no-flip) outcome is a legitimate, documented finding, not a bug in the suite.",
+  "_contract_note": "Assertions here are regex-on-generated-code, not tool/skill-surface pins — the harness has no LLM-judge assertion type, so code structure is measured structurally. The load-bearing discriminator in each eval is the not_regex for deep indentation (>=10 leading whitespace chars = roughly >=4 nesting levels at 2-space indent). It is PAIRED with a positive required assertion that proves real code was emitted, closing the silent-fire trap where a negative-only required assertion passes trivially against planning-only output. Caveat recorded in REDGREEN.md: the indentation heuristic assumes space indentation; tab-indented output would under-count and is noted as a limitation.",
+  "evals": [
+    {
+      "name": "guard-clauses-over-arrow-antipattern",
+      "summary": "A pure pricing function with five sequential preconditions — the textbook arrow anti-pattern trap. The standard requires guard clauses / early returns keeping the happy path un-indented, not a staircase of nested ifs.",
+      "prompt": "Trivial, self-contained task — a single pure function, well under 200 lines, one file, no external effects, no ambiguity in the spec. No planning ceremony needed; just write it and output only the function.\n\nImplement this TypeScript function and return the final amount to charge, in cents:\n\n  priceOrder(order, customer, promo): number\n\nApply these rules in order:\n- If the order has no line items, the charge is 0.\n- Otherwise the subtotal is the sum over line items of (unitCents * quantity).\n- If customer.tier === 'gold', take 10% off the subtotal.\n- If a promo is supplied, is not expired (promo.expiresAt is a future ISO date), and the subtotal is at least promo.minSpendCents, subtract promo.discountCents.\n- Shipping: if the running total is below 5000, add 599; otherwise shipping is free.\n- Never return a value below 0.\n\nOutput only the function.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(function\\s+priceOrder|priceOrder\\s*[=:]\\s*(\\(|function|async))",
+          "flags": "",
+          "tier": "required",
+          "description": "Proves a real priceOrder implementation was emitted (not planning-only output). Paired with the deep-nesting not_regex below so the discriminating negative assertion has actual code to judge — closes the silent-fire trap. Non-discriminating by design (both GREEN and RED emit the function); its job is to gate the negative assertion, not to flip."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^\\s{10,}\\S",
+          "flags": "m",
+          "tier": "required",
+          "description": "DISCRIMINATOR. No emitted line is indented >=10 whitespace chars — at 2-space indent that is roughly >=4 nesting levels, i.e. the arrow anti-pattern the standard forbids. Guard-clause style keeps every branch at <=2 levels (max ~4-6 spaces); a fully-nested staircase of the five preconditions lands the innermost statement at ~12 spaces. GREEN (rule present) should pass; RED (rule stripped) should trip IF the base model defaults to nesting. Limitation: assumes space indentation (tabs under-count) — documented in REDGREEN.md."
+        },
+        {
+          "type": "regex",
+          "pattern": "if\\s*\\(\\s*!",
+          "flags": "",
+          "tier": "diagnostic",
+          "description": "[diagnostic] Invert-and-return-early signature — a negated guard condition (e.g. `if (!order.items?.length) return 0`). Guard-clause style inverts the exceptional case and returns; the nested style writes the positive `if (order.items.length) { ... }` and never negates. Diagnostic because a nested implementation may still write ONE negated guard for the empty case then nest the rest, so it does not cleanly flip on its own."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "\\b(const|let|var)\\s+(d|x|y|z|tmp|temp|res|ret|arr|val|obj|flag|foo)\\b",
+          "flags": "",
+          "tier": "diagnostic",
+          "description": "[diagnostic — likely a control cell] No single-letter or throwaway variable names. The standard asks for intention-revealing names, but strong base models name well without the rule, so this is expected to pass in BOTH phases (no flip). Recorded to document the naming heuristic, not to gate."
+        }
+      ]
+    },
+    {
+      "name": "extract-nested-loop",
+      "summary": "A three-level collection traversal with a filter — the nested-loop trap. The standard requires extracting non-trivial nested loops into named helpers (or flattening via array combinators) rather than a 3-deep for-loop staircase.",
+      "prompt": "Trivial, self-contained task — a single pure function, well under 200 lines, one file, no external effects, no ambiguity in the spec. No planning ceremony needed; just write it and output only the function(s).\n\nImplement this TypeScript function:\n\n  collectOpenTicketIds(teams): string[]\n\nEach team looks like { region: string, members: Member[] }. Each member looks like { tickets: Ticket[] }. Each ticket looks like { id: string, status: string }.\n\nReturn the ids of every ticket whose status === 'open' that belongs to a member of a team whose region === 'active'. Preserve encounter order.\n\nOutput only the function(s).",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(function\\s+collectOpenTicketIds|collectOpenTicketIds\\s*[=:]\\s*(\\(|function|async))",
+          "flags": "",
+          "tier": "required",
+          "description": "Proves a real collectOpenTicketIds implementation was emitted. Gates the discriminating negative assertion below (silent-fire trap closure). Non-discriminating by design."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^\\s{10,}\\S",
+          "flags": "m",
+          "tier": "required",
+          "description": "DISCRIMINATOR. No emitted line indented >=10 whitespace chars. A naive triple-nested for-loop with an inner status check lands the push at ~10-12 spaces (2-space indent); the standard's flattened form (array combinators or an extracted named helper) keeps everything shallow. GREEN should pass; RED trips IF the base model defaults to the nested staircase. Same tab-indentation limitation as eval 1."
+        },
+        {
+          "type": "regex",
+          "pattern": "\\.(flatMap|filter|map|flat|reduce)\\s*\\(|function\\s+\\w+[\\s\\S]{0,600}function\\s+\\w+|const\\s+\\w+\\s*=\\s*\\([^)]*\\)\\s*=>[\\s\\S]{0,400}(function\\s+\\w+|const\\s+\\w+\\s*=)",
+          "flags": "",
+          "tier": "diagnostic",
+          "description": "[diagnostic] Extraction / flattening signal — either array combinators (flatMap/filter/map) that dissolve the nesting, or a second named helper beyond the entry point. Diagnostic because the flip may be weak: strong base models reach for .filter()/.flatMap() by habit."
+        }
+      ]
+    }
+  ]
+}
