@@ -78,11 +78,17 @@ Enforced version: see `rules/think-before-coding.md` (loaded as HARD-GATE).
 - If 200 lines could be 50, rewrite it.
 - Senior-engineer test: "Would they call this overcomplicated?" If yes, simplify.
 
+> **Clarity is part of simplicity.** *How much* code you write is this principle;
+> *how readable* the code you write is `rules/code-clarity.md` — guard clauses over
+> nested `if`s, intention-revealing names, DRY, pragmatic SOLID. Both apply to new code.
+
 ### 3. Surgical Changes
 **Touch only what you must. Clean up only your own mess.**
 - Don't "improve" adjacent code, comments, or formatting.
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
+  - **Carve-out:** this governs *edits to existing code*. It is NOT a license to
+    write *new* code with poor clarity — new code follows `rules/code-clarity.md`.
 - Mention unrelated dead code — don't delete it.
 - Remove imports/vars/functions YOUR changes orphaned. Leave pre-existing dead code unless asked.
 - Test: every changed line traces directly to the user's request.
