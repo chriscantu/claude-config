@@ -68,7 +68,7 @@ log_decision() {
   local ts prompt_hash matched_json
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   prompt_hash=$(printf '%s' "${PROMPT:-}" | shasum -a 256 2>/dev/null | awk '{print substr($1,1,16)}')
-  if [[ ${#MATCHED_MEMORIES[@]:-0} -gt 0 ]]; then
+  if [[ ${#MATCHED_MEMORIES[@]} -gt 0 ]]; then
     matched_json=$(printf '%s\n' "${MATCHED_MEMORIES[@]}" | jq -R . | jq -s .)
   else
     matched_json='[]'
