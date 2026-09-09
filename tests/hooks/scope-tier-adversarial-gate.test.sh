@@ -27,6 +27,9 @@ setup_scratch_repo() {
   cp "$REPO_ROOT/hooks/adversarial-config.json" hooks/
   cp "$REPO_ROOT/hooks/adversarial-trigger.sh" hooks/
   cp "$REPO_ROOT/hooks/scope-tier-memory-check.sh" hooks/
+  # scope-tier-memory-check.sh sources hooks/lib/preflight.sh beside itself; the
+  # scratch repo must mirror that dependency or the copied hook degrades out.
+  cp -r "$REPO_ROOT/hooks/lib" hooks/
   # Stub spawn — record invocation, do not actually spawn agents.
   cat > hooks/adversarial-spawn.sh <<'EOF'
 #!/bin/bash

@@ -15,6 +15,13 @@
 # the functions without triggering the hook.
 set -u
 
+# Shared dependency-preflight helpers (require_cmd / warn_degraded). Sourced,
+# not executed — resolves beside this hook regardless of install location
+# (plugin root or repo checkout). Sourcing defines two functions only; it does
+# no I/O, so the classifier tests that source this file stay inert.
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/lib/preflight.sh"
+
 # ── Logging infrastructure ────────────────────────────────────────────────────
 LOG_DIR="${SCOPE_TIER_LOG_DIR:-${HOME}/.claude/logs}"
 LOG_FILE="$LOG_DIR/scope-tier-hook.log"
@@ -80,11 +87,45 @@ SCOPE_TIER_MEMORY_KEYWORDS=(
   "right-size" "small/mechanical" "skip DTP" "skip SA" "ceremony" "scope tier"
 )
 
+# _scope_tier_slug PATH → PATH with '/' → '-' (Claude Code's project-dir slug
+# convention: an absolute path becomes the directory name under
+# ~/.claude/projects/). Pure; the seam the self-resolution below is built on.
+_scope_tier_slug() {
+  printf '%s' "$1" | sed 's:/:-:g'
+}
+
+# discover_memory_md → echo the first readable scope-tier MEMORY.md, else 1.
+#
+# The scope-tier feedback memories live in claude-config's own project memory
+# (~/.claude/projects/<slug>/memory/MEMORY.md, where <slug> is the project
+# dir's path slugified). The original hook hardcoded the maintainer's slug,
+# which silently disabled the fast-lane for every other installer whose repo
+# lives at a different path. Resolution order now self-heals with zero config:
+#
+#   1. SCOPE_TIER_MEMORY_PATH — explicit override for non-standard layouts.
+#   2. Self-resolved — this hook's own repo root (the dir above hooks/),
+#      slugified. Correct whenever the user opens the same checkout the hook
+#      ships in as their claude-config project. `pwd -P` resolves symlinks so
+#      a symlinked checkout still maps to the real path.
+#   3. Hardcoded fallback — the maintainer's original path, kept last so this
+#      machine keeps working even if self-resolution ever fails.
 discover_memory_md() {
-  local candidates=(
+  local candidates=()
+
+  [[ -n "${SCOPE_TIER_MEMORY_PATH:-}" ]] && candidates+=("$SCOPE_TIER_MEMORY_PATH")
+
+  local repo_root slug
+  repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd -P)
+  if [[ -n "$repo_root" ]]; then
+    slug=$(_scope_tier_slug "$repo_root")
+    candidates+=("${HOME}/.claude/projects/${slug}/memory/MEMORY.md")
+  fi
+
+  candidates+=(
     "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md"
     "${HOME}/.claude/projects/-Users-cantu-repos-claude-config/memory/MEMORY.md"
   )
+
   for c in "${candidates[@]}"; do
     [[ -r "$c" ]] && { echo "$c"; return 0; }
   done
@@ -176,8 +217,20 @@ scope_tier_diffstat_rejects() {
 
 # ── Adapter: all I/O lives here ───────────────────────────────────────────────
 main() {
+  # pipefail is scoped to main() (not module scope) so that sourcing this file
+  # for the classifier tests never mutates the test harness's shell options.
+  set -o pipefail
+
   if [[ -f "${HOME}/.claude/DISABLE_PRESSURE_FLOOR" ]] \
     || [[ -f ".claude/DISABLE_PRESSURE_FLOOR" ]]; then return 0; fi
+
+  # jq is a hard dependency here (prompt extraction, sentinel, logging, emission).
+  # This is an ADVISORY hook, so degrade gracefully but LOUDLY — warn on stderr
+  # and return 0 rather than the old silent no-op that hid a broken guardrail.
+  if ! require_cmd jq; then
+    warn_degraded scope-tier-memory-check "jq not on PATH — scope-tier fast-lane disabled this prompt"
+    return 0
+  fi
 
   # Logging is main()-only, so the dir is created here (after the disable check)
   # rather than at module scope — a disabled or sourced hook touches nothing.

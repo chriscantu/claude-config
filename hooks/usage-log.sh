@@ -8,8 +8,22 @@
 #
 # NO skill-argument content. NO PII. Only ts, event, skill, session.
 set -u
+set -o pipefail
+
+# Shared dependency-preflight helpers. Sourced, not executed — resolves beside
+# this hook regardless of install location (plugin root or repo checkout).
+# shellcheck source=/dev/null
+source "$(dirname "${BASH_SOURCE[0]}")/lib/preflight.sh"
 
 USAGE_LOG="${USAGE_LOG:-${HOME}/.claude/usage.jsonl}"
+
+# jq is a hard dependency (prompt/session extraction, JSONL emission). This is an
+# ADVISORY telemetry hook — degrade gracefully but LOUDLY: warn on stderr and
+# exit 0 rather than the old silent no-op where a missing jq dropped every event.
+if ! require_cmd jq; then
+  warn_degraded usage-log "jq not on PATH — skill-usage event not recorded"
+  exit 0
+fi
 
 INPUT=$(cat 2>/dev/null || true)
 if [[ -z "$INPUT" ]]; then exit 0; fi

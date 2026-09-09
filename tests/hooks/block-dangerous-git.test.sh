@@ -59,6 +59,28 @@ test_allow "git checkout main"
 test_allow "git branch -d feature/x"
 test_allow "ls -la"
 
+# --- jq-absent fail-safe (R2) ---
+# A security guardrail must fail safe, not open. Shim jq off PATH (keeping the
+# other tools the hook needs) and confirm a dangerous payload is still blocked
+# via the raw-payload fallback.
+SHIM_DIR="$(mktemp -d)"
+for t in cat grep dirname bash sh; do
+  src="$(command -v "$t" 2>/dev/null)"
+  [[ -n "$src" ]] && ln -s "$src" "$SHIM_DIR/$t"
+done
+jq_absent_block() {
+  local cmd="$1" out
+  out=$(echo "{\"tool_input\":{\"command\":\"$cmd\"}}" | PATH="$SHIM_DIR" "$HOOK" 2>&1; echo "EXIT=$?")
+  if echo "$out" | grep -q "EXIT=2" && echo "$out" | grep -q "hook-degraded"; then
+    PASS=$((PASS+1))
+  else
+    FAIL=$((FAIL+1))
+    FAILURES+=("jq-absent: expected BLOCK + degraded warning, got: $out")
+  fi
+}
+jq_absent_block "git reset --hard HEAD~3"
+rm -rf "$SHIM_DIR"
+
 echo "PASS=$PASS FAIL=$FAIL"
 if [[ $FAIL -gt 0 ]]; then
   printf '  - %s\n' "${FAILURES[@]}"
