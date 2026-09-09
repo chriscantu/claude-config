@@ -119,8 +119,8 @@ run_case "memory-md-readable-emits-match" \
   '{"prompt":"prune lib/foo.ts"}' \
   "SCOPE-TIER MATCH:" \
   0 \
-  "setup_memory_fixture_positive '$TMPDIR_MEM' && export CLAUDE_PROJECT_DIR='$TMPDIR_MEM'" \
-  "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_MEM'"
+  "setup_memory_fixture_positive '$TMPDIR_MEM' && cd '$TMPDIR_MEM' && export CLAUDE_PROJECT_DIR='$TMPDIR_MEM'" \
+  "cd - >/dev/null; unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_MEM'"
 
 # Test 8: MEMORY.md without scope-tier keyword — exits silently
 TMPDIR_MEM2=$(mktemp -d)
@@ -140,8 +140,8 @@ run_case "all-criteria-pass-emits-match" \
   '{"prompt":"prune the dead block in rules/planning.md"}' \
   "SCOPE-TIER MATCH:" \
   0 \
-  "setup_memory_fixture_positive '$TMPDIR_T9' && export CLAUDE_PROJECT_DIR='$TMPDIR_T9'" \
-  "unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_T9'"
+  "setup_memory_fixture_positive '$TMPDIR_T9' && cd '$TMPDIR_T9' && export CLAUDE_PROJECT_DIR='$TMPDIR_T9'" \
+  "cd - >/dev/null; unset CLAUDE_PROJECT_DIR; rm -rf '$TMPDIR_T9'"
 
 # Test 10: no mechanical verb → no emission
 TMPDIR_T10=$(mktemp -d)
