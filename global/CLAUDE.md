@@ -90,9 +90,8 @@ Enforced version: see `rules/think-before-coding.md` (loaded as HARD-GATE).
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
   - **Carve-out:** this governs *edits to existing code*. It is NOT a license to
-    write *new* code with poor clarity — new code uses guard clauses over nested
-    `if`s (max nesting depth ~3, no arrow anti-pattern), intention-revealing names,
-    and DRY.
+    write *new* code with poor clarity — new code follows the clarity bright lines
+    in Simplicity First (#2 above).
 - Mention unrelated dead code — don't delete it.
 - Remove imports/vars/functions YOUR changes orphaned. Leave pre-existing dead code unless asked.
 - Test: every changed line traces directly to the user's request.
