@@ -79,8 +79,10 @@ Enforced version: see `rules/think-before-coding.md` (loaded as HARD-GATE).
 - Senior-engineer test: "Would they call this overcomplicated?" If yes, simplify.
 
 > **Clarity is part of simplicity.** *How much* code you write is this principle;
-> *how readable* the code you write is `rules/code-clarity.md` — guard clauses over
-> nested `if`s, intention-revealing names, DRY, pragmatic SOLID. Both apply to new code.
+> *how readable* the code you write is the clarity standard: guard clauses over nested
+> `if`s (max nesting depth ~3, no arrow anti-pattern, extract non-trivial nested loops),
+> intention-revealing names, DRY, pragmatic SOLID. Both apply to new code; `clarity-adversary`
+> and the `code-review` skill enforce the bright lines at review time.
 
 ### 3. Surgical Changes
 **Touch only what you must. Clean up only your own mess.**
@@ -88,7 +90,9 @@ Enforced version: see `rules/think-before-coding.md` (loaded as HARD-GATE).
 - Don't refactor things that aren't broken.
 - Match existing style, even if you'd do it differently.
   - **Carve-out:** this governs *edits to existing code*. It is NOT a license to
-    write *new* code with poor clarity — new code follows `rules/code-clarity.md`.
+    write *new* code with poor clarity — new code uses guard clauses over nested
+    `if`s (max nesting depth ~3, no arrow anti-pattern), intention-revealing names,
+    and DRY.
 - Mention unrelated dead code — don't delete it.
 - Remove imports/vars/functions YOUR changes orphaned. Leave pre-existing dead code unless asked.
 - Test: every changed line traces directly to the user's request.
