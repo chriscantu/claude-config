@@ -1,6 +1,6 @@
 ---
 name: test-gap-adversary
-description: Red-team test-coverage reviewer for in-flight code diffs. Reads a git diff and produces a ranked critique focused on missing test coverage, untested error branches, brittle assertions, bug fixes without regression tests, and tests that re-implement production logic. One of four swarm workers spawned by hooks/adversarial-trigger.sh; safe to invoke manually.
+description: Red-team test-coverage reviewer for in-flight code diffs. Reads a git diff and produces a ranked critique focused on missing test coverage, untested error branches, brittle assertions, bug fixes without regression tests, and tests that re-implement production logic. One of six swarm workers spawned by hooks/adversarial-trigger.sh; safe to invoke manually.
 tools:
   - Read
   - Grep

@@ -1,6 +1,6 @@
 ---
 name: perf-adversary
-description: Red-team performance reviewer for in-flight code diffs. Reads a git diff and produces a ranked critique focused on hot-path complexity, N+1 patterns, allocation/GC pressure, blocking I/O on async paths, and pathological scaling. One of four swarm workers spawned by hooks/adversarial-trigger.sh; safe to invoke manually.
+description: Red-team performance reviewer for in-flight code diffs. Reads a git diff and produces a ranked critique focused on hot-path complexity, N+1 patterns, allocation/GC pressure, blocking I/O on async paths, and pathological scaling. One of six swarm workers spawned by hooks/adversarial-trigger.sh; safe to invoke manually.
 tools:
   - Read
   - Grep

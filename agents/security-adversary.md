@@ -1,6 +1,6 @@
 ---
 name: security-adversary
-description: Red-team security reviewer for in-flight code diffs. Reads a git diff and produces a ranked critique focused on OWASP categories, credential exposure, input validation, authentication/authorization boundaries, and dependency risks. One of four swarm workers spawned by hooks/adversarial-trigger.sh; safe to invoke manually.
+description: Red-team security reviewer for in-flight code diffs. Reads a git diff and produces a ranked critique focused on OWASP categories, credential exposure, input validation, authentication/authorization boundaries, and dependency risks. One of six swarm workers spawned by hooks/adversarial-trigger.sh; safe to invoke manually.
 tools:
   - Read
   - Grep

@@ -141,6 +141,18 @@ transcripts are space-indented (verified: `grep -lP '\t'` over the model-output 
 nothing), so the caveat does not affect this matrix. It remains a limitation for future runs against
 tab-using output.
 
+### 6. The discriminator threshold is stricter than the rule's own depth cap
+
+`rules/code-clarity.md` sets the bright line at "max nesting depth ~3" — a breach begins at depth 4
+(≈8 leading spaces at 2-space indent). The discriminator fires only at `^\s{10,}` (≈depth 5). This
+one-level gap is deliberate: at depth 4 an honest construct (e.g. a guard inside a short loop inside
+a conditional) is still plausible, so a depth-4 trip would risk false positives, whereas depth 5 in a
+*pure-conditional* new function is unambiguously the arrow anti-pattern. The consequence is that this
+suite does not test the rule's stated cap directly — it tests a stricter, unambiguous case of it. A
+function nested to exactly depth 4 (a real breach of the written rule and of what `clarity-adversary`
+is told to flag) would pass both GREEN and RED here undetected. This is a coverage limit of the
+structural discriminator, not a defect in the rule.
+
 ## Transcript references
 
 - GREEN ×2: `tests/results/code-clarity-guard-clauses-*-v2-2026-09-09T22-00-23.md` (run1) /

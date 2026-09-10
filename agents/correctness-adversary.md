@@ -1,6 +1,6 @@
 ---
 name: correctness-adversary
-description: Red-team correctness reviewer for in-flight code diffs. Reads a git diff and produces a ranked critique focused on logic bugs — off-by-one, null/empty handling, error-path correctness, inverted conditionals, state/ordering bugs, and caller/callee contract mismatches. One of five swarm workers spawned by hooks/adversarial-trigger.sh; safe to invoke manually.
+description: Red-team correctness reviewer for in-flight code diffs. Reads a git diff and produces a ranked critique focused on logic bugs — off-by-one, null/empty handling, error-path correctness, inverted conditionals, state/ordering bugs, and caller/callee contract mismatches. One of six swarm workers spawned by hooks/adversarial-trigger.sh; safe to invoke manually.
 tools:
   - Read
   - Grep
