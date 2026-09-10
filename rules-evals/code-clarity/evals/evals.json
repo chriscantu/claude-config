@@ -1,0 +1,63 @@
+{
+  "skill": "code-clarity",
+  "description": "Executable evals for the code-clarity STANDARD in rules/code-clarity.md. This is a generative eval: it measures what the agent WRITES, not a gating speech-act. DESIGN (v2, after the greenfield v1 showed no discrimination): the greenfield single-function prompt could not flip because a strong base model already writes clean guard-clause code by habit (documented in the v1 REDGREEN.md). This v2 reproduces the REAL failure mechanism the original audit identified — Karpathy #3 ('match existing style even if you'd do it differently') pulling NEW code toward adjacent nested mess. Each eval primes the model with a deeply-nested example function 'from our codebase', then asks for a NEW sibling function with sequential preconditions, output-only so the discriminator sees just the new code. The rule text is the only variable: GREEN (rules/code-clarity.md present, whose 'new code follows this standard in full' + the CLAUDE.md #3 carve-out counteract the style-matching pull) vs RED (stripped via bin/redgreen.fish, leaving only Karpathy #3's raw 'match existing style'). If the fix works, the new sibling stays flat in GREEN and matches the nested staircase in RED. NOTE: a GREEN~=RED (no-flip) outcome remains a legitimate documented finding per rules-evals/REDGREEN-RUNBOOK.md, not a suite bug — do not manufacture a flip.",
+  "_contract_note": "Assertions are regex-on-generated-code, not tool/skill-surface pins — the harness has no LLM-judge assertion type, so code structure is measured structurally. The load-bearing discriminator in each eval is the not_regex for deep indentation (>=10 leading whitespace chars = >=5 nesting levels at 2-space indent), PAIRED with a positive required assertion that proves real code was emitted (silent-fire trap closure). Two design guards vs the retired v1: (1) the new function is pure-conditional with no traversal, so deep indentation is unambiguously the anti-pattern rather than an honest nested loop; (2) 'output only the new function' isolates the discriminator to new code, not the primed nested example. Caveat recorded in REDGREEN.md: if a transcript shows the model echoing the nested example despite the instruction, the discriminator is contaminated for that run and the run is excluded.",
+  "evals": [
+    {
+      "name": "guard-clauses-new-sibling-in-nested-file",
+      "summary": "Primes the model with a 6-level nested canAccess 'from our codebase', then asks for a new sibling canRefund with six sequential preconditions. Tests whether the clarity standard stops the new code from matching the nested house style (the exact Karpathy #3 contradiction the fix targets).",
+      "prompt": "Trivial, self-contained task — a single pure function, well under 200 lines, one file, no external effects, no ambiguity in the spec. No planning ceremony needed; just write it.\n\nOur codebase has an established style. Here is an existing helper from access.ts, shown so you can follow the file's conventions:\n\nexport function canAccess(u, resource, action) {\n  if (u) {\n    if (u.roles) {\n      if (u.roles.length > 0) {\n        for (const r of u.roles) {\n          if (r === \"admin\") {\n            return true;\n          } else {\n            if (u.org) {\n              if (u.org.tier === \"paid\") {\n                if (resource.startsWith(\"billing\")) {\n                  if (action !== \"delete\") {\n                    return true;\n                  }\n                }\n              }\n            }\n          }\n        }\n      }\n    }\n  }\n  return false;\n}\n\nFollowing the same file's conventions, add a new sibling function to this file:\n\n  canRefund(user, order): boolean\n\nReturn true only when ALL of these hold: user is non-null; user.roles includes 'billing'; order is non-null; order.status === 'settled'; order.totalCents <= user.refundLimitCents; order.flagged is not true.\n\nDo not repeat or modify the existing canAccess function. Output only the new canRefund function.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(function\\s+canRefund|canRefund\\s*[=:]\\s*(\\(|function|async))",
+          "flags": "",
+          "tier": "required",
+          "description": "Proves a real canRefund implementation was emitted (not planning-only output). Paired with the deep-nesting not_regex below so the discriminating negative assertion has actual code to judge — closes the silent-fire trap. Non-discriminating by design; its job is to gate the negative assertion."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^\\s{10,}\\S",
+          "flags": "m",
+          "tier": "required",
+          "description": "DISCRIMINATOR. No emitted line is indented >=10 whitespace chars — at 2-space indent that is >=5 nesting levels, i.e. the arrow anti-pattern the standard forbids. Because the prompt says 'output only the new function' and the new function is PURE CONDITIONAL LOGIC (no data-structure traversal that legitimately needs loops), any line at >=10 spaces is unambiguously a nested staircase, not honest structure — this fixes the false-positive the retired extract-nested-loop eval had on a clean triple-traversal. GREEN (rule present) should keep the new sibling flat via guard clauses; RED (rule stripped) should trip IF the base model matches the deeply-nested example's style (Karpathy #3 pull). Limitation: assumes space indentation (tabs under-count) — documented in REDGREEN.md. Also assumes the model honors 'output only the new function' and does not echo the nested example; a first-result check confirms this before trusting the matrix."
+        },
+        {
+          "type": "regex",
+          "pattern": "if\\s*\\(\\s*!",
+          "flags": "",
+          "tier": "diagnostic",
+          "description": "[diagnostic] Invert-and-return-early signature — a negated guard condition (e.g. `if (!user) return false`). Guard-clause style inverts each exceptional case and returns; the nested style writes the positive `if (user) { ... }` and never negates. Diagnostic, not gating: a partial refactor may mix one negated guard with residual nesting."
+        }
+      ]
+    },
+    {
+      "name": "guard-clauses-new-pricing-sibling",
+      "summary": "Primes with a nested priceOrder, asks for a new sibling priceRenewal with five sequential pricing preconditions. Second domain for the same style-matching mechanism, to average out single-prompt variance.",
+      "prompt": "Trivial, self-contained task — a single pure function, well under 200 lines, one file, no external effects, no ambiguity in the spec. No planning ceremony needed; just write it.\n\nOur codebase has an established style. Here is an existing helper from pricing.ts, shown so you can follow the file's conventions:\n\nexport function priceOrder(order, customer) {\n  let total = 0;\n  if (order) {\n    if (order.lineItems) {\n      if (order.lineItems.length > 0) {\n        for (const item of order.lineItems) {\n          total += item.unitCents * item.quantity;\n        }\n        if (customer) {\n          if (customer.tier === \"gold\") {\n            total = total - total * 0.1;\n          }\n        }\n      }\n    }\n  }\n  return total;\n}\n\nFollowing the same file's conventions, add a new sibling function to this file and return the amount to charge in cents:\n\n  priceRenewal(subscription, customer): number\n\nApply these rules in order:\n- If the subscription has no active plan (subscription.plan is null), the charge is 0.\n- Otherwise the base is subscription.plan.monthlyCents * subscription.termMonths.\n- If customer.tier === 'gold', take 10% off the base.\n- If subscription.autoRenew is true and subscription.termMonths >= 12, subtract subscription.loyaltyCreditCents.\n- If the running total is below 1000, add a 200 processing fee; otherwise no fee.\n- Never return a value below 0.\n\nDo not repeat or modify the existing priceOrder function. Output only the new priceRenewal function.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(function\\s+priceRenewal|priceRenewal\\s*[=:]\\s*(\\(|function|async))",
+          "flags": "",
+          "tier": "required",
+          "description": "Proves a real priceRenewal implementation was emitted (not planning-only output). Paired with the deep-nesting not_regex below so the discriminating negative assertion has actual code to judge — closes the silent-fire trap. Non-discriminating by design; its job is to gate the negative assertion."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "^\\s{10,}\\S",
+          "flags": "m",
+          "tier": "required",
+          "description": "DISCRIMINATOR. No emitted line is indented >=10 whitespace chars — at 2-space indent that is >=5 nesting levels, i.e. the arrow anti-pattern the standard forbids. Because the prompt says 'output only the new function' and the new function is PURE CONDITIONAL LOGIC (no data-structure traversal that legitimately needs loops), any line at >=10 spaces is unambiguously a nested staircase, not honest structure — this fixes the false-positive the retired extract-nested-loop eval had on a clean triple-traversal. GREEN (rule present) should keep the new sibling flat via guard clauses; RED (rule stripped) should trip IF the base model matches the deeply-nested example's style (Karpathy #3 pull). Limitation: assumes space indentation (tabs under-count) — documented in REDGREEN.md. Also assumes the model honors 'output only the new function' and does not echo the nested example; a first-result check confirms this before trusting the matrix."
+        },
+        {
+          "type": "regex",
+          "pattern": "if\\s*\\(\\s*!",
+          "flags": "",
+          "tier": "diagnostic",
+          "description": "[diagnostic] Invert-and-return-early signature — a negated guard condition (e.g. `if (!user) return false`). Guard-clause style inverts each exceptional case and returns; the nested style writes the positive `if (user) { ... }` and never negates. Diagnostic, not gating: a partial refactor may mix one negated guard with residual nesting."
+        }
+      ]
+    }
+  ]
+}

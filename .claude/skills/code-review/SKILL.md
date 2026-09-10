@@ -38,11 +38,13 @@ Anything in the repo that documents how code should be written, such as `CODING_
 On top of whatever the repo documents, the Standards axis always carries the **smell baseline** below — a fixed set of Fowler code smells (_Refactoring_, ch.3) that applies even when a repo documents nothing. Two rules bind it:
 
 - **The repo overrides.** A documented repo standard always wins; where it endorses something the baseline would flag, suppress the smell.
-- **Always a judgement call.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation — and, like any standard here, skip anything tooling already enforces.
+- **Always a judgement call — unless a repo standard sets a bright line.** Each smell is a labelled heuristic ("possible Feature Envy"), never a hard violation — and, like any standard here, skip anything tooling already enforces. Exception: where a documented standard names a concrete threshold (e.g. `rules/code-clarity.md`'s max nesting depth), a breach of *that* threshold is a hard violation, not a judgement call.
 
 Each smell reads *what it is* → *how to fix*; match it against the diff:
 
 - **Mysterious Name** — a function, variable, or type whose name doesn't reveal what it does or holds. → rename it; if no honest name comes, the design's murky.
+- **Deeply Nested Logic** — a staircase of nested `if`/`for`/`while`/`try` (the arrow anti-pattern), typically past ~3 levels. → flatten with guard clauses / early returns, or extract the inner block into a named helper.
+- **Long Function** — a function doing too much to hold in one's head, or that can't be described without "and". → extract cohesive chunks into named functions; each should change for one reason.
 - **Duplicated Code** — the same logic shape appears in more than one hunk or file in the change. → extract the shared shape, call it from both.
 - **Feature Envy** — a method that reaches into another object's data more than its own. → move the method onto the data it envies.
 - **Data Clumps** — the same few fields or params keep travelling together (a type wanting to be born). → bundle them into one type, pass that.
