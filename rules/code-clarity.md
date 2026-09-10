@@ -1,3 +1,12 @@
+---
+description: Write-time clarity standard for new code — guard clauses over nested conditionals, intention-revealing names, DRY, pragmatic SOLID. A soft standard, not a HARD-GATE.
+globs:
+  - "**/*.ts"
+  - "**/*.tsx"
+  - "**/*.js"
+  - "**/*.jsx"
+---
+
 # Code Clarity Standard
 
 Write-time guidance for the *structure* of code you produce. This is a **standard,

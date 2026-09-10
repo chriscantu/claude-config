@@ -22,6 +22,11 @@ Current suites:
   on leading questions, criteria-before-options on bare comparisons, and
   refuse-on-irreversible on high-blast decisions. Baseline gates whether proposals
   #2/#3/#4 in #329 ship as rule edits per the issue's "measure first" directive
+- `code-clarity/` — generative RED/GREEN suite for the write-time clarity
+  standard [`rules/code-clarity.md`](../rules/code-clarity.md); measures whether
+  new code stays flat (guard clauses) rather than matching a primed nested
+  example. Documented no-flip finding (soft rule, base-habit redundant) — see
+  the suite's `REDGREEN.md`
 - `disagreement/` — covers the new-evidence requirement + Hedge-then-Comply
   prohibition from [`rules/disagreement.md`](../rules/disagreement.md)
 - `execution-mode/` — covers the sizing-guard mode announcement (subagent-driven
