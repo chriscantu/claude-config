@@ -16,7 +16,7 @@ Cantu
 POC
 
 ## Status
-Accepted (2026-08-10) — in force: `hooks/usage-log.sh`, `bin/share-usage.fish`, `bin/install-usage-hook.fish`, and `docs/operations.md` §Remit Metrics (LE7/RU30/SMB30) all present. Track 1 (local opt-in usage.jsonl) shipped; Track 2 (GitHub proxy) gated on ADR #0018 as designed. Reconciled from Proposed (non-behavioral ADR; judgment-call promotion per ADR #0005).
+Superseded (2026-09-10) — **never activated.** The substrate shipped as code (`hooks/usage-log.sh`, `bin/install-usage-hook.fish`, `bin/share-usage.fish`, `docs/operations.md` §Remit Metrics) but was opt-in-by-hook-install and never installed: no `UserPromptSubmit` entry in committed settings, no `~/.claude/usage.jsonl`, zero logged events in the ~4 months since. Track 1 recorded nothing to measure LE7/RU30/SMB30 against; Track 2 (GitHub proxy) stayed blocked on the ADR #0018 marketplace publish, which never landed. The four files and the operations.md sections were removed in the `feature/config-prune` audit as premature infrastructure measuring nothing. **Revive** — restore the substrate and flip this back to Accepted — when the marketplace publish (ADR #0018 items 4 + 5) makes Track 2 viable and there is a decision to actually collect Track 1. Prior state: Accepted (2026-08-10), reconciled from Proposed (non-behavioral ADR; judgment-call promotion per ADR #0005).
 
 ## Context
 
