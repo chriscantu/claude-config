@@ -23,9 +23,11 @@ Current suites:
   refuse-on-irreversible on high-blast decisions. Baseline gates whether proposals
   #2/#3/#4 in #329 ship as rule edits per the issue's "measure first" directive
 - `code-clarity/` — generative RED/GREEN suite for the write-time clarity
-  standard [`rules/code-clarity.md`](../rules/code-clarity.md); measures whether
-  new code stays flat (guard clauses) rather than matching a primed nested
-  example. Documented no-flip finding (soft rule, base-habit redundant) — see
+  standard; measures whether new code stays flat (guard clauses) rather than
+  matching a primed nested example. **Retained as a "measured-dead" record:**
+  the standalone `rules/code-clarity.md` rule was retired (its measurable work
+  is done by the `global/CLAUDE.md` Karpathy #2/#3 carve-out, the load-bearing
+  half); the suite's documented no-flip finding is what established that. See
   the suite's `REDGREEN.md`
 - `disagreement/` — covers the new-evidence requirement + Hedge-then-Comply
   prohibition from [`rules/disagreement.md`](../rules/disagreement.md)
