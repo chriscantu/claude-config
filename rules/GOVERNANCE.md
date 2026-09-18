@@ -183,6 +183,30 @@ When a rule or validator phase no longer earns its keep, retire it
 mechanically — read its WARN output as the signal to begin this
 procedure.
 
+### Retirement triggers
+
+Phase 1q's zero-firing signal is one trigger. A second, higher-yield one:
+a **major model upgrade**. Some rules exist only because an older model
+needed the scaffolding; a materially more capable model does the right
+thing without it, so a generic instruction that once carried signal
+becomes double-work (the model verifies by default *and* re-verifies on
+the instruction). An upgrade is when that is most likely to have become
+true, so it re-opens the discriminating-signal question for every
+eagerly-loaded rule.
+
+On a major upgrade, run the sweep: re-run the `rules-evals/` suites and
+flag any rule whose RED/GREEN separation has collapsed (the model now
+behaves correctly with the rule stripped). Retire or downgrade what shows
+no remaining signal, per the ADR #0005 evidence bar — never on opinion.
+This extends issue #124's success-metrics/rollback rubric with a specific
+event trigger; it is an extension, not a 9th cap slot.
+
+**Keep intentional boundaries regardless.** Anti-sycophancy
+(`disagreement.md`), verified-before-ready (`pr-validation.md`), and
+memory-as-default (`memory-discipline.md`) encode world facts, not
+capability crutches — a better model does not make them redundant. The
+sweep targets capability crutches, not boundaries.
+
 ### Soft-retire a validator phase
 
 1. Comment out the phase block in `validate.fish`.
