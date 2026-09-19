@@ -1,0 +1,125 @@
+# Rules reduction — rollback triggers
+
+This is the Phase 0 artifact for the rules-reduction program (issue
+[#527](https://github.com/chriscantu/claude-config/issues/527)).
+
+A rule that stops working does not raise an alarm. This is a solo config. No
+second user notices when a guardrail quietly dies. The gap between "the rule
+broke" and "I found out" can be weeks.
+
+These triggers close that gap. Each one says three things in advance: what a
+regression looks like, how we detect it, and what number sends us back. Writing
+them down before the cut is the point. After the cut, "did this get worse?" has
+no answer you can trust.
+
+This closes the gap named in issue
+[#124](https://github.com/chriscantu/claude-config/issues/124).
+
+## Baseline captured 2026-09-19
+
+Structural baseline, from `bun run tests/eval-runner-v2.ts --dry-run`:
+
+- **198/198 evals valid, 607/607 assertions valid, exit 0** across all suites
+  (skills plus rules).
+- `tests/EVAL_BASELINE.md` lists **no** known-failing evals.
+- Rules layer only: **12 suites, 68 evals, 96 required-tier assertions, 133
+  assertions total.**
+
+Per-prompt load at baseline:
+
+| Class | Files | Chars | Share |
+|---|---|---:|---:|
+| Boundary | disagreement, pr-validation, memory-discipline, verification | 12,776 | 28% |
+| Process | planning-pipeline, think-before-coding, goal-driven, execution-mode, fat-marker-sketch, tdd-pragmatic | 21,369 | 48% |
+| Scaffolding | skip-contract, pressure-framing-floor | 10,653 | 24% |
+| **Rules total** | 12 | **44,798** | ≈11.2k tokens |
+| `global/CLAUDE.md` | 1 | 8,734 | ≈2.2k tokens |
+
+### What this baseline does not cover
+
+The dry-run proves each suite **loads and is well formed**. It does not run the
+model. A live GREEN baseline still has to be captured before Phase 2 cuts
+anything. Live runs spend real usage window, so they need a dedicated session.
+
+Until that live baseline exists, treat every threshold below that compares
+against "baseline" as **not yet measurable**.
+
+## Triggers per phase
+
+### Phase 1 — shadow hooks (no cut yet)
+
+The hook runs and logs. Both rules stay loaded. Nothing can regress, so the
+trigger is about whether the classifier is good enough to trust.
+
+- **Regression looks like:** the hook's fire or no-fire verdict disagrees with
+  what the prompt actually needed.
+- **Detection:** read `~/.claude/logs/` after real use. Compare each verdict
+  against the prompt it judged.
+- **Threshold:** wrong on more than 1 in 10 real prompts, over at least 20
+  prompts. Do not advance to Phase 2.
+- **Undo:** delete the hook entry from settings.
+
+### Phase 2 — drop the two symlinks
+
+This is the first real cut. `pr-validation` and `execution-mode` stop loading
+on every prompt and load only when the hook injects them.
+
+- **Regression looks like:** a gate does not fire when it should. A PR gets
+  declared ready with an unexecuted test plan. A subagent dispatch starts with
+  no mode announcement.
+- **Detection:** run `rules-evals/pr-validation/` and
+  `rules-evals/execution-mode/` with the hook active. Both must stay GREEN
+  against the live baseline.
+- **Threshold:** **any** drop in a required-tier assertion against baseline.
+  One is enough. These are boundary rules, not process ceremony.
+- **Undo:** re-link. `./bin/link-config.fish` restores the symlink.
+- **Kill switch:** the sentinel file, same pattern as
+  `DISABLE_PRESSURE_FLOOR`. Rolling back mid-debug should be one `touch`, not
+  a revert chain.
+
+### Phase 3 — measure the planning trio
+
+Authoring a suite. Nothing changes. No trigger needed.
+
+One note: if the trio **does** discriminate, that is a stop signal, not a
+setback. Take the 24% from Phase 2 and stop. The rest is not safely available.
+
+### Phase 4 — act on measured nulls
+
+Demote `fat-marker-sketch`, collapse the scaffolding.
+
+- **Regression looks like:** a different gate loses discrimination because the
+  shared scaffolding it leaned on went away.
+- **Detection:** run the full rules-evals required tier, all 12 suites. Not
+  only the suite for the rule that changed.
+- **Threshold:** any required-tier drop at **any** gate boundary, not just the
+  one being cut. Cross-gate breakage is the whole risk here.
+- **Undo:** `git revert`, then re-run the baseline to confirm recovery.
+
+### Phase 5 — reword survivors to judgement-first
+
+- **Regression looks like:** softer wording stops producing the behavior.
+- **Detection:** per-rule RED/GREEN via `./bin/redgreen.fish`.
+- **Threshold:** discrimination must hold at the same scenarios as before. A
+  rule that discriminated on 2 scenarios must still discriminate on those 2.
+- **Undo:** `git revert`. Prose only, so recovery is clean.
+
+## Controls that apply to every phase
+
+1. **Add, then remove. Two commits, never one.** Ship the new path while the
+   old one still works. Remove the old path in a separate commit, after the new
+   one is proven.
+2. **Net LOC must fall.** Each PR reduces total repo lines, not just lines in
+   `rules/`. This blocks the trap where 6,889 characters of rule become a
+   700-line hook and test pair.
+3. **One kill switch per lever.** Sentinel file, checked before the hook acts.
+4. **Live runs get a dedicated session.** `bin/redgreen.fish` repoints
+   `~/.claude/rules/<rule>.md` for **every** session while it runs. Another
+   session open at the same time will silently see a stripped rule. Always
+   `--dry-run` first.
+
+## Review cadence
+
+Read the shadow logs before advancing any phase. Re-read this file at the start
+of each phase and update the thresholds if the live baseline changed what is
+measurable.
