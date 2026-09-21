@@ -1,5 +1,5 @@
 {
-  "description": "claude-config: own hooks (scope-tier routing + dangerous-git guardrail)",
+  "description": "claude-config: own hooks (scope-tier routing + dangerous-git guardrail + rules-reduction shadow log)",
   "hooks": {
     "UserPromptSubmit": [
       {
@@ -19,6 +19,27 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/hooks/block-dangerous-git.sh",
+            "timeout": 5
+          }
+        ]
+      },
+      {
+        "matcher": "Bash|Task|Skill|Agent",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/rules-shadow.sh",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/rules-shadow.sh",
             "timeout": 5
           }
         ]
