@@ -100,6 +100,57 @@ trigger is about whether the classifier is good enough to trust.
   prompts. Do not advance to Phase 2.
 - **Undo:** delete the hook entry from settings.
 
+#### What shipped (2026-09-21)
+
+`hooks/rules-shadow.sh` plus the pure classifier in `hooks/lib/gate-classify.sh`.
+The hook writes one JSON line per event to `~/.claude/logs/rules-shadow.log`:
+
+```json
+{"ts":"...","surface":"pretooluse_bash","gate":"pr-validation","trigger":"action","verdict":"fire","payload_hash":"ab3bba3f7d4ae206"}
+```
+
+It runs on three surfaces, not on `UserPromptSubmit`. Neither of these two rules
+triggers on something the user types. `pr-validation` fires on a draft-promoting
+command or on the agent's own claim that work is ready. `execution-mode` fires
+when a subagent dispatch starts. A prompt-level hook would have logged verdicts
+about the wrong events.
+
+| Surface | Watches for | Gate |
+|---|---|---|
+| `PreToolUse` — `Bash` | `gh pr ready`, `gh pr merge`, `gh pr edit --remove-label draft` | pr-validation |
+| `PreToolUse` — `Task` / `Skill` / `Agent` | a subagent dispatch starting | execution-mode |
+| `Stop` | the agent's last message claiming the work is ready | pr-validation |
+
+The log stores a hash of the command or message, never the text itself. Commands
+and messages carry tokens and names, and this repo is public.
+
+The same two classifier functions are what Phase 2 would use to inject guidance
+once the rule text is unlinked. They are not a throwaway. If Phase 2 were to
+write its own, Phase 1 would have measured a classifier that never ships.
+
+**To read the sample:**
+
+```sh
+jq -r '[.ts, .surface, .gate, .verdict] | @tsv' ~/.claude/logs/rules-shadow.log
+```
+
+Judge each line against what the event actually needed. Wrong on more than 1 in
+10, over at least 20 events, and Phase 2 does not start.
+
+**Two ways to switch it off:**
+
+- Kill-switch, no edit to any tracked file: `touch ~/.claude/DISABLE_RULES_SHADOW`
+  (or `.claude/DISABLE_RULES_SHADOW` inside one project).
+- Full undo: remove the `rules-shadow.sh` entries from `~/.claude/settings.json`
+  and from `.claude-plugin/hooks.json`.
+
+The hook is registered in both places on purpose. The plugin cache under
+`~/.claude/plugins/` is a copy taken at install time, so a change in this repo
+does not reach a running session. The `settings.json` entry points at the
+`~/.claude/hooks/` symlink that `bin/link-config.fish` creates, which resolves
+to this checkout — that is what makes the sample start collecting today. The
+`.claude-plugin/hooks.json` entry is what a fresh install would pick up.
+
 ### Phase 2 — drop the two symlinks
 
 This is the first real cut. `pr-validation` and `execution-mode` stop loading
