@@ -35,14 +35,55 @@ Per-prompt load at baseline:
 | **Rules total** | 12 | **44,798** | ≈11.2k tokens |
 | `global/CLAUDE.md` | 1 | 8,734 | ≈2.2k tokens |
 
-### What this baseline does not cover
+## Live baseline captured 2026-09-21
 
-The dry-run proves each suite **loads and is well formed**. It does not run the
-model. A live GREEN baseline still has to be captured before Phase 2 cuts
-anything. Live runs spend real usage window, so they need a dedicated session.
+Live run of all 12 rules suites, subscription auth
+(`env -u ANTHROPIC_API_KEY bun run tests/eval-runner-v2.ts <suite>`):
 
-Until that live baseline exists, treat every threshold below that compares
-against "baseline" as **not yet measurable**.
+| Suite | Evals | Required pass/fail | Diagnostic pass/fail |
+|---|---:|---:|---:|
+| agency-preservation | 3 | 8/1 | 3/0 |
+| code-clarity | 2 | 4/0 | 2/0 |
+| disagreement | 8 | 19/3 | 0/2 |
+| execution-mode | 5 | 10/0 | 5/1 |
+| fat-marker-sketch-rule | 4 | 7/2 | 0/0 |
+| goal-driven | 4 | 11/1 | 2/1 |
+| hard-gate-cap | 4 | 9/3 | 2/0 |
+| memory-discipline | 8 | 2/0 | 8/0 |
+| pr-validation | 11 | 12/0 | 5/3 |
+| scope-tier-memory-check | 10 | 8/3 | 1/1 |
+| think-before-coding | 6 | 7/3 | 2/2 |
+| verification | 3 | 5/1 | 1/0 |
+| **Total** | **68** | **102/17** | **31/10** |
+
+Zero runs died on transport or API error.
+
+**The live baseline is not all-green.** 17 required-tier assertions fail today.
+That is the number to hold, not a bar to clear first. A Phase 2 cut regresses if
+a suite's required pass count drops **below the value in this table**.
+
+### How to read these numbers
+
+- **Structural tier gates. Text tier is noisy.** Each suite ran once. Treat a
+  ±1 text-tier swing as noise, not signal. Re-run a suspect suite 3–5 times
+  before calling a regression, per `rules-evals/REDGREEN-RUNBOOK.md`.
+- **`scope-tier-memory-check` reported 3 silent-fire failures** — required-tier
+  negative assertions that passed against empty signals. Those passes are not
+  evidence. Its real required-tier pass count is at most 5/11.
+- **Run dates are mixed.** `verification`, `think-before-coding` and
+  `scope-tier-memory-check` ran 2026-09-21 after a session-limit 429 killed the
+  first attempt. The other nine are from the 2026-09-19/20 runs. Rules text did
+  not change between those runs.
+- Required-tier assertions **emitted** (119) exceed the count of `"tier":
+  "required"` keys in the suite JSON (116). The gap is unreconciled; use the
+  emitted per-suite numbers above, since those are what a future run compares
+  against.
+
+### What the structural baseline still does not cover
+
+The dry-run proves each suite **loads and is well formed** — 198/198 evals,
+607/607 assertions, re-confirmed 2026-09-21. It never runs the model, so it
+cannot detect a rule that loads fine and stops working.
 
 ## Triggers per phase
 
