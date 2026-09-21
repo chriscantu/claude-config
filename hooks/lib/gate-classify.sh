@@ -26,7 +26,19 @@
 # catch. The negation guard keeps "not ready to merge" from counting as a
 # readiness claim — without it the sample fills with inverted verdicts.
 
-PR_VALIDATION_ACTION_PATTERN='gh[[:space:]]+pr[[:space:]]+(ready|merge)\b|gh[[:space:]]+pr[[:space:]]+edit\b[^|;]*--remove-label[[:space:]]+draft'
+# Anchored to a command position — start of a line, or straight after a shell
+# separator — so the pattern matches an INVOCATION, not a mention. Unanchored,
+# the first real shadow verdict was a false positive: a heredoc writing the docs
+# table that lists these very commands. Docs, commit messages, grep patterns and
+# this hook's own tests all name them.
+#
+# The cost is that an indirect invocation (`xargs gh pr merge`) reads as a
+# mention and is missed. That trade is deliberate: a missed exotic form shows up
+# as one absent log line, while the mention class fires on routine work and
+# would drown the sample.
+PR_VALIDATION_CMD_POSITION='(^|[;&|(])[[:space:]]*'
+
+PR_VALIDATION_ACTION_PATTERN="${PR_VALIDATION_CMD_POSITION}gh[[:space:]]+pr[[:space:]]+(ready|merge)\\b|${PR_VALIDATION_CMD_POSITION}gh[[:space:]]+pr[[:space:]]+edit\\b[^|;]*--remove-label[[:space:]]+draft"
 
 PR_VALIDATION_SPEECH_PATTERN='ready (to|for) (merge|ship|review)|ready to go\b|pr is done\b|implementation complete\b|feature complete\b|looks good to merge\b|good to go\b|shipping this\b'
 

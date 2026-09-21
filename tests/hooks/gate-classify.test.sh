@@ -48,6 +48,36 @@ assert_verdict "unrelated command does not fire" no_fire \
 assert_eq "action trigger is labelled" action \
   "$(field "$(gate_pr_validation_verdict bash 'gh pr merge 529')" trigger)"
 
+echo "── pr-validation: the command must actually be invoked ──"
+# A command that merely MENTIONS the trigger text is not a draft promotion.
+# The first real shadow verdict was a false positive of exactly this shape: a
+# heredoc writing the docs table that lists these very commands.
+
+assert_verdict "mention inside a quoted string does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'echo "see gh pr merge in the docs"')"
+# shellcheck disable=SC2016  # literal doc-table text, not an expansion
+assert_verdict "markdown doc table row does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash '| `PreToolUse` | `gh pr ready`, `gh pr merge` | pr-validation |')"
+assert_verdict "grep for the pattern does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'grep -rn "gh pr merge" docs/')"
+assert_verdict "commit message mentioning it does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'git commit -m "document gh pr merge behaviour"')"
+
+assert_verdict "invocation after && fires" fire \
+  "$(gate_pr_validation_verdict bash 'git fetch && gh pr ready 531')"
+assert_verdict "invocation after ; fires" fire \
+  "$(gate_pr_validation_verdict bash 'cd repo; gh pr merge 1 --squash')"
+assert_verdict "invocation after a pipe fires" fire \
+  "$(gate_pr_validation_verdict bash 'echo 531 | gh pr merge --squash')"
+# shellcheck disable=SC2016  # the literal $(...) IS the case under test
+assert_verdict "invocation in a subshell fires" fire \
+  "$(gate_pr_validation_verdict bash 'n=$(gh pr merge 531)')"
+assert_verdict "leading whitespace still fires" fire \
+  "$(gate_pr_validation_verdict bash '   gh pr merge 531')"
+assert_verdict "invocation on a later line fires" fire \
+  "$(gate_pr_validation_verdict bash 'set -e
+gh pr merge 531 --squash')"
+
 echo "── pr-validation: speech-act triggers (Stop) ──"
 
 assert_verdict "ready to merge fires" fire \
