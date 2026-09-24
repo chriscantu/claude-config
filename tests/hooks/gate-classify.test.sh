@@ -247,6 +247,41 @@ assert_eq "skill dispatch trigger is labelled" skill_dispatch \
 assert_eq "task dispatch trigger is labelled" task_dispatch \
   "$(field "$(gate_execution_mode_verdict Task '{"subagent_type":"Explore"}')" trigger)"
 
+echo "── execution-mode: only an IMPLEMENTER dispatch owes an announcement ──"
+# Payloads below are the real reviewer dispatches from 2026-09-24 transcripts and
+# the three subagent-driven-development templates. SDD sends its reviewers as
+# general-purpose, the same type as its implementer, so the description has to
+# break the tie.
+
+assert_verdict "reviewer agent type does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"pr-review-toolkit:code-reviewer","description":"Code review PR 532"}')"
+assert_verdict "analyzer agent type does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"pr-review-toolkit:pr-test-analyzer","description":"Test coverage review PR 532"}')"
+assert_verdict "comment-analyzer agent type does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"pr-review-toolkit:comment-analyzer","description":"Comment accuracy review PR 532"}')"
+assert_verdict "adversary agent type does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"claude-config:scope-adversary","description":"Scope check"}')"
+assert_verdict "Explore agent does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"Explore","description":"Find hook callers"}')"
+assert_verdict "Plan agent does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"Plan","description":"Plan the migration"}')"
+assert_verdict "SDD implementer template fires" fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Implement Task 3: session timeout"}')"
+assert_verdict "SDD task-reviewer template does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Review Task 3 (spec + quality)"}')"
+assert_verdict "SDD re-review template does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Re-review Task 3 fix round 2"}')"
+assert_verdict "review verb after an adjective does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Final review of classifier fix"}')"
+assert_verdict "leading implement verb beats a later review noun" fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Build code review UI"}')"
+assert_verdict "ambiguous description fires (recall bias)" fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Task 4 auth middleware"}')"
+assert_verdict "missing description fires (recall bias)" fire \
+  "$(gate_execution_mode_verdict Task '{"subagent_type":"general-purpose","prompt":"go"}')"
+assert_verdict "review words in the prompt alone do not suppress" fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Implement Task 1","prompt":"then review your diff"}')"
+
 echo "── shape guarantees ──"
 
 record="$(gate_pr_validation_verdict bash 'gh pr ready')"

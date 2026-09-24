@@ -112,13 +112,14 @@ The hook writes one JSON line per event to `~/.claude/logs/rules-shadow.log`:
 It runs on three surfaces, not on `UserPromptSubmit`. Neither of these two rules
 triggers on something the user types. `pr-validation` fires on a draft-promoting
 command or on the agent's own claim that work is ready. `execution-mode` fires
-when a subagent dispatch starts. A prompt-level hook would have logged verdicts
+when an implementer subagent starts. Reviewer, explorer and planner agents do not
+count. A prompt-level hook would have logged verdicts
 about the wrong events.
 
 | Surface | Watches for | Gate |
 |---|---|---|
 | `PreToolUse` — `Bash` | `gh pr ready`, `gh pr merge`, `gh pr edit --remove-label draft` | pr-validation |
-| `PreToolUse` — `Task` / `Skill` / `Agent` | a subagent dispatch starting | execution-mode |
+| `PreToolUse` — `Task` / `Skill` / `Agent` | an implementer subagent starting, or the subagent-driven-development skill | execution-mode |
 | `Stop` | the agent's last message claiming the work is ready | pr-validation |
 
 The log stores a hash of the command or message, never the text itself. Commands
