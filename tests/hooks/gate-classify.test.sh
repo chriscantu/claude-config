@@ -48,6 +48,172 @@ assert_verdict "unrelated command does not fire" no_fire \
 assert_eq "action trigger is labelled" action \
   "$(field "$(gate_pr_validation_verdict bash 'gh pr merge 529')" trigger)"
 
+echo "── pr-validation: the command must actually be invoked ──"
+# A command that merely MENTIONS the trigger text is not a draft promotion.
+
+assert_verdict "mention inside a quoted string does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'echo "see gh pr merge in the docs"')"
+# shellcheck disable=SC2016  # literal doc-table text, not an expansion
+assert_verdict "doc table row written through a heredoc does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'cat >> docs/x.md <<'"'"'EOF'"'"'
+| `PreToolUse` | `gh pr ready`, `gh pr merge` | pr-validation |
+EOF')"
+assert_verdict "grep for the pattern does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'grep -rn "gh pr merge" docs/')"
+assert_verdict "commit message mentioning it does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'git commit -m "document gh pr merge behaviour"')"
+
+assert_verdict "invocation after && fires" fire \
+  "$(gate_pr_validation_verdict bash 'git fetch && gh pr ready 531')"
+assert_verdict "invocation after ; fires" fire \
+  "$(gate_pr_validation_verdict bash 'cd repo; gh pr merge 1 --squash')"
+assert_verdict "invocation after a pipe fires" fire \
+  "$(gate_pr_validation_verdict bash 'echo 531 | gh pr merge --squash')"
+# shellcheck disable=SC2016  # the literal $(...) IS the case under test
+assert_verdict "invocation in a subshell fires" fire \
+  "$(gate_pr_validation_verdict bash 'n=$(gh pr merge 531)')"
+assert_verdict "leading whitespace still fires" fire \
+  "$(gate_pr_validation_verdict bash '   gh pr merge 531')"
+assert_verdict "invocation on a later line fires" fire \
+  "$(gate_pr_validation_verdict bash 'set -e
+gh pr merge 531 --squash')"
+
+echo "── pr-validation: mentions that start a line or follow a separator ──"
+# Quoted text, heredoc bodies and comments are data, not commands — even when a
+# line inside them begins with the trigger text or a separator precedes it.
+
+assert_verdict "heredoc body line starting with the command does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'cat > docs/x.md <<EOF
+gh pr merge is gated
+EOF')"
+# shellcheck disable=SC2016  # the literal $(cat <<...) IS the case under test
+assert_verdict "commit body written via \$(cat <<'EOF') does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'git commit -m "$(cat <<'"'"'EOF'"'"'
+Subject
+
+gh pr merge now waits for the test plan.
+EOF
+)"')"
+assert_verdict "multi-line commit message does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'git commit -m "Fix detection
+gh pr merge follows"')"
+assert_verdict "separator inside double quotes does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'git commit -m "fix; gh pr merge later"')"
+assert_verdict "paren inside double quotes does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'echo "(gh pr merge)"')"
+assert_verdict "grep alternation does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'grep -E "x|gh pr merge" f')"
+assert_verdict "sed script in single quotes does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash "sed -i 's/;gh pr merge/x/' f")"
+assert_verdict "shell comment does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash '# then gh pr merge 1
+git status')"
+assert_verdict "edit mention in quotes does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'echo "use gh pr edit 5 --remove-label draft"')"
+assert_verdict "backslash-quoted heredoc body does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'cat <<\EOF
+gh pr merge 1
+EOF')"
+# shellcheck disable=SC2016  # literal $(...) is the case under test
+assert_verdict "quoted mention inside \$(...) does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'n="$(echo '"'"'gh pr merge 1'"'"')"')"
+assert_verdict "keyword in unquoted prose does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'echo if gh pr merge fails then retry')"
+assert_verdict "fish keyword in unquoted prose does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'echo not gh pr ready')"
+
+echo "── pr-validation: invocation forms that must still fire ──"
+
+assert_verdict "invocation after || fires" fire \
+  "$(gate_pr_validation_verdict bash 'false || gh pr merge 1')"
+assert_verdict "invocation after background & fires" fire \
+  "$(gate_pr_validation_verdict bash 'sleep 1 & gh pr merge 1')"
+assert_verdict "env-var prefix fires" fire \
+  "$(gate_pr_validation_verdict bash 'GH_TOKEN=x gh pr merge 1')"
+assert_verdict "env-var prefix after && fires" fire \
+  "$(gate_pr_validation_verdict bash 'cd x && GH_REPO=o/r gh pr ready 5')"
+assert_verdict "if/then body fires" fire \
+  "$(gate_pr_validation_verdict bash 'if true; then gh pr merge 1; fi')"
+assert_verdict "if condition fires" fire \
+  "$(gate_pr_validation_verdict bash 'if gh pr merge 1; then echo ok; fi')"
+# shellcheck disable=SC2016  # literal $n is part of the command under test
+assert_verdict "for/do body fires" fire \
+  "$(gate_pr_validation_verdict bash 'for n in 1 2; do gh pr merge $n; done')"
+assert_verdict "brace group fires" fire \
+  "$(gate_pr_validation_verdict bash '{ gh pr merge 1; }')"
+assert_verdict "negated command fires" fire \
+  "$(gate_pr_validation_verdict bash '! gh pr merge 1')"
+assert_verdict "time prefix fires" fire \
+  "$(gate_pr_validation_verdict bash 'time gh pr merge 1')"
+assert_verdict "command prefix fires" fire \
+  "$(gate_pr_validation_verdict bash 'command gh pr merge 1')"
+assert_verdict "fish and-chain fires" fire \
+  "$(gate_pr_validation_verdict bash 'true; and gh pr merge 1')"
+# shellcheck disable=SC2016  # literal backticks are the case under test
+assert_verdict "backtick substitution fires" fire \
+  "$(gate_pr_validation_verdict bash 'n=`gh pr merge 1`')"
+# shellcheck disable=SC2016  # literal $(...) inside double quotes is the case
+assert_verdict "command substitution inside double quotes fires" fire \
+  "$(gate_pr_validation_verdict bash 'n="$(gh pr merge 1)"')"
+assert_verdict "full path to gh fires" fire \
+  "$(gate_pr_validation_verdict bash '/opt/homebrew/bin/gh pr merge 1')"
+assert_verdict "invocation after a heredoc ends fires" fire \
+  "$(gate_pr_validation_verdict bash 'cat > m.txt <<EOF
+notes
+EOF
+gh pr merge 1')"
+assert_verdict "here-string does not swallow later lines" fire \
+  "$(gate_pr_validation_verdict bash 'cat <<< "x"
+gh pr merge 1')"
+assert_verdict "edit --remove-label draft after && fires" fire \
+  "$(gate_pr_validation_verdict bash 'git push && gh pr edit 5 --remove-label draft')"
+
+echo "── pr-validation: heredoc-looking text must not swallow later lines ──"
+# A << that is quoted, commented or arithmetic opens no heredoc, so the real
+# invocation on the next line must still be seen.
+
+assert_verdict "<<EOF inside single quotes" fire \
+  "$(gate_pr_validation_verdict bash "grep -n '<<EOF' hooks/x.sh
+gh pr merge 1")"
+assert_verdict "<<EOF inside a commit message" fire \
+  "$(gate_pr_validation_verdict bash 'git commit -m "Explain <<EOF stripping"
+git push && gh pr merge 1 --squash')"
+assert_verdict "<<EOF inside a comment" fire \
+  "$(gate_pr_validation_verdict bash 'echo x # see <<EOF
+gh pr merge 1')"
+# shellcheck disable=SC2016  # literal $((...)) is the case under test
+assert_verdict "arithmetic shift" fire \
+  "$(gate_pr_validation_verdict bash 'echo $((x<<y))
+gh pr merge 1')"
+assert_verdict "heredoc on a line of its own, then invocation" fire \
+  "$(gate_pr_validation_verdict bash '<<EOF
+x
+EOF
+gh pr merge 1')"
+
+echo "── pr-validation: quoting edge cases must not swallow an invocation ──"
+
+# shellcheck disable=SC2016  # literal $(...) is the case under test
+assert_verdict "quoted ) inside \"\$(...)\"" fire \
+  "$(gate_pr_validation_verdict bash 'x="$(cd d && echo ")")"; gh pr merge 1')"
+assert_verdict "ANSI-C quote with escaped apostrophe" fire \
+  "$(gate_pr_validation_verdict bash "echo \$'it\\'s'; gh pr merge 1")"
+
+echo "── pr-validation: known misses (deliberate — see gate-classify.sh) ──"
+# Pinned so that widening the matcher is a deliberate act, not an accident.
+
+assert_verdict "KNOWN MISS: xargs indirection" no_fire \
+  "$(gate_pr_validation_verdict bash 'echo 5 | xargs gh pr merge')"
+assert_verdict "KNOWN MISS: bash -c with a quoted script" no_fire \
+  "$(gate_pr_validation_verdict bash "bash -c 'gh pr merge 1'")"
+assert_verdict "KNOWN MISS: wrapper command with arguments" no_fire \
+  "$(gate_pr_validation_verdict bash 'timeout 60 gh pr merge 1')"
+assert_verdict "KNOWN MISS: prefix with options" no_fire \
+  "$(gate_pr_validation_verdict bash 'sudo -u me gh pr merge 1')"
+# shellcheck disable=SC2016  # literal $x is part of the command under test
+assert_verdict "KNOWN MISS: case arm" no_fire \
+  "$(gate_pr_validation_verdict bash 'case $x in a) gh pr merge 1;; esac')"
+
 echo "── pr-validation: speech-act triggers (Stop) ──"
 
 assert_verdict "ready to merge fires" fire \
