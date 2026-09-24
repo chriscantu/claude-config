@@ -171,6 +171,33 @@ gate_pr_validation_verdict() {
 # cannot size the plan (task count, LOC, file spread) from it, so the verdict
 # is "an announcement was owed here", not "which mode was right". Phase 2
 # injects the sizing criteria at this same moment and lets the model size it.
+#
+# Only an IMPLEMENTER dispatch owes the announcement. Reviewers, explorers and
+# planners do not — before this split every one of them fired, and every fire
+# in the first day's sample was a reviewer. Two signals separate them:
+#   1. subagent_type — read-only agent types are never implementers.
+#   2. description — subagent-driven-development sends reviewers as
+#      general-purpose, the same type as its implementer, so its task verb
+#      ("Implement Task 3" vs "Review Task 3") breaks the tie. An implement
+#      verb in first position wins over a review word later on, so "Build code
+#      review UI" still fires.
+# Anything neither signal settles fires: a missed announcement is the failure
+# the rule exists to catch, and an extra fire is visible in the log.
+EXECUTION_MODE_READ_ONLY_TYPE='(^|:)(explore|plan|claude-code-guide|statusline-setup|arbiter)$|(reviewer|adversary|analyzer|challenger|hunter)$'
+EXECUTION_MODE_IMPLEMENT_VERB='^(implement|build|write|add|create|fix|refactor|migrate|port|update|apply|wire|remove|delete|rename)\b'
+EXECUTION_MODE_REVIEW_WORD='\b(re-?review|review|audit|critique|analy[sz]e|explore|investigate|research|search|find|verify|check)\b'
+
+# _gate_dispatch_is_implementer TOOL_INPUT_JSON → 0 when the dispatch may write code.
+_gate_dispatch_is_implementer() {
+  local input="$1" type description
+  type=$(printf '%s' "$input" | jq -r '.subagent_type // empty' 2>/dev/null)
+  description=$(printf '%s' "$input" | jq -r '.description // empty' 2>/dev/null)
+
+  echo "$type" | grep -qiE "$EXECUTION_MODE_READ_ONLY_TYPE" && return 1
+  echo "$description" | grep -qiE "$EXECUTION_MODE_IMPLEMENT_VERB" && return 0
+  echo "$description" | grep -qiE "$EXECUTION_MODE_REVIEW_WORD" && return 1
+  return 0
+}
 
 # gate_execution_mode_verdict TOOL_NAME TOOL_INPUT_JSON
 gate_execution_mode_verdict() {
@@ -186,7 +213,9 @@ gate_execution_mode_verdict() {
       ;;
     Task|Agent)
       trigger=task_dispatch
-      verdict=fire
+      if _gate_dispatch_is_implementer "$input"; then
+        verdict=fire
+      fi
       ;;
   esac
 

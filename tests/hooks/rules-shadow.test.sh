@@ -54,10 +54,14 @@ assert_eq "non-firing command still logs a verdict" no_fire "$(last_field verdic
 echo "── PreToolUse: Task/Skill → execution-mode ──"
 
 reset_log
-run_hook '{"hook_event_name":"PreToolUse","tool_name":"Task","tool_input":{"subagent_type":"Explore"}}' >/dev/null
+run_hook '{"hook_event_name":"PreToolUse","tool_name":"Task","tool_input":{"subagent_type":"general-purpose","description":"Implement Task 1"}}' >/dev/null
 assert_eq "task dispatch logs execution-mode" execution-mode "$(last_field gate)"
-assert_eq "task dispatch fires" fire "$(last_field verdict)"
+assert_eq "implementer dispatch fires" fire "$(last_field verdict)"
 assert_eq "task dispatch surface" pretooluse_task "$(last_field surface)"
+
+reset_log
+run_hook '{"hook_event_name":"PreToolUse","tool_name":"Agent","tool_input":{"subagent_type":"pr-review-toolkit:code-reviewer","description":"Code review PR 532"}}' >/dev/null
+assert_eq "reviewer dispatch still logs a verdict" no_fire "$(last_field verdict)"
 
 echo "── Stop → pr-validation speech acts ──"
 
