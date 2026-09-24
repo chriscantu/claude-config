@@ -88,6 +88,33 @@ stop_payload="{\"hook_event_name\":\"Stop\",\"transcript_path\":\"$TRANSCRIPT\"}
 run_hook "$stop_payload" >/dev/null
 assert_eq "negated readiness claim does not fire" no_fire "$(last_field verdict)"
 
+# The CLI hands Stop the final text as last_assistant_message. The transcript
+# can lag it — eval sessions on 2026-09-24 ran this hook and logged nothing —
+# so the field wins whenever it is present.
+cat > "$TRANSCRIPT" <<'JSONL'
+{"type":"assistant","message":{"content":[{"type":"text","text":"Still working on it."}]}}
+JSONL
+reset_log
+stop_payload="{\"hook_event_name\":\"Stop\",\"transcript_path\":\"$TRANSCRIPT\",\"last_assistant_message\":\"All green. This is ready to merge.\"}"
+run_hook "$stop_payload" >/dev/null
+assert_eq "last_assistant_message wins over a lagging transcript" fire "$(last_field verdict)"
+
+reset_log
+stop_payload="{\"hook_event_name\":\"Stop\",\"transcript_path\":\"$TMP/missing.jsonl\",\"last_assistant_message\":\"This is ready to merge.\"}"
+run_hook "$stop_payload" >/dev/null
+assert_eq "last_assistant_message works with no transcript at all" fire "$(last_field verdict)"
+
+echo "── installed layout: hook run through a symlink ──"
+# link-config installs ~/.claude/hooks/rules-shadow.sh as a symlink with no lib/
+# beside it. The hook must find its libraries next to the real file.
+
+mkdir -p "$TMP/installed"
+ln -s "$HOOK" "$TMP/installed/rules-shadow.sh"
+reset_log
+printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"gh pr merge 1"}}' \
+  | bash "$TMP/installed/rules-shadow.sh" >/dev/null 2>&1
+assert_eq "symlinked hook still logs a verdict" fire "$(last_field verdict)"
+
 echo "── privacy: no payload text reaches the log ──"
 
 reset_log
