@@ -16,7 +16,35 @@ Cantu
 POC
 
 ## Status
-Accepted (2026-08-10) — in force: `validate.fish` Phase 1s enforces single-writer discipline; 4 SKILL.md files (onboard, strategy-doc, swot, stakeholder-map) declare canonical destinations. Reconciled from Proposed (non-behavioral governance ADR; judgment-call promotion per ADR #0005).
+Accepted (2026-08-10) — in force: `validate.fish` Phase 1s enforces single-writer discipline; 4 SKILL.md files (onboard, strategy-doc, swot, stakeholder-map) declare canonical destinations. Reconciled from Proposed (non-behavioral governance ADR; judgment-call promotion per ADR #0005). Amended 2026-09-24: destination 3 (ruflo MCP memory) is retired — see Amendment below.
+
+## Amendment (2026-09-24): ruflo MCP memory retired
+
+Destination 3, ruflo MCP memory, no longer exists. The other five destinations
+are unchanged.
+
+What changed, outside this repo:
+
+- The `ruflo` MCP server was removed from the user's Claude config.
+- The `claude-code-harness` plugin was turned off, and its `harness` MCP server
+  was removed. That plugin is what injected the resume pack at session start.
+
+Why:
+
+- No skill wrote to it. A search of `skills/` found zero calls to
+  `mcp__ruflo__*`. Every skill that saves structured data uses the memory MCP
+  knowledge graph (destination 4) instead.
+- The server started with `bunx -y ruflo mcp start`, with no version pinned. Each
+  session could run a different ruflo release.
+- The resume pack injected stale text from earlier sessions, including old API
+  error messages. That made session starts less predictable, not more.
+
+What this means for the Decision below:
+
+- The "session resume context" data class has no destination now. Nothing
+  replaces fuzzy cross-session recall. Stable facts still go to auto-memory
+  (destination 1).
+- Read every mention of ruflo in the sections below as historical record.
 
 ## Context
 
