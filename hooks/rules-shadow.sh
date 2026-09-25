@@ -19,7 +19,9 @@
 #   Stop                   → pr-validation speech-act triggers
 set -u
 
-HOOK_DIR="$(dirname "${BASH_SOURCE[0]}")"
+# Resolve the symlink: link-config installs this file as ~/.claude/hooks/rules-shadow.sh
+# with no lib/ beside it, so the libraries live next to the real file only.
+HOOK_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 # shellcheck source=/dev/null
 source "$HOOK_DIR/lib/preflight.sh"
@@ -80,8 +82,8 @@ log_verdict() {
 }
 
 # last_assistant_text TRANSCRIPT_PATH → the final assistant turn's text, or "".
-# Stop hands over a transcript path, not the text, so the speech-act triggers
-# are only reachable by reading the last assistant message back out.
+# Fallback only, for a CLI that sends no last_assistant_message: the transcript
+# can lag the Stop event, and a lagging read returns an earlier turn or nothing.
 last_assistant_text() {
   local path="$1"
   [[ -r "$path" ]] || return 0
@@ -130,8 +132,11 @@ main() {
       ;;
     Stop)
       local transcript
-      transcript=$(echo "$input" | jq -r '.transcript_path // empty' 2>/dev/null)
-      payload=$(last_assistant_text "$transcript")
+      payload=$(echo "$input" | jq -r '.last_assistant_message // empty' 2>/dev/null)
+      if [[ -z "$payload" ]]; then
+        transcript=$(echo "$input" | jq -r '.transcript_path // empty' 2>/dev/null)
+        payload=$(last_assistant_text "$transcript")
+      fi
       if [[ -n "$payload" ]]; then
         record=$(gate_pr_validation_verdict stop "$payload")
         log_verdict stop "$record" "$payload"

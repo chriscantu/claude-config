@@ -208,6 +208,19 @@ const evalModel = process.env.EVAL_MODEL ?? process.env.ANTHROPIC_MODEL ?? DEFAU
 export const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions", "--model", evalModel, "--mcp-config", NAMED_COST_SKIP_MCP_CONFIG] as const;
 
 /**
+ * Environment for every `claude` session the runner starts. Those sessions
+ * load the user's hooks, so without this the rules-shadow hook logs eval turns
+ * as real work and pollutes the Phase 1 sample (issue #536). The hook skips
+ * logging when RULES_SHADOW_SENTINEL names an existing file. An operator value
+ * is overridden on purpose: a stale one that points nowhere would switch
+ * logging back on.
+ */
+const CLI_CHILD_ENV = {
+  ...process.env,
+  RULES_SHADOW_SENTINEL: join(repoDir, "tests", "fixtures", "rules-shadow-off"),
+};
+
+/**
  * Spawn `claude` with the given args, classify the exit reason, and return a
  * normalized CliRun. Shared by the single-turn path and every turn of a chain
  * so spawn-failure classification lives in exactly one place.
@@ -219,6 +232,7 @@ function spawnClaudeCli(args: readonly string[], prompt: string, cwd: string): C
     timeout: TURN_TIMEOUT_MS,
     maxBuffer: 64 * 1024 * 1024,
     cwd,
+    env: CLI_CHILD_ENV,
   });
   let failure: string | undefined;
   if (res.error) {
@@ -306,7 +320,7 @@ function spawnClaudeCliAsync(args: readonly string[], prompt: string, cwd: strin
 
 function spawnClaudeCliAsyncOnce(args: readonly string[], prompt: string, cwd: string): Promise<CliRun> {
   return new Promise((resolve) => {
-    const child = spawn(claudeBin, [...args], { cwd, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(claudeBin, [...args], { cwd, env: CLI_CHILD_ENV, stdio: ["pipe", "pipe", "pipe"] });
 
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
@@ -851,7 +865,7 @@ async function main() {
       const probe = spawnSync(
         claudeBin,
         ["--print", "--output-format", "stream-json", "--verbose"],
-        { input: "ping", encoding: "utf8", timeout: PROBE_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024 },
+        { input: "ping", encoding: "utf8", timeout: PROBE_TIMEOUT_MS, maxBuffer: 16 * 1024 * 1024, env: CLI_CHILD_ENV },
       );
       const probeErrno = (probe.error as NodeJS.ErrnoException | undefined)?.code;
       if (probeErrno === "ETIMEDOUT" || probe.signal === "SIGTERM") {
