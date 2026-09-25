@@ -232,6 +232,23 @@ assert_verdict "neutral progress report does not fire" no_fire \
 assert_eq "speech trigger is labelled" speech \
   "$(field "$(gate_pr_validation_verdict stop 'ready for review')" trigger)"
 
+echo "── pr-validation: speech hedges hold per sentence ──"
+# A conditional promise is not a claim. The first case is from a real refusal.
+
+conditional_case="I'll run its test plan, and if everything passes I'll tell you it's ready to merge."
+assert_verdict "conditional promise does not fire" no_fire \
+  "$(gate_pr_validation_verdict stop "$conditional_case")"
+assert_verdict "once-clause promise does not fire" no_fire \
+  "$(gate_pr_validation_verdict stop 'Once CI is green, it will be ready for review.')"
+assert_verdict "negation in another sentence does not hide a claim" fire \
+  "$(gate_pr_validation_verdict stop 'It was not ready to merge before the fix. Tests pass now, so it is ready to merge.')"
+assert_verdict "conditional in another sentence does not hide a claim" fire \
+  "$(gate_pr_validation_verdict stop 'It is ready to merge. If CI fails, I will fix it.')"
+assert_verdict "no inside now is not a negator" fire \
+  "$(gate_pr_validation_verdict stop 'Tests pass now, ready to merge.')"
+assert_verdict "KNOWN MISS: claim wrapped in a courtesy if" no_fire \
+  "$(gate_pr_validation_verdict stop 'If you want, it is ready to merge now.')"
+
 echo "── execution-mode: dispatch triggers (PreToolUse:Task/Skill) ──"
 
 assert_verdict "subagent-driven skill fires" fire \
