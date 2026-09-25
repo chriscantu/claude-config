@@ -1,0 +1,2 @@
+Sentinel for hooks/rules-shadow.sh. tests/eval-runner-v2.ts points RULES_SHADOW_SENTINEL
+here so eval sessions do not write to the shadow log. The hook only checks that this file exists.
