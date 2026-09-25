@@ -130,12 +130,21 @@ PR_VALIDATION_SPEECH_PATTERN='ready (to|for) (merge|ship|review)|ready to go\b|p
 
 PR_VALIDATION_NEGATOR='(not|never|no|cannot|can.t|won.t|wouldn.t|isn.t|aren.t|wasn.t|don.t|doesn.t|didn.t)'
 
-# _gate_speech_is_negated TEXT → 0 when every readiness phrase in TEXT sits
-# within ~20 characters of a preceding negator. Sentence punctuation bounds the
-# window so a negation in the previous sentence does not suppress this one.
-_gate_speech_is_negated() {
-  local text="$1"
-  echo "$text" | grep -qiE "${PR_VALIDATION_NEGATOR}[^.!?]{0,20}(${PR_VALIDATION_SPEECH_PATTERN})"
+# A readiness phrase after one of these is a promise about later, not a claim:
+# "if everything passes I'll tell you it's ready to merge". The window is wider
+# than the negator's because the condition clause sits between the two.
+PR_VALIDATION_CONDITIONAL='\b(if|once|when|whenever|after|as soon as|unless|until)\b'
+
+# _gate_speech_has_claim TEXT → 0 when some sentence in TEXT holds a readiness
+# phrase with no negator (within ~20 characters) or conditional (within ~60)
+# before it. Checking each sentence alone keeps a hedge in one sentence from
+# hiding a claim in another. A sentence that holds both a hedged and an
+# unhedged phrase counts as hedged.
+_gate_speech_has_claim() {
+  printf '%s\n' "$1" | tr '.!?' '\n' \
+    | grep -iE "$PR_VALIDATION_SPEECH_PATTERN" \
+    | grep -viE "\\b${PR_VALIDATION_NEGATOR}\\b.{0,20}(${PR_VALIDATION_SPEECH_PATTERN})|${PR_VALIDATION_CONDITIONAL}.{0,60}(${PR_VALIDATION_SPEECH_PATTERN})" \
+    | grep -q .
 }
 
 # gate_pr_validation_verdict SURFACE PAYLOAD
@@ -155,7 +164,7 @@ gate_pr_validation_verdict() {
     stop)
       if echo "$payload" | grep -qiE "$PR_VALIDATION_SPEECH_PATTERN"; then
         trigger=speech
-        if ! _gate_speech_is_negated "$payload"; then
+        if _gate_speech_has_claim "$payload"; then
           verdict=fire
         fi
       fi
