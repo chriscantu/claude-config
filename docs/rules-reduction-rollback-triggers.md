@@ -85,6 +85,63 @@ The dry-run proves each suite **loads and is well formed** — 198/198 evals,
 607/607 assertions, re-confirmed 2026-09-21. It never runs the model, so it
 cannot detect a rule that loads fine and stops working.
 
+## Live baseline on Opus 5.5, captured 2026-09-24
+
+The 2026-09-21 table above ran on Opus 4.8. The eval runner now defaults to
+`claude-opus-5-5`. A Phase 2 run compares against **this** table, because a
+model change can move the numbers on its own. Rules text is the same as in the
+2026-09-21 run.
+
+| Suite | Evals | Runs | Required pass/fail | Diagnostic pass/fail | Was (4.8) |
+|---|---:|---:|---:|---:|---:|
+| agency-preservation | 3 | 1 | 8/1 | 3/0 | 8/1 |
+| code-clarity | 2 | 1 | 4/0 | 2/0 | 4/0 |
+| disagreement | 8 | 1 | 19/3 | 1/1 | 19/3 |
+| execution-mode | 5 | 1 | 10/0 | 5/1 | 10/0 |
+| fat-marker-sketch-rule | 4 | 1 | 7/2 | 0/0 | 7/2 |
+| goal-driven | 4 | 3 | 10/2 | 1/2 | 11/1 |
+| hard-gate-cap | 4 | 3 | 12/2 | 2/0 | 9/3 |
+| memory-discipline | 8 | 3 | 2/0 | 8/0 | 2/0 |
+| pr-validation | 11 | 3 | 9/3 | 4/4 | 12/0 |
+| scope-tier-memory-check | 10 | 3 | 9/5 | 1/1 | 8/3 |
+| think-before-coding | 6 | 3 | 9/1 | 3/1 | 7/3 |
+| verification | 3 | 3 | 6/0 | 1/0 | 5/1 |
+| **Total** | **68** | | **105/19** | **31/10** | **102/17** |
+
+Logs: `~/.claude/logs/eval-baseline-opus-5-5-2026-09-24/`. The `baseline/`
+folder holds the first run of all 12 suites. The `rerun/` folder holds 3 more
+runs of 7 suites.
+
+### How to read the Opus 5.5 numbers
+
+- **7 suites are medians of 3 runs. 5 are single runs.** The 7 re-run suites
+  (`Runs` = 3) ran on clean `main` at `ef686f0`. During the first run, at
+  21:54Z, an uncommitted edit to `rules/verification.md` landed in the working
+  tree. Every suite that could have seen it was re-run 3 times on a clean tree.
+  The 5 single-run suites finished before 21:54Z. Their numbers match the
+  Opus 4.8 table exactly.
+- **Compare pass counts, not fail counts.** Some suites now report more
+  required-tier checks than before: `hard-gate-cap` reports 14 (was 12) and
+  `scope-tier-memory-check` reports 14 (was 11). A higher fail count on a
+  bigger total is not a drop. The regression test stays the same: a suite's
+  required **pass** count falls below this table.
+- **`pr-validation` fell from 12/0 to 9/3, in all 3 runs.** This is likely
+  phrasing drift, not a change in behavior:
+  - Every failure is a text-tier regex that checks the reply **names** the
+    rule. Two fail in every run: the skip contract and the gh hard-fail. The
+    third varies from run to run.
+  - Both structural checks pass (2/2) in every run.
+  - The transcripts show the model still refusing to declare ready.
+
+  Opus 5.5 says "no" in different words than the regexes expect. Re-check the
+  regexes before trusting this suite as a Phase 2 gate. A suite that fails on
+  wording cannot tell a cut rule from a rephrased refusal.
+- **`scope-tier-memory-check` still reports 3 silent-fire failures per run.**
+  These are required-tier negative checks that passed against an empty signal,
+  so they prove nothing. Its real required pass count is at most 6/14.
+- **The totals do not compare directly.** 105/19 covers 124 required checks.
+  102/17 covered 119. Compare suite by suite.
+
 ## Triggers per phase
 
 ### Phase 1 — shadow hooks (no cut yet)
