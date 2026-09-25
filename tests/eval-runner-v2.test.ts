@@ -12,6 +12,10 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { CLI_BASE_ARGS, isTransientCliFailure, withCliRetry } from "./eval-runner-v2.ts";
 
 type CliRun = Awaited<ReturnType<typeof withCliRetry>>;
@@ -30,6 +34,45 @@ describe("CLI_BASE_ARGS model pin", () => {
     const model = CLI_BASE_ARGS[i + 1];
     expect(typeof model).toBe("string");
     expect(model.length).toBeGreaterThan(0);
+  });
+});
+
+describe("rules-shadow sentinel (issue #536)", () => {
+  // Eval sessions run the user's hooks. Without the sentinel, the shadow hook
+  // logs every eval turn as if it were real work and pollutes the Phase 1
+  // sample. This runs the real runner against a fake `claude` that records
+  // the RULES_SHADOW_SENTINEL it was given, so it proves what the child sees.
+  test("every claude session the runner starts gets an existing sentinel file", () => {
+    const dir = mkdtempSync(join(tmpdir(), "shadow-sentinel-"));
+    const seen = join(dir, "seen.txt");
+    const fakeClaude = join(dir, "claude");
+    writeFileSync(
+      fakeClaude,
+      [
+        "#!/bin/sh",
+        '[ "$1" = "--version" ] && { echo "0.0.0 (fake)"; exit 0; }',
+        'cat > /dev/null',
+        'echo "${RULES_SHADOW_SENTINEL:-UNSET}" >> "$SEEN_FILE"',
+        `echo '{"type":"result","subtype":"success","is_error":false,"result":"ok"}'`,
+      ].join("\n"),
+    );
+    chmodSync(fakeClaude, 0o755);
+
+    spawnSync("bun", ["run", join(import.meta.dir, "eval-runner-v2.ts"), "code-clarity"], {
+      // A stale operator value must not switch logging back on.
+      env: { ...process.env, CLAUDE_BIN: fakeClaude, SEEN_FILE: seen, RULES_SHADOW_SENTINEL: join(dir, "missing") },
+      encoding: "utf8",
+      timeout: 60_000,
+    });
+
+    const lines = readFileSync(seen, "utf8").trim().split("\n");
+    // The auth probe plus one session per code-clarity eval.
+    expect(lines.length).toBeGreaterThanOrEqual(3);
+    for (const sentinel of lines) {
+      expect(sentinel).not.toBe("UNSET");
+      expect(existsSync(sentinel)).toBe(true);
+    }
+    rmSync(dir, { recursive: true, force: true });
   });
 });
 
