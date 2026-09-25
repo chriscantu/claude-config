@@ -1691,6 +1691,61 @@ end
 
 echo ""
 
+_phase_begin "1x"
+echo "── Phase 1x: HARD-GATE count reconciliation (issue #527)"
+
+# The HARD-GATE count is asserted in three docs that must agree, but no rule
+# is individually wrong when they drift — the reconciliation lives in a third
+# file's cap-slot convention, so per-rule RED/GREEN evals cannot see a mismatch.
+# This phase turns that silent per-load reconciliation cost into a CI invariant:
+#   CLAUDE.md cap number      == GOVERNANCE cap slots   (floor-trio counts as 1)
+#   README HARD-GATE rows     == GOVERNANCE file count
+set -l p1x_claude "$repo_dir/global/CLAUDE.md"
+set -l p1x_readme "$repo_dir/rules/README.md"
+set -l p1x_gov "$repo_dir/rules/GOVERNANCE.md"
+
+set -l p1x_ok 1
+for f in $p1x_claude $p1x_readme $p1x_gov
+    if not test -f "$f"
+        fail "Phase 1x: missing "(string replace "$repo_dir/" "" "$f")" — cannot reconcile HARD-GATE counts"
+        set p1x_ok 0
+    end
+end
+
+if test $p1x_ok -eq 1
+    # CLAUDE.md: "current N HARD-GATE rules ... are the ceiling"
+    set -l p1x_cap (grep -oE 'current [0-9]+ HARD-GATE rules' "$p1x_claude" | grep -oE '[0-9]+' | head -1)
+    # GOVERNANCE.md: "N files, M cap slots"
+    set -l p1x_gov_line (grep -oE '[0-9]+ files, [0-9]+ cap slots' "$p1x_gov" | head -1)
+    set -l p1x_files (echo $p1x_gov_line | grep -oE '^[0-9]+')
+    set -l p1x_slots (echo $p1x_gov_line | grep -oE '[0-9]+ cap slots' | grep -oE '^[0-9]+')
+    # README.md: HARD-GATE rows in the "What lives here" table
+    set -l p1x_rows (grep -cE '^\| `[a-z-]+\.md` \| HARD-GATE \|' "$p1x_readme")
+
+    if test -z "$p1x_cap"
+        fail "Phase 1x: could not parse cap number from global/CLAUDE.md (expected 'current N HARD-GATE rules')"
+    else if test -z "$p1x_files"; or test -z "$p1x_slots"
+        fail "Phase 1x: could not parse 'N files, M cap slots' from rules/GOVERNANCE.md"
+    else if test "$p1x_rows" -eq 0
+        fail "Phase 1x: zero HARD-GATE rows parsed from rules/README.md table — parse failed"
+    else
+        set -l p1x_bad 0
+        if test "$p1x_cap" -ne "$p1x_slots"
+            fail "Phase 1x: CLAUDE.md cap=$p1x_cap but GOVERNANCE slots=$p1x_slots — reconcile per GOVERNANCE#cap-slot-counting"
+            set p1x_bad 1
+        end
+        if test "$p1x_rows" -ne "$p1x_files"
+            fail "Phase 1x: README HARD-GATE rows=$p1x_rows but GOVERNANCE files=$p1x_files — bump one to match"
+            set p1x_bad 1
+        end
+        if test $p1x_bad -eq 0
+            pass "HARD-GATE counts reconcile (CLAUDE cap=$p1x_cap = GOVERNANCE slots=$p1x_slots; README rows=$p1x_rows = GOVERNANCE files=$p1x_files)"
+        end
+    end
+end
+
+echo ""
+
 # ─────────────────────────────────────────────────
 # Phase 2: Concept Coverage
 # ─────────────────────────────────────────────────
