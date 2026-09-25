@@ -202,7 +202,7 @@ const NAMED_COST_SKIP_MCP_CONFIG = JSON.stringify({
  * machine's existing CLI model env — respected, not clobbered) → the pinned
  * default. The pin adds a floor; it does not lock out an operator's override.
  */
-const DEFAULT_EVAL_MODEL = "claude-opus-4-8";
+const DEFAULT_EVAL_MODEL = "claude-opus-5-5";
 const evalModel = process.env.EVAL_MODEL ?? process.env.ANTHROPIC_MODEL ?? DEFAULT_EVAL_MODEL;
 
 export const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--verbose", "--permission-mode", "bypassPermissions", "--model", evalModel, "--mcp-config", NAMED_COST_SKIP_MCP_CONFIG] as const;
