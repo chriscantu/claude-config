@@ -7,6 +7,7 @@ description: Enforce verification before claiming work is complete
 - Run `tsc --noEmit` (or the project's equivalent type-check) before declaring TypeScript work complete
 - Run the project's test suite for any changed module
 - If no test covers the changed behavior, write one before finishing
+- For any UI-facing change, capture a screenshot (visual UI) or curl output (HTTP endpoint) showing the new behavior before declaring complete — passing tests alone do not prove the user-visible result
 - NEVER say "this should work" — run it and prove it works
 
 <a id="goal-verification"></a>
