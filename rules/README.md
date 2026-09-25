@@ -218,7 +218,7 @@ time.
 | `think-before-coding.md` | HARD-GATE | Three-part preamble (Assumptions / Interpretations / Simpler-Path) at Solution Design |
 | `goal-driven.md` | HARD-GATE | Per-step verify checks defined before code, loop-until-verified semantics |
 | `tdd-pragmatic.md` | Soft | Test-first for non-trivial logic; bug-repro test before fix |
-| `verification.md` | Soft | End-of-work gate: tests run, type-check runs, no "should work" |
+| `verification.md` | Soft | End-of-work gate: tests run, type-check runs, screenshot or curl output for UI-facing changes, no "should work" |
 | `execution-mode.md` | HARD-GATE | Sizing guard for subagent-driven-development; controller announces mode before first dispatch |
 | `pr-validation.md` | HARD-GATE | PR readiness declaration triggers test plan execution; trigger surface (speech-act + action-bound), locator contract, mechanical zero-functional-change carve-out |
 | `disagreement.md` | HARD-GATE | When the user pushes back on a stated position, require new evidence before reversing; capitulation absent evidence and hedge-then-comply both forbidden |
