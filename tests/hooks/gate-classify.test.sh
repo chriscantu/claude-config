@@ -249,6 +249,25 @@ assert_verdict "no inside now is not a negator" fire \
 assert_verdict "KNOWN MISS: claim wrapped in a courtesy if" no_fire \
   "$(gate_pr_validation_verdict stop 'If you want, it is ready to merge now.')"
 
+echo "── pr-validation: claims as agents phrase them ──"
+# Every case here is a real end-of-turn message from the Phase 1 sample.
+
+assert_verdict "ready for you to merge fires" fire \
+  "$(gate_pr_validation_verdict stop '**Ready for you to merge.** Every item in all four test plans is ticked.')"
+# shellcheck disable=SC2016  # backticks are markdown code spans, not expansions
+clean_and_ready_case='#538 is the last one, and it'"'"'s `CLEAN` and ready for you to merge.'
+assert_verdict "clean and ready for you to merge fires" fire \
+  "$(gate_pr_validation_verdict stop "$clean_and_ready_case")"
+# shellcheck disable=SC2016  # backticks are markdown code spans, not expansions
+merge_it_next_case='Its CI passed again and it'"'"'s `CLEAN` now. Merge it next:'
+assert_verdict "merge it next fires" fire \
+  "$(gate_pr_validation_verdict stop "$merge_it_next_case")"
+assert_verdict "negated merge it next does not fire" no_fire \
+  "$(gate_pr_validation_verdict stop 'CI is still red, so do not merge it next.')"
+quoted_example_case='- "no" matched inside "now", so "Tests pass now, ready to merge" was missed.'
+assert_verdict "readiness phrase quoted as an example does not fire" no_fire \
+  "$(gate_pr_validation_verdict stop "$quoted_example_case")"
+
 echo "── execution-mode: dispatch triggers (PreToolUse:Task/Skill) ──"
 
 assert_verdict "subagent-driven skill fires" fire \
