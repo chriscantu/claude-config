@@ -126,7 +126,17 @@ _gate_strip_mentions() {
     }'
 }
 
-PR_VALIDATION_SPEECH_PATTERN='ready (to|for) (merge|ship|review)|ready to go\b|pr is done\b|implementation complete\b|feature complete\b|looks good to merge\b|good to go\b|shipping this\b'
+# The first sample showed agents rarely say the bare phrase. They address the
+# user ("ready for you to merge") or hand off the next step ("Merge it next").
+PR_VALIDATION_SPEECH_PATTERN='ready (for you )?(to|for) (merge|ship|review)|merge it (next|now)\b|ready to go\b|pr is done\b|implementation complete\b|feature complete\b|looks good to merge\b|good to go\b|shipping this\b'
+
+# _gate_strip_quoted_prose TEXT → TEXT without "double-quoted" or `code` spans.
+# A summary that quotes a phrase as an example ("Tests pass now, ready to
+# merge" was missed) is a mention, not a claim — the prose twin of what
+# _gate_strip_mentions does for commands. Spans do not cross lines.
+_gate_strip_quoted_prose() {
+  printf '%s\n' "$1" | sed -E 's/"[^"]*"//g; s/`[^`]*`//g'
+}
 
 PR_VALIDATION_NEGATOR='(not|never|no|cannot|can.t|won.t|wouldn.t|isn.t|aren.t|wasn.t|don.t|doesn.t|didn.t)'
 
@@ -162,6 +172,7 @@ gate_pr_validation_verdict() {
       fi
       ;;
     stop)
+      payload=$(_gate_strip_quoted_prose "$payload")
       if echo "$payload" | grep -qiE "$PR_VALIDATION_SPEECH_PATTERN"; then
         trigger=speech
         if _gate_speech_has_claim "$payload"; then
