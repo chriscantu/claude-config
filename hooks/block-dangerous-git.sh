@@ -9,9 +9,10 @@
 # and CLAUDE.md-forbidden flags, leaving normal `git push` / `git commit`
 # alone to avoid false-positive avalanche.
 #
-# Disable: create ~/.claude/DISABLE_GIT_GUARDRAILS or
-# .claude/DISABLE_GIT_GUARDRAILS in the project root. File existence
-# alone disables; content ignored. Delete the file to restore.
+# Disable: create DISABLE_GIT_GUARDRAILS in ~/.claude/, in
+# $CLAUDE_PROJECT_DIR/.claude/, or in .claude/ under the working directory
+# (see hook_disabled in lib/hook-runtime.sh). File existence alone disables;
+# content ignored. Delete the file to restore.
 #
 # Dependencies: bash, jq, grep.
 
@@ -22,8 +23,13 @@ set -o pipefail
 # link-config installs this file as ~/.claude/hooks/block-dangerous-git.sh
 # with no lib/ beside it, so the libraries live next to the real file only.
 HOOK_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# A security guardrail must fail safe: if the runtime can't be loaded, block
+# rather than crash with exit 1, which Claude Code treats as "allow".
 # shellcheck source=/dev/null
-source "$HOOK_DIR/lib/hook-runtime.sh"
+if ! source "$HOOK_DIR/lib/hook-runtime.sh"; then
+  echo "BLOCKED: hook runtime missing at $HOOK_DIR/lib; refusing all commands until it is restored (fail-safe)." >&2
+  exit 2
+fi
 
 if hook_disabled DISABLE_GIT_GUARDRAILS; then
   exit 0

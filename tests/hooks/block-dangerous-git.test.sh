@@ -81,6 +81,21 @@ jq_absent_block() {
 jq_absent_block "git reset --hard HEAD~3"
 rm -rf "$SHIM_DIR"
 
+# --- lib-missing fail-safe ---
+# A copy of the hook with no lib/ beside it (single-file install, partial
+# plugin cache, readlink unable to resolve) must still block, not exit 1 —
+# Claude Code treats exit 1 as a non-blocking error and runs the command.
+NOLIB_DIR="$(mktemp -d)"
+cp "$HOOK" "$NOLIB_DIR/block-dangerous-git.sh"
+out=$(echo '{"tool_input":{"command":"git reset --hard HEAD~3"}}' | bash "$NOLIB_DIR/block-dangerous-git.sh" 2>&1; echo "EXIT=$?")
+if echo "$out" | grep -q "EXIT=2"; then
+  PASS=$((PASS+1))
+else
+  FAIL=$((FAIL+1))
+  FAILURES+=("lib-missing: expected BLOCK, got: $out")
+fi
+rm -rf "$NOLIB_DIR"
+
 echo "PASS=$PASS FAIL=$FAIL"
 if [[ $FAIL -gt 0 ]]; then
   printf '  - %s\n' "${FAILURES[@]}"
