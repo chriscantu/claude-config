@@ -49,7 +49,6 @@ import {
   loadEvalFile,
   metaCheck,
   parseStreamJson,
-  runLifecycle,
   runLifecycleAsync,
   runPool,
   seedScratchDecoy,
@@ -221,38 +220,10 @@ const CLI_CHILD_ENV = {
 };
 
 /**
- * Spawn `claude` with the given args, classify the exit reason, and return a
- * normalized CliRun. Shared by the single-turn path and every turn of a chain
- * so spawn-failure classification lives in exactly one place.
- */
-function spawnClaudeCli(args: readonly string[], prompt: string, cwd: string): CliRun {
-  const res = spawnSync(claudeBin, [...args], {
-    input: prompt,
-    encoding: "utf8",
-    timeout: TURN_TIMEOUT_MS,
-    maxBuffer: 64 * 1024 * 1024,
-    cwd,
-    env: CLI_CHILD_ENV,
-  });
-  let failure: string | undefined;
-  if (res.error) {
-    failure = `spawn error: ${(res.error as NodeJS.ErrnoException).code ?? ""} ${res.error.message}`.trim();
-  } else if (res.signal) {
-    failure = res.signal === "SIGTERM" ? `timed out after ${TURN_TIMEOUT_MS / 1000}s (SIGTERM)` : `killed by signal ${res.signal}`;
-  } else if (res.status === null) {
-    failure = "process exited without status (no signal, no error)";
-  }
-  return { stdout: res.stdout ?? "", stderr: res.stderr ?? "", exitCode: res.status, failure };
-}
-
-/**
- * Async twin of `spawnClaudeCli` — same CliRun shape, same timeout/signal
- * classification, but non-blocking. Enables concurrent eval execution via
- * `--concurrency N` without the spawnSync barrier.
- *
- * Manual maxBuffer enforcement: node's `spawn` (unlike `spawnSync`) does NOT
- * cap stdout/stderr. Without the cap, a runaway claude process could OOM the
- * runner. Match spawnSync's 64MB ceiling and classify overflow as a failure.
+ * Stdout/stderr ceiling for `spawnClaudeCliAsyncOnce`. Node's `spawn`
+ * (unlike `spawnSync`) does NOT cap stdout/stderr. Without the cap, a
+ * runaway claude process could OOM the runner. Overflow is classified as a
+ * failure.
  */
 const MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 
@@ -455,7 +426,7 @@ async function runClaudeChain(turnPrompts: readonly string[], decoy?: ValidatedS
     // Turn 1: fresh session. Decoy is seeded once on the chain's shared
     // scratch dir; subsequent turns spawn in the same scratch dir on
     // disk, so they observe the seeded files directly (the cwd is
-    // inherited via spawnClaudeCli's `cwd` arg, not via `--resume`,
+    // inherited via spawnClaudeCliAsync's `cwd` arg, not via `--resume`,
     // which only restores conversation state). If seeding throws,
     // runClaude returns a structured CliRun.failure that becomes
     // `chainFailure: "turn 1 failed: decoy seed failed for ..."` below.
@@ -914,7 +885,7 @@ async function main() {
   const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 
   // Abnormal-exit safety net for eval teardowns. The try/finally inside
-  // `runLifecycle` covers the common paths (work returns, work throws), but
+  // `runLifecycleAsync` covers the common paths (work returns, work throws), but
   // a SIGINT (Ctrl-C) or SIGTERM during a long claude spawn skips finally
   // blocks entirely — leaving e.g. ~/.claude/DISABLE_PRESSURE_FLOOR on disk
   // and silently bypassing the pressure-framing floor in subsequent
