@@ -185,7 +185,8 @@ procedure.
 
 ### Soft-retire a validator phase
 
-1. Comment out the phase block in `validate.fish`.
+1. Comment out the phase's `function _phase_1X` … `end` block in
+   `validate.fish`, and remove `1X` from `all_phase_ids`.
 2. Prepend a tombstone immediately above the commented block:
 
    ```fish
