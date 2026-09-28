@@ -1,8 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { describe, expect, test } from "bun:test";
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { runPhase, useFixtures } from "./validate-harness";
 
 // Regression tests for validate.fish Phase 1s (skill persistence destinations,
 // ADR #0020).
@@ -21,58 +20,7 @@ import { join, resolve } from "node:path";
 //   E) Mixed: one clean + one bare-write → only the offender fails
 //   F) Exclusion via alternate negation marker ("non-addressable") → passes
 
-const REPO = resolve(import.meta.dir, "..");
-const VALIDATE = join(REPO, "validate.fish");
-
-type RunResult = {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-};
-
-const runValidate = (fixture: string): RunResult => {
-  const result = spawnSync("fish", [VALIDATE], {
-    env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
-    encoding: "utf8",
-  });
-  if (result.error) throw result.error;
-  return {
-    exitCode: result.status ?? -1,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-};
-
-// Capture only the Phase 1s block — header through next blank line.
-const extractPhase1s = (r: RunResult): string => {
-  const combined = `${r.stdout}\n${r.stderr}`;
-  const lines = combined.split("\n");
-  const headerIdx = lines.findIndex((line) =>
-    line.includes("── Phase 1s: skill persistence destinations"),
-  );
-  if (headerIdx < 0) {
-    throw new Error(
-      `Phase 1s header not found.\n--- stdout ---\n${r.stdout}\n--- stderr ---\n${r.stderr}`,
-    );
-  }
-  const slice: string[] = [];
-  for (let i = headerIdx; i < lines.length; i++) {
-    slice.push(lines[i]);
-    if (i > headerIdx && lines[i] === "") break;
-  }
-  return slice.join("\n");
-};
-
-const fixtures: string[] = [];
-
-const makeRepoFixture = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "validate-phase-1s-"));
-  for (const sub of ["rules", "skills", "agents", "commands", "adrs"]) {
-    mkdirSync(join(dir, sub), { recursive: true });
-  }
-  fixtures.push(dir);
-  return dir;
-};
+const makeRepoFixture = useFixtures("validate-phase-1s-");
 
 const seedSkill = (repo: string, skill: string, skillMdBody: string): string => {
   const skillDir = join(repo, "skills", skill);
@@ -83,25 +31,6 @@ const seedSkill = (repo: string, skill: string, skillMdBody: string): string => 
   return skillMd;
 };
 
-const TMP_PREFIX = tmpdir();
-
-afterEach(() => {
-  while (fixtures.length > 0) {
-    const dir = fixtures.pop()!;
-    if (!dir.startsWith(TMP_PREFIX)) {
-      console.error(`afterEach: refusing to clean non-tmp path ${dir}`);
-      continue;
-    }
-    try {
-      rmSync(dir, { recursive: true, force: true });
-    } catch (e) {
-      console.error(
-        `afterEach: rmSync failed for ${dir}: ${(e as Error).message}`,
-      );
-    }
-  }
-});
-
 describe("validate.fish Phase 1s (skill persistence destinations, ADR #0020)", () => {
   test("A: SKILL.md with no decisions.md/patterns.md references → passes", () => {
     const repo = makeRepoFixture();
@@ -110,7 +39,7 @@ describe("validate.fish Phase 1s (skill persistence destinations, ADR #0020)", (
       "clean-skill",
       "# Clean Skill\n\nSaves things to a memory layer named in ADR #0020.\n",
     );
-    const out = extractPhase1s(runValidate(repo));
+    const out = runPhase(repo, "1s").block;
     expect(out).toContain(
       "skills/clean-skill/SKILL.md: no decisions.md/patterns.md references",
     );
@@ -124,7 +53,7 @@ describe("validate.fish Phase 1s (skill persistence destinations, ADR #0020)", (
       "leaky-skill",
       "# Leaky Skill\n\nThis skill writes its state to `decisions.md` under the plugin layer.\n",
     );
-    const out = extractPhase1s(runValidate(repo));
+    const out = runPhase(repo, "1s").block;
     expect(out).toContain(
       "skills/leaky-skill/SKILL.md: bare reference to decisions.md/patterns.md",
     );
@@ -141,7 +70,7 @@ describe("validate.fish Phase 1s (skill persistence destinations, ADR #0020)", (
       "polite-skill",
       "# Polite Skill\n\nThis skill does NOT read or write `decisions.md` or `patterns.md`.\n",
     );
-    const out = extractPhase1s(runValidate(repo));
+    const out = runPhase(repo, "1s").block;
     expect(out).toContain(
       "skills/polite-skill/SKILL.md: all 1 decisions.md/patterns.md mention(s) are exclusion declarations",
     );
@@ -151,7 +80,7 @@ describe("validate.fish Phase 1s (skill persistence destinations, ADR #0020)", (
   test("D: zero-state — no skills/*/SKILL.md → documented pass, no fail", () => {
     const repo = makeRepoFixture();
     // Deliberately no skill files seeded.
-    const out = extractPhase1s(runValidate(repo));
+    const out = runPhase(repo, "1s").block;
     expect(out).toContain(
       "no skills/*/SKILL.md files — Phase 1s has nothing to validate",
     );
@@ -170,7 +99,7 @@ describe("validate.fish Phase 1s (skill persistence destinations, ADR #0020)", (
       "bad-skill",
       "# Bad Skill\n\nWrites to `patterns.md` for fun.\n",
     );
-    const out = extractPhase1s(runValidate(repo));
+    const out = runPhase(repo, "1s").block;
     expect(out).toContain(
       "skills/good-skill/SKILL.md: no decisions.md/patterns.md references",
     );
@@ -188,7 +117,7 @@ describe("validate.fish Phase 1s (skill persistence destinations, ADR #0020)", (
       "alt-marker-skill",
       "# Alt Marker Skill\n\nThe plugin layer (`decisions.md` / `patterns.md`) is non-addressable per ADR #0020.\n",
     );
-    const out = extractPhase1s(runValidate(repo));
+    const out = runPhase(repo, "1s").block;
     expect(out).toContain(
       "skills/alt-marker-skill/SKILL.md: all 1 decisions.md/patterns.md mention(s) are exclusion declarations",
     );

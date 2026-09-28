@@ -1,14 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { describe, expect, test } from "bun:test";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { runPhase, useFixtures } from "./validate-harness";
 
 // Regression tests for validate.fish Phase 1q (retirement signals).
 //
@@ -32,60 +25,14 @@ import { join, resolve } from "node:path";
 // (Commit 4). Phase numbered 1q rather than 1p (issue body's '1p') because
 // Phase 1p slot was taken by PR #361 (rules-evals suite inventory).
 
-const REPO = resolve(import.meta.dir, "..");
-const VALIDATE = join(REPO, "validate.fish");
-
-type RunResult = {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-};
-
-const runValidate = (fixture: string): RunResult => {
-  const result = spawnSync("fish", [VALIDATE], {
-    env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
-    encoding: "utf8",
-  });
-  if (result.error) throw result.error;
-  return {
-    exitCode: result.status ?? -1,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-};
-
-const extractPhase1q = (r: RunResult): string => {
-  const combined = `${r.stdout}\n${r.stderr}`;
-  const lines = combined.split("\n");
-  const headerIdx = lines.findIndex((line) => line.includes("── Phase 1q"));
-  if (headerIdx < 0) {
-    throw new Error(
-      `Phase 1q header not found — phase may not be implemented yet.\n--- stdout ---\n${r.stdout}\n--- stderr ---\n${r.stderr}`,
-    );
-  }
-  const slice: string[] = [];
-  for (let i = headerIdx; i < lines.length; i++) {
-    slice.push(lines[i]);
-    if (i > headerIdx && lines[i] === "") break;
-  }
-  return slice.join("\n");
-};
-
-const fixtures: string[] = [];
-const TMP_PREFIX = tmpdir();
-
-// Build a minimal fixture: empty subdirs for earlier phases (they fail
-// silently — we only care about Phase 1q output) + a synthetic validate.fish
+// Build a minimal fixture: empty repo subdirs + a synthetic validate.fish
 // + optional state log. validate.fish is the only file Phase 1q reads.
+const newFixtureDir = useFixtures("validate-phase-1q-", ["rules", "skills", "agents", "commands", "adrs", "hooks", "bin", "tests"]);
 const makeFixture = (
   validateFishContent: string,
   logContent: string | null = null,
 ): string => {
-  const dir = mkdtempSync(join(tmpdir(), "validate-phase-1q-"));
-  fixtures.push(dir);
-  for (const sub of ["rules", "skills", "agents", "commands", "adrs", "hooks", "bin", "tests"]) {
-    mkdirSync(join(dir, sub), { recursive: true });
-  }
+  const dir = newFixtureDir();
   writeFileSync(join(dir, "validate.fish"), validateFishContent);
   if (logContent !== null) {
     mkdirSync(join(dir, ".claude/state"), { recursive: true });
@@ -116,27 +63,6 @@ const synthLog = (n: number, phaseId: string): string => {
   return lines.join("\n") + (lines.length > 0 ? "\n" : "");
 };
 
-afterEach(() => {
-  while (fixtures.length > 0) {
-    const dir = fixtures.pop()!;
-    if (!dir.startsWith(TMP_PREFIX)) {
-      console.error(`afterEach: refusing to clean non-tmp path ${dir}`);
-      continue;
-    }
-    // Test H chmods the fixture's validate.fish to 000 to force a grep
-    // I/O error; restore perms before rmSync so cleanup doesn't fail.
-    const restore = spawnSync("chmod", ["-R", "u+rw", dir], { encoding: "utf8" });
-    if (restore.error) {
-      console.error(`afterEach: chmod failed for ${dir}: ${restore.error.message}`);
-    }
-    try {
-      rmSync(dir, { recursive: true, force: true });
-    } catch (e) {
-      console.error(`afterEach: rmSync failed for ${dir}: ${(e as Error).message}`);
-    }
-  }
-});
-
 describe("validate.fish Phase 1q (retirement signals)", () => {
   test("A: log with 0-firing active phase emits retirement-candidate WARN", () => {
     // Active phases per synthetic validate.fish: 1a, 1b, 1z. Log has 100
@@ -146,7 +72,7 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
       synthValidate(["1a", "1b", "1z"]),
       synthLog(100, "1a"),
     );
-    const out = extractPhase1q(runValidate(fixture));
+    const out = runPhase(fixture, "1q").block;
     expect(out).toMatch(/phase 1b has 0 firings/);
     expect(out).toMatch(/phase 1z has 0 firings/);
     expect(out).not.toMatch(/phase 1a has 0 firings/);
@@ -169,7 +95,7 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
     // Empty log (or no log) means Check 2 stays silent; Check 3 still fires
     // on the tombstone-age signal alone.
     const fixture = makeFixture(synthValidate(["1a"], oldTombstone), "");
-    const out = extractPhase1q(runValidate(fixture));
+    const out = runPhase(fixture, "1q").block;
     expect(out).toMatch(
       new RegExp(`tombstone ${staleDate} is ≥12mo old`),
     );
@@ -194,8 +120,8 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
       "# end",
     ].join("\n");
     const fixture = makeFixture(synthValidate(["1a"], orphanFuncs), null);
-    const r = runValidate(fixture);
-    const out = extractPhase1q(r);
+    const r = runPhase(fixture, "1q");
+    const out = r.block;
     expect(out).toContain("✗");
     // Count fail lines for missing-tombstone — must be ≥3.
     const failMatches = out.match(/missing tombstone/g) ?? [];
@@ -210,7 +136,7 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
       synthValidate(["1a", "1b", "1z"]),
       synthLog(5, "1a"),
     );
-    const out = extractPhase1q(runValidate(fixture));
+    const out = runPhase(fixture, "1q").block;
     expect(out).not.toMatch(/retirement candidate/);
     expect(out).not.toMatch(/has 0 firings/);
   });
@@ -228,7 +154,7 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
       "# end",
     ].join("\n");
     const fixture = makeFixture(synthValidate(["1a"], tombstoned), null);
-    const out = extractPhase1q(runValidate(fixture));
+    const out = runPhase(fixture, "1q").block;
     expect(out).toContain("tombstone format OK");
     expect(out).not.toMatch(/missing tombstone/);
     expect(out).not.toMatch(/missing `# Restore:`/);
@@ -244,8 +170,8 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
       "# end",
     ].join("\n");
     const fixture = makeFixture(synthValidate(["1a"], restoreless), null);
-    const r = runValidate(fixture);
-    const out = extractPhase1q(r);
+    const r = runPhase(fixture, "1q");
+    const out = r.block;
     expect(out).toContain("✗");
     expect(out).toMatch(/missing `# Restore:`/);
     expect(out).not.toMatch(/missing tombstone/);
@@ -261,17 +187,8 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
     const fixture = makeFixture(synthValidate(["alpha", "beta"]));
     const customLog = join(fixture, "custom-phase-log.jsonl");
     writeFileSync(customLog, synthLog(100, "alpha"));
-    const result = spawnSync("fish", [VALIDATE, "--log-path", customLog], {
-      env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
-      encoding: "utf8",
-    });
-    if (result.error) throw result.error;
-    const r: RunResult = {
-      exitCode: result.status ?? -1,
-      stdout: result.stdout,
-      stderr: result.stderr,
-    };
-    const out = extractPhase1q(r);
+    const r = runPhase(fixture, "1q", { args: ["--log-path", customLog] });
+    const out = r.block;
     expect(out).toMatch(/phase beta has 0 firings/);
     expect(out).not.toMatch(/phase alpha has 0 firings/);
   });
@@ -288,8 +205,8 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
       // the file as having zero tombstones (false-negative).
       const fixture = makeFixture(synthValidate(["1a"]));
       chmodSync(join(fixture, "validate.fish"), 0o000);
-      const r = runValidate(fixture);
-      const out = extractPhase1q(r);
+      const r = runPhase(fixture, "1q");
+      const out = r.block;
       expect(out).toContain("✗");
       expect(out).toMatch(/grep returned error status/);
       expect(r.exitCode).not.toBe(0);
@@ -303,17 +220,8 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
     const fixture = makeFixture(synthValidate(["alpha", "beta"]));
     const customLog = join(fixture, "custom-phase-log.jsonl");
     writeFileSync(customLog, synthLog(100, "alpha"));
-    const result = spawnSync("fish", [VALIDATE, `--log-path=${customLog}`], {
-      env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
-      encoding: "utf8",
-    });
-    if (result.error) throw result.error;
-    const r: RunResult = {
-      exitCode: result.status ?? -1,
-      stdout: result.stdout,
-      stderr: result.stderr,
-    };
-    const out = extractPhase1q(r);
+    const r = runPhase(fixture, "1q", { args: [`--log-path=${customLog}`] });
+    const out = r.block;
     expect(out).toMatch(/phase beta has 0 firings/);
   });
 
@@ -347,7 +255,7 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
       "# end",
     ].join("\n");
     const fixture = makeFixture(synthValidate(["1a"], tombstones), "");
-    const out = extractPhase1q(runValidate(fixture));
+    const out = runPhase(fixture, "1q").block;
     const warnMatches = out.match(/hard-delete eligible/g) ?? [];
     expect(warnMatches.length).toBeGreaterThanOrEqual(3);
   });
@@ -365,17 +273,8 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
     const fixture = makeFixture(synthValidate(activeIds));
     const customLog = join(fixture, "custom-phase-log.jsonl");
     writeFileSync(customLog, log);
-    const result = spawnSync("fish", [VALIDATE, "--log-path", customLog], {
-      env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
-      encoding: "utf8",
-    });
-    if (result.error) throw result.error;
-    const r: RunResult = {
-      exitCode: result.status ?? -1,
-      stdout: result.stdout,
-      stderr: result.stderr,
-    };
-    const out = extractPhase1q(r);
+    const r = runPhase(fixture, "1q", { args: ["--log-path", customLog] });
+    const out = r.block;
     expect(out).toMatch(/phase 1\.q has 0 firings/);
     expect(out).not.toMatch(/phase 1xq has 0 firings/);
   });
@@ -393,7 +292,7 @@ describe("validate.fish Phase 1q (retirement signals)", () => {
     const corruptLine = `# this is not JSONL but contains "phase":"1b" in a comment`;
     const log = [...goodLines, corruptLine].join("\n") + "\n";
     const fixture = makeFixture(synthValidate(["1a", "1b"]), log);
-    const out = extractPhase1q(runValidate(fixture));
+    const out = runPhase(fixture, "1q").block;
     // 1b appears in the corrupt line's literal substring → counts as
     // a firing → no WARN. Documents the current substring-grep
     // approximation.
