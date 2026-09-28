@@ -64,7 +64,7 @@ test_allow "ls -la"
 # other tools the hook needs) and confirm a dangerous payload is still blocked
 # via the raw-payload fallback.
 SHIM_DIR="$(mktemp -d)"
-for t in cat grep dirname bash sh; do
+for t in cat grep dirname readlink bash sh; do
   src="$(command -v "$t" 2>/dev/null)"
   [[ -n "$src" ]] && ln -s "$src" "$SHIM_DIR/$t"
 done
