@@ -11,6 +11,14 @@ FAILED_TESTS=()
 
 VALID_PROMPT='{"prompt":"implement a small feature for me"}'
 
+# Point the kill-switch lookup at a private dir for the whole run. The hook then
+# ignores ~/.claude and ./.claude sentinels, so a real DISABLE_PRESSURE_FLOOR on
+# this machine cannot flip results, and no case ever touches the real one.
+# Where sentinels are looked for is covered in tests/hooks/hook-runtime.test.sh.
+SENTINEL_DIR=$(mktemp -d)
+export HOOK_SENTINEL_DIR="$SENTINEL_DIR"
+trap 'rm -rf "$SENTINEL_DIR"' EXIT
+
 # Fixtures export SCOPE_TIER_MEMORY_PATH to point the hook at the fabricated
 # MEMORY.md via its highest-priority resolution seam. Since R1, the hook
 # self-resolves the memory path from its own repo root, which on a maintainer
@@ -73,30 +81,14 @@ run_case() {
   fi
 }
 
-# Test 1: project-local sentinel suppresses
-SCRATCH_DIR=$(mktemp -d)
-run_case "sentinel-project-local-suppresses" \
-  "$VALID_PROMPT" \
+# Test 1: DISABLE_PRESSURE_FLOOR suppresses a prompt that would otherwise match
+TMPDIR_S=$(mktemp -d)
+run_case "sentinel-suppresses-match" \
+  '{"prompt":"prune lib/foo.ts"}' \
   "" \
   0 \
-  "mkdir -p '$SCRATCH_DIR/.claude' && touch '$SCRATCH_DIR/.claude/DISABLE_PRESSURE_FLOOR' && cd '$SCRATCH_DIR'" \
-  "cd - > /dev/null; rm -rf '$SCRATCH_DIR'"
-
-# Test 2: global sentinel suppresses (snapshot/restore the real file if present)
-USER_SENTINEL="${HOME}/.claude/DISABLE_PRESSURE_FLOOR"
-USER_SENTINEL_SNAP="/tmp/scope-tier-test-sentinel-snap-$$"
-SENTINEL_EXISTED=0
-if [[ -f "$USER_SENTINEL" ]]; then
-  SENTINEL_EXISTED=1
-  cp "$USER_SENTINEL" "$USER_SENTINEL_SNAP"
-fi
-
-run_case "sentinel-global-suppresses" \
-  "$VALID_PROMPT" \
-  "" \
-  0 \
-  "touch '$USER_SENTINEL'" \
-  "if [[ $SENTINEL_EXISTED -eq 1 ]]; then mv '$USER_SENTINEL_SNAP' '$USER_SENTINEL'; else rm -f '$USER_SENTINEL'; fi"
+  "setup_memory_fixture_positive '$TMPDIR_S' && touch '$SENTINEL_DIR/DISABLE_PRESSURE_FLOOR'" \
+  "rm -f '$SENTINEL_DIR/DISABLE_PRESSURE_FLOOR'; rm -rf '$TMPDIR_S'"
 
 # Test 3: empty stdin exits gracefully
 run_case "empty-stdin-graceful-exit" \
@@ -278,11 +270,12 @@ run_case \
 # when the sentinel disables the hook.
 SCRATCH_DISABLED=$(mktemp -d)
 LOGDIR_PROBE="$SCRATCH_DISABLED/logs-should-not-exist"
-mkdir -p "$SCRATCH_DISABLED/.claude" && touch "$SCRATCH_DISABLED/.claude/DISABLE_PRESSURE_FLOOR"
+touch "$SENTINEL_DIR/DISABLE_PRESSURE_FLOOR"
 (
   cd "$SCRATCH_DISABLED" || exit 1
   echo "$VALID_PROMPT" | SCOPE_TIER_LOG_DIR="$LOGDIR_PROBE" bash "$HOOK" >/dev/null 2>&1
 )
+rm -f "$SENTINEL_DIR/DISABLE_PRESSURE_FLOOR"
 if [[ ! -e "$LOGDIR_PROBE" ]]; then
   PASS=$((PASS+1))
   echo "  PASS: disabled-hook-creates-no-log-dir"
@@ -292,6 +285,23 @@ else
   echo "  FAIL: disabled-hook-creates-no-log-dir"
 fi
 rm -rf "$SCRATCH_DISABLED"
+
+# Test 20: an enabled hook logs its decision to SCOPE_TIER_LOG_DIR. Rotation
+# itself is shared prelude code, covered in tests/hooks/hook-runtime.test.sh.
+TMPDIR_LOG=$(mktemp -d)
+setup_memory_fixture_positive "$TMPDIR_LOG"
+echo '{"prompt":"prune lib/foo.ts"}' \
+  | SCOPE_TIER_LOG_DIR="$TMPDIR_LOG/logs" bash "$HOOK" >/dev/null 2>&1
+unset SCOPE_TIER_MEMORY_PATH
+if jq -e '.decision' "$TMPDIR_LOG/logs/scope-tier-hook.log" >/dev/null 2>&1; then
+  PASS=$((PASS+1))
+  echo "  PASS: enabled-hook-logs-decision"
+else
+  FAIL=$((FAIL+1))
+  FAILED_TESTS+=("enabled-hook-logs-decision (no decision line in $TMPDIR_LOG/logs/scope-tier-hook.log)")
+  echo "  FAIL: enabled-hook-logs-decision"
+fi
+rm -rf "$TMPDIR_LOG"
 
 echo ""
 echo "Pass: $PASS, Fail: $FAIL"

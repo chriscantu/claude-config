@@ -133,7 +133,7 @@ assert_eq "_scope_tier_slug slugifies an absolute path" \
 assert_eq "_scope_tier_slug slugifies a short path" \
   "-a-b" "$(_scope_tier_slug "/a/b")"
 
-# copy_hook_into REPO — place a runnable copy of the hook + its preflight lib
+# copy_hook_into REPO — place a runnable copy of the hook + its prelude libs
 # under REPO/hooks, so the copied hook's BASH_SOURCE self-resolves REPO as its
 # own repo root (distinguishing self-resolution from the hardcoded fallback,
 # which are the same path on the maintainer machine).
@@ -142,17 +142,19 @@ copy_hook_into() {
   mkdir -p "$repo/hooks/lib"
   cp "$HOOK" "$repo/hooks/scope-tier-memory-check.sh"
   cp "$REPO_ROOT/hooks/lib/preflight.sh" "$repo/hooks/lib/preflight.sh"
+  cp "$REPO_ROOT/hooks/lib/hook-runtime.sh" "$repo/hooks/lib/hook-runtime.sh"
 }
 
-# discover_with HOME_DIR REPO_DIR — run the copied hook's discover_memory_md in a
-# clean env (no inherited CLAUDE_PROJECT_DIR / SCOPE_TIER_MEMORY_PATH), cwd=REPO.
+# discover_with HOME_DIR REPO_DIR [HOOK_PATH] — run discover_memory_md from the
+# hook at HOOK_PATH (default: the copy in REPO) in a clean env (no inherited
+# CLAUDE_PROJECT_DIR / SCOPE_TIER_MEMORY_PATH), cwd=REPO.
 discover_with() {
-  local home="$1" repo="$2"
+  local home="$1" repo="$2" hook="${3:-$2/hooks/scope-tier-memory-check.sh}"
   env -i HOME="$home" PATH="$PATH" bash -c '
     cd "$1" || exit 1
-    source "$1/hooks/scope-tier-memory-check.sh"
+    source "$2"
     discover_memory_md
-  ' _ "$repo"
+  ' _ "$repo" "$hook"
 }
 
 # (a) SCOPE_TIER_MEMORY_PATH override wins over self-resolved + hardcoded.
@@ -170,6 +172,13 @@ mkdir -p "$TMPHOME/.claude/projects/$SLUG/memory"; : > "$TMPHOME/.claude/project
 copy_hook_into "$TMPREPO"
 assert_eq "self-resolve finds memory under a fabricated HOME" \
   "$TMPHOME/.claude/projects/$SLUG/memory/MEMORY.md" "$(discover_with "$TMPHOME" "$TMPREPO")"
+# Same, but through the symlink link-config installs in ~/.claude/hooks/: the
+# repo root must come from the real file, not from the symlink's directory.
+mkdir -p "$TMPHOME/.claude/hooks"
+ln -s "$TMPREPO/hooks/scope-tier-memory-check.sh" "$TMPHOME/.claude/hooks/scope-tier-memory-check.sh"
+assert_eq "self-resolve works through the installed symlink" \
+  "$TMPHOME/.claude/projects/$SLUG/memory/MEMORY.md" \
+  "$(discover_with "$TMPHOME" "$TMPREPO" "$TMPHOME/.claude/hooks/scope-tier-memory-check.sh")"
 rm -rf "$TMPREPO" "$TMPHOME"
 
 # (c) Hardcoded fallback: when self-resolution misses (temp repo slug has no

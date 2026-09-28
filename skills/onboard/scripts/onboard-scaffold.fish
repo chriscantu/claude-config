@@ -83,7 +83,7 @@ or begin
 end
 
 set -l org_name (basename $target | sed -E 's/^onboard-//')
-set -l today (date +%Y-%m-%d)
+set -l today (date -u +%Y-%m-%d)
 
 set -l weeks ""
 switch $cadence

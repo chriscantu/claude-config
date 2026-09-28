@@ -15,29 +15,18 @@
 # the functions without triggering the hook.
 set -u
 
-# Shared dependency-preflight helpers (require_cmd / warn_degraded). Sourced,
-# not executed — resolves beside this hook regardless of install location
-# (plugin root or repo checkout). Sourcing defines two functions only; it does
-# no I/O, so the classifier tests that source this file stay inert.
+# Shared hook prelude (kill switch, stdin, JSONL log, preflight). Resolve the
+# symlink: link-config installs this file as ~/.claude/hooks/scope-tier-memory-check.sh
+# with no lib/ beside it, so the libraries live next to the real file only.
+# Sourcing defines functions only; it does no I/O, so the classifier tests that
+# source this file stay inert.
+HOOK_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 # shellcheck source=/dev/null
-source "$(dirname "${BASH_SOURCE[0]}")/lib/preflight.sh"
+source "$HOOK_DIR/lib/hook-runtime.sh"
 
 # ── Logging infrastructure ────────────────────────────────────────────────────
 LOG_DIR="${SCOPE_TIER_LOG_DIR:-${HOME}/.claude/logs}"
 LOG_FILE="$LOG_DIR/scope-tier-hook.log"
-LOG_ROTATED="$LOG_FILE.1"
-LOG_THRESHOLD=$((10*1024*1024))
-LOG_KEEP_TAIL=$((5*1024*1024))
-
-rotate_log_if_needed() {
-  [[ ! -f "$LOG_FILE" ]] && return 0
-  local size
-  size=$(stat -f%z "$LOG_FILE" 2>/dev/null || stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)
-  if [[ "$size" -gt "$LOG_THRESHOLD" ]]; then
-    tail -c "$LOG_KEEP_TAIL" "$LOG_FILE" > "$LOG_ROTATED" 2>/dev/null || true
-    : > "$LOG_FILE"
-  fi
-}
 
 SENTINEL_PATH="${SCOPE_TIER_SENTINEL_PATH:-.claude/state/scope-tier-current}"
 
@@ -64,8 +53,7 @@ clear_sentinel() {
 
 log_decision() {
   local decision="$1"
-  rotate_log_if_needed
-  local ts prompt_hash matched_json
+  local ts prompt_hash matched_json line
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   prompt_hash=$(printf '%s' "${PROMPT:-}" | shasum -a 256 2>/dev/null | awk '{print substr($1,1,16)}')
   if [[ ${#MATCHED_MEMORIES[@]} -gt 0 ]]; then
@@ -73,13 +61,14 @@ log_decision() {
   else
     matched_json='[]'
   fi
-  jq -n -c --arg ts "$ts" --arg decision "$decision" --arg ph "$prompt_hash" \
+  line=$(jq -n -c --arg ts "$ts" --arg decision "$decision" --arg ph "$prompt_hash" \
     --arg v "${HAS_VERB:-na}" --arg t "${HAS_TARGET:-na}" \
     --arg m "${HAS_MINIMIZER:-na}" --arg se "${HAS_SCOPE_EXPANDER:-na}" \
     --arg bp "${HAS_BLAST_PATH:-na}" --arg bw "${HAS_BLAST_WORD:-na}" \
     --argjson mm "$matched_json" \
     '{ts:$ts,decision:$decision,prompt_hash:$ph,criteria:{verb:$v,target:$t,minimizer:$m,scope_expander:$se,blast_path:$bp,blast_word:$bw},matched:$mm}' \
-    >> "$LOG_FILE" 2>/dev/null || true
+    2>/dev/null) || return 0
+  hook_log_jsonl "$LOG_FILE" "$line"
 }
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -105,8 +94,9 @@ _scope_tier_slug() {
 #   1. SCOPE_TIER_MEMORY_PATH — explicit override for non-standard layouts.
 #   2. Self-resolved — this hook's own repo root (the dir above hooks/),
 #      slugified. Correct whenever the user opens the same checkout the hook
-#      ships in as their claude-config project. `pwd -P` resolves symlinks so
-#      a symlinked checkout still maps to the real path.
+#      ships in as their claude-config project. HOOK_DIR is the real file's
+#      dir (not the ~/.claude/hooks/ symlink's), and `pwd -P` resolves
+#      symlinks so a symlinked checkout still maps to the real path.
 #   3. Hardcoded fallback — the maintainer's original path, kept last so this
 #      machine keeps working even if self-resolution ever fails.
 discover_memory_md() {
@@ -115,7 +105,7 @@ discover_memory_md() {
   [[ -n "${SCOPE_TIER_MEMORY_PATH:-}" ]] && candidates+=("$SCOPE_TIER_MEMORY_PATH")
 
   local repo_root slug
-  repo_root=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." 2>/dev/null && pwd -P)
+  repo_root=$(cd "$HOOK_DIR/.." 2>/dev/null && pwd -P)
   if [[ -n "$repo_root" ]]; then
     slug=$(_scope_tier_slug "$repo_root")
     candidates+=("${HOME}/.claude/projects/${slug}/memory/MEMORY.md")
@@ -221,8 +211,7 @@ main() {
   # for the classifier tests never mutates the test harness's shell options.
   set -o pipefail
 
-  if [[ -f "${HOME}/.claude/DISABLE_PRESSURE_FLOOR" ]] \
-    || [[ -f ".claude/DISABLE_PRESSURE_FLOOR" ]]; then return 0; fi
+  if hook_disabled DISABLE_PRESSURE_FLOOR; then return 0; fi
 
   # jq is a hard dependency here (prompt extraction, sentinel, logging, emission).
   # This is an ADVISORY hook, so degrade gracefully but LOUDLY — warn on stderr
@@ -232,14 +221,9 @@ main() {
     return 0
   fi
 
-  # Logging is main()-only, so the dir is created here (after the disable check)
-  # rather than at module scope — a disabled or sourced hook touches nothing.
-  mkdir -p "$LOG_DIR" 2>/dev/null || true
+  hook_read_input || return 0
 
-  INPUT=$(cat 2>/dev/null || true)
-  [[ -z "$INPUT" ]] && return 0
-
-  PROMPT=$(echo "$INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)
+  PROMPT=$(hook_input_field '.prompt')
   [[ -z "$PROMPT" ]] && return 0
 
   MEMORY_PATH=$(discover_memory_md) || return 0

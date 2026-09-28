@@ -9,6 +9,7 @@
 import { readFileSync, writeFileSync, existsSync, appendFileSync } from "node:fs";
 import { join } from "node:path";
 import { extractNames } from "./onboard-guard.ts";
+import { todayIso } from "../../../lib/workspace-date.ts";
 
 export type Event = { name: string; email: string | null };
 
@@ -74,8 +75,6 @@ export const diffEvents = (events: Event[], mapMarkdown: string): Event[] => {
   const known = new Set(extractNames(mapMarkdown).map((n) => n.toLowerCase()));
   return events.filter((e) => !known.has(e.name.toLowerCase()));
 };
-
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
 
 const cmdDiff = (eventsPathOrDash: string, mapPath: string): number => {
   const eventsJson = readInput(eventsPathOrDash);

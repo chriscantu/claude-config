@@ -4,13 +4,20 @@
 # Disable: ~/.claude/DISABLE_ADVERSARIAL or .claude/DISABLE_ADVERSARIAL
 set -u
 
+# Shared hook prelude. Resolved before the cd below, while a relative
+# BASH_SOURCE still points at this file, and through the symlink link-config
+# installs in ~/.claude/hooks/ (no lib/ beside it there).
+HOOK_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# shellcheck source=/dev/null
+source "$HOOK_DIR/lib/hook-runtime.sh"
+
 REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 [[ -z "$REPO_ROOT" ]] && exit 0
 cd "$REPO_ROOT" || exit 0
 
 # ── Sentinel bypass ──────────────────────────────────────────────────────────
-if [[ -f "${HOME}/.claude/DISABLE_ADVERSARIAL" ]] \
-  || [[ -f ".claude/DISABLE_ADVERSARIAL" ]]; then exit 0; fi
+# After the cd, so the project-local .claude/ is the repo root's.
+if hook_disabled DISABLE_ADVERSARIAL; then exit 0; fi
 
 CONFIG="hooks/adversarial-config.json"
 [[ ! -f "$CONFIG" ]] && exit 0

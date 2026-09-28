@@ -5,6 +5,7 @@
 
 import { readFileSync, writeFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { daysBetween, orgSlug, todayIso } from "../../../lib/workspace-date.ts";
 
 type Level = "low" | "med" | "high";
 type Status = "active" | "escalated" | "resolved";
@@ -52,15 +53,12 @@ const today = (flag?: string): string => {
     if (!ISO_DATE_RE.test(flag)) die(`bad --today: ${flag} (want YYYY-MM-DD)`, 2);
     return flag;
   }
-  return new Date().toISOString().slice(0, 10);
+  return todayIso();
 };
 
 const regPath = (ws: string): string => join(ws, "risks", "register.md");
 
-const orgFromWs = (ws: string): string => {
-  const base = ws.replace(/\/+$/, "").split("/").pop() || "register";
-  return base.replace(/^onboard-/, "");
-};
+const orgFromWs = (ws: string): string => orgSlug(ws) || "register";
 
 // ---------- register format ----------
 // The register is markdown by design (D-1) so a leader can read and hand-edit
@@ -241,12 +239,6 @@ const cmdList = (ws: string): number => {
     process.stdout.write(`[${tag(r)}] R-${r.id}  ${r.desc}  (${r.status}) — owner: ${r.owner} · reviewed ${r.lastReviewed}\n`);
   }
   return 0;
-};
-
-const daysBetween = (from: string, to: string): number => {
-  const a = Date.parse(from + "T00:00:00Z");
-  const b = Date.parse(to + "T00:00:00Z");
-  return Math.round((b - a) / 86400000);
 };
 
 const cmdReview = (ws: string, flags: Flags): number => {

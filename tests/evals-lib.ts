@@ -1298,61 +1298,16 @@ export function suiteExit(agg: ReliabilityAgg, opts: SuiteExitOptions): SuiteExi
 }
 
 /**
- * Result of `runLifecycle`. Distinguishes the setup-failed path (teardown
+ * Result of `runLifecycleAsync`. Distinguishes the setup-failed path (teardown
  * did NOT run — setup is atomic, nothing to undo) from the ok path where
  * `work` produced a value and teardown has already fired in the finally.
- * If `work` throws, `runLifecycle` re-throws after running teardown, so
+ * If `work` throws, `runLifecycleAsync` re-throws after running teardown, so
  * callers see the original error and do NOT need to branch on a "work
  * threw" case here.
  */
 export type LifecycleResult<T> =
   | { kind: "ok"; value: T }
   | { kind: "setup_failed"; error: Error };
-
-/**
- * Run `work()` with optional setup/teardown shell commands.
- *
- * Contract:
- *   - `setup` runs BEFORE `work`. Setup failure short-circuits with
- *     `setup_failed`; teardown is NOT invoked (nothing to tear down).
- *   - `teardown` runs in a finally. It fires when `work` returns AND
- *     when `work` throws. Teardown failures are reported via
- *     `onTeardownError` and swallowed so they do not mask the original
- *     outcome.
- *   - If `work` throws, teardown runs, then the original error
- *     propagates out of `runLifecycle`.
- *
- * `exec` is injectable so unit tests can run without spawning real
- * shells. The runner passes an `execSync`-backed wrapper; tests pass a
- * recording stub.
- */
-export function runLifecycle<T>(opts: {
-  setup?: string;
-  teardown?: string;
-  work: () => T;
-  exec: (cmd: string) => void;
-  onTeardownError?: (msg: string) => void;
-}): LifecycleResult<T> {
-  if (opts.setup) {
-    try {
-      opts.exec(opts.setup);
-    } catch (err) {
-      return { kind: "setup_failed", error: err instanceof Error ? err : new Error(String(err)) };
-    }
-  }
-  try {
-    return { kind: "ok", value: opts.work() };
-  } finally {
-    if (opts.teardown) {
-      try {
-        opts.exec(opts.teardown);
-      } catch (err) {
-        const msg = err instanceof Error ? err.message : String(err);
-        opts.onTeardownError?.(msg);
-      }
-    }
-  }
-}
 
 /**
  * Refcounted tracker for pending teardown commands. Under concurrent eval
@@ -1431,12 +1386,22 @@ export async function runPool<T, R>(
 }
 
 /**
- * Async twin of `runLifecycle`. Same contract — setup is atomic and short-
- * circuits on failure; teardown fires in finally after work resolves or
- * throws; teardown failures are reported via `onTeardownError` and
- * swallowed. Difference: `work` returns a Promise and is awaited inside
- * the try, so teardown runs AFTER the promise settles, not after it's
- * created.
+ * Run async `work()` with optional setup/teardown shell commands.
+ *
+ * Contract:
+ *   - `setup` runs BEFORE `work`. Setup failure short-circuits with
+ *     `setup_failed`; teardown is NOT invoked (nothing to tear down).
+ *   - `teardown` runs in a finally. It fires when `work` resolves AND
+ *     when it throws. Teardown failures are reported via
+ *     `onTeardownError` and swallowed so they do not mask the original
+ *     outcome.
+ *   - `work` is awaited inside the try, so teardown runs AFTER the
+ *     promise settles, not after it's created.
+ *   - If `work` throws, teardown runs, then the original error
+ *     propagates.
+ *
+ * `exec` is injectable so unit tests can run without spawning real
+ * shells.
  */
 export async function runLifecycleAsync<T>(opts: {
   setup?: string;
