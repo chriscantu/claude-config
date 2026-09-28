@@ -1,15 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "bun:test";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
 import { getuid } from "node:process";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
+import { runPhase, useFixtures } from "./validate-harness";
 
 // Regression tests for validate.fish Phase 1r (skill-eval discriminating-signal
 // presence, ADR #0019).
@@ -32,60 +25,7 @@ import { join, resolve } from "node:path";
 //      via status ≥ 2 path; not silently misclassified as "zero required-tier"
 //      which would mask the real cause
 
-const REPO = resolve(import.meta.dir, "..");
-const VALIDATE = join(REPO, "validate.fish");
-
-type RunResult = {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-};
-
-const runValidate = (fixture: string): RunResult => {
-  const result = spawnSync("fish", [VALIDATE], {
-    env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
-    encoding: "utf8",
-  });
-  if (result.error) throw result.error;
-  return {
-    exitCode: result.status ?? -1,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-};
-
-// Capture only the Phase 1r block — header through next blank line. Combine
-// stdout+stderr. Sibling-phase failures on the seeded fixture do not fail this
-// suite — assertions target Phase 1r only.
-const extractPhase1r = (r: RunResult): string => {
-  const combined = `${r.stdout}\n${r.stderr}`;
-  const lines = combined.split("\n");
-  const headerIdx = lines.findIndex((line) =>
-    line.includes("── Phase 1r: skill-eval discriminating-signal presence"),
-  );
-  if (headerIdx < 0) {
-    throw new Error(
-      `Phase 1r header not found — phase may have been renamed/removed.\n--- stdout ---\n${r.stdout}\n--- stderr ---\n${r.stderr}`,
-    );
-  }
-  const slice: string[] = [];
-  for (let i = headerIdx; i < lines.length; i++) {
-    slice.push(lines[i]);
-    if (i > headerIdx && lines[i] === "") break;
-  }
-  return slice.join("\n");
-};
-
-const fixtures: string[] = [];
-
-const makeRepoFixture = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "validate-phase-1r-"));
-  for (const sub of ["rules", "skills", "agents", "commands", "adrs"]) {
-    mkdirSync(join(dir, sub), { recursive: true });
-  }
-  fixtures.push(dir);
-  return dir;
-};
+const makeRepoFixture = useFixtures("validate-phase-1r-");
 
 // Seed a single skill 'archx' with one eval carrying a required-tier assertion.
 type Seed = {
@@ -160,41 +100,11 @@ const seedSkillWithoutRequired = (repo: string, skill: string): Seed => {
   return { repo, evalsJson };
 };
 
-const TMP_PREFIX = tmpdir();
-
-afterEach(() => {
-  while (fixtures.length > 0) {
-    const dir = fixtures.pop()!;
-    if (!dir.startsWith(TMP_PREFIX)) {
-      console.error(`afterEach: refusing to clean non-tmp path ${dir}`);
-      continue;
-    }
-    // Restore perms in case a test chmod 000'd a file inside (Test E).
-    const restore = spawnSync("chmod", ["-R", "u+rw", dir], { encoding: "utf8" });
-    if (restore.error) {
-      console.error(
-        `afterEach: chmod spawn failed for ${dir}: ${restore.error.message}`,
-      );
-    } else if (restore.status !== 0) {
-      console.error(
-        `afterEach: chmod exited ${restore.status} for ${dir}: ${restore.stderr}`,
-      );
-    }
-    try {
-      rmSync(dir, { recursive: true, force: true });
-    } catch (e) {
-      console.error(
-        `afterEach: rmSync failed for ${dir}: ${(e as Error).message}`,
-      );
-    }
-  }
-});
-
 describe("validate.fish Phase 1r (skill-eval discriminating-signal presence, ADR #0019)", () => {
   test("A: skill with required-tier assertion → passes", () => {
     const repo = makeRepoFixture();
     seedSkillWithRequired(repo, "archx");
-    const out = extractPhase1r(runValidate(repo));
+    const out = runPhase(repo, "1r").block;
     expect(out).toContain(
       "skills/archx/evals/evals.json: 1 required-tier assertion(s)",
     );
@@ -204,7 +114,7 @@ describe("validate.fish Phase 1r (skill-eval discriminating-signal presence, ADR
   test("B: skill missing required-tier → hard fail with ADR #0019 cite", () => {
     const repo = makeRepoFixture();
     seedSkillWithoutRequired(repo, "archx");
-    const out = extractPhase1r(runValidate(repo));
+    const out = runPhase(repo, "1r").block;
     expect(out).toContain(
       "skills/archx/evals/evals.json: no required-tier assertions found",
     );
@@ -220,7 +130,7 @@ describe("validate.fish Phase 1r (skill-eval discriminating-signal presence, ADR
     const repo = makeRepoFixture();
     seedSkillWithRequired(repo, "good-skill");
     seedSkillWithoutRequired(repo, "bad-skill");
-    const out = extractPhase1r(runValidate(repo));
+    const out = runPhase(repo, "1r").block;
     expect(out).toContain(
       "skills/good-skill/evals/evals.json: 1 required-tier assertion(s)",
     );
@@ -235,11 +145,9 @@ describe("validate.fish Phase 1r (skill-eval discriminating-signal presence, ADR
   test("D: zero-state — no skills/*/evals/evals.json → documented pass, no fail", () => {
     const repo = makeRepoFixture();
     // Deliberately no skill eval files seeded. Sibling phases (e.g. Phase 1a
-    // "No skill directories found") fire on this fixture but are isolated by
-    // extractPhase1r's header-to-blank-line slice — assertions below only
-    // inspect Phase 1r output. The `not.toMatch(/✗/)` guard is scoped to that
-    // slice, not the whole transcript.
-    const out = extractPhase1r(runValidate(repo));
+    // "No skill directories found") would fail on this fixture, but runPhase
+    // runs Phase 1r alone — assertions below only inspect Phase 1r output.
+    const out = runPhase(repo, "1r").block;
     expect(out).toContain(
       "no skills/*/evals/evals.json files — Phase 1r has nothing to validate",
     );
@@ -255,7 +163,7 @@ describe("validate.fish Phase 1r (skill-eval discriminating-signal presence, ADR
       const repo = makeRepoFixture();
       const { evalsJson } = seedSkillWithRequired(repo, "archx");
       chmodSync(evalsJson, 0o000);
-      const out = extractPhase1r(runValidate(repo));
+      const out = runPhase(repo, "1r").block;
       expect(out).toContain("grep returned error status");
       expect(out).toContain("skills/archx/evals/evals.json");
       // Must NOT have silently misclassified as "no required-tier" — that

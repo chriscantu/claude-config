@@ -1,17 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  readFileSync,
-  rmSync,
-  unlinkSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
+import { describe, expect, test } from "bun:test";
+import { chmodSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import { getuid } from "node:process";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
+import { VALIDATE, runPhase, useFixtures } from "./validate-harness";
 
 // Regression tests for validate.fish Phase 1l (Delegate-link presence).
 //
@@ -36,63 +27,7 @@ import { join, resolve } from "node:path";
 // skip-contract.md / pressure-framing-floor.md. Registry now uses fully
 // qualified `<basename>.md#<anchor>` tokens.
 
-const REPO = resolve(import.meta.dir, "..");
-const VALIDATE = join(REPO, "validate.fish");
-
-type RunResult = {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-};
-
-const runValidate = (fixture: string, validateScript = VALIDATE): RunResult => {
-  const result = spawnSync("fish", [validateScript], {
-    env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
-    encoding: "utf8",
-  });
-  if (result.error) throw result.error;
-  return {
-    exitCode: result.status ?? -1,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-};
-
-// Capture only the Phase 1l block — header line through the next blank line.
-// Mirrors the fish original's `sed -n '/── Delegate-link presence/,/^$/p'`.
-// Combine stdout + stderr so a failure printed on either stream is captured.
-// By design, failures in sibling phases (1g, 1j, 1k, 1m) on the seeded fixture
-// do NOT fail this suite — assertions target the 1l slice only. If a future
-// phase tightens against this fixture, audit at that time, don't auto-fail here.
-const extractPhase1l = (r: RunResult): string => {
-  const combined = `${r.stdout}\n${r.stderr}`;
-  const lines = combined.split("\n");
-  const headerIdx = lines.findIndex((line) =>
-    line.includes("── Delegate-link presence"),
-  );
-  if (headerIdx < 0) {
-    throw new Error(
-      `Phase 1l header not found in validate.fish output — phase may have been renamed/removed.\n--- stdout ---\n${r.stdout}\n--- stderr ---\n${r.stderr}`,
-    );
-  }
-  const slice: string[] = [];
-  for (let i = headerIdx; i < lines.length; i++) {
-    slice.push(lines[i]);
-    if (i > headerIdx && lines[i] === "") break;
-  }
-  return slice.join("\n");
-};
-
-const fixtures: string[] = [];
-
-const makeFixture = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "validate-phase-1l-"));
-  for (const sub of ["rules", "skills", "agents", "commands", "adrs"]) {
-    mkdirSync(join(dir, sub), { recursive: true });
-  }
-  fixtures.push(dir);
-  return dir;
-};
+const makeFixture = useFixtures("validate-phase-1l-");
 
 // Seed every dependent rule registered in Phase 1l with all its registered
 // anchor links. Link list mirrors the canonical registry in validate.fish.
@@ -124,35 +59,11 @@ const seedFullRegistry = (fixture: string): void => {
   );
 };
 
-const TMP_PREFIX = tmpdir();
-
-afterEach(() => {
-  while (fixtures.length > 0) {
-    const dir = fixtures.pop()!;
-    if (!dir.startsWith(TMP_PREFIX)) {
-      console.error(`afterEach: refusing to clean non-tmp path ${dir}`);
-      continue;
-    }
-    // Restore perms in case a test chmod 000'd a file inside.
-    const restore = spawnSync("chmod", ["-R", "u+rw", dir], { encoding: "utf8" });
-    if (restore.error) {
-      console.error(`afterEach: chmod spawn failed for ${dir}: ${restore.error.message}`);
-    } else if (restore.status !== 0) {
-      console.error(`afterEach: chmod exited ${restore.status} for ${dir}: ${restore.stderr}`);
-    }
-    try {
-      rmSync(dir, { recursive: true, force: true });
-    } catch (e) {
-      console.error(`afterEach: rmSync failed for ${dir}: ${(e as Error).message}`);
-    }
-  }
-});
-
 describe("validate.fish Phase 1l (delegate-link presence)", () => {
   test("A: clean fixture with all delegate links → Phase 1l passes", () => {
     const fixture = makeFixture();
     seedFullRegistry(fixture);
-    const out = extractPhase1l(runValidate(fixture));
+    const out = runPhase(fixture, "1l").block;
     expect(out).not.toContain("missing delegate link");
     expect(out).not.toContain("grep returned error status");
   });
@@ -206,7 +117,7 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
       const fixture = makeFixture();
       seedFullRegistry(fixture);
       writeFileSync(join(fixture, "rules", dependent), keepBody);
-      const out = extractPhase1l(runValidate(fixture));
+      const out = runPhase(fixture, "1l").block;
       expect(out).toContain(
         `rules/${dependent} missing delegate link to ${dropLink}`,
       );
@@ -220,7 +131,7 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
     const fixture = makeFixture();
     seedFullRegistry(fixture);
     unlinkSync(join(fixture, "rules", "fat-marker-sketch.md"));
-    const out = extractPhase1l(runValidate(fixture));
+    const out = runPhase(fixture, "1l").block;
     expect(out).toContain(
       "delegate-registry rule missing: rules/fat-marker-sketch.md",
     );
@@ -251,11 +162,11 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
     expect(patched).toContain(
       '"think-before-coding.md|skip-contract.md#emission-contract,"',
     );
-    // Write the patched validator inside the fixture so afterEach cleans it
-    // automatically via rmSync(dir, recursive) — no parallel tmpFiles[] needed.
+    // Write the patched validator inside the fixture so the harness cleanup
+    // removes it with the fixture — no parallel tmpFiles[] needed.
     const tmpValidate = join(fixture, "validate-patched.fish");
     writeFileSync(tmpValidate, patched);
-    const out = extractPhase1l(runValidate(fixture, tmpValidate));
+    const out = runPhase(fixture, "1l", { script: tmpValidate }).block;
     expect(out).toContain("empty link token");
   });
 
@@ -269,7 +180,7 @@ describe("validate.fish Phase 1l (delegate-link presence)", () => {
       const fixture = makeFixture();
       seedFullRegistry(fixture);
       chmodSync(join(fixture, "rules", "fat-marker-sketch.md"), 0o000);
-      const out = extractPhase1l(runValidate(fixture));
+      const out = runPhase(fixture, "1l").block;
       expect(out).toContain("grep returned error status");
     },
   );

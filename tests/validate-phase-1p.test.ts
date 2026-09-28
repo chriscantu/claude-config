@@ -1,14 +1,7 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { describe, expect, test } from "bun:test";
+import { chmodSync, mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { runPhase, useFixtures } from "./validate-harness";
 
 // Regression tests for validate.fish Phase 1p (rules-evals/README.md suite
 // inventory).
@@ -41,56 +34,7 @@ import { join, resolve } from "node:path";
 //
 // Issue #361 (adjacent README backfill), ADR #0012 (TS-native test).
 
-const REPO = resolve(import.meta.dir, "..");
-const VALIDATE = join(REPO, "validate.fish");
-
-type RunResult = {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-};
-
-const runValidate = (fixture: string): RunResult => {
-  const result = spawnSync("fish", [VALIDATE], {
-    env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
-    encoding: "utf8",
-  });
-  if (result.error) throw result.error;
-  return {
-    exitCode: result.status ?? -1,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-};
-
-const extractPhase1p = (r: RunResult): string => {
-  const combined = `${r.stdout}\n${r.stderr}`;
-  const lines = combined.split("\n");
-  const headerIdx = lines.findIndex((line) => line.includes("── Phase 1p"));
-  if (headerIdx < 0) {
-    throw new Error(
-      `Phase 1p header not found in validate.fish output — phase may not be implemented yet.\n--- stdout ---\n${r.stdout}\n--- stderr ---\n${r.stderr}`,
-    );
-  }
-  const slice: string[] = [];
-  for (let i = headerIdx; i < lines.length; i++) {
-    slice.push(lines[i]);
-    if (i > headerIdx && lines[i] === "") break;
-  }
-  return slice.join("\n");
-};
-
-const fixtures: string[] = [];
-const TMP_PREFIX = tmpdir();
-
-const makeMinFixture = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "validate-phase-1p-"));
-  fixtures.push(dir);
-  for (const sub of ["rules", "skills", "agents", "commands", "adrs", "hooks", "bin", "tests"]) {
-    mkdirSync(join(dir, sub), { recursive: true });
-  }
-  return dir;
-};
+const makeMinFixture = useFixtures("validate-phase-1p-", ["rules", "skills", "agents", "commands", "adrs", "hooks", "bin", "tests"]);
 
 const seedRulesEvals = (
   fixture: string,
@@ -118,34 +62,11 @@ const seedRulesEvals = (
   writeFileSync(join(dir, "README.md"), body);
 };
 
-afterEach(() => {
-  while (fixtures.length > 0) {
-    const dir = fixtures.pop()!;
-    if (!dir.startsWith(TMP_PREFIX)) {
-      console.error(`afterEach: refusing to clean non-tmp path ${dir}`);
-      continue;
-    }
-    // Test G chmods a file inside the fixture to 000; restore perms before
-    // rmSync so cleanup doesn't fail if the test threw mid-execution.
-    const restore = spawnSync("chmod", ["-R", "u+rw", dir], { encoding: "utf8" });
-    if (restore.error) {
-      console.error(`afterEach: chmod spawn failed for ${dir}: ${restore.error.message}`);
-    } else if (restore.status !== 0) {
-      console.error(`afterEach: chmod exited ${restore.status} for ${dir}: ${restore.stderr}`);
-    }
-    try {
-      rmSync(dir, { recursive: true, force: true });
-    } catch (e) {
-      console.error(`afterEach: rmSync failed for ${dir}: ${(e as Error).message}`);
-    }
-  }
-});
-
 describe("validate.fish Phase 1p (rules-evals README suite inventory)", () => {
   test("A: README bullets match on-disk dirs → pass", () => {
     const fixture = makeMinFixture();
     seedRulesEvals(fixture, ["alpha", "beta"], ["alpha", "beta"]);
-    const out = extractPhase1p(runValidate(fixture));
+    const out = runPhase(fixture, "1p").block;
     expect(out).not.toContain("✗");
     expect(out).toMatch(/suite list matches on-disk dirs \(2 suites\)/);
   });
@@ -160,7 +81,7 @@ describe("validate.fish Phase 1p (rules-evals README suite inventory)", () => {
       ["alpha", "beta", "gamma", "delta", "epsilon"],
       ["alpha", "beta"],
     );
-    const out = extractPhase1p(runValidate(fixture));
+    const out = runPhase(fixture, "1p").block;
     expect(out).toContain("✗");
     expect(out).toMatch(/rules-evals\/gamma\/ exists on disk but missing from README\.md/);
     expect(out).toMatch(/rules-evals\/delta\/ exists on disk but missing from README\.md/);
@@ -172,7 +93,7 @@ describe("validate.fish Phase 1p (rules-evals README suite inventory)", () => {
     // Three phantom bullets (ghost, wraith, specter) verify the opposite-
     // side loop also emits one fail per entry.
     seedRulesEvals(fixture, ["alpha"], ["alpha", "ghost", "wraith", "specter"]);
-    const out = extractPhase1p(runValidate(fixture));
+    const out = runPhase(fixture, "1p").block;
     expect(out).toContain("✗");
     expect(out).toMatch(/lists 'ghost\/' but no such directory exists/);
     expect(out).toMatch(/lists 'wraith\/' but no such directory exists/);
@@ -181,7 +102,7 @@ describe("validate.fish Phase 1p (rules-evals README suite inventory)", () => {
 
   test("D: rules-evals/ absent → documented zero-state pass", () => {
     const fixture = makeMinFixture();
-    const out = extractPhase1p(runValidate(fixture));
+    const out = runPhase(fixture, "1p").block;
     expect(out).not.toContain("✗");
     expect(out).toMatch(/no rules-evals\/ directory.*Phase 1p has nothing to validate/);
   });
@@ -191,7 +112,7 @@ describe("validate.fish Phase 1p (rules-evals README suite inventory)", () => {
     const dir = join(fixture, "rules-evals", "alpha", "evals");
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, "evals.json"), JSON.stringify({ skill: "alpha", evals: [] }));
-    const out = extractPhase1p(runValidate(fixture));
+    const out = runPhase(fixture, "1p").block;
     expect(out).toContain("✗");
     expect(out).toMatch(/README\.md missing/);
   });
@@ -207,7 +128,7 @@ describe("validate.fish Phase 1p (rules-evals README suite inventory)", () => {
       join(dir, "README.md"),
       "# rules-evals\n\nSee root README.\n",
     );
-    const out = extractPhase1p(runValidate(fixture));
+    const out = runPhase(fixture, "1p").block;
     expect(out).toContain("✗");
     expect(out).toMatch(/missing 'Current suites:' header.*structural rot/);
   });
@@ -219,7 +140,7 @@ describe("validate.fish Phase 1p (rules-evals README suite inventory)", () => {
     const readmePath = join(fixture, "rules-evals", "README.md");
     chmodSync(readmePath, 0o000);
     try {
-      const out = extractPhase1p(runValidate(fixture));
+      const out = runPhase(fixture, "1p").block;
       expect(out).toContain("✗");
       expect(out).toMatch(/grep returned error status \d+/);
       // Negative twin: the bullet-cascade message must NOT fire — that's
@@ -249,7 +170,7 @@ describe("validate.fish Phase 1p (rules-evals README suite inventory)", () => {
         "",
       ].join("\n"),
     );
-    const out = extractPhase1p(runValidate(fixture));
+    const out = runPhase(fixture, "1p").block;
     expect(out).toContain("✗");
     expect(out).toMatch(/rules-evals\/Alpha\/ exists on disk but missing from README/);
   });

@@ -1,9 +1,8 @@
-import { afterEach, describe, expect, test } from "bun:test";
-import { spawnSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { describe, expect, test } from "bun:test";
+import { writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { createHash } from "node:crypto";
+import { runPhase, useFixtures } from "./validate-harness";
 
 // Regression tests for validate.fish Phase 1v (anchor-content snapshot, #444).
 //
@@ -27,47 +26,6 @@ import { createHash } from "node:crypto";
 //   E) New anchor on disk not in snapshot → warn (forward-add OK; snapshot
 //      should be regenerated, but missing-from-snapshot is not a HARD-FAIL)
 //   F) Empty snapshot file → loud fail (no anchors to validate)
-
-const REPO = resolve(import.meta.dir, "..");
-const VALIDATE = join(REPO, "validate.fish");
-
-type RunResult = {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-};
-
-const runValidate = (fixture: string): RunResult => {
-  const result = spawnSync("fish", [VALIDATE], {
-    env: { ...process.env, CLAUDE_CONFIG_REPO_DIR: fixture },
-    encoding: "utf8",
-  });
-  if (result.error) throw result.error;
-  return {
-    exitCode: result.status ?? -1,
-    stdout: result.stdout,
-    stderr: result.stderr,
-  };
-};
-
-const extractPhase1v = (r: RunResult): string => {
-  const combined = `${r.stdout}\n${r.stderr}`;
-  const lines = combined.split("\n");
-  const headerIdx = lines.findIndex((line) =>
-    line.includes("── Phase 1v: anchor-content snapshot"),
-  );
-  if (headerIdx < 0) {
-    throw new Error(
-      `Phase 1v header not found.\n--- stdout ---\n${r.stdout}\n--- stderr ---\n${r.stderr}`,
-    );
-  }
-  const slice: string[] = [];
-  for (let i = headerIdx; i < lines.length; i++) {
-    slice.push(lines[i]);
-    if (i > headerIdx && lines[i] === "") break;
-  }
-  return slice.join("\n");
-};
 
 // Compute hash the same way Phase 1v does so the test produces matching
 // snapshots without coupling to the fish-script extractor.
@@ -104,16 +62,7 @@ const computeBodyHash = (fileContent: string, anchorId: string): string => {
     .digest("hex");
 };
 
-const fixtures: string[] = [];
-
-const makeRepoFixture = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), "validate-phase-1v-"));
-  for (const sub of ["rules", "skills", "agents", "commands", "adrs", "hooks", "bin", "tests"]) {
-    mkdirSync(join(dir, sub), { recursive: true });
-  }
-  fixtures.push(dir);
-  return dir;
-};
+const makeRepoFixture = useFixtures("validate-phase-1v-", ["rules", "skills", "agents", "commands", "adrs", "hooks", "bin", "tests"]);
 
 const seedRule = (repo: string, basename: string, body: string): string => {
   const path = join(repo, "rules", basename);
@@ -125,20 +74,6 @@ const seedRule = (repo: string, basename: string, body: string): string => {
 const writeSnapshot = (repo: string, entries: string[]): void => {
   writeFileSync(join(repo, "tests", "anchor-snapshots.txt"), entries.join("\n") + "\n");
 };
-
-const TMP_PREFIX = tmpdir();
-
-afterEach(() => {
-  while (fixtures.length > 0) {
-    const dir = fixtures.pop()!;
-    if (!dir.startsWith(TMP_PREFIX)) continue;
-    try {
-      rmSync(dir, { recursive: true, force: true });
-    } catch (e) {
-      console.error(`afterEach: rmSync failed: ${(e as Error).message}`);
-    }
-  }
-});
 
 const SAMPLE_BODY = `<a id="alpha"></a>
 
@@ -166,7 +101,7 @@ describe("validate.fish Phase 1v (anchor-content snapshot, #444)", () => {
       `alpha|sample.md|${alphaHash}`,
       `beta|sample.md|${betaHash}`,
     ]);
-    const out = extractPhase1v(runValidate(repo));
+    const out = runPhase(repo, "1v").block;
     expect(out).toMatch(/✓.*alpha.*matches snapshot/);
     expect(out).toMatch(/✓.*beta.*matches snapshot/);
     expect(out).not.toMatch(/✗.*alpha/);
@@ -178,8 +113,8 @@ describe("validate.fish Phase 1v (anchor-content snapshot, #444)", () => {
     writeSnapshot(repo, [
       "alpha|sample.md|0000000000000000000000000000000000000000000000000000000000000000",
     ]);
-    const result = runValidate(repo);
-    const out = extractPhase1v(result);
+    const result = runPhase(repo, "1v");
+    const out = result.block;
     expect(out).toMatch(/✗.*alpha.*sample\.md.*hash mismatch/);
     expect(out).toMatch(/regenerate/);
     expect(result.exitCode).toBe(1);
@@ -191,8 +126,8 @@ describe("validate.fish Phase 1v (anchor-content snapshot, #444)", () => {
     writeSnapshot(repo, [
       "ghost|sample.md|abcdef0000000000000000000000000000000000000000000000000000000000",
     ]);
-    const result = runValidate(repo);
-    const out = extractPhase1v(result);
+    const result = runPhase(repo, "1v");
+    const out = result.block;
     expect(out).toMatch(/✗.*ghost.*not found/);
     expect(result.exitCode).toBe(1);
   });
@@ -200,8 +135,8 @@ describe("validate.fish Phase 1v (anchor-content snapshot, #444)", () => {
   test("D: snapshot file missing → loud fail", () => {
     const repo = makeRepoFixture();
     seedRule(repo, "sample.md", SAMPLE_BODY);
-    const result = runValidate(repo);
-    const out = extractPhase1v(result);
+    const result = runPhase(repo, "1v");
+    const out = result.block;
     expect(out).toMatch(/✗.*Phase 1v.*tests\/anchor-snapshots\.txt.*missing/);
   });
 
@@ -211,10 +146,10 @@ describe("validate.fish Phase 1v (anchor-content snapshot, #444)", () => {
     const fileContent = `---\ndescription: stub for Phase 1v fixture\n---\n\n${SAMPLE_BODY}`;
     const alphaHash = computeBodyHash(fileContent, "alpha");
     writeSnapshot(repo, [`alpha|sample.md|${alphaHash}`]);
-    const out = extractPhase1v(runValidate(repo));
+    const out = runPhase(repo, "1v").block;
     expect(out).toMatch(/⚠.*beta.*not in snapshot/);
-    // Phase 1v itself emits no ✗ for forward-adds — exit code is dominated by
-    // unrelated phases in this fixture so checked locally instead of globally.
+    // Phase 1v itself emits no ✗ for forward-adds — checked on the phase
+    // block, not the exit code.
     expect(out).not.toMatch(/✗.*beta/);
   });
 
@@ -222,8 +157,8 @@ describe("validate.fish Phase 1v (anchor-content snapshot, #444)", () => {
     const repo = makeRepoFixture();
     seedRule(repo, "sample.md", SAMPLE_BODY);
     writeSnapshot(repo, []);
-    const result = runValidate(repo);
-    const out = extractPhase1v(result);
+    const result = runPhase(repo, "1v");
+    const out = result.block;
     expect(out).toMatch(/✗.*Phase 1v.*empty/);
   });
 });
