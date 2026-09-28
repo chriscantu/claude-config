@@ -9,37 +9,44 @@
 # and CLAUDE.md-forbidden flags, leaving normal `git push` / `git commit`
 # alone to avoid false-positive avalanche.
 #
-# Disable: create ~/.claude/DISABLE_GIT_GUARDRAILS or
-# .claude/DISABLE_GIT_GUARDRAILS in the project root. File existence
-# alone disables; content ignored. Delete the file to restore.
+# Disable: create DISABLE_GIT_GUARDRAILS in ~/.claude/, in
+# $CLAUDE_PROJECT_DIR/.claude/, or in .claude/ under the working directory
+# (see hook_disabled in lib/hook-runtime.sh). File existence alone disables;
+# content ignored. Delete the file to restore.
 #
 # Dependencies: bash, jq, grep.
 
 set -u
 set -o pipefail
 
-# Shared dependency-preflight helpers. Sourced, not executed — resolves beside
-# this hook regardless of install location (plugin root or repo checkout).
+# Shared hook prelude (kill switch, stdin, preflight). Resolve the symlink:
+# link-config installs this file as ~/.claude/hooks/block-dangerous-git.sh
+# with no lib/ beside it, so the libraries live next to the real file only.
+HOOK_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+# A security guardrail must fail safe: if the runtime can't be loaded, block
+# rather than crash with exit 1, which Claude Code treats as "allow".
 # shellcheck source=/dev/null
-source "$(dirname "${BASH_SOURCE[0]}")/lib/preflight.sh"
+if ! source "$HOOK_DIR/lib/hook-runtime.sh"; then
+  echo "BLOCKED: hook runtime missing at $HOOK_DIR/lib; refusing all commands until it is restored (fail-safe)." >&2
+  exit 2
+fi
 
-if [[ -f "${HOME}/.claude/DISABLE_GIT_GUARDRAILS" ]] \
-  || [[ -f ".claude/DISABLE_GIT_GUARDRAILS" ]]; then
+if hook_disabled DISABLE_GIT_GUARDRAILS; then
   exit 0
 fi
 
-INPUT=$(cat)
+hook_read_input
 
 # A SECURITY guardrail must fail safe, not silent. With jq we parse the command
 # out of the tool_input JSON; without jq we cannot parse, but exiting 0 would
 # let every dangerous command through unseen. Instead warn loudly and scan the
-# RAW payload — the command string is a substring of INPUT, so the patterns
+# RAW payload — the command string is a substring of it, so the patterns
 # below still match (a wider net, acceptable for a degraded security posture).
 if require_cmd jq; then
-  COMMAND=$(echo "$INPUT" | jq -r '.tool_input.command // empty')
+  COMMAND=$(hook_input_field '.tool_input.command')
 else
   warn_degraded block-dangerous-git "jq not on PATH — scanning raw payload (degraded, fail-safe)"
-  COMMAND="$INPUT"
+  COMMAND="$HOOK_INPUT"
 fi
 
 if [[ -z "$COMMAND" ]]; then

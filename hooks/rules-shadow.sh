@@ -24,36 +24,23 @@ set -u
 HOOK_DIR="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
 
 # shellcheck source=/dev/null
-source "$HOOK_DIR/lib/preflight.sh"
+source "$HOOK_DIR/lib/hook-runtime.sh"
 # shellcheck source=/dev/null
 source "$HOOK_DIR/lib/gate-classify.sh"
 
 LOG_DIR="${RULES_SHADOW_LOG_DIR:-${HOME}/.claude/logs}"
 LOG_FILE="$LOG_DIR/rules-shadow.log"
-LOG_ROTATED="$LOG_FILE.1"
-LOG_THRESHOLD=$((10*1024*1024))
-LOG_KEEP_TAIL=$((5*1024*1024))
-
-rotate_log_if_needed() {
-  [[ ! -f "$LOG_FILE" ]] && return 0
-  local size
-  size=$(stat -f%z "$LOG_FILE" 2>/dev/null || stat -c%s "$LOG_FILE" 2>/dev/null || echo 0)
-  if [[ "$size" -gt "$LOG_THRESHOLD" ]]; then
-    tail -c "$LOG_KEEP_TAIL" "$LOG_FILE" > "$LOG_ROTATED" 2>/dev/null || true
-    : > "$LOG_FILE"
-  fi
-}
 
 # sentinel_present → 0 when this lever is switched off. Checked before any work,
 # so a broken classifier can be killed without editing settings or reverting.
+# RULES_SHADOW_SENTINEL names one exact file and predates HOOK_SENTINEL_DIR;
+# it stays so existing callers keep working.
 sentinel_present() {
   if [[ -n "${RULES_SHADOW_SENTINEL:-}" ]]; then
-    [[ -f "$RULES_SHADOW_SENTINEL" ]] && return 0
-    return 1
+    [[ -f "$RULES_SHADOW_SENTINEL" ]]
+    return
   fi
-  [[ -f "${CLAUDE_PROJECT_DIR:-$PWD}/.claude/DISABLE_RULES_SHADOW" ]] && return 0
-  [[ -f "${HOME}/.claude/DISABLE_RULES_SHADOW" ]] && return 0
-  return 1
+  hook_disabled DISABLE_RULES_SHADOW
 }
 
 # payload_hash TEXT → first 16 hex chars of sha256. The log records this instead
@@ -66,19 +53,18 @@ payload_hash() {
 # log_verdict SURFACE RECORD PAYLOAD → append one JSONL line.
 log_verdict() {
   local surface="$1" record="$2" payload="${3:-}"
-  local ts gate trigger verdict hash
+  local ts gate trigger verdict hash line
   ts=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   gate=$(echo "$record" | tr ' ' '\n' | grep '^gate=' | cut -d= -f2)
   trigger=$(echo "$record" | tr ' ' '\n' | grep '^trigger=' | cut -d= -f2)
   verdict=$(echo "$record" | tr ' ' '\n' | grep '^verdict=' | cut -d= -f2)
   hash=$(payload_hash "$payload")
 
-  mkdir -p "$LOG_DIR" 2>/dev/null || return 0
-  rotate_log_if_needed
-  jq -n -c --arg ts "$ts" --arg surface "$surface" --arg gate "$gate" \
+  line=$(jq -n -c --arg ts "$ts" --arg surface "$surface" --arg gate "$gate" \
     --arg trigger "$trigger" --arg verdict "$verdict" --arg ph "$hash" \
     '{ts:$ts,surface:$surface,gate:$gate,trigger:$trigger,verdict:$verdict,payload_hash:$ph}' \
-    >> "$LOG_FILE" 2>/dev/null || true
+    2>/dev/null) || return 0
+  hook_log_jsonl "$LOG_FILE" "$line"
 }
 
 # last_assistant_text TRANSCRIPT_PATH → the final assistant turn's text, or "".
@@ -105,10 +91,10 @@ main() {
     exit 0
   fi
 
-  local input event tool payload record
-  input=$(cat)
+  local event tool payload record
+  hook_read_input
 
-  event=$(echo "$input" | jq -r '.hook_event_name // empty' 2>/dev/null)
+  event=$(hook_input_field '.hook_event_name')
   if [[ -z "$event" ]]; then
     warn_degraded rules-shadow "unparseable hook payload; no verdict logged"
     exit 0
@@ -116,15 +102,15 @@ main() {
 
   case "$event" in
     PreToolUse)
-      tool=$(echo "$input" | jq -r '.tool_name // empty' 2>/dev/null)
+      tool=$(hook_input_field '.tool_name')
       case "$tool" in
         Bash)
-          payload=$(echo "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)
+          payload=$(hook_input_field '.tool_input.command')
           record=$(gate_pr_validation_verdict bash "$payload")
           log_verdict pretooluse_bash "$record" "$payload"
           ;;
         Task|Agent|Skill)
-          payload=$(echo "$input" | jq -c '.tool_input // {}' 2>/dev/null)
+          payload=$(hook_input_field '.tool_input // {}')
           record=$(gate_execution_mode_verdict "$tool" "$payload")
           log_verdict "pretooluse_$(echo "$tool" | tr '[:upper:]' '[:lower:]')" "$record" "$payload"
           ;;
@@ -132,9 +118,9 @@ main() {
       ;;
     Stop)
       local transcript
-      payload=$(echo "$input" | jq -r '.last_assistant_message // empty' 2>/dev/null)
+      payload=$(hook_input_field '.last_assistant_message')
       if [[ -z "$payload" ]]; then
-        transcript=$(echo "$input" | jq -r '.transcript_path // empty' 2>/dev/null)
+        transcript=$(hook_input_field '.transcript_path')
         payload=$(last_assistant_text "$transcript")
       fi
       if [[ -n "$payload" ]]; then
