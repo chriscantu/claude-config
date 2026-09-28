@@ -24,7 +24,8 @@ import {
   writeFileSync,
 } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { basename, join } from "node:path";
+import { join } from "node:path";
+import { orgSlug as deriveOrgSlug, todayIso } from "../../../lib/workspace-date.ts";
 
 export type ScheduledTaskInfo = { taskId: string; taskName: string };
 export type McpLister = () => ScheduledTaskInfo[];
@@ -140,22 +141,12 @@ export type GraduateOpts = {
   today?: string;
 };
 
-// UTC-based date stamp. Used for tag name, sentinel content, and
-// warning-log timestamps. Threading the same `today` through the entire
-// run keeps tag/sentinel/warnings aligned even across UTC midnight.
-const todayIso = (): string => new Date().toISOString().slice(0, 10);
-
 // Safe stringification of unknown thrown values. `e instanceof Error`
 // preserves the .message when it exists; everything else falls through
 // to `String(e)`. Avoids the `errMsg(e) → "undefined"` trap
 // when MCP throws a string, number, or plain object.
 const errMsg = (e: unknown): string =>
   e instanceof Error ? e.message : String(e);
-
-const deriveOrgSlug = (workspace: string): string => {
-  const b = basename(workspace);
-  return b.startsWith("onboard-") ? b.slice("onboard-".length) : b;
-};
 
 // Append-only warning log. Wrapped in try/catch because the call sites
 // are themselves error-recovery paths — a write failure here must not
@@ -225,6 +216,8 @@ const headHasRetro = (workspace: string): boolean => {
 export const runGraduate = (opts: GraduateOpts): number => {
   const { workspace, force = false, retroFromPath } = opts;
   const orgSlug = opts.orgSlug ?? deriveOrgSlug(workspace);
+  // One `today` for the whole run keeps the tag name, sentinel, and
+  // warning-log stamps aligned even if the run crosses UTC midnight.
   const today = opts.today ?? todayIso();
 
   if (!existsSync(workspace)) {
