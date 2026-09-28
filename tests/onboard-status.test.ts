@@ -191,6 +191,24 @@ describe("skills/onboard/scripts/onboard-status.ts argument and state-file error
   });
 });
 
+describe("skills/onboard/scripts/onboard-status.ts --status clock", () => {
+  // onboard-scaffold.fish writes Started: as a UTC date. Between them, UTC+14
+  // and UTC-11 put the local date on a different day from UTC at every hour,
+  // so a local-midnight parse reports 1 day or "future" instead of 0.
+  for (const tz of ["Pacific/Kiritimati", "Pacific/Pago_Pago"]) {
+    test(`Started: today (UTC) reports 0 days elapsed under TZ=${tz}`, () => {
+      const ws = makeWorkspace(0);
+      const r = spawnSync("bun", ["run", SCRIPT, "--status", ws], {
+        encoding: "utf8",
+        env: { ...process.env, TZ: tz },
+      });
+      expect(r.stderr).not.toContain("future");
+      expect(r.status).toBe(0);
+      expect(r.stdout).toMatch(/Elapsed:\s+0 days/);
+    });
+  }
+});
+
 describe("skills/onboard/scripts/onboard-status.ts --status output integrity", () => {
   test("preserves trailing newline through mute round-trip", () => {
     const ws = makeWorkspace(5);

@@ -12,6 +12,7 @@
 import { readFileSync, writeFileSync, existsSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
+import { daysBetween, todayIso } from "../../../lib/workspace-date.ts";
 
 // Workspace-touching modes only. The --env-probe surface is intercepted
 // before parseArgs (see main()) so it does not weaken ws non-nullability.
@@ -118,16 +119,13 @@ const printStatus = (ws: string, original: string): number => {
       1,
     );
   }
-  const startedDate = new Date(`${started}T00:00:00`);
-  if (isNaN(startedDate.getTime())) {
+  const elapsed = daysBetween(started!, todayIso());
+  if (isNaN(elapsed)) {
     die(
       `RAMP.md 'Started:' value '${started}' is not a parseable YYYY-MM-DD date`,
       1,
     );
   }
-  const elapsed = Math.floor(
-    (Date.now() - startedDate.getTime()) / 86_400_000,
-  );
   if (elapsed < 0) {
     die(
       `RAMP.md 'Started:' value '${started}' is in the future (elapsed=${elapsed} days)`,
