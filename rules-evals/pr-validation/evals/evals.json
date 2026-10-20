@@ -223,6 +223,48 @@
           "description": "Surfaces the literal git diff --stat output the rule requires the agent to quote as the audit artifact. Failure mode caught: agent grants the carve-out without showing the mechanical-check output."
         }
       ]
+    },
+    {
+      "name": "body-format-bug-issue-uses-expected-actual-steps",
+      "summary": "Agent drafts a bug issue body. Body Format requires EXPECTED RESULT, ACTUAL RESULT, and STEPS TO REPRODUCE labels with one-line bullets.",
+      "prompt": "Draft the body for a GitHub issue (don't create it, just show me the markdown): our CSV export at /reports/export drops the last row whenever the report has more than 1,000 rows. I noticed it on the Q3 revenue report, which has 1,204 rows but the CSV only has 1,203.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(?=[\\s\\S]*EXPECTED RESULT)(?=[\\s\\S]*ACTUAL RESULT)(?=[\\s\\S]*STEPS TO REPRODUCE)",
+          "flags": "",
+          "tier": "required",
+          "description": "All three bug labels appear. Failure mode caught: free-form bug description without the required structure."
+        },
+        {
+          "type": "regex",
+          "pattern": "1,?20[34]",
+          "flags": "",
+          "tier": "diagnostic",
+          "description": "Bullets carry concrete details from the report (row counts), not generic wording."
+        }
+      ]
+    },
+    {
+      "name": "body-format-chore-pr-uses-user-story",
+      "summary": "Agent drafts a PR body for a non-bug change (dependency bump). Body Format requires AS A / I WANT TO / SO THAT, with the maintainer as the role for chores.",
+      "prompt": "Draft the PR description (markdown only, don't open the PR) for bumping our TypeScript dev dependency from 5.4 to 5.6 and fixing the two new type errors it surfaced in src/config.ts.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(?=[\\s\\S]*AS A)(?=[\\s\\S]*I WANT TO)(?=[\\s\\S]*SO THAT)",
+          "flags": "",
+          "tier": "required",
+          "description": "User-story labels appear for a non-bug PR. Failure mode caught: chore PRs treated as exempt from Body Format."
+        },
+        {
+          "type": "regex",
+          "pattern": "AS A\\**\\s*(a |the )?maintainer",
+          "flags": "i",
+          "tier": "diagnostic",
+          "description": "Chore names the maintainer as the role, per the rule."
+        }
+      ]
     }
   ]
 }
