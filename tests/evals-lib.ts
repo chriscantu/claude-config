@@ -130,6 +130,12 @@ export interface Eval {
    *  envelope. Mutually informative with `setup` (end-to-end) — this is
    *  the routing-contract path. Single-turn only. */
   additional_context?: string;
+  /** Extra env vars for the spawned claude process. Single-turn only. */
+  env?: Record<string, string>;
+  /** Repo-relative dirs put in front of PATH for the spawned claude process,
+   *  so a fixture binary (e.g. the fake `gh`) shadows the real one without
+   *  touching the user's PATH. Single-turn only. */
+  path_prepend?: string[];
 }
 
 export interface ValidatedTurn {
@@ -158,6 +164,8 @@ export type ValidatedEval =
        *  envelope. Mutually informative with `setup` (end-to-end) — this is
        *  the routing-contract path. Single-turn only. */
       readonly additional_context?: string;
+      readonly env?: Readonly<Record<string, string>>;
+      readonly path_prepend?: readonly string[];
     }
   | {
       readonly kind: "multi";
@@ -367,6 +375,58 @@ function validateScratchDecoy(
     }
   }
   return Object.freeze({ ...(raw as Record<string, string>) }) as ValidatedScratchDecoy;
+}
+
+const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
+
+function validateEnv(raw: unknown, loc: string): Readonly<Record<string, string>> | undefined {
+  if (raw === undefined) return undefined;
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error(`${loc}: env must be an object map of variable names to string values`);
+  }
+  for (const [name, value] of Object.entries(raw as Record<string, unknown>)) {
+    if (!ENV_NAME.test(name)) throw new Error(`${loc}: env name '${name}' is not a valid variable name`);
+    // A raw PATH override would drop the user's PATH entirely (no claude, no bun).
+    if (name === "PATH") throw new Error(`${loc}: env must not set PATH; use path_prepend`);
+    if (typeof value !== "string") throw new Error(`${loc}: env['${name}'] must be a string`);
+  }
+  return Object.freeze({ ...(raw as Record<string, string>) });
+}
+
+function validatePathPrepend(raw: unknown, loc: string): readonly string[] | undefined {
+  if (raw === undefined) return undefined;
+  if (!Array.isArray(raw) || raw.length === 0) {
+    throw new Error(`${loc}: path_prepend must be a non-empty array of repo-relative dirs`);
+  }
+  for (const dir of raw) {
+    if (typeof dir !== "string" || dir.length === 0 || dir.startsWith("/") || dir.startsWith("\\")) {
+      throw new Error(`${loc}: path_prepend entry '${dir}' must be a non-empty relative path`);
+    }
+    if (dir.split(/[\\/]/).includes("..")) {
+      throw new Error(`${loc}: path_prepend entry '${dir}' contains '..' which would escape the repo`);
+    }
+  }
+  return Object.freeze([...raw]);
+}
+
+/**
+ * Build the environment for one eval's claude process. Returns a new object;
+ * `base` is never mutated, so the runner's shared env and the user's shell
+ * PATH stay untouched.
+ */
+export function buildChildEnv(
+  base: NodeJS.ProcessEnv,
+  repoRoot: string,
+  opts: { env?: Readonly<Record<string, string>>; path_prepend?: readonly string[] },
+): NodeJS.ProcessEnv {
+  const child: NodeJS.ProcessEnv = { ...base, ...opts.env };
+  if (!opts.path_prepend) return child;
+  const dirs = opts.path_prepend.map((d) => join(repoRoot, d));
+  for (const dir of dirs) {
+    if (!existsSync(dir)) throw new Error(`path_prepend dir ${dir} does not exist`);
+  }
+  child.PATH = [...dirs, base.PATH ?? ""].join(":");
+  return child;
 }
 
 /**
@@ -612,6 +672,7 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
         }
         validatedAdditionalContext = e.additional_context;
       }
+      const loc = `${file}: eval '${e.name}'`;
       validatedEvals.push({
         kind: "single",
         name: e.name,
@@ -622,11 +683,16 @@ export function loadEvalFile(skillsDir: string, skillName: string): EvalFile | n
         teardown: e.teardown,
         scratch_decoy: decoy,
         additional_context: validatedAdditionalContext,
+        env: validateEnv(e.env, loc),
+        path_prepend: validatePathPrepend(e.path_prepend, loc),
       });
       continue;
     }
 
     // multi-turn
+    if (e.env !== undefined || e.path_prepend !== undefined) {
+      throw new Error(`${file}: eval '${e.name}' declares env/path_prepend but is multi-turn; env/path_prepend is single-turn only`);
+    }
     if (e.setup || e.teardown) {
       throw new Error(
         `${file}: eval '${e.name}' declares setup/teardown but is multi-turn; setup/teardown is single-turn only`,

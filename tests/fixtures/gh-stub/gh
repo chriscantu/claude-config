@@ -1,0 +1,3 @@
+#!/bin/sh
+# Fake gh for evals. Logic lives in gh-stub.ts; see that file.
+exec bun "$(dirname "$0")/gh-stub.ts" "$@"
