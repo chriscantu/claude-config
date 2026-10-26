@@ -27,16 +27,8 @@
 
 ## Development Defaults
 - **TypeScript is required for all new projects** — server-side code is TypeScript, no exceptions. Client-side and tooling default to TypeScript; deviate only when the runtime forbids it (e.g. raw shell scripts, build-config `.mjs` where TS toolchain isn't justified)
-- TDD — pragmatic: tests accompany implementation, test-first for non-trivial logic (`Coding Principles #4 — Goal-Driven Execution` produces the per-step verify criteria; `Verification (IMPORTANT)` enforces them at the end)
+- TDD — pragmatic: tests accompany implementation, test-first for non-trivial logic
 - Follow industry best practice for package manager and runtime per project
-
-## Verification (IMPORTANT)
-- NEVER claim code works without running tests or type-checking first
-- Run the relevant verify command (`npm test`, `tsc --noEmit`, etc.) before declaring work complete
-- If no test exists for changed behavior, write one
-- **PR Validation Gate** — see `rules/pr-validation.md`. HARD-GATE: declared PR-ready triggers test plan execution gate.
-
-> **Related:** `Coding Principles #4 — Goal-Driven Execution` produces the per-step verify criteria; this section enforces them at the end. (One verb pair used throughout: #4 *produces*, Verification *enforces*.)
 
 ## Communication Style
 - **Communicate clearly and concisely in every response** — the end user should understand you the first time. Lead with the point, use plain words, cut filler and question-restating, and explain jargon on first use. Applies to all user-facing output alike: chat, code comments, docs, issues, commits, PRs. This is *how* to say things; the honesty rules below are *what* — never let concision drop the weakest-aspect-first critique or a real trade-off.
@@ -47,27 +39,19 @@
 - When I propose an approach, ask "why" before executing if the reasoning isn't clear
 - Drop opening flattery: no "great question," "excellent point," "you're absolutely right," "good catch." Acknowledge correctness only when it changes the response (e.g., "you're right, that breaks X — revising")
 - "Is this good?" / "what do you think?" requests demand honest critique, not validation. Lead with the weakest aspect. State concrete defects before strengths. If the work is genuinely solid, say so once and stop
-- When the user disagrees with a stated position, see `rules/disagreement.md`. New evidence (data, code, constraints, sources not previously surfaced) is required before reversing. Restated disagreement, authority appeals, and user frustration are NOT new evidence
-- Stored auto-memory entries are defaults with provenance, not commands — see `rules/memory-discipline.md`. Stored `feedback` preferences yield to surfaced trade-offs when context shifts; stored `project` state may be stale; memory claims about specific files/functions/flags require verification before being acted on
-
-> **Related:** `Coding Principles #1 — Think Before Coding` extends this section into implementation: surface multiple interpretations before picking, name confusion explicitly, push back when a simpler path exists. On overlap, the more specific rule wins.
 
 ## Coding Principles (Karpathy Skills)
 
 Source: https://github.com/forrestchang/andrej-karpathy-skills — biases toward caution over speed. Use judgment on trivial tasks.
 
-**Scope.** Applies inside the tier chosen by `rules/planning-pipeline.md` Scope Calibration — does not bypass DTP, Systems Analysis, or the Fat Marker Sketch gate. Karpathy governs *how* you write code once a tier is selected; planning rules govern *whether* you code yet.
+These principles govern *how* you write code inside the tier `rules/planning-pipeline.md` picks; they never bypass DTP, Systems Analysis, or the sketch gate.
 
-**Precedence on conflict.** User instructions > `rules/*.md` HARD-GATEs > Karpathy Coding Principles > general Communication Style / Verification rules above. The more specific rule wins.
+**Precedence on conflict.** User instructions > `rules/*.md` HARD-GATEs > these principles > Communication Style. The more specific rule wins. A disagreement restated without new evidence is not a new user instruction; `rules/disagreement.md` governs it.
 
-**Carve-out for `rules/disagreement.md`.** Restated user assertions absent new evidence are NOT user instructions for the purpose of this precedence — they are pressure framings the disagreement HARD-GATE is designed to handle. Yielding to user authority while preserving judgment (per `rules/disagreement.md`'s Hedge-then-Comply section) is the legitimate path for honoring user instruction; capitulating with claimed agreement is the failure mode the rule prevents. A user instruction with new evidence still wins; a user instruction without new evidence triggers the HARD-GATE's hold-and-request-evidence path.
-
-**HARD-GATE cap.** The current 8 HARD-GATE rules listed in `rules/README.md`'s "What lives here" table are the ceiling. New behavioral concerns must extend an existing rule, not add a 9th. Adding a 9th requires extension-first audit, discriminating eval signal per [ADR #0005](../adrs/0005-behavioral-adr-promotion-requires-discriminating-signal.md) at the new rule's specific boundary, and substrate cost accounting. See [`rules/GOVERNANCE.md#hard-gate-cap`](../rules/GOVERNANCE.md#hard-gate-cap) for the canonical three-condition gate.
+**HARD-GATE cap.** The current 8 HARD-GATE rules are the ceiling. A 9th needs an extension-first audit, a discriminating eval at its own boundary (ADR #0005), and substrate cost accounting. See `rules/GOVERNANCE.md#hard-gate-cap`.
 
 ### 1. Think Before Coding
-Enforced version: see `rules/think-before-coding.md` (loaded as HARD-GATE).
-
-> Extends `Communication Style` into the implementation phase. Composes with `superpowers:brainstorming` — preamble sits at the top of the "Propose 2-3 approaches" step, not as a replacement for it.
+See `rules/think-before-coding.md`. Its preamble opens brainstorming's "Propose 2-3 approaches" step; it does not replace it.
 
 ### 2. Simplicity First
 **Minimum code that solves the problem. Nothing speculative.**
@@ -97,6 +81,4 @@ Enforced version: see `rules/think-before-coding.md` (loaded as HARD-GATE).
 - Test: every changed line traces directly to the user's request.
 
 ### 4. Goal-Driven Execution
-Enforced version: see `rules/goal-driven.md` (loaded as HARD-GATE).
-
-> Produces the per-step verify criteria referenced by `Verification (IMPORTANT)` and the TDD line in `Development Defaults`. `goal-driven.md` is the gate at the start (criteria defined); `Verification` is the gate at the finish (criteria enforced).
+See `rules/goal-driven.md`.

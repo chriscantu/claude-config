@@ -117,7 +117,7 @@ echo "── hooks run through a symlink (the link-config install layout) ──
 INSTALLED="$TMP/installed"
 EMPTY_SENTINELS="$TMP/no-sentinels"
 mkdir -p "$INSTALLED" "$EMPTY_SENTINELS"
-for hook in scope-tier-memory-check block-dangerous-git rules-shadow adversarial-trigger; do
+for hook in block-dangerous-git rules-shadow adversarial-trigger; do
   ln -s "$REPO_ROOT/hooks/$hook.sh" "$INSTALLED/$hook.sh"
   # Sourced (as a test would) and executed (as the CLI does): neither may fail
   # to find its libraries. Run from $TMP (not a git repo) so adversarial-trigger

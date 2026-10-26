@@ -1,17 +1,6 @@
 {
-  "description": "claude-config: own hooks (scope-tier routing + dangerous-git guardrail)",
+  "description": "claude-config: own hooks (dangerous-git guardrail)",
   "hooks": {
-    "UserPromptSubmit": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/scope-tier-memory-check.sh",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "PreToolUse": [
       {
         "matcher": "Bash",

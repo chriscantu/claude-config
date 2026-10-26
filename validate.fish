@@ -567,8 +567,7 @@ function _phase_1f
         "**Pressure-framing floor.**|pressure-framing-floor.md" \
         "**Emission contract — MANDATORY.**|skip-contract.md" \
         "**Architectural invariant.**|pressure-framing-floor.md" \
-        "**Emergency bypass — sentinel file check.**|pressure-framing-floor.md" \
-        "**Scope-tier memory check (fires BEFORE pressure-framing floor).**|pressure-framing-floor.md"
+        "**Emergency bypass — sentinel file check.**|pressure-framing-floor.md"
     set dependent_rules \
         fat-marker-sketch.md \
         goal-driven.md \
@@ -656,16 +655,7 @@ function _phase_1g
         "**Deadline** — time-pressure framing|pressure-framing-floor.md|Pressure-framing floor Deadline category" \
         "**Stated-next-step** — skip-DTP framing|pressure-framing-floor.md|Pressure-framing floor Stated-next-step category" \
         "select:mcp__named-cost-skip-ack__acknowledge_named_cost_skip|skip-contract.md|Emission contract ToolSearch mechanics" \
-        "The falsehood is the asserted agreement|disagreement.md|Hedge-then-Comply falsehood definition" \
-        "add row to|scope-tier-memory-check.sh|Scope-tier verb-signal add-row-to" \
-        "update entry in|scope-tier-memory-check.sh|Scope-tier verb-signal update-entry-in" \
-        "small change|scope-tier-memory-check.sh|Scope-tier minimizer small-change" \
-        "cross-cutting change|scope-tier-memory-check.sh|Scope-tier scope-expander cross-cutting-change" \
-        "refactor across|scope-tier-memory-check.sh|Scope-tier scope-expander refactor-across" \
-        "introduce new|scope-tier-memory-check.sh|Scope-tier scope-expander introduce-new" \
-        "public API|scope-tier-memory-check.sh|Scope-tier blast-radius-word public-API" \
-        "breaking change|scope-tier-memory-check.sh|Scope-tier blast-radius-word breaking-change" \
-        "version bump|scope-tier-memory-check.sh|Scope-tier blast-radius-word version-bump"
+        "The falsehood is the asserted agreement|disagreement.md|Hedge-then-Comply falsehood definition"
 
     # Guard: empty rules/ dir means the drift loop scans nothing and silently passes.
     # Pre-check before the loop so missing-rules-dir is loud, not silent.
@@ -734,7 +724,6 @@ function _phase_1j
         "fast-track-validation-emission|pressure-framing-floor.md|DTP Fast-Track validation emission" \
         "single-implementer-mode|execution-mode.md|Single-implementer execution mode" \
         "verify-checks|goal-driven.md|Goal-driven verify checks" \
-        "scope-tier-memory-check|pressure-framing-floor.md|Scope-tier memory check" \
         "goal-verification|verification.md|Verification goal-vs-tasks gate" \
         "hard-gate-cap|GOVERNANCE.md|HARD-GATE cap policy" \
         "override-skip-contract|skip-contract.md|Skip override — what counts" \
@@ -1158,35 +1147,15 @@ function _phase_1n
     echo ""
 end
 
-# 1o. Scope-tier hook artifacts
-# Asserts the three scope-tier-memory-check deliverables are present and
-# structurally sound: the hook script (present + executable + shellcheck-clean),
-# the installer, and the additional_context field in tests/evals-lib.ts which
-# is the eval-substrate contract introduced by issue #332.
+# 1o. Eval substrate field
+# Asserts the additional_context field in tests/evals-lib.ts, the
+# eval-substrate contract introduced by issue #332 that memory evals use to
+# inject stored memory as a system reminder.
 function _phase_1o
     _phase_begin "1o"
-    echo "── Phase 1o: scope-tier hook artifacts"
+    echo "── Phase 1o: eval substrate field"
 
-    set -l hook_path "$repo_dir/hooks/scope-tier-memory-check.sh"
-    set -l installer_path "$repo_dir/bin/install-scope-tier-hook.fish"
     set -l evals_lib_path "$repo_dir/tests/evals-lib.ts"
-
-    if not test -f $hook_path
-        fail "hooks/scope-tier-memory-check.sh missing"
-    else
-        pass "hooks/scope-tier-memory-check.sh present"
-        test -x $hook_path; and pass "executable"; or fail "not executable"
-        if command -q shellcheck
-            shellcheck $hook_path >/dev/null 2>&1
-                and pass "shellcheck clean"
-                or fail "shellcheck warnings"
-        end
-    end
-
-    test -f $installer_path
-        and pass "bin/install-scope-tier-hook.fish present"
-        or fail "bin/install-scope-tier-hook.fish missing"
-    test -x $installer_path; or fail "installer not executable"
 
     if test -f $evals_lib_path
         grep -qE 'additional_context\?:\s*string' $evals_lib_path

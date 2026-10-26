@@ -46,9 +46,6 @@ Current suites:
 - `pr-validation/` — covers the trigger surface (speech-act + action-bound),
   test-plan locator, and zero-functional-change carve-out from
   [`rules/pr-validation.md`](../rules/pr-validation.md)
-- `scope-tier-memory-check/` — covers the `UserPromptSubmit` hook routing
-  contract that fires before the pressure-framing floor, documented in
-  [`rules/pressure-framing-floor.md`'s scope-tier section](../rules/pressure-framing-floor.md#scope-tier-memory-check)
 - `think-before-coding/` — covers the three-part preamble + emission
   contract from [`rules/think-before-coding.md`](../rules/think-before-coding.md)
 - `verification/` — covers the end-of-work goal-verification gate from

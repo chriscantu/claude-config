@@ -9,7 +9,7 @@
 # product — Phase 2 drops the two rule symlinks only if these verdicts turn out
 # to be trustworthy over 20+ real events.
 #
-# Structure mirrors hooks/scope-tier-memory-check.sh: the verdict logic lives in
+# The verdict logic lives in
 # pure functions in lib/gate-classify.sh, and this file is the adapter that does
 # all the I/O (stdin, transcript read, hashing, logging).
 #

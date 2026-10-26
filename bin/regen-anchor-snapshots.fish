@@ -26,7 +26,6 @@ set -l registry \
     "fast-track-validation-emission|pressure-framing-floor.md" \
     "single-implementer-mode|execution-mode.md" \
     "verify-checks|goal-driven.md" \
-    "scope-tier-memory-check|pressure-framing-floor.md" \
     "goal-verification|verification.md" \
     "hard-gate-cap|GOVERNANCE.md" \
     "override-skip-contract|skip-contract.md" \

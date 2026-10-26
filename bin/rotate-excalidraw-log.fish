@@ -3,8 +3,7 @@
 #
 # excalidraw.log is written by the excalidraw MCP server in the repo
 # root. It grows indefinitely with canvas activity and is not rotated
-# by the MCP server itself. Mirrors the rotate_log_if_needed pattern
-# in hooks/scope-tier-memory-check.sh.
+# by the MCP server itself.
 #
 # Idempotent. Safe to invoke from any SessionStart hook, cron, or
 # manually. Exits 0 even if the log doesn't exist.
@@ -53,8 +52,7 @@ if not test -f "$log_file"
     exit 0
 end
 
-# stat -f%z (BSD/macOS), -c%s (GNU/Linux). Mirror the dual-form check
-# in hooks/scope-tier-memory-check.sh so this works in either env.
+# stat -f%z (BSD/macOS), -c%s (GNU/Linux), so this works in either env.
 set -l size (stat -f%z "$log_file" 2>/dev/null; or stat -c%s "$log_file" 2>/dev/null; or echo 0)
 
 if test "$size" -le "$threshold_bytes"
