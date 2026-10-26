@@ -88,81 +88,11 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
     expect(r.exitCode).toBe(1);
   });
 
-  // Tests F and G: scope-tier-memory-check.sh is the canonical home for the
-  // nine verb-signal / minimizer / scope-expander / blast-radius keyword lists.
-  // Phase 1g detects if any of those strings are restated in rules/*.md files.
-
-  test("F: scope-tier verb-list strings absent from rules/*.md → no drift", () => {
-    // Minimal fixture: planning-pipeline.md with trivial-tier strings (their
-    // canonical home) but none of the scope-tier hook strings. Phase 1g must
-    // report "no drift" for all nine scope-tier registry entries.
-    const fixture = makeFixture();
-    writeFileSync(
-      join(fixture, "rules", "planning-pipeline.md"),
-      [
-        "# canonical home",
-        "≤ ~200 LOC functional change",
-        "Single component / single-file primary surface",
-        "Unambiguous approach (one obvious design",
-        "Low blast radius (no cross-team",
-        "",
-      ].join("\n"),
-    );
-    writeFileSync(join(fixture, "rules", "other.md"), "# unrelated rule\n");
-
-    const out = runPhase(fixture, "1g").block;
-    // All nine scope-tier labels should be present with "no drift"
-    expect(out).toContain("Scope-tier verb-signal add-row-to: no drift");
-    expect(out).toContain("Scope-tier verb-signal update-entry-in: no drift");
-    expect(out).toContain("Scope-tier minimizer small-change: no drift");
-    expect(out).toContain("Scope-tier scope-expander cross-cutting-change: no drift");
-    expect(out).toContain("Scope-tier scope-expander refactor-across: no drift");
-    expect(out).toContain("Scope-tier scope-expander introduce-new: no drift");
-    expect(out).toContain("Scope-tier blast-radius-word public-API: no drift");
-    expect(out).toContain("Scope-tier blast-radius-word breaking-change: no drift");
-    expect(out).toContain("Scope-tier blast-radius-word version-bump: no drift");
-    // Verify no scope-tier drift failures
-    expect(out).not.toMatch(/drift:.*scope-tier-memory-check/i);
-  });
-
-  test("G: scope-tier string restated in rules/planning.md → Phase 1g fails with drift message", () => {
-    // Append "add row to" (a registered Phase 1g scope-tier pattern) into
-    // rules/planning.md. Since planning.md != scope-tier-memory-check.sh,
-    // Phase 1g must detect drift and name both the string and the file.
-    // (Note: Trivial-tier canonical strings moved to planning-pipeline.md
-    // per issue #375 split — we deliberately omit them from this fixture
-    // to isolate the scope-tier drift assertion.)
-    const fixture = makeFixture();
-    writeFileSync(
-      join(fixture, "rules", "planning.md"),
-      [
-        "# planning stub",
-        "",
-        "## Test marker",
-        'verbs: prune, rename, delete (these are "add row to" verbs that trigger scope-tier checks)',
-        "",
-      ].join("\n"),
-    );
-    writeFileSync(join(fixture, "rules", "other.md"), "# unrelated rule\n");
-
-    const out = runPhase(fixture, "1g").block;
-    // Phase 1g fail line names the label (add-row-to) and the offending file.
-    // The fail line format is:
-    //   drift: 'Scope-tier verb-signal add-row-to' restated in rules/planning.md
-    expect(out).toContain("add-row-to");
-    expect(out).toContain("planning.md");
-    // The drift: prefix signals a failure line, not just a mention
-    expect(out).toMatch(/drift:.*planning\.md/);
-  });
-
-  // Restores the co-control coverage that earlier Test G implicitly had
-  // before the issue #375 split moved Trivial-tier canonical strings to
-  // planning-pipeline.md. Asserts Phase 1g treats the two label families
-  // independently: Trivial-tier strings at their canonical home (planning-
-  // pipeline.md) do NOT trigger drift while scope-tier strings in the same
-  // file DO. Catches a registry coupling regression where adjusting one
+  // Asserts Phase 1g treats two label families independently: Trivial-tier
+  // strings at their canonical home (planning-pipeline.md) do NOT trigger
+  // drift while a disagreement.md canonical string in the same file DOES. Catches a registry coupling regression where adjusting one
   // family's pattern accidentally widens or narrows the other.
-  test("H: Trivial-tier (canonical) + scope-tier (drift) co-exist in same file → independent verdicts", () => {
+  test("H: Trivial-tier (canonical) + Hedge-then-Comply (drift) co-exist in same file → independent verdicts", () => {
     const fixture = makeFixture();
     writeFileSync(
       join(fixture, "rules", "planning-pipeline.md"),
@@ -173,8 +103,8 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
         "Unambiguous approach (one obvious design",
         "Low blast radius (no cross-team",
         "",
-        "## Co-tenant: scope-tier verb (should drift — canonical is .sh)",
-        'verbs: prune, rename, delete (these are "add row to" verbs that trigger scope-tier checks)',
+        "## Co-tenant: disagreement string (should drift — canonical is disagreement.md)",
+        "The falsehood is the asserted agreement, restated here.",
         "",
       ].join("\n"),
     );
@@ -186,8 +116,8 @@ describe("validate.fish Phase 1g (canonical-string drift)", () => {
     expect(out).toContain("Trivial-tier surface criterion: no drift");
     expect(out).toContain("Trivial-tier approach criterion: no drift");
     expect(out).toContain("Trivial-tier blast-radius criterion: no drift");
-    // Scope-tier verb is restated outside its .sh canonical home → drift fires
-    expect(out).toContain("add-row-to");
+    // Hedge-then-Comply string is restated outside disagreement.md → drift fires
+    expect(out).toContain("Hedge-then-Comply falsehood definition");
     expect(out).toMatch(/drift:.*planning-pipeline\.md/);
     // No Trivial-tier drift mention
     expect(out).not.toMatch(/drift:.*Trivial-tier/);

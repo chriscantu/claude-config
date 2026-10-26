@@ -76,7 +76,6 @@ outcome — evidence the rule is partly redundant with default behavior — and 
 | `fat-marker-sketch-rule` | yes | ⬜ backlog |
 | `agency-preservation` | (aux) | ⬜ backlog |
 | `hard-gate-cap` | (aux) | ⬜ backlog |
-| `scope-tier-memory-check` | (aux, hook-backed) | ⬜ backlog |
 
 Each backlog entry is one `./bin/redgreen.fish <suite>` run + a `REDGREEN.md`. Budget the
 window spend before starting; prioritize the HARD-GATE rows.

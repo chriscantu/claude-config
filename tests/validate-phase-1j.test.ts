@@ -7,12 +7,12 @@ import { REPO, runPhase, useFixtures } from "./validate-harness";
 //
 // Phase 1j asserts each <a id="…"> anchor registered in validate.fish's
 // anchor_registry is still present in its canonical home file. This test
-// file focuses on the scope-tier-memory-check anchor added by Task 10.
+// file uses the emergency-bypass-sentinel anchor as its example.
 //
 // Tests:
-//   A) Fixture seeded with real planning.md + sibling rules → Phase 1j passes
-//      for scope-tier-memory-check (anchor present in rules/planning.md)
-//   B) planning.md with scope-tier-memory-check anchor removed → Phase 1j
+//   A) Fixture seeded with the real floor trio + sibling rules → Phase 1j
+//      passes for emergency-bypass-sentinel (anchor present)
+//   B) pressure-framing-floor.md with that anchor removed → Phase 1j
 //      fails naming the missing anchor and the file
 //
 // Migrated approach: subprocess-style with CLAUDE_CONFIG_REPO_DIR override,
@@ -25,7 +25,7 @@ import { REPO, runPhase, useFixtures } from "./validate-harness";
 //                                      override-skip-contract, emission-contract-per-gate
 //   rules/pressure-framing-floor.md — home for pressure-framing-floor,
 //                                      architectural-invariant, emergency-bypass-sentinel,
-//                                      fast-track-validation-emission, scope-tier-memory-check
+//                                      fast-track-validation-emission
 //   rules/execution-mode.md         — home for single-implementer-mode anchor
 //   rules/goal-driven.md            — home for verify-checks anchor
 //   rules/verification.md           — home for goal-verification anchor
@@ -73,17 +73,16 @@ const makeFixture = (
 
 describe("validate.fish Phase 1j (stable anchor presence)", () => {
   test(
-    "A: real pressure-framing-floor.md with scope-tier-memory-check anchor → Phase 1j passes",
+    "A: real pressure-framing-floor.md with emergency-bypass-sentinel anchor → Phase 1j passes",
     () => {
       // Seed the real rules/pressure-framing-floor.md — the
-      // scope-tier-memory-check anchor moved here from planning.md per
-      // issue #375 split and must be present in the real file.
+      // emergency-bypass-sentinel anchor must be present in the real file.
       const fixture = makeFixture();
       const out = runPhase(fixture, "1j").block;
 
-      // The scope-tier-memory-check entry must pass
+      // The emergency-bypass-sentinel entry must pass
       expect(out).toContain(
-        "Scope-tier memory check: anchor #scope-tier-memory-check present in rules/pressure-framing-floor.md",
+        "DTP Emergency bypass sentinel: anchor #emergency-bypass-sentinel present in rules/pressure-framing-floor.md",
       );
       // No failures in the extracted slice
       expect(out).not.toContain("✗");
@@ -91,16 +90,16 @@ describe("validate.fish Phase 1j (stable anchor presence)", () => {
   );
 
   test(
-    "B: pressure-framing-floor.md with scope-tier-memory-check anchor removed → Phase 1j fails",
+    "B: pressure-framing-floor.md with emergency-bypass-sentinel anchor removed → Phase 1j fails",
     () => {
       // Copy real pressure-framing-floor.md but strip the
-      // scope-tier-memory-check anchor line.
+      // emergency-bypass-sentinel anchor line.
       const realFloor = readFileSync(
         join(REPO, "rules", "pressure-framing-floor.md"),
         "utf8",
       );
       const stripped = realFloor.replace(
-        /<a id="scope-tier-memory-check"><\/a>\n?/g,
+        /<a id="emergency-bypass-sentinel"><\/a>\n?/g,
         "",
       );
       // Guard: patch must have removed something — if the anchor line changes
@@ -112,12 +111,12 @@ describe("validate.fish Phase 1j (stable anchor presence)", () => {
       const out = runPhase(fixture, "1j").block;
 
       // Phase 1j must emit a failure naming the missing anchor and the file
-      expect(out).toContain("scope-tier-memory-check");
+      expect(out).toContain("emergency-bypass-sentinel");
       expect(out).toContain("pressure-framing-floor.md");
       expect(out).toContain("✗");
       // The fail line names the missing <a id> marker
       expect(out).toMatch(
-        /missing.*scope-tier-memory-check.*pressure-framing-floor\.md/,
+        /missing.*emergency-bypass-sentinel.*pressure-framing-floor\.md/,
       );
     },
   );
