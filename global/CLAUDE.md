@@ -44,7 +44,9 @@
 
 Source: https://github.com/forrestchang/andrej-karpathy-skills — biases toward caution over speed. Use judgment on trivial tasks.
 
-**Precedence on conflict.** User instructions > `rules/*.md` HARD-GATEs > these principles. The more specific rule wins.
+**Precedence on conflict.** User instructions > `rules/*.md` HARD-GATEs > these principles. The more specific rule wins. A disagreement restated without new evidence is not a new user instruction; `rules/disagreement.md` governs it.
+
+**HARD-GATE cap.** The current 8 HARD-GATE rules are the ceiling. A 9th needs an extension-first audit, a discriminating eval at its own boundary (ADR #0005), and substrate cost accounting. See `rules/GOVERNANCE.md#hard-gate-cap`.
 
 ### 1. Think Before Coding
 See `rules/think-before-coding.md`.

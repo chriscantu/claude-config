@@ -12,7 +12,7 @@ The diagram below shows the path every prompt takes. The rest of the doc is a to
 
 ```mermaid
 flowchart LR
-    P[User prompt] --> H{Scope-tier<br/>hook match?}
+    P[User prompt] --> H{Trivial tier?<br/>all four criteria}
     H -->|yes| I[Direct implementation]
     H -->|no| F{Pressure<br/>framing?}
     F -->|named-cost skip| E["acknowledge_named_cost_skip<br/>tool-use"] --> I
