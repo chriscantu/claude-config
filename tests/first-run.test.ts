@@ -141,9 +141,6 @@ describe("first-run.fish — fresh sandbox", () => {
     expect(allow.some((s) => s.endsWith("/hooks/block-dangerous-git.sh)"))).toBe(
       true,
     );
-    expect(
-      allow.some((s) => s.endsWith("/hooks/scope-tier-memory-check.sh)")),
-    ).toBe(true);
 
     // Backup created with .bak.<ISO-timestamp> suffix.
     const backups = readdirSync(join(env.HOME!, ".claude")).filter((f) =>
@@ -420,7 +417,6 @@ describe("first-run.fish — settings.json TOCTOU lock (#394)", () => {
     const settingsJson = JSON.parse(readFileSync(settings, "utf8"));
     const allow: string[] = settingsJson.permissions?.allow ?? [];
     expect(allow.some((s) => s.endsWith("/hooks/block-dangerous-git.sh)"))).toBe(true);
-    expect(allow.some((s) => s.endsWith("/hooks/scope-tier-memory-check.sh)"))).toBe(true);
     // Lockdir must not be leaked after both procs settle.
     expect(() => readFileSync(`${settings}.lock`)).toThrow();
   });

@@ -44,19 +44,17 @@ These steps are HARD-GATEs. That means Claude cannot move past one until it make
 
 Canonical source: [`rules/planning-pipeline.md`](../rules/planning-pipeline.md).
 
-## 2. Scope-tier routing — the fast lane
+## 2. Trivial tier — the fast lane
 
 *You will see this on small jobs: typo fixes, single-file edits, docs-only changes.*
 
 Most prompts are small. Forcing every typo fix through DTP would be a waste. So there is a fast lane.
 
-A hook (`hooks/scope-tier-memory-check.sh`) runs on every prompt. It checks the prompt against saved memories like "trivial mechanical changes skip DTP/SA/brainstorm/FMS." If it finds a match, it adds a `SCOPE-TIER MATCH:` note to the prompt. Claude reads the note, says one line about it, and jumps to implementation.
-
-The fast lane has two layers. The hook runs first (Layer 1). If the hook misses, the pressure-framing floor (Layer 2, see §3 and §4) takes over. If both miss, Claude uses the full pipeline. There is also one off-switch for both layers: the `DISABLE_PRESSURE_FLOOR` file. Drop it in the right folder and both layers stop firing. Use it only if a hook misfires badly.
+A change takes the fast lane only when all four hold: about 200 lines or fewer, one main file, one obvious approach, and low blast radius. Then Claude skips DTP, brainstorming, and the sketch, and goes straight to implementation. If any one of the four is missing, the change moves up a tier. Saying "it's just a small change" does not count by itself — see §4.
 
 Even on the fast lane, two things still apply: per-step verify checks and the end-of-work verification gate. The discipline gets shorter. It does not go away.
 
-Canonical source: [`rules/pressure-framing-floor.md#scope-tier-memory-check`](../rules/pressure-framing-floor.md#scope-tier-memory-check).
+Canonical source: [`rules/planning-pipeline.md#trivial-tier-criteria`](../rules/planning-pipeline.md#trivial-tier-criteria).
 
 ## 3. Skip contracts — when you really want to skip a step
 

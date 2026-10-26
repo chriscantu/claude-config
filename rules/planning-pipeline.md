@@ -19,7 +19,7 @@ or tooling before completing the pipeline.
 
    **Skip and floor mechanics.** Named-cost skip rules and the emission
    contract live in [`skip-contract.md`](skip-contract.md). Pressure-framing
-   routing, scope-tier memory check, architectural invariant, and
+   routing, architectural invariant, and
    emergency-bypass sentinel live in
    [`pressure-framing-floor.md`](pressure-framing-floor.md). Both fire at
    this step (and inherit to every downstream HARD-GATE).

@@ -80,10 +80,7 @@ validator. Phases relevant to rules:
   (e.g. the [Trivial/Mechanical tier criteria](planning-pipeline.md#trivial-tier-criteria),
   defined in `planning-pipeline.md`) is restated outside its canonical home.
   "Do not restate" markers in non-canonical files are editor hints;
-  this phase is the enforcement. Phase 1g also guards canonical
-  scope-tier hook strings (verb signals, minimizers, scope-expanders,
-  blast-radius words) — see `hooks/scope-tier-memory-check.sh` for
-  the canonical home. Regression coverage:
+  this phase is the enforcement. Regression coverage:
   `tests/validate-phase-1g.test.ts` (migrated from fish per ADR #0012).
 - **1h. Hook ↔ user docs consistency** — fails when non-test `hooks/*.sh` script is undocumented in `README.md` or `docs/*.md`. Lineage: PR #179 (issue #175).
 - **1i. Dangling hook permissions** (warn-only) — warns when `.claude/settings.json` Bash permission references hook script no longer present under `hooks/`. Warn-only because absolute paths may be valid on other machines. Lineage: PR #179.
@@ -94,7 +91,7 @@ validator. Phases relevant to rules:
   `#trivial-tier-criteria` (planning-pipeline), `#skip-contract` /
   `#emission-contract` / `#override-skip-contract` /
   `#emission-contract-per-gate` (skip-contract), and
-  `#pressure-framing-floor` / `#scope-tier-memory-check` /
+  `#pressure-framing-floor` /
   `#fast-track-validation-emission` / `#architectural-invariant` /
   `#emergency-bypass-sentinel` (pressure-framing-floor); add to the
   registry when promoting another rule construct to a citable anchor.
@@ -138,13 +135,10 @@ validator. Phases relevant to rules:
   fixtures rot or eval renames orphan their fixtures undetected
   (issue #234). Regression coverage:
   `tests/validate-phase-1n.test.ts`.
-- **1o. Scope-tier hook + installer + substrate field** — fails if
-  `hooks/scope-tier-memory-check.sh` is missing or not executable;
-  if `bin/install-scope-tier-hook.fish` is missing or not executable;
-  if shellcheck reports warnings on the hook; or if the `Eval`
+- **1o. Eval substrate field** — fails if the `Eval`
   interface in `tests/evals-lib.ts` does not declare the
-  `additional_context?: string` field (substrate contract for the
-  scope-tier routing-contract evals). Regression coverage:
+  `additional_context?: string` field (substrate contract for evals
+  that inject stored memory as a system reminder). Regression coverage:
   `tests/validate-phase-1o.test.ts`.
 - **1p. rules-evals/README.md suite inventory** — bidirectional check
   that `rules-evals/README.md`'s "Current suites:" bullet list matches
@@ -213,7 +207,7 @@ time.
 |---|---|---|
 | `planning-pipeline.md` | HARD-GATE | DTP / Systems Analysis / Solution Design pipeline; stage visibility; scope calibration (incl. Trivial/Mechanical tier); decision framework; sequential-thinking opt-in; multi-session continuity |
 | `skip-contract.md` | HARD-GATE | Named-cost skip mechanics, emission contract, and per-gate skip-honor table |
-| `pressure-framing-floor.md` | HARD-GATE | Pressure-framing routing, scope-tier memory check, fast-track validation emission, architectural invariant, emergency-bypass sentinel |
+| `pressure-framing-floor.md` | HARD-GATE | Pressure-framing routing, fast-track validation emission, architectural invariant, emergency-bypass sentinel |
 | `fat-marker-sketch.md` | HARD-GATE | Mandatory shape sketch after approach selection, before detailed design |
 | `think-before-coding.md` | HARD-GATE | Three-part preamble (Assumptions / Interpretations / Simpler-Path) at Solution Design |
 | `goal-driven.md` | HARD-GATE | Per-step verify checks defined before code, loop-until-verified semantics |

@@ -7,8 +7,8 @@
 #   2. Prompting for shell flavor, primary language, TDD discipline,
 #      sycophancy intensity, and caveman opt-in
 #   3. Atomically writing a managed block into global/CLAUDE.md
-#   4. Registering the two repo hooks in ~/.claude/settings.json
-#      (block-dangerous-git.sh, scope-tier-memory-check.sh)
+#   4. Registering the repo hook in ~/.claude/settings.json
+#      (block-dangerous-git.sh)
 #   5. Verifying the install via link-config.fish --check + validate.fish
 #   6. Printing three next-action suggestions
 #
@@ -86,7 +86,6 @@ set -l marker_open  "<!-- managed:first-run -->"
 set -l marker_close "<!-- /managed:first-run -->"
 
 set -l hook_dangerous "$repo/hooks/block-dangerous-git.sh"
-set -l hook_scopetier "$repo/hooks/scope-tier-memory-check.sh"
 
 # --- preflight: validate hook exec bits before any mutation -------------
 # Even if the user declines hook registration later, we fail fast here so
@@ -95,10 +94,6 @@ set -l hook_scopetier "$repo/hooks/scope-tier-memory-check.sh"
 
 if not test -x $hook_dangerous
     echo "ERROR: hook not executable: $hook_dangerous" >&2
-    exit 2
-end
-if not test -x $hook_scopetier
-    echo "ERROR: hook not executable: $hook_scopetier" >&2
     exit 2
 end
 
@@ -287,7 +282,7 @@ echo "Patched: $claude_md"
 
 # --- step 4: enable hooks (optional) ------------------------------------
 
-set -l hooks_yn (ask "Register repo hooks (block-dangerous-git, scope-tier-memory-check) in $settings? (Y/n) [Y]:" Y)
+set -l hooks_yn (ask "Register repo hook (block-dangerous-git) in $settings? (Y/n) [Y]:" Y)
 set -l hooks_enabled 0
 if string match -qi 'y*' -- $hooks_yn
     set hooks_enabled 1
@@ -390,14 +385,14 @@ if test $hooks_enabled -eq 1
     end
     echo "Backed up: $settings -> $backup"
 
-    # Add Bash permission entries for both hook absolute paths. Dedup by
+    # Add a Bash permission entry for the hook absolute path. Dedup by
     # exact string match in .permissions.allow.
     set -l tmp (mktemp)
-    jq --arg d "Bash($hook_dangerous)" --arg s "Bash($hook_scopetier)" '
+    jq --arg d "Bash($hook_dangerous)" '
         .permissions //= {}
         | .permissions.allow //= []
         | .permissions.allow |= (
-            (. + [$d, $s])
+            (. + [$d])
             | unique_by(.)
             | sort
         )
