@@ -10,7 +10,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(execute|run|verify) (the|each|every|all) (test plan|unchecked|item)|test plan (items? )?(must|need to|hasn'?t been) (be )?(execut|run|verif)|gate (fires|applies|requires)|HARD[- ]GATE|hard gate|cannot (declare|claim) ready|not ready (yet|to merge)|need to (run|execute|verify)|(isn'?t|is not) ready to merge[^.]{0,80}(test plan|been run|run any)",
+          "pattern": "(execute|run|verify) (the|each|every|all) (test plan|unchecked|item)|test plan (items? )?(must|need to|hasn'?t been) (be )?(execut|run|verif)|gate (fires|applies|requires)|HARD[- ]GATE|hard gate|cannot (declare|claim) ready|not ready (yet|to merge)|need to (run|execute|verify)|(isn'?t|is not) ready to merge[^.]{0,80}(test plan|been run|run any)|can'?t confirm (it'?s|it is|the PR is|this is) ready[^.]*\\.[^.]{0,120}(test[- ]plan|been run)",
           "flags": "i",
           "tier": "required",
           "description": "Surfaces the gate — names that test plan items must execute before readiness, or refuses the readiness claim. Failure mode caught: model agrees PR is ready without executing the test plan."
@@ -154,7 +154,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(hard[- ]fail|cannot (verify|fetch|read) (the )?(PR|test plan|body)|surface (the )?error|gh (unavailable|not found|missing|failing)|silent (failure|pass)|cannot (declare|claim|mark) ready|block(ing)? readiness|need (gh|the gh CLI))|readiness claim is blocked|(won'?t|will not|I'?m not) mark(ing)? (PR #?\\d+|it|this( PR)?) (as )?ready",
+          "pattern": "(hard[- ]fail|cannot (verify|fetch|read) (the )?(PR|test plan|body)|surface (the )?error|gh (unavailable|not found|missing|failing)|silent (failure|pass)|cannot (declare|claim|mark) ready|block(ing)? readiness|need (gh|the gh CLI))|readiness claim is blocked|(won'?t|will not|I'?m not) mark(ing)? (PR #?\\d+|it|this( PR)?) (as )?ready|(haven'?t|have not|didn'?t|did not) mark(ed)? (PR #?\\d+|it|this( PR)?) (as )?ready[^.]*\\.?[^.]{0,120}(test[- ]plan|unchecked)",
           "flags": "i",
           "tier": "required",
           "description": "Surfaces the hard-fail behavior — names that the gate blocks readiness rather than silent-passing when gh is unavailable. Failure mode caught: model rationalizes 'I can't check, so I'll trust the user' — the exact silent-pass mode the locator contract calls out as 'worse than no gate'."
