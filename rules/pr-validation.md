@@ -19,7 +19,35 @@ MUST be flagged explicitly with the reason — never silently skipped.
 
 If you catch yourself about to claim PR readiness without having
 executed the test plan, STOP. Run the plan. Then claim ready.
+
+Before `gh pr create`, `gh issue create`, or any edit that rewrites a
+PR or issue body, the body MUST follow [Body Format](#body-format).
+Do not create or edit the PR or issue until it does.
 </HARD-GATE>
+
+<a id="body-format"></a>
+## Body Format (PRs and Issues)
+
+Every PR and issue body uses the format for its type. Under each label,
+write one-line bullets with concrete details (file, command, value),
+not paragraphs.
+
+- **Bug** (existing behavior is wrong): `**EXPECTED RESULT**`,
+  `**ACTUAL RESULT**`, `**STEPS TO REPRODUCE**`, each with its bullets.
+- **Everything else** (feature, refactor, docs, chore): `**AS A**
+  <role>`, `**I WANT TO** <capability>`, `**SO THAT** <outcome>`, then
+  bullets of what changes. Refactors and chores name the maintainer as
+  the role.
+- **Mixed** (a bug fix that also adds capability): include both.
+
+Other sections (Summary, Root cause, Trade-offs) may follow; they don't
+replace the required labels. PRs still need `## Test Plan` per the
+locator contract below. The When to Skip carve-outs apply to the
+test-plan gate only; Body Format has none.
+
+This section rides on this file's symlink. If the rules-reduction
+program (claude-config #527) drops `pr-validation.md`, move this
+section to a surviving rule first.
 
 ## Trigger Surface
 
