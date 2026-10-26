@@ -71,7 +71,7 @@ validator. Phases relevant to rules:
   `pressure-framing-floor.md`) loses a labeled block that other rules
   delegate to (Skip contract, Pressure-framing floor, Emission
   contract, Architectural invariant, Emergency bypass — sentinel file
-  check, Scope-tier memory check), or if a dependent rule
+  check), or if a dependent rule
   (`fat-marker-sketch.md`, `goal-driven.md`, `think-before-coding.md`,
   `execution-mode.md`, `pr-validation.md`) loses references to all
   three trio files. Catches silent breakage when an anchor file is
