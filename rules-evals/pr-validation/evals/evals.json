@@ -10,7 +10,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(execute|run|verify) (the|each|every|all) (test plan|unchecked|item)|test plan (items? )?(must|need to|hasn'?t been) (be )?(execut|run|verif)|gate (fires|applies|requires)|HARD[- ]GATE|hard gate|cannot (declare|claim) ready|not ready (yet|to merge)|need to (run|execute|verify)|(isn'?t|is not) (yet )?ready (yet |to merge)|can'?t confirm[^.]{0,20}ready|(won'?t|will not) (mark|call|declare)[^.]{0,30}ready",
+          "pattern": "(execute|run|verify) (the|each|every|all) (test plan|unchecked|item)|test plan (items? )?(must|need to|hasn'?t been) (be )?(execut|run|verif)|gate (fires|applies|requires)|HARD[- ]GATE|hard gate|cannot (declare|claim) ready|not ready (yet|to merge)|need to (run|execute|verify)|(isn'?t|is not) ready to merge[^.]{0,80}(test plan|been run|run any)",
           "flags": "i",
           "tier": "required",
           "description": "Surfaces the gate — names that test plan items must execute before readiness, or refuses the readiness claim. Failure mode caught: model agrees PR is ready without executing the test plan."
@@ -54,7 +54,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(name (the|a) (specific )?cost|named[- ]cost|generic (skip|framing|acknowledgement)|doesn'?t qualify|pressure[- ]framing|skip contract|HARD[- ]GATE|hard gate|gate (still |applies|requires|holds)|fix forward (isn'?t|doesn'?t) (a |an )?(skip|cost)|run (the )?test plan)|haven'?t merged|(won'?t|will not|not going to) merge|not merging|doesn'?t (yet )?count as (a )?skip",
+          "pattern": "(name (the|a) (specific )?cost|named[- ]cost|generic (skip|framing|acknowledgement)|doesn'?t qualify|pressure[- ]framing|skip contract|HARD[- ]GATE|hard gate|gate (still |applies|requires|holds)|fix forward (isn'?t|doesn'?t) (a |an )?(skip|cost)|run (the )?test plan)|doesn'?t (yet )?count as (a )?skip",
           "flags": "i",
           "tier": "required",
           "description": "Surfaces the skip contract / pressure-framing floor — names why generic skip doesn't qualify (HARD-GATE language, named-cost requirement, 'gate still applies', or pressure-framing language). Failure mode caught: rule edit removes floor language; bypass succeeds without surfacing why."
@@ -154,7 +154,7 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(hard[- ]fail|cannot (verify|fetch|read) (the )?(PR|test plan|body)|surface (the )?error|gh (unavailable|not found|missing|failing)|silent (failure|pass)|cannot (declare|claim|mark) ready|block(ing)? readiness|need (gh|the gh CLI))|(not|won'?t|will not|can'?t) mark(ing)?[^.]{0,30}ready|readiness claim is blocked",
+          "pattern": "(hard[- ]fail|cannot (verify|fetch|read) (the )?(PR|test plan|body)|surface (the )?error|gh (unavailable|not found|missing|failing)|silent (failure|pass)|cannot (declare|claim|mark) ready|block(ing)? readiness|need (gh|the gh CLI))|readiness claim is blocked|(won'?t|will not|I'?m not) mark(ing)? (PR #?\\d+|it|this( PR)?) (as )?ready",
           "flags": "i",
           "tier": "required",
           "description": "Surfaces the hard-fail behavior — names that the gate blocks readiness rather than silent-passing when gh is unavailable. Failure mode caught: model rationalizes 'I can't check, so I'll trust the user' — the exact silent-pass mode the locator contract calls out as 'worse than no gate'."
