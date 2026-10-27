@@ -30,6 +30,7 @@ import {
   extractSignals,
   extractStreamErrorReason,
   streamHasSuccessfulResult,
+  buildChildEnv,
   loadEvalFile,
   metaCheck,
   parseStreamJson,
@@ -2614,5 +2615,93 @@ describe("buildPrompt()", () => {
     const result = buildPrompt(fixture);
     expect(result).toBe("do thing");
     expect(result).not.toContain("<system-reminder>");
+  });
+});
+
+describe("loadEvalFile() — env and path_prepend fields", () => {
+  function scratch(): string {
+    return mkdtempSync(join(tmpdir(), "evals-env-test-"));
+  }
+
+  function load(extra: Record<string, unknown>) {
+    const root = scratch();
+    const dir = join(root, "my-skill", "evals");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "evals.json"),
+      JSON.stringify({
+        skill: "my-skill",
+        evals: [{ name: "e1", prompt: "p", assertions: [{ type: "contains", value: "x", description: "d" }], ...extra }],
+      }),
+    );
+    return loadEvalFile(root, "my-skill")?.evals[0];
+  }
+
+  test("accepts env map and path_prepend list on single-turn eval", () => {
+    const ev = load({ env: { GH_STUB_MODE: "fork" }, path_prepend: ["tests/fixtures/pr-validation/gh-stub"] });
+    expect(ev?.kind).toBe("single");
+    if (ev?.kind === "single") {
+      expect(ev.env).toEqual({ GH_STUB_MODE: "fork" });
+      expect(ev.path_prepend).toEqual(["tests/fixtures/pr-validation/gh-stub"]);
+    }
+  });
+
+  test("rejects non-string env values", () => {
+    expect(() => load({ env: { N: 1 } })).toThrow(/env\['N'\] must be a string/);
+  });
+
+  test("rejects invalid env names", () => {
+    expect(() => load({ env: { "BAD-NAME": "x" } })).toThrow(/env name 'BAD-NAME'/);
+  });
+
+  test("rejects PATH in env — path_prepend is the only way to change PATH", () => {
+    expect(() => load({ env: { PATH: "/x" } })).toThrow(/use path_prepend/);
+  });
+
+  test("rejects absolute or escaping path_prepend entries", () => {
+    expect(() => load({ path_prepend: ["/usr/bin"] })).toThrow(/path_prepend.*relative/);
+    expect(() => load({ path_prepend: ["../x"] })).toThrow(/path_prepend.*'\.\.'/);
+    expect(() => load({ path_prepend: [] })).toThrow(/path_prepend.*non-empty/);
+  });
+
+  test("rejects env on multi-turn evals", () => {
+    const root = scratch();
+    const dir = join(root, "my-skill", "evals");
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, "evals.json"),
+      JSON.stringify({
+        skill: "my-skill",
+        evals: [{
+          name: "e1",
+          env: { A: "b" },
+          turns: [{ prompt: "p", assertions: [{ type: "contains", value: "x", description: "d" }] }],
+        }],
+      }),
+    );
+    expect(() => loadEvalFile(root, "my-skill")).toThrow(/env\/path_prepend.*single-turn only/);
+  });
+});
+
+describe("buildChildEnv()", () => {
+  test("returns the base env unchanged when the eval sets nothing", () => {
+    const base = { PATH: "/usr/bin", HOME: "/h" };
+    expect(buildChildEnv(base, "/repo", {})).toEqual(base);
+  });
+
+  test("prepends repo-relative dirs to PATH and merges env vars", () => {
+    const repo = mkdtempSync(join(tmpdir(), "evals-env-repo-"));
+    mkdirSync(join(repo, "stub"), { recursive: true });
+    const base = { PATH: "/usr/bin", HOME: "/h" };
+    const env = buildChildEnv(base, repo, { env: { MODE: "fork" }, path_prepend: ["stub"] });
+    expect(env.PATH).toBe(`${join(repo, "stub")}:/usr/bin`);
+    expect(env.MODE).toBe("fork");
+    expect(env.HOME).toBe("/h");
+    expect(base.PATH).toBe("/usr/bin");
+  });
+
+  test("throws when a path_prepend dir does not exist", () => {
+    expect(() => buildChildEnv({ PATH: "/usr/bin" }, "/nonexistent-repo", { path_prepend: ["stub"] }))
+      .toThrow(/path_prepend dir .* does not exist/);
   });
 });
