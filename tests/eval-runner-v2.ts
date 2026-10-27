@@ -38,6 +38,7 @@ import {
   type ValidatedScratchDecoy,
   ScratchDecoySeedError,
   aggregateChainSignals,
+  buildChildEnv,
   createTeardownTracker,
   discoverSkills,
   evaluate,
@@ -280,18 +281,28 @@ export async function withCliRetry(
  * (single-turn and chain-resume) go through here, so retry policy lives in one
  * place. Only transient failures re-attempt (see `isTransientCliFailure`).
  */
-function spawnClaudeCliAsync(args: readonly string[], prompt: string, cwd: string): Promise<CliRun> {
+function spawnClaudeCliAsync(
+  args: readonly string[],
+  prompt: string,
+  cwd: string,
+  env: NodeJS.ProcessEnv = CLI_CHILD_ENV,
+): Promise<CliRun> {
   return withCliRetry(
-    () => spawnClaudeCliAsyncOnce(args, prompt, cwd),
+    () => spawnClaudeCliAsyncOnce(args, prompt, cwd, env),
     MAX_CLI_ATTEMPTS,
     (prev, n) =>
       console.error(`[eval-runner] transient CLI failure (${prev.failure}); retry ${n}/${MAX_CLI_ATTEMPTS}`),
   );
 }
 
-function spawnClaudeCliAsyncOnce(args: readonly string[], prompt: string, cwd: string): Promise<CliRun> {
+function spawnClaudeCliAsyncOnce(
+  args: readonly string[],
+  prompt: string,
+  cwd: string,
+  env: NodeJS.ProcessEnv,
+): Promise<CliRun> {
   return new Promise((resolve) => {
-    const child = spawn(claudeBin, [...args], { cwd, env: CLI_CHILD_ENV, stdio: ["pipe", "pipe", "pipe"] });
+    const child = spawn(claudeBin, [...args], { cwd, env, stdio: ["pipe", "pipe", "pipe"] });
 
     const stdoutChunks: Buffer[] = [];
     const stderrChunks: Buffer[] = [];
@@ -376,7 +387,12 @@ function spawnClaudeCliAsyncOnce(args: readonly string[], prompt: string, cwd: s
  * relPath + errno — claude is NOT spawned. This matches the runner's
  * existing fail-fast posture for substrate failures.
  */
-async function runClaude(prompt: string, cwd?: string, decoy?: ValidatedScratchDecoy): Promise<CliRun> {
+async function runClaude(
+  prompt: string,
+  cwd?: string,
+  decoy?: ValidatedScratchDecoy,
+  env: NodeJS.ProcessEnv = CLI_CHILD_ENV,
+): Promise<CliRun> {
   const ownCwd = cwd ?? mkdtempSync(join(tmpdir(), "claude-eval-"));
   try {
     try {
@@ -391,7 +407,7 @@ async function runClaude(prompt: string, cwd?: string, decoy?: ValidatedScratchD
         : `decoy seed failed: ${(err as Error).message}`;
       return { stdout: "", stderr: "", exitCode: null, failure: msg };
     }
-    return await spawnClaudeCliAsync(CLI_BASE_ARGS, prompt, ownCwd);
+    return await spawnClaudeCliAsync(CLI_BASE_ARGS, prompt, ownCwd, env);
   } finally {
     if (!cwd) {
       try {
@@ -952,7 +968,15 @@ async function main() {
       onTeardownError: (msg) =>
         out.push(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`)),
       work: async () => {
-        const { stdout, stderr, exitCode, failure } = await runClaude(resolveProjectDir(buildPrompt(e)), undefined, e.scratch_decoy);
+        let childEnv: NodeJS.ProcessEnv;
+        try {
+          childEnv = buildChildEnv(CLI_CHILD_ENV, repoDir, e);
+        } catch (err) {
+          out.push(`    ${red("✗")} ${(err as Error).message}`);
+          workResult = failedResult();
+          return;
+        }
+        const { stdout, stderr, exitCode, failure } = await runClaude(resolveProjectDir(buildPrompt(e)), undefined, e.scratch_decoy, childEnv);
 
         if (failure || exitCode !== 0) {
           const reason = formatRunFailure(failure, exitCode, stdout, stderr, { prefix: "exit" });
