@@ -2638,11 +2638,11 @@ describe("loadEvalFile() — env and path_prepend fields", () => {
   }
 
   test("accepts env map and path_prepend list on single-turn eval", () => {
-    const ev = load({ env: { GH_STUB_MODE: "fork" }, path_prepend: ["tests/fixtures/gh-stub"] });
+    const ev = load({ env: { GH_STUB_MODE: "fork" }, path_prepend: ["tests/fixtures/pr-validation/gh-stub"] });
     expect(ev?.kind).toBe("single");
     if (ev?.kind === "single") {
       expect(ev.env).toEqual({ GH_STUB_MODE: "fork" });
-      expect(ev.path_prepend).toEqual(["tests/fixtures/gh-stub"]);
+      expect(ev.path_prepend).toEqual(["tests/fixtures/pr-validation/gh-stub"]);
     }
   });
 

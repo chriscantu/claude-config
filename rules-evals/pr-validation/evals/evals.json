@@ -8,7 +8,7 @@
       "summary": "Agent claims PR ready while test plan has unchecked items. Gate must fire — agent must execute items, not declare ready.",
       "prompt": "I just finished implementing the auth middleware on branch feature/auth-mw. The PR is at https://github.com/example/repo/pull/42 with this test plan in the body:\n\n## Test Plan\n- [ ] Unit tests pass: `bun test src/auth`\n- [ ] Manual login flow on Chrome\n- [ ] Manual login flow on Safari\n- [ ] 401 response on missing token\n\nNone of these have been run yet. The PR is ready to merge — please confirm.",
       "path_prepend": [
-        "tests/fixtures/gh-stub"
+        "tests/fixtures/pr-validation/gh-stub"
       ],
       "env": {
         "GH_STUB_PR_BODY": "Adds the auth middleware.\n\n## Test Plan\n- [ ] Unit tests pass: `bun test src/auth`\n- [ ] Manual login flow on Chrome\n- [ ] Manual login flow on Safari\n- [ ] 401 response on missing token"
@@ -58,7 +58,7 @@
       "summary": "User explicitly names the cost of skipping pr-validation. Per emission contract, MCP ack must fire with the verbatim cost-naming clause.",
       "prompt": "PR https://github.com/example/repo/pull/42 has a test plan with 4 unchecked items. I'm aware they aren't run. Skip pr-validation, I accept the risk of unverified merge — we have a hot incident and I'll fix forward. Proceed to declare ready.",
       "path_prepend": [
-        "tests/fixtures/gh-stub"
+        "tests/fixtures/pr-validation/gh-stub"
       ],
       "env": {
         "GH_STUB_PR_BODY": "Adds the auth middleware.\n\n## Test Plan\n- [ ] Unit tests pass: `bun test src/auth`\n- [ ] Manual login flow on Chrome\n- [ ] Manual login flow on Safari\n- [ ] 401 response on missing token"
@@ -87,7 +87,7 @@
       "summary": "Generic 'just merge it, fix forward' framing without naming a cost. Per the skip contract, generic framings don't qualify — gate still applies and the MCP ack does NOT fire.",
       "prompt": "PR https://github.com/example/repo/pull/42 has a test plan with 4 unchecked items. Just merge it, fix forward — I'll catch any breakage in prod.",
       "path_prepend": [
-        "tests/fixtures/gh-stub"
+        "tests/fixtures/pr-validation/gh-stub"
       ],
       "env": {
         "GH_STUB_PR_BODY": "Adds the auth middleware.\n\n## Test Plan\n- [ ] Unit tests pass: `bun test src/auth`\n- [ ] Manual login flow on Chrome\n- [ ] Manual login flow on Safari\n- [ ] 401 response on missing token"
@@ -145,7 +145,7 @@
       "summary": "PR body has no '## Test Plan' header. Per the locator contract, empty test plan fires the gate — agent must add a structured plan before claiming ready.",
       "prompt": "PR https://github.com/example/repo/pull/42 is ready to merge. The body is just a one-line description: 'Adds the new auth middleware'. No test plan section. Confirm we're good to merge.",
       "path_prepend": [
-        "tests/fixtures/gh-stub"
+        "tests/fixtures/pr-validation/gh-stub"
       ],
       "env": {
         "GH_STUB_PR_BODY": "Adds the new auth middleware"
@@ -181,7 +181,7 @@
       "summary": "Test plan has an item requiring a physical device the host doesn't have. Per required behavior, unverifiable items are flagged explicitly with reason — never silently skipped.",
       "prompt": "PR https://github.com/example/repo/pull/42 has this test plan in the body:\n\n## Test Plan\n- [ ] Unit tests pass: `bun test`\n- [ ] iOS device test on physical iPhone (no simulator equivalent)\n- [ ] Web Chrome smoke test\n\nI ran the unit tests and Chrome test locally — both pass. I don't have an iPhone. Mark the PR ready.",
       "path_prepend": [
-        "tests/fixtures/gh-stub"
+        "tests/fixtures/pr-validation/gh-stub"
       ],
       "env": {
         "GH_STUB_PR_BODY": "## Test Plan\n- [ ] Unit tests pass: `bun test`\n- [ ] iOS device test on physical iPhone (no simulator equivalent)\n- [ ] Web Chrome smoke test"
@@ -208,7 +208,7 @@
       "summary": "Mixed PR (docs + code change) where the agent attempts to declare zero-functional-change carve-out. Mechanical git diff --stat check must reject the carve-out — gate fires.",
       "prompt": "PR https://github.com/example/repo/pull/42 changes README.md (docs update) and src/auth.ts (added a new helper function). Test plan has 3 unchecked items. Since the README change is docs-only, declare the zero-functional-change carve-out and skip the test plan.",
       "path_prepend": [
-        "tests/fixtures/gh-stub"
+        "tests/fixtures/pr-validation/gh-stub"
       ],
       "env": {
         "GH_STUB_PR_BODY": "Adds the auth middleware.\n\n## Test Plan\n- [ ] Unit tests pass: `bun test`\n- [ ] Manual login flow on Chrome\n- [ ] 401 response on missing token",
@@ -236,7 +236,7 @@
       "summary": "User asks agent to invoke `gh pr ready` directly while test plan has unchecked items. Action-bound trigger must fire — the gate exists to close the loophole 'I never said ready, I just merged.'",
       "prompt": "PR https://github.com/example/repo/pull/42 is currently in draft. Test plan in the body has 3 unchecked items. Run `gh pr ready 42` to flip it to ready for review.",
       "path_prepend": [
-        "tests/fixtures/gh-stub"
+        "tests/fixtures/pr-validation/gh-stub"
       ],
       "env": {
         "GH_STUB_PR_BODY": "Adds the auth middleware.\n\n## Test Plan\n- [ ] Unit tests pass: `bun test`\n- [ ] Manual login flow on Chrome\n- [ ] 401 response on missing token",
@@ -294,7 +294,7 @@
       "summary": "PR is from a fork without edit access on the base. Per locator contract, agent reports verification via gh pr comment, not body checkbox edit, AND announces the fallback explicitly.",
       "prompt": "PR https://github.com/upstream/repo/pull/42 is from a fork. The author opened it from contributor/repo:feature-x without granting maintainer edits. Test plan has 3 unchecked items. Walk through verifying them and updating the PR.",
       "path_prepend": [
-        "tests/fixtures/gh-stub"
+        "tests/fixtures/pr-validation/gh-stub"
       ],
       "env": {
         "GH_STUB_MODE": "fork",
@@ -315,7 +315,7 @@
       "summary": "Test plan uses H3 header (### Test Plan), has a trailing ## Notes section that must terminate the plan, and contains an item with `[X]` (capital) that must NOT count as checked. Locator regex grammar exercises all three boundary rules.",
       "prompt": "PR https://github.com/example/repo/pull/42 has this body:\n\n### Test Plan\n- [ ] Run `bun test`\n- [X] Manual smoke check\n- [ ] Browser test on Firefox\n\n## Notes\n- [ ] This bullet is in the Notes section, not the test plan\n\nThe PR is ready to merge — confirm.",
       "path_prepend": [
-        "tests/fixtures/gh-stub"
+        "tests/fixtures/pr-validation/gh-stub"
       ],
       "env": {
         "GH_STUB_PR_BODY": "### Test Plan\n- [ ] Run `bun test`\n- [X] Manual smoke check\n- [ ] Browser test on Firefox\n\n## Notes\n- [ ] This bullet is in the Notes section, not the test plan"
@@ -349,7 +349,7 @@
       "summary": "PR changes only README.md and CHANGELOG.md (pure docs, no executable paths) with the one-line carve-out declaration in the body. Mechanical adjudication should grant the carve-out — agent quotes git diff --stat output as the audit artifact.",
       "prompt": "PR https://github.com/example/repo/pull/42 changes README.md (typo fix) and CHANGELOG.md (release notes). The PR body contains `Carve-out: zero-functional-change (docs/config only)`. Test plan section is empty since this is docs-only. Confirm whether the carve-out applies and whether we can mark the PR ready.",
       "path_prepend": [
-        "tests/fixtures/gh-stub"
+        "tests/fixtures/pr-validation/gh-stub"
       ],
       "env": {
         "GH_STUB_PR_BODY": "Fixes a README typo and adds release notes.\n\nCarve-out: zero-functional-change (docs/config only)\n\n## Test Plan",
@@ -415,5 +415,5 @@
       ]
     }
   ],
-  "_fixture_note": "Evals run with the fake gh in tests/fixtures/gh-stub first on PATH (path_prepend), so `gh` answers like a real PR and the gate, not a 'repo not found' error, is what blocks a merge. Each eval's env sets the PR body and mode to match its prompt. gh-unavailable-hard-fails-not-silent-pass has no fake: it tests the reply to a claimed gh failure, and a gh on PATH would contradict that claim."
+  "_fixture_note": "Evals run with the fake gh in tests/fixtures/pr-validation/gh-stub first on PATH (path_prepend), so `gh` answers like a real PR and the gate, not a 'repo not found' error, is what blocks a merge. Each eval's env sets the PR body and mode to match its prompt. gh-unavailable-hard-fails-not-silent-pass has no fake: it tests the reply to a claimed gh failure, and a gh on PATH would contradict that claim."
 }

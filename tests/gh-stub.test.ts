@@ -8,7 +8,7 @@ import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { join } from "node:path";
 
-const STUB = join(import.meta.dir, "fixtures", "gh-stub", "gh");
+const STUB = join(import.meta.dir, "fixtures", "pr-validation", "gh-stub", "gh");
 const BODY = "## Test Plan\n- [ ] Unit tests pass\n- [ ] Manual login on Safari";
 
 function gh(args: string[], env: Record<string, string> = {}) {
