@@ -139,6 +139,9 @@ runs of 7 suites.
 - **`scope-tier-memory-check` still reports 3 silent-fire failures per run.**
   These are required-tier negative checks that passed against an empty signal,
   so they prove nothing. Its real required pass count is at most 6/14.
+  **Retired 2026-10-26:** the hook never delivered its message (it wrote
+  `additionalContext` outside `hookSpecificOutput`), so the suite and hook
+  were deleted. Drop this row from later comparisons.
 - **The totals do not compare directly.** 105/19 covers 124 required checks.
   102/17 covered 119. Compare suite by suite.
 

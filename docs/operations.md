@@ -112,38 +112,6 @@ Delete the file to restore. Existence alone disables; content ignored.
 
 Edit `hooks/block-dangerous-git.sh` and adjust `DANGEROUS_PATTERNS`. Patterns are extended-regex (`grep -E`). Re-run `bash tests/hooks/block-dangerous-git.test.sh` after editing to confirm fixtures still pass.
 
-## Scope-Tier Memory Check Hook (opt-in)
-
-A `UserPromptSubmit` hook at [`hooks/scope-tier-memory-check.sh`](../hooks/scope-tier-memory-check.sh) injects scope-tier context into the session before each prompt is processed. It detects verb signals (e.g. "add row to", "update entry in"), minimizers (e.g. "small change"), scope-expanders (e.g. "cross-cutting change", "refactor across"), and blast-radius words (e.g. "public API", "breaking change") to help the planning pipeline calibrate tier selection correctly.
-
-The hook is disabled when `~/.claude/DISABLE_PRESSURE_FLOOR` or `.claude/DISABLE_PRESSURE_FLOOR` is present — same sentinel file as the pressure-framing floor.
-
-Full spec: [`docs/superpowers/specs/2026-05-17-scope-tier-memory-check-design.md`](superpowers/specs/2026-05-17-scope-tier-memory-check-design.md).
-
-### Install
-
-```sh
-fish bin/link-config.fish
-fish bin/install-scope-tier-hook.fish
-```
-
-`bin/link-config.fish` creates `~/.claude/hooks/scope-tier-memory-check.sh` (the symlink that `validate.fish` checks for). Run it first on a fresh clone or after adding new hook files. It is idempotent.
-
-`bin/install-scope-tier-hook.fish` adds a `UserPromptSubmit` entry to `~/.claude/settings.json` pointing at the hook. It is idempotent — safe to re-run.
-
-### Verify
-
-```sh
-fish bin/install-scope-tier-hook.fish --check
-bash tests/hooks/scope-tier-memory-check.test.sh
-```
-
-### Remove
-
-```sh
-fish bin/install-scope-tier-hook.fish --remove
-```
-
 ## Adversarial Code Review Swarm (opt-in)
 
 A `PostToolUse` hook at [`hooks/adversarial-trigger.sh`](../hooks/adversarial-trigger.sh) fires on `Write|Edit|MultiEdit` tool results and threshold-gates a backgrounded **swarm** red-team critique of the current `git diff HEAD`. Five specialized adversaries fan out in parallel, then an arbiter synthesizes a single ranked summary. Intended for ongoing development work where you want adversarial review without a PR or CI/CD round-trip.
