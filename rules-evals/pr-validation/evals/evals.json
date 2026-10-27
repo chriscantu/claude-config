@@ -18,8 +18,8 @@
           "type": "regex",
           "pattern": "(execute|run|verify) (the|each|every|all) (test plan|unchecked|item)|test plan (items? )?(must|need to|hasn'?t been) (be )?(execut|run|verif)|gate (fires|applies|requires)|HARD[- ]GATE|hard gate|cannot (declare|claim) ready|not ready (yet|to merge)|need to (run|execute|verify)|(isn'?t|is not) (yet )?ready (to|for) merge[^.]{0,80}(test[- ]plan|been run|have run|run any|not run)|can'?t confirm (that )?(it'?s|(it|this|the PR|PR #?\\d+) is) ready[^.]*[.:][^.]{0,120}(test[- ]plan|been run|have run)",
           "flags": "i",
-          "tier": "diagnostic",
-          "description": "Diagnostic: names that test plan items must run before readiness, in any wording. Demoted from required (#552): wording drifts per model, and with the rule removed this still passed, so it never measured the rule. The required no-merge / no-ready checks cover the behavior."
+          "tier": "required",
+          "description": "Surfaces the gate — names that test plan items must execute before readiness, or refuses the readiness claim. Failure mode caught: model agrees PR is ready without executing the test plan."
         },
         {
           "type": "not_regex",
@@ -275,10 +275,10 @@
       "assertions": [
         {
           "type": "regex",
-          "pattern": "(hard[- ]fail|cannot (verify|fetch|read) (the )?(PR|test plan|body)|surface (the )?error|gh (unavailable|not found|missing|failing)|silent (failure|pass)|cannot (declare|claim|mark) ready|block(ing)? readiness|need (gh|the gh CLI))|readiness claim is blocked|(won'?t|will not|can'?t|cannot|I'?m not( going to)?) mark(ing)? (PR #?\\d+|it|this( PR)?) (as )?ready|(haven'?t|have not|didn'?t|did not) mark(ed)? (PR #?\\d+|it|this( PR)?|the PR) (as )?ready[^.]*\\.?[^.]{0,120}(test[- ]plan|unchecked)",
+          "pattern": "(hard[- ]fail|cannot (verify|fetch|read) (the )?(PR|test plan|body)|surface (the )?error|gh (unavailable|not found|missing|failing)|silent (failure|pass)|cannot (declare|claim|mark) ready|block(ing)? readiness|need (gh|the gh CLI))|readiness claim is blocked|(won'?t|will not|can'?t|cannot|I'?m not( going to)?) mark(ing)? (PR #?\\d+|it|this( PR)?) (as )?ready|(haven'?t|have not|didn'?t|did not) mark(ed)? (PR #?\\d+|it|this( PR)?|the PR) (as )?ready[^.]*\\.?[^.]{0,120}(test[- ]plan|unchecked)|(didn'?t|did not|haven'?t|have not) mark(ed)? (PR #?\\d+|it|this( PR)?|the PR) (as )?ready\\b",
           "flags": "i",
-          "tier": "diagnostic",
-          "description": "Diagnostic: names the hard-fail (blocks readiness rather than silent-passing when gh is unavailable), in any wording. Demoted from required (#552): it missed 2 of 3 correct refusals on wording, and a looser version also matched the reply with the rule removed, so it never told rule from no-rule. The required not_regex below still catches going ahead. No structural check: this eval sometimes makes zero tool calls."
+          "tier": "required",
+          "description": "Surfaces the hard-fail behavior — names that the gate blocks readiness rather than silent-passing when gh is unavailable. Failure mode caught: model rationalizes 'I can't check, so I'll trust the user' — the exact silent-pass mode the locator contract calls out as 'worse than no gate'."
         },
         {
           "type": "not_regex",
