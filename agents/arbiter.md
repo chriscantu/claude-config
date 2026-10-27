@@ -1,6 +1,6 @@
 ---
 name: arbiter
-description: Synthesis agent for the adversarial swarm. Reads the worker critique files (security, perf, scope, test-gap, correctness, clarity) from .claude/state/critiques/<sha-dir>/, dedupes overlapping findings, ranks the top-N highest-impact issues across all dimensions, and emits a single SUMMARY.md. Also writes recurring patterns to claude-flow shared memory for cross-session learning.
+description: Synthesis agent for the adversarial swarm. Reads the worker critique files (security, perf, scope, test-gap, correctness, clarity) from .claude/state/critiques/<sha-dir>/, dedupes overlapping findings, ranks the top-N highest-impact issues across all dimensions, and emits a single SUMMARY.md.
 tools:
   - Read
   - Glob
