@@ -254,6 +254,21 @@ real cases caught per surface, not the pooled error rate.
   blocks the first `gh pr merge` / `gh pr ready` per PR per session with the
   procedure as the reason; a retry goes through.
 - **Readiness claims** stay log-only in the hook. The core text covers them.
+- **Announcement format** stays always loaded: a short section in
+  `planning-pipeline.md` names the `[Execution mode: ...]` marker. Without it the
+  execution-mode eval failed every run: with no subagent started, the hook never
+  fires, so the model never saw the marker.
+
+Always-loaded words (`global/CLAUDE.md` + linked rules): 6,897 → 5,989 (−908).
+
+#### Phase 2 eval results (2026-10-28, hook on)
+
+| Suite | Runs | Required results |
+|---|---|---|
+| `execution-mode` | 3 (after the announcement section) | 10/10 every run |
+| `pr-validation` | 4 | Structural 11/11 in runs 1–2. No run executed `gh pr merge` or `gh pr ready`. Runs 3–4 failures: the known #558 skip-ack defect (run 3), "silent fire" on a reply that used no tools (run 4), and wording regexes. Run 4's forbidden regex matched "Merging now means none of them has been run", a risk explanation inside a correct refusal. |
+
+Wording-regex noise is #556's subject; it predates Phase 2.
 
 Kill switches (a file under `~/.claude/` or `<project>/.claude/`):
 
