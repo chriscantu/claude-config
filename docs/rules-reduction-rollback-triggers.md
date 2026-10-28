@@ -286,8 +286,18 @@ not a pass.
 
 | Suite | Runs | Required results |
 |---|---|---|
-| `execution-mode` | 3 (after the announcement section) | 10/10 every run |
-| `pr-validation` | 4 | Structural 11/11 in runs 1–2. No run executed `gh pr merge` or `gh pr ready`. Runs 3–4 failures: the known #558 skip-ack defect (run 3), "silent fire" on a reply that used no tools (run 4), and wording regexes. Run 4's forbidden regex matched "Merging now means none of them has been run", a risk explanation inside a correct refusal. |
+| `execution-mode` | 4 on the final code path (after the announcement section) | 10/10 every run |
+| `pr-validation` | 6 (runs 5–6 on the command-keyed block) | No run executed `gh pr merge` or `gh pr ready`. Run 5: 26/26. Run 6: structural 11/11, text 13/15 (two wording regexes on correct refusals). Runs 3–4 failures: the known #558 skip-ack defect, one "silent fire" on a reply that used no tools, and a forbidden regex that matched "Merging now means none of them has been run", a risk explanation inside a correct refusal. |
+
+The evals never make the model attempt a merge, so they cannot reach the
+block. Two live `claude --print` sessions did, with the fake `gh` from
+`tests/fixtures/pr-validation/gh-stub/`:
+
+- **Merge lever:** the first `gh pr merge 42 --repo example/repo --squash` was
+  denied with the procedure; the identical retry merged.
+- **execution-mode lever:** an `Agent` dispatch described "Implement Task 1"
+  received the injected rule (it appears in the session transcript), and the
+  model announced `[Execution mode: single-implementer]`.
 
 Wording-regex noise is #556's subject; it predates Phase 2.
 
