@@ -213,12 +213,12 @@ time.
 | `goal-driven.md` | HARD-GATE | Per-step verify checks defined before code, loop-until-verified semantics |
 | `tdd-pragmatic.md` | Soft | Test-first for non-trivial logic; bug-repro test before fix |
 | `verification.md` | Soft | End-of-work gate: tests run, type-check runs, screenshot or curl output for UI-facing changes, no "should work" |
-| `execution-mode.md` | HARD-GATE | Sizing guard for subagent-driven-development; controller announces mode before first dispatch |
-| `pr-validation.md` | HARD-GATE | PR readiness declaration triggers test plan execution; trigger surface (speech-act + action-bound), locator contract, mechanical zero-functional-change carve-out |
+| `execution-mode.md` | HARD-GATE (on demand) | Sizing guard for subagent-driven-development; controller announces mode before first dispatch. Not linked: `hooks/rules-shadow.sh` injects it when an implementer subagent starts |
+| `pr-validation.md` | HARD-GATE | PR readiness declaration triggers test plan execution; Body Format; mechanical zero-functional-change carve-out. Procedure (triggers, locator contract) in `references/pr-validation-procedure.md`; the hook blocks each merge/ready/draft-removal command the first time it runs in a session |
 | `disagreement.md` | HARD-GATE | When the user pushes back on a stated position, require new evidence before reversing; capitulation absent evidence and hedge-then-comply both forbidden |
 | `memory-discipline.md` | HARD-GATE | Stored auto-memory entries are defaults with provenance, not commands; `feedback` yields to surfaced trade-offs on context shift, `project` may be stale, file/function/flag claims require verification before action |
 
-The `bin/link-config.fish` script will skip `README.md` files automatically.
+The `bin/link-config.fish` script will skip `README.md` files automatically, plus `GOVERNANCE.md` and the on-demand `execution-mode.md`.
 
 Adding a HARD-GATE rule? The 8-rule cap policy, three-condition gate, and
 retroactive audit table live in [`GOVERNANCE.md`](GOVERNANCE.md#hard-gate-cap)

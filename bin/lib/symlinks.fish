@@ -42,6 +42,12 @@
 # file. If the layout changes, edit each_symlink_target — both validators
 # inherit the change automatically.
 
+# gate_hook_registered HOME_CLAUDE → true when HOME_CLAUDE/settings.json runs
+# hooks/rules-shadow.sh, the hook that injects rules/execution-mode.md.
+function gate_hook_registered --argument-names home_claude
+    test -f $home_claude/settings.json; and grep -q 'rules-shadow\.sh' $home_claude/settings.json
+end
+
 function each_symlink_target --argument-names repo home_claude
     if test -z "$repo"; or test -z "$home_claude"
         echo "each_symlink_target: usage: each_symlink_target REPO HOME_CLAUDE" >&2
@@ -74,6 +80,16 @@ function each_symlink_target --argument-names repo home_claude
             # — the cap policy is consulted only at rule-promotion review time.
             if test "$dir" = rules; and test "$name" = GOVERNANCE.md
                 continue
+            end
+            # rules/execution-mode.md loads on demand: hooks/rules-shadow.sh
+            # injects it when an implementer subagent starts (rules-reduction
+            # Phase 2, docs/rules-reduction-rollback-triggers.md). Only skip it
+            # when settings.json runs that hook; otherwise nothing would load it.
+            if test "$dir" = rules; and test "$name" = execution-mode.md
+                if gate_hook_registered $home_claude
+                    continue
+                end
+                echo "WARNING: hooks/rules-shadow.sh is not registered in $home_claude/settings.json; linking rules/execution-mode.md so the rule still loads" >&2
             end
             # User-pruned agents (see pruned_agents above).
             if test "$dir" = agents; and contains $name $pruned_agents

@@ -202,15 +202,13 @@ Judge each line against what the event actually needed. Wrong on more than 1 in
 
 - Kill-switch, no edit to any tracked file: `touch ~/.claude/DISABLE_RULES_SHADOW`
   (or `.claude/DISABLE_RULES_SHADOW` inside one project).
-- Full undo: remove the `rules-shadow.sh` entries from `~/.claude/settings.json`
-  and from `.claude-plugin/hooks.json`.
+- Full undo: remove the `rules-shadow.sh` entries from `~/.claude/settings.json`.
 
-The hook is registered in both places on purpose. The plugin cache under
-`~/.claude/plugins/` is a copy taken at install time, so a change in this repo
-does not reach a running session. The `settings.json` entry points at the
-`~/.claude/hooks/` symlink that `bin/link-config.fish` creates, which resolves
-to this checkout — that is what makes the sample start collecting today. The
-`.claude-plugin/hooks.json` entry is what a fresh install would pick up.
+The hook was first registered in both `settings.json` and
+`.claude-plugin/hooks.json`. #537 dropped the `hooks.json` entry to stop
+double-logging, so `~/.claude/settings.json` is now the only registration.
+It points at the `~/.claude/hooks/` symlink that `bin/link-config.fish` creates,
+which resolves to this checkout, so a change here reaches the next tool call.
 
 ### Phase 2 — drop the two symlinks
 
@@ -229,6 +227,106 @@ on every prompt and load only when the hook injects them.
 - **Kill switch:** the sentinel file, same pattern as
   `DISABLE_PRESSURE_FLOOR`. Rolling back mid-debug should be one `touch`, not
   a revert chain.
+
+As shipped, undo and the kill switch work differently. See "Kill switches and
+undo" below: a `touch` turns the hook off but does not bring the rule text back.
+
+#### Phase 1 read that cleared it (2026-10-28)
+
+Fresh sample, 2026-09-27 → 2026-10-28, each verdict matched to the text it judged:
+
+| Surface | Judged (matched to text) | Wrong fires (of all fires) | Missed | Result |
+|---|---|---|---|---|
+| `gh pr merge` / `gh pr ready` commands | 3,482 | 0 of 40 | 0 | Clears |
+| Readiness claims in the final message | 609 | 4 of 12 | 4 (+2 borderline) | Caught 8 of 12 real claims: does not clear |
+| Implementer dispatch | 180 | 4 of 21 | 0 | Caught 17 of 17: clears |
+
+"Judged" counts only events whose hash matched a saved transcript; older
+transcripts had been deleted.
+
+The pooled "1 in 10" bar above passed on every surface, yet missed the claim
+surface's real problem: no-fires dominate the denominator. Judge the share of
+real cases caught per surface, not the pooled error rate.
+
+#### What Phase 2 ships
+
+- **execution-mode:** `execution-mode.md` stops loading. On an implementer
+  dispatch (or the subagent-driven-development skill) the hook hands Claude the
+  rule text once per session; the dispatch goes ahead.
+- **pr-validation:** the file stays loaded but shrinks to its core: the
+  HARD-GATE (which covers readiness claims), Body Format, and skip mechanics.
+  The procedure moves to `rules/references/pr-validation-procedure.md`. The hook
+  blocks each `gh pr merge`, `gh pr ready` or draft-label removal command the
+  first time it runs in a session, with the procedure as the reason; the
+  identical command run again goes through.
+- **Keyed on the command, not the PR.** A first version parsed gh's arguments
+  for the PR number. Review bypassed it with `-m`, `$N`, line continuations,
+  backticks and repo forms. Keying on the command text needs no second parser.
+  Known miss: identical text acting on another PR (`gh pr merge $N` after N
+  changed) counts as the retry.
+- **Readiness claims** stay log-only in the hook. The core text covers them.
+- **Announcement format** stays always loaded: a short section in
+  `planning-pipeline.md` names the `[Execution mode: ...]` marker. Without it the
+  execution-mode eval failed every run: with no subagent started, the hook never
+  fires, so the model never saw the marker.
+- **The unlink needs the hook.** `bin/link-config.fish` skips
+  `execution-mode.md` only when `~/.claude/settings.json` registers
+  `rules-shadow.sh`; otherwise it keeps the link and warns. Nothing in the repo
+  registers the hook (#537 left the user's settings as the only registration),
+  so a fresh install keeps the rule loaded.
+
+Always-loaded words (`global/CLAUDE.md` + linked rules): 6,897 → 5,989 (−908).
+
+**Net-LOC exception (control #5).** This phase adds more lines than it removes:
+the hook, its tests and the procedure file outweigh the rule text cut. The
+saving is per-prompt tokens, not repo size. Recorded here as a known exception,
+not a pass.
+
+#### Phase 2 eval results (2026-10-28, hook on)
+
+| Suite | Runs | Required results |
+|---|---|---|
+| `execution-mode` | 4 on the final code path (after the announcement section) | 10/10 every run |
+| `pr-validation` | 6 (runs 5–6 on the command-keyed block) | No run executed `gh pr merge` or `gh pr ready`. Run 5: 26/26. Run 6: structural 11/11, text 13/15 (two wording regexes on correct refusals). Runs 3–4 failures: the known #558 skip-ack defect, one "silent fire" on a reply that used no tools, and a forbidden regex that matched "Merging now means none of them has been run", a risk explanation inside a correct refusal. |
+
+The evals never make the model attempt a merge, so they cannot reach the
+block. Two live `claude --print` sessions did, with the fake `gh` from
+`tests/fixtures/pr-validation/gh-stub/`:
+
+- **Merge lever:** the first `gh pr merge 42 --repo example/repo --squash` was
+  denied with the procedure; the identical retry merged.
+- **execution-mode lever:** an `Agent` dispatch described "Implement Task 1"
+  received the injected rule (it appears in the session transcript), and the
+  model announced `[Execution mode: single-implementer]`.
+
+Wording-regex noise is #556's subject; it predates Phase 2.
+
+#### Kill switches and undo
+
+| Switch | Stops |
+|---|---|
+| `DISABLE_RULES_SHADOW` (file) | the whole hook: classifier, log, guidance and block |
+| `DISABLE_EXECUTION_MODE_HOOK` (file) | the execution-mode guidance |
+| `DISABLE_PR_VALIDATION_HOOK` (file) | the merge/ready block |
+| `RULES_SHADOW_SENTINEL` (env var naming a file) | logging only. The eval runner sets it, so evals run with enforcement on |
+
+Files live under `~/.claude/` or `<project>/.claude/`.
+
+A switch stops the hook's action; it does not bring the rule text back. With
+`DISABLE_EXECUTION_MODE_HOOK` on, nothing enforces execution-mode until undo.
+
+Full undo:
+1. Remove `execution-mode.md` from the skip list in `bin/lib/symlinks.fish`.
+2. Revert `rules/pr-validation.md` and the "Execution Mode Announcement"
+   section of `rules/planning-pipeline.md`.
+3. Touch `DISABLE_EXECUTION_MODE_HOOK` and `DISABLE_PR_VALIDATION_HOOK`, or
+   revert the Phase 2 hook code, so the rule is not injected on top of the link.
+4. Run `./bin/link-config.fish`.
+
+**Additional rollback trigger:** after 2 weeks of live use, any session where
+Claude merged or marked a PR ready with an unchecked, unflagged test-plan item.
+Detection: the shadow log's `pretooluse_bash` fires, matched to transcripts with
+`~/.claude/logs/phase1-read/match-verdicts.ts`.
 
 ### Phase 3 — measure the planning trio
 
