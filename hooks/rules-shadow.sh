@@ -99,48 +99,120 @@ GATE_STATE_DIR="${RULES_GATE_STATE_DIR:-${TMPDIR:-/tmp}/claude-rules-gate}"
 
 verdict_fires() { [[ "$1" == *"verdict=fire"* ]]; }
 
-# inject_execution_mode_rule → print the PreToolUse output that hands Claude
-# the execution-mode rule at the one moment it applies. The dispatch goes ahead.
+# session_key → a filename-safe id for this session from HOOK_INPUT: the
+# session_id, else the transcript path. Empty when the payload has neither.
+session_key() {
+  local id
+  id=$(hook_input_field '.session_id')
+  [[ -z "$id" ]] && id=$(hook_input_field '.transcript_path')
+  printf '%s' "$id" | tr -c 'A-Za-z0-9_-' '_'
+}
+
+# mark_once NAME → 0 the first time NAME is marked in GATE_STATE_DIR, 1 when it
+# already was. 2 when the marker can't be written: the caller must fail open,
+# since without a marker a block would repeat on every retry.
+mark_once() {
+  local marker="$GATE_STATE_DIR/$1"
+  [[ -e "$marker" ]] && return 1
+  { mkdir -p "$GATE_STATE_DIR" && touch "$marker"; } 2>/dev/null || return 2
+  return 0
+}
+
+# inject_execution_mode_rule SESSION → print the PreToolUse output that hands
+# Claude the execution-mode rule, once per session. The dispatch goes ahead, so
+# the note asks for the announcement before the NEXT dispatch.
 inject_execution_mode_rule() {
+  local session="$1" note
   hook_disabled DISABLE_EXECUTION_MODE_HOOK && return 0
   if [[ ! -r "$EXECUTION_MODE_RULE" ]]; then
     warn_degraded rules-shadow "execution-mode rule not found; no guidance injected"
     return 0
   fi
-  jq -n -c --rawfile rule "$EXECUTION_MODE_RULE" \
-    '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:$rule}}'
+  # Without a session to key on, inject every time rather than never.
+  if [[ -n "$session" ]]; then
+    mark_once "$session-execution-mode" || [[ $? -eq 2 ]] || return 0
+  fi
+  note="A hook added this rule because an implementer subagent just started. If you have not announced your execution mode yet, announce it now, before the next dispatch."
+  jq -n -c --arg note "$note" --rawfile rule "$EXECUTION_MODE_RULE" \
+    '{hookSpecificOutput:{hookEventName:"PreToolUse",additionalContext:($note + "\n\n" + $rule)}}'
 }
 
-# pr_target COMMAND → the PR number a merge or ready names, or "branch" when
-# the command acts on the current branch's PR.
-pr_target() {
-  local number
-  number=$(_gate_strip_mentions "$1" \
-    | grep -oiE 'gh[[:space:]]+pr[[:space:]]+(ready|merge|edit)[[:space:]]+#?[0-9]+' \
-    | grep -oE '[0-9]+$' | head -1)
-  echo "${number:-branch}"
+# pr_targets COMMAND → one line per PR that a merge, ready or draft-label
+# removal in COMMAND acts on: "<repo>#<number>", "branch:<name>", or "current"
+# when no PR is named. Reads only what _gate_strip_mentions leaves, so quoted
+# flag values never pass for a PR. Calls that undo or only print help
+# (--undo, --help, --disable-auto) are not readiness actions and are skipped.
+pr_targets() {
+  _gate_strip_mentions "$1" | awk '
+    {
+      pieces = split($0, piece, /[;&|()]/)
+      for (p = 1; p <= pieces; p++) {
+        n = split(piece[p], t, /[ \t]+/)
+        for (i = 1; i <= n; i++) {
+          if (t[i] !~ /(^|\/)gh$/ || t[i+1] != "pr") continue
+          verb = t[i+2]
+          if (verb != "merge" && verb != "ready" && !(verb == "edit" && piece[p] ~ /--remove-label[ \t=]+draft/)) continue
+          repo = ""; target = ""; skip = 0
+          for (j = i + 3; j <= n; j++) {
+            tok = t[j]
+            if (tok == "" || tok ~ /^["\047]+$/) continue
+            if (tok ~ /^(--undo|--help|-h|--disable-auto)$/) { skip = 1; break }
+            if (tok ~ /^(-R|--repo)$/) { repo = t[++j]; continue }
+            if (tok ~ /^--repo=/) { repo = substr(tok, 8); continue }
+            if (tok ~ /^(-t|--subject|-b|--body|-F|--body-file|-A|--author-email|--match-head-commit|--title|-B|--base|-m|--milestone|--add-label|--remove-label|--add-reviewer|--remove-reviewer|--add-assignee|--remove-assignee)$/) { j++; continue }
+            if (tok ~ /^-/) continue
+            if (target == "") target = tok
+          }
+          if (skip) continue
+          if (target ~ /\/pull\/[0-9]+/) { sub(/.*\/pull\//, "", target); sub(/[^0-9].*/, "", target) }
+          sub(/^#/, "", target)
+          if (target == "") print "current"
+          else if (target ~ /^[0-9]+$/) print repo "#" target
+          else print "branch:" target
+        }
+      }
+    }' | sort -u
 }
 
-# block_first_merge SESSION_ID COMMAND → print a deny for the first merge or
-# ready of each PR in a session, with the test-plan procedure as the reason.
-# A retry goes through: the block puts the procedure in front of Claude once,
-# it does not stand between the user and a merge.
+# describe_target TARGET → the gh pr view arguments that open TARGET's PR.
+describe_target() {
+  case "$1" in
+    current) echo "" ;;
+    branch:*) echo " ${1#branch:}" ;;
+    \#*) echo " ${1#\#}" ;;
+    *) echo " ${1#*#} -R ${1%%#*}" ;;
+  esac
+}
+
+# block_first_merge SESSION COMMAND → print a deny for the first merge or ready
+# of each PR in a session, with the test-plan procedure as the reason. A retry
+# goes through: the block puts the procedure in front of Claude once, it does
+# not stand between the user and a merge.
 block_first_merge() {
+  local session="$1" target new_targets=() views="" status reason
   hook_disabled DISABLE_PR_VALIDATION_HOOK && return 0
-  local session pr marker reason
-  session=$(printf '%s' "${1:-unknown}" | tr -c 'A-Za-z0-9_-' '_')
-  pr=$(pr_target "$2")
-  marker="$GATE_STATE_DIR/$session-$pr"
-  [[ -e "$marker" ]] && return 0
-  # Without a marker every retry would be blocked too, so fail open instead.
-  if ! { mkdir -p "$GATE_STATE_DIR" && touch "$marker"; } 2>/dev/null; then
-    warn_degraded rules-shadow "cannot write $GATE_STATE_DIR; merge not gated"
+  if [[ -z "$session" ]]; then
+    warn_degraded rules-shadow "no session id in the payload; merge not gated"
     return 0
   fi
+  while IFS= read -r target; do
+    [[ -z "$target" ]] && continue
+    mark_once "$session-$(printf '%s' "$target" | tr -c 'A-Za-z0-9_-' '_')"
+    status=$?
+    if [[ $status -eq 2 ]]; then
+      warn_degraded rules-shadow "cannot write $GATE_STATE_DIR; merge not gated"
+      return 0
+    fi
+    [[ $status -eq 0 ]] && new_targets+=("$target")
+  done < <(pr_targets "$2")
+  [[ ${#new_targets[@]} -eq 0 ]] && return 0
 
-  reason="PR validation gate: blocked once for PR $pr in this session. Before merging or marking it ready:
-1. Read its test plan: gh pr view $pr --json body (the '## Test Plan' task list).
-2. Run every unchecked item. Check off only items you verified, with gh pr edit --body.
+  for target in "${new_targets[@]}"; do
+    views+="   gh pr view$(describe_target "$target") --json body"$'\n'
+  done
+  reason="PR validation gate: this command was blocked once, so the test plan runs first. Before merging or marking ready:
+1. Read the test plan (the '## Test Plan' task list):
+${views}2. Run every unchecked item. Check off only items you verified, with gh pr edit --body.
 3. Flag any item you can't verify on this machine, with the reason, in the PR.
 Then run the same command again; it will go through. A skip counts only if the user named the cost (rules/skip-contract.md).
 Full procedure: $PR_VALIDATION_PROCEDURE"
@@ -166,7 +238,7 @@ main() {
   case "$event" in
     PreToolUse)
       tool=$(hook_input_field '.tool_name')
-      session=$(hook_input_field '.session_id')
+      session=$(session_key)
       case "$tool" in
         Bash)
           payload=$(hook_input_field '.tool_input.command')
@@ -178,7 +250,7 @@ main() {
           payload=$(hook_input_field '.tool_input // {}')
           record=$(gate_execution_mode_verdict "$tool" "$payload")
           log_verdict "pretooluse_$(echo "$tool" | tr '[:upper:]' '[:lower:]')" "$record" "$payload"
-          verdict_fires "$record" && inject_execution_mode_rule
+          verdict_fires "$record" && inject_execution_mode_rule "$session"
           ;;
       esac
       ;;

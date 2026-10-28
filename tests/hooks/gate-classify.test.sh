@@ -318,14 +318,16 @@ assert_verdict "missing description fires (recall bias)" fire \
 assert_verdict "review words in the prompt alone do not suppress" fire \
   "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Implement Task 1","prompt":"then review your diff"}')"
 
-# The four false fires in the 2026-10-28 Phase 1 read: job evaluations and
-# research agents that write no code.
-assert_verdict "job-evaluation fork does not fire" no_fire \
+# Since Phase 2 a no_fire means Claude never sees the execution-mode rule, so
+# recall beats precision here. The 2026-10-28 read's four false fires (job
+# evaluations, research agents) stay as known false fires: words like
+# "evaluate" or "mine" also start real implementer tasks.
+assert_verdict "evaluate-and-fix is an implementer" fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Evaluate and fix flaky test"}')"
+assert_verdict "mine as a noun does not hide an implementer" fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Task 2 — mine parser + tests"}')"
+assert_verdict "known false fire: job-evaluation fork" fire \
   "$(gate_execution_mode_verdict Agent '{"subagent_type":"fork","description":"Evaluate Covera Health SVP"}')"
-assert_verdict "transcript-mining agent does not fire" no_fire \
-  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Mine transcripts and gate logs"}')"
-assert_verdict "git archaeology agent does not fire" no_fire \
-  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Rule-origin git archaeology"}')"
 
 echo "── shape guarantees ──"
 

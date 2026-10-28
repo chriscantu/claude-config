@@ -31,6 +31,7 @@ function make_repo_fixture
     mkdir -p $fixture/rules $fixture/agents $fixture/commands $fixture/skills/myskill $fixture/.claude/skills/vendored $fixture/hooks $fixture/global
     echo "# rule" > $fixture/rules/foo.md
     echo "# rule README" > $fixture/rules/README.md
+    echo "# on-demand rule" > $fixture/rules/execution-mode.md
     echo "# agent" > $fixture/agents/bar.md
     echo "# command" > $fixture/commands/baz.md
     echo "# skill" > $fixture/skills/myskill/SKILL.md
@@ -85,7 +86,7 @@ set repo (make_repo_fixture)
 set home (make_home_fixture)
 set entries (each_symlink_target $repo $home)
 # Expected entries:
-#   rules/foo.md (README skipped), agents/bar.md, commands/baz.md,
+#   rules/foo.md (README + execution-mode skipped), agents/bar.md, commands/baz.md,
 #   skills/myskill (dir), .claude/skills/vendored (dir), hooks/real.sh
 #   (test-* skipped), CLAUDE.md
 # Total = 7
@@ -147,6 +148,20 @@ if test $readme_leaked -eq 0
     t_pass "rules/README.md correctly excluded"
 else
     t_fail "rules/README.md leaked into iterator output"
+end
+
+# execution-mode.md loads on demand through the gate hook (rules-reduction
+# Phase 2). Linking it again would load it on every prompt AND inject it.
+set on_demand_leaked 0
+for entry in $entries
+    if string match -q "*rules/execution-mode.md*" $entry
+        set on_demand_leaked 1
+    end
+end
+if test $on_demand_leaked -eq 0
+    t_pass "rules/execution-mode.md correctly excluded"
+else
+    t_fail "rules/execution-mode.md leaked into iterator output"
 end
 
 # test-*.sh must NOT appear

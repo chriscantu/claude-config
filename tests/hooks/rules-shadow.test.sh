@@ -158,38 +158,91 @@ hook_output() { printf '%s' "$1" | bash "$HOOK" 2>/dev/null; }
 # output_field JSON FILTER → FILTER over the hook's stdout, "" when it printed nothing.
 output_field() { hook_output "$1" | jq -r "$2 // empty" 2>/dev/null; }
 
-implementer='{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"general-purpose","description":"Implement Task 1"}}'
-reviewer='{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"general-purpose","description":"Review Task 1 (spec + quality)"}}'
-merge_7='{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"gh pr merge 7 --squash"}}'
-ready_8='{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"gh pr ready 8"}}'
-merge_7_other_session='{"hook_event_name":"PreToolUse","session_id":"s2","tool_name":"Bash","tool_input":{"command":"gh pr merge 7 --squash"}}'
+# dispatch SESSION DESCRIPTION → PreToolUse payload for an Agent dispatch.
+dispatch() {
+  printf '{"hook_event_name":"PreToolUse","session_id":"%s","tool_name":"Agent","tool_input":{"subagent_type":"general-purpose","description":"%s"}}' "$1" "$2"
+}
+# bash_call SESSION COMMAND → PreToolUse payload for a Bash call.
+bash_call() {
+  jq -n -c --arg s "$1" --arg c "$2" '{hook_event_name:"PreToolUse",session_id:$s,tool_name:"Bash",tool_input:{command:$c}}'
+}
+# decision SESSION COMMAND → "deny" when the hook blocks the command, "" when it lets it run.
+decision() { output_field "$(bash_call "$1" "$2")" '.hookSpecificOutput.permissionDecision'; }
+# guidance SESSION DESCRIPTION → how many times the injected text names the rule.
+guidance() { output_field "$(dispatch "$1" "$2")" '.hookSpecificOutput.additionalContext' | grep -c 'Execution Mode Selection'; }
 
-assert_eq "implementer dispatch gets the execution-mode rule" 1 \
-  "$(output_field "$implementer" '.hookSpecificOutput.additionalContext' | grep -c 'Execution Mode Selection')"
+echo "  · execution-mode guidance"
+assert_eq "implementer dispatch gets the execution-mode rule" 1 "$(guidance e1 'Implement Task 1')"
+assert_eq "the rule comes once per session" 0 "$(guidance e1 'Implement Task 2')"
+assert_eq "a new session gets it again" 1 "$(guidance e2 'Implement Task 1')"
 assert_eq "implementer dispatch is not blocked" "" \
-  "$(output_field "$implementer" '.hookSpecificOutput.permissionDecision')"
-assert_eq "reviewer dispatch gets nothing" "" "$(hook_output "$reviewer")"
+  "$(output_field "$(dispatch e3 'Implement Task 1')" '.hookSpecificOutput.permissionDecision')"
+assert_eq "reviewer dispatch gets nothing" "" "$(hook_output "$(dispatch e4 'Review Task 1 (spec + quality)')")"
+assert_eq "injected text says to announce before the next dispatch" 1 \
+  "$(output_field "$(dispatch e5 'Implement Task 1')" '.hookSpecificOutput.additionalContext' | grep -c 'before the next dispatch')"
 
-assert_eq "first merge of a PR is blocked" deny \
-  "$(output_field "$merge_7" '.hookSpecificOutput.permissionDecision')"
-assert_eq "block reason names the test plan" 1 \
-  "$(output_field "$merge_7_other_session" '.hookSpecificOutput.permissionDecisionReason' | grep -c 'test plan')"
-assert_eq "retry of the same PR is allowed" "" "$(hook_output "$merge_7")"
-assert_eq "a different PR is blocked again" deny \
-  "$(output_field "$ready_8" '.hookSpecificOutput.permissionDecision')"
-assert_eq "a plain command is never blocked" "" \
-  "$(hook_output '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"git status"}}')"
+echo "  · merge/ready gate"
+assert_eq "first merge of a PR is blocked" deny "$(decision m1 'gh pr merge 7 --squash')"
+assert_eq "retry of the same PR is allowed" "" "$(decision m1 'gh pr merge 7 --squash')"
+assert_eq "a different PR is blocked again" deny "$(decision m1 'gh pr ready 8')"
+assert_eq "the same PR in a new session is blocked again" deny "$(decision m2 'gh pr merge 7 --squash')"
+assert_eq "a plain command is never blocked" "" "$(decision m1 'git status')"
 
+reason=$(output_field "$(bash_call m3 'gh pr merge 7 --squash')" '.hookSpecificOutput.permissionDecisionReason')
+assert_eq "block reason gives the PR's test-plan command" 1 "$(grep -c 'gh pr view 7 --json body' <<<"$reason")"
+procedure=$(sed -n 's/^Full procedure: //p' <<<"$reason")
+procedure_readable=no
+[[ -r "$procedure" ]] && procedure_readable=yes
+assert_eq "block reason points at a procedure file that exists" yes "$procedure_readable"
+
+# Each form below names a different PR; each must get its own block.
+assert_eq "flag before the number keys on the number" deny "$(decision m4 'gh pr merge --squash 21')"
+assert_eq "second flag-first merge of another PR is blocked" deny "$(decision m4 'gh pr merge --squash 22')"
+# Unquoted, #21 starts a shell comment, so this merges the current branch's PR.
+assert_eq "unquoted #N is a comment: current PR" deny "$(decision m4 'gh pr merge #21')"
+assert_eq "URL form keys on the PR number" deny "$(decision m4 'gh pr merge https://github.com/o/r/pull/23')"
+assert_eq "-R repo form is blocked" deny "$(decision m4 'gh pr merge -R o/r 24')"
+assert_eq "same number in another repo is blocked" deny "$(decision m4 'gh pr merge -R x/y 24')"
+assert_eq "quoted flag values are not read as a PR" deny "$(decision m4 'gh pr merge --subject "fix 99" 25')"
+assert_eq "retry of the quoted form is allowed" "" "$(decision m4 'gh pr merge --subject "fix 99" 25')"
+assert_eq "branch name is its own target" deny "$(decision m5 'gh pr merge feature/foo')"
+assert_eq "another branch name is blocked again" deny "$(decision m5 'gh pr merge feature/bar')"
+assert_eq "no PR named means the current branch's PR" deny "$(decision m5 'gh pr merge --squash')"
+assert_eq "every PR in one command is gated" deny "$(decision m6 'gh pr merge 30 && gh pr merge 31')"
+assert_eq "after that block, each PR alone is allowed" "" "$(decision m6 'gh pr merge 31')"
+assert_eq "an edit before a merge does not steal the key" deny "$(decision m7 'gh pr edit 7 --title x && gh pr merge 40')"
+assert_eq "...and the merged PR is the one recorded" "" "$(decision m7 'gh pr merge 40')"
+
+# Commands that turn a PR back into a draft, or only print help, are not readiness actions.
+assert_eq "ready --undo is not blocked" "" "$(decision m8 'gh pr ready 12 --undo')"
+assert_eq "...and does not use up the PR's block" deny "$(decision m8 'gh pr merge 12 --squash')"
+assert_eq "merge --help is not blocked" "" "$(decision m8 'gh pr merge --help')"
+assert_eq "merge --disable-auto is not blocked" "" "$(decision m8 'gh pr merge 13 --disable-auto')"
+
+echo "  · degraded paths"
+no_session='{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"gh pr merge 50"}}'
+with_transcript='{"hook_event_name":"PreToolUse","transcript_path":"/tmp/t-abc.jsonl","tool_name":"Bash","tool_input":{"command":"gh pr merge 51"}}'
+assert_eq "no session id and no transcript: not blocked" "" "$(hook_output "$no_session")"
+assert_eq "...and says so on stderr" 1 \
+  "$(printf '%s' "$no_session" | bash "$HOOK" 2>&1 >/dev/null | grep -c 'no session id')"
+assert_eq "no session id: keys on the transcript path" deny \
+  "$(output_field "$with_transcript" '.hookSpecificOutput.permissionDecision')"
+assert_eq "unwritable state dir fails open" "" \
+  "$(bash_call f1 'gh pr merge 60' | RULES_GATE_STATE_DIR=/dev/null/x bash "$HOOK" 2>/dev/null)"
+assert_eq "...and says so on stderr" 1 \
+  "$(bash_call f1 'gh pr merge 60' | RULES_GATE_STATE_DIR=/dev/null/x bash "$HOOK" 2>&1 >/dev/null | grep -c 'merge not gated')"
+
+echo "  · kill switches"
 touch "$HOOK_SENTINEL_DIR/DISABLE_EXECUTION_MODE_HOOK"
-assert_eq "execution-mode kill switch stops the guidance" "" "$(hook_output "$implementer")"
-assert_eq "execution-mode kill switch leaves the merge gate on" deny \
-  "$(output_field '{"hook_event_name":"PreToolUse","session_id":"s3","tool_name":"Bash","tool_input":{"command":"gh pr merge 9"}}' '.hookSpecificOutput.permissionDecision')"
+assert_eq "execution-mode kill switch stops the guidance" "" "$(hook_output "$(dispatch k1 'Implement Task 1')")"
+assert_eq "execution-mode kill switch leaves the merge gate on" deny "$(decision k1 'gh pr merge 9')"
 rm "$HOOK_SENTINEL_DIR/DISABLE_EXECUTION_MODE_HOOK"
+assert_eq "switching it back on restores the guidance" 1 "$(guidance k1 'Implement Task 1')"
 
 touch "$HOOK_SENTINEL_DIR/DISABLE_PR_VALIDATION_HOOK"
-assert_eq "pr-validation kill switch stops the block" "" \
-  "$(hook_output '{"hook_event_name":"PreToolUse","session_id":"s4","tool_name":"Bash","tool_input":{"command":"gh pr merge 10"}}')"
+assert_eq "pr-validation kill switch stops the block" "" "$(decision k2 'gh pr merge 10')"
 rm "$HOOK_SENTINEL_DIR/DISABLE_PR_VALIDATION_HOOK"
+assert_eq "switching it back on restores the block" deny "$(decision k2 'gh pr merge 10')"
 
 # The eval runner sets RULES_SHADOW_SENTINEL to keep eval events out of the log.
 # Phase 2 evals must still run with enforcement on.

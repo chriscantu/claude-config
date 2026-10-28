@@ -203,11 +203,9 @@ gate_pr_validation_verdict() {
 #      review UI" still fires.
 # Anything neither signal settles fires: a missed announcement is the failure
 # the rule exists to catch, and an extra fire is visible in the log.
-# evaluate, mine and archaeology come from the 2026-10-28 Phase 1 read: job
-# evaluations and research agents were its only false fires.
 EXECUTION_MODE_READ_ONLY_TYPE='(^|:)(explore|plan|claude-code-guide|statusline-setup|arbiter)$|(reviewer|adversary|analyzer|challenger|hunter)$'
 EXECUTION_MODE_IMPLEMENT_VERB='^(implement|build|write|add|create|fix|refactor|migrate|port|update|apply|wire|remove|delete|rename)\b'
-EXECUTION_MODE_REVIEW_WORD='\b(re-?review|review|audit|critique|analy[sz]e|explore|investigate|research|search|find|verify|check|evaluate|mine|archaeology)\b'
+EXECUTION_MODE_REVIEW_WORD='\b(re-?review|review|audit|critique|analy[sz]e|explore|investigate|research|search|find|verify|check)\b'
 
 # _gate_dispatch_is_implementer TOOL_INPUT_JSON → 0 when the dispatch may write code.
 _gate_dispatch_is_implementer() {
