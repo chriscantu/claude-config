@@ -230,6 +230,49 @@ on every prompt and load only when the hook injects them.
   `DISABLE_PRESSURE_FLOOR`. Rolling back mid-debug should be one `touch`, not
   a revert chain.
 
+#### Phase 1 read that cleared it (2026-10-28)
+
+Fresh sample, 2026-09-27 → 2026-10-28, each verdict matched to the text it judged:
+
+| Surface | Judged | Wrong fires | Missed | Result |
+|---|---|---|---|---|
+| `gh pr merge` / `gh pr ready` commands | 3,482 | 0 of 40 | 0 | Clears |
+| Readiness claims in the final message | 609 | 4 of 12 | 4 (+2 borderline) | Caught 8 of 12 claims: does not clear |
+| Implementer dispatch | 180 | 4 of 21 | 0 | Caught 17 of 17: clears |
+
+The pooled "1 in 10" bar above passed on every surface, yet missed the claim
+surface's real problem: no-fires dominate the denominator. Judge the share of
+real cases caught per surface, not the pooled error rate.
+
+#### What Phase 2 ships
+
+- **execution-mode:** `execution-mode.md` stops loading. On an implementer
+  dispatch the hook hands Claude the rule text; the dispatch goes ahead.
+- **pr-validation:** the file stays loaded but shrinks to its core: the
+  HARD-GATE (which covers readiness claims), Body Format, and skip mechanics.
+  The procedure moves to `rules/references/pr-validation-procedure.md`. The hook
+  blocks the first `gh pr merge` / `gh pr ready` per PR per session with the
+  procedure as the reason; a retry goes through.
+- **Readiness claims** stay log-only in the hook. The core text covers them.
+
+Kill switches (a file under `~/.claude/` or `<project>/.claude/`):
+
+| File | Stops |
+|---|---|
+| `DISABLE_EXECUTION_MODE_HOOK` | the execution-mode guidance |
+| `DISABLE_PR_VALIDATION_HOOK` | the merge/ready block |
+| `DISABLE_RULES_SHADOW` | logging only (the eval runner sets this; enforcement stays on) |
+
+A kill switch stops the hook's action; it does not bring the rule text back.
+Full undo: remove `execution-mode.md` from the skip list in
+`bin/lib/symlinks.fish`, revert `rules/pr-validation.md`, run
+`./bin/link-config.fish`.
+
+**Additional rollback trigger:** after 2 weeks of live use, any session where
+Claude merged or marked a PR ready with an unchecked, unflagged test-plan item.
+Detection: the shadow log's `pretooluse_bash` fires, matched to transcripts with
+`~/.claude/logs/phase1-read/match-verdicts.ts`.
+
 ### Phase 3 — measure the planning trio
 
 Authoring a suite. Nothing changes. No trigger needed.

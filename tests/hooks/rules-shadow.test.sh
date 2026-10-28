@@ -11,6 +11,10 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 export RULES_SHADOW_LOG_DIR="$TMP/logs"
 LOG="$RULES_SHADOW_LOG_DIR/rules-shadow.log"
+# Keep the real ~/.claude kill switches and the real gate state out of every test.
+export HOOK_SENTINEL_DIR="$TMP/sentinels"
+export RULES_GATE_STATE_DIR="$TMP/gate-state"
+mkdir -p "$HOOK_SENTINEL_DIR"
 
 PASS=0
 FAIL=0
@@ -143,6 +147,57 @@ RULES_SHADOW_SENTINEL="$SENTINEL" \
   printf '%s' '{"hook_event_name":"PreToolUse","tool_name":"Bash","tool_input":{"command":"gh pr merge 1"}}' \
   | RULES_SHADOW_SENTINEL="$SENTINEL" bash "$HOOK" >/dev/null 2>&1
 assert_eq "sentinel suppresses logging" "" "$(cat "$LOG" 2>/dev/null)"
+
+echo "── Phase 2: enforcement ──"
+# Phase 2 unlinks execution-mode.md and trims pr-validation.md, so the hook now
+# acts: guidance on an implementer dispatch, a block on the first merge or ready
+# per PR. Each lever has its own kill switch, apart from the logging sentinel.
+
+# hook_output JSON → the hook's stdout.
+hook_output() { printf '%s' "$1" | bash "$HOOK" 2>/dev/null; }
+# output_field JSON FILTER → FILTER over the hook's stdout, "" when it printed nothing.
+output_field() { hook_output "$1" | jq -r "$2 // empty" 2>/dev/null; }
+
+implementer='{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"general-purpose","description":"Implement Task 1"}}'
+reviewer='{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Agent","tool_input":{"subagent_type":"general-purpose","description":"Review Task 1 (spec + quality)"}}'
+merge_7='{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"gh pr merge 7 --squash"}}'
+ready_8='{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"gh pr ready 8"}}'
+merge_7_other_session='{"hook_event_name":"PreToolUse","session_id":"s2","tool_name":"Bash","tool_input":{"command":"gh pr merge 7 --squash"}}'
+
+assert_eq "implementer dispatch gets the execution-mode rule" 1 \
+  "$(output_field "$implementer" '.hookSpecificOutput.additionalContext' | grep -c 'Execution Mode Selection')"
+assert_eq "implementer dispatch is not blocked" "" \
+  "$(output_field "$implementer" '.hookSpecificOutput.permissionDecision')"
+assert_eq "reviewer dispatch gets nothing" "" "$(hook_output "$reviewer")"
+
+assert_eq "first merge of a PR is blocked" deny \
+  "$(output_field "$merge_7" '.hookSpecificOutput.permissionDecision')"
+assert_eq "block reason names the test plan" 1 \
+  "$(output_field "$merge_7_other_session" '.hookSpecificOutput.permissionDecisionReason' | grep -c 'test plan')"
+assert_eq "retry of the same PR is allowed" "" "$(hook_output "$merge_7")"
+assert_eq "a different PR is blocked again" deny \
+  "$(output_field "$ready_8" '.hookSpecificOutput.permissionDecision')"
+assert_eq "a plain command is never blocked" "" \
+  "$(hook_output '{"hook_event_name":"PreToolUse","session_id":"s1","tool_name":"Bash","tool_input":{"command":"git status"}}')"
+
+touch "$HOOK_SENTINEL_DIR/DISABLE_EXECUTION_MODE_HOOK"
+assert_eq "execution-mode kill switch stops the guidance" "" "$(hook_output "$implementer")"
+assert_eq "execution-mode kill switch leaves the merge gate on" deny \
+  "$(output_field '{"hook_event_name":"PreToolUse","session_id":"s3","tool_name":"Bash","tool_input":{"command":"gh pr merge 9"}}' '.hookSpecificOutput.permissionDecision')"
+rm "$HOOK_SENTINEL_DIR/DISABLE_EXECUTION_MODE_HOOK"
+
+touch "$HOOK_SENTINEL_DIR/DISABLE_PR_VALIDATION_HOOK"
+assert_eq "pr-validation kill switch stops the block" "" \
+  "$(hook_output '{"hook_event_name":"PreToolUse","session_id":"s4","tool_name":"Bash","tool_input":{"command":"gh pr merge 10"}}')"
+rm "$HOOK_SENTINEL_DIR/DISABLE_PR_VALIDATION_HOOK"
+
+# The eval runner sets RULES_SHADOW_SENTINEL to keep eval events out of the log.
+# Phase 2 evals must still run with enforcement on.
+reset_log
+assert_eq "logging sentinel leaves enforcement on" deny \
+  "$(printf '%s' '{"hook_event_name":"PreToolUse","session_id":"s5","tool_name":"Bash","tool_input":{"command":"gh pr merge 11"}}' \
+     | RULES_SHADOW_SENTINEL="$SENTINEL" bash "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.permissionDecision')"
+assert_eq "logging sentinel still suppresses logging" "" "$(cat "$LOG" 2>/dev/null)"
 
 echo
 echo "────────────────────────────────"

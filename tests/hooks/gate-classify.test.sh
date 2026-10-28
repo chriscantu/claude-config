@@ -318,6 +318,15 @@ assert_verdict "missing description fires (recall bias)" fire \
 assert_verdict "review words in the prompt alone do not suppress" fire \
   "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Implement Task 1","prompt":"then review your diff"}')"
 
+# The four false fires in the 2026-10-28 Phase 1 read: job evaluations and
+# research agents that write no code.
+assert_verdict "job-evaluation fork does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"fork","description":"Evaluate Covera Health SVP"}')"
+assert_verdict "transcript-mining agent does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Mine transcripts and gate logs"}')"
+assert_verdict "git archaeology agent does not fire" no_fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Rule-origin git archaeology"}')"
+
 echo "── shape guarantees ──"
 
 record="$(gate_pr_validation_verdict bash 'gh pr ready')"
