@@ -75,6 +75,12 @@ function each_symlink_target --argument-names repo home_claude
             if test "$dir" = rules; and test "$name" = GOVERNANCE.md
                 continue
             end
+            # rules/execution-mode.md loads on demand: hooks/rules-shadow.sh
+            # injects it when an implementer subagent starts (rules-reduction
+            # Phase 2, docs/rules-reduction-rollback-triggers.md).
+            if test "$dir" = rules; and test "$name" = execution-mode.md
+                continue
+            end
             # User-pruned agents (see pruned_agents above).
             if test "$dir" = agents; and contains $name $pruned_agents
                 continue
