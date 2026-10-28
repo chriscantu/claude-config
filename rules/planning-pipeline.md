@@ -117,6 +117,13 @@ to Prototype/POC tier and run the standard pipeline. The named-cost emission con
 in [`skip-contract.md`](skip-contract.md#emission-contract-per-gate) is NOT a
 tier-downgrade mechanism; it bypasses individual gates, not the entire pipeline.
 
+## Execution Mode Announcement
+
+Before starting implementation, announce the mode in one line:
+`[Execution mode: single-implementer]` or `[Execution mode: subagent-driven]`,
+plus the rationale. The sizing rule, [`execution-mode.md`](execution-mode.md),
+loads on demand: a hook injects it when an implementer subagent starts.
+
 ## Decision Framework
 
 When evaluating approaches (during brainstorming or any solution comparison):
