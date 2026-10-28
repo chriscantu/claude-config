@@ -36,11 +36,12 @@ otherwise call it directly.
 ## Skip override — what counts
 
 Saying "skip the gate" is NOT sufficient on its own. An override must
-**name the specific cost** being accepted. Valid forms cite the gate by
-name AND the specific risk accepted: "skip the sketch, I accept the
-rework risk"; "no verify checks, I'll catch breakage in review"; "skip
-pr-validation, I accept the risk of unverified merge"; "skip DTP, I
-accept the risk of building on an unstated problem". Generic
+**name the gate and the specific cost** being accepted, both. Valid
+forms: "skip the sketch, I accept the rework risk"; "skip goal-driven,
+I'll catch breakage in review"; "skip pr-validation, I accept the risk
+of unverified merge"; "skip DTP, I accept the risk of building on an
+unstated problem". A risk with no gate named does NOT qualify, however
+specific: "fix forward, I'll catch it in prod" names no gate. Generic
 acknowledgements ("trust me," "I accept the trade-off," "your call,"
 "I know the risks," "you know what I want," "ship it") do NOT qualify
 — name the gate, request the specific cost acknowledgement, and
