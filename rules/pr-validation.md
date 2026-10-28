@@ -2,8 +2,8 @@
 description: >
   Activate before declaring a PR ready for merge or invoking any
   draft-promoting tool call. Requires execution of every unchecked test
-  plan item before readiness is claimed. Core only since rules-reduction
-  Phase 2; the full procedure is in references/pr-validation-procedure.md.
+  plan item before readiness is claimed. Core only; the full procedure is
+  in references/pr-validation-procedure.md.
 ---
 
 # PR Validation Gate
@@ -26,9 +26,10 @@ equivalent. Err on the side of treating a phrase as a claim.
 If you catch yourself about to claim PR readiness without having
 executed the test plan, STOP. Run the plan. Then claim ready.
 
-A hook blocks the first merge or ready per PR in a session and repeats
-this gate. The test-plan format, detection states and fork fallback live
-in [`references/pr-validation-procedure.md`](references/pr-validation-procedure.md).
+A hook blocks each merge, ready or draft-label removal command the first
+time it runs in a session; its block reason restates the test-plan steps.
+The test-plan format, detection states and fork fallback live in
+[`references/pr-validation-procedure.md`](references/pr-validation-procedure.md).
 
 Before `gh pr create`, `gh issue create`, or any edit that rewrites a
 PR or issue body, the body MUST follow [Body Format](#body-format).
@@ -52,7 +53,7 @@ not paragraphs.
 
 Other sections (Summary, Root cause, Trade-offs) may follow; they don't
 replace the required labels. PRs still need `## Test Plan` per the
-locator contract in the procedure reference. The When to Skip carve-outs apply to the
+locator contract in [the procedure reference](references/pr-validation-procedure.md#test-plan-locator-contract). The When to Skip carve-outs apply to the
 test-plan gate only; Body Format has none.
 
 This section rides on this file's symlink. If the rules-reduction

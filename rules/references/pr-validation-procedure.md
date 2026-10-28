@@ -1,8 +1,9 @@
 # PR Validation — Full Procedure
 
 Not loaded on every prompt. `rules/pr-validation.md` keeps the always-loaded
-core. The gate hook (`hooks/rules-shadow.sh`) blocks the first `gh pr merge` or
-`gh pr ready` per PR in a session and points here. Moved out of the rule in
+core. The gate hook (`hooks/rules-shadow.sh`) blocks each `gh pr merge`,
+`gh pr ready` or draft-label removal command the first time it runs in a
+session, and points here. Moved out of the rule in
 rules-reduction Phase 2 (`docs/rules-reduction-rollback-triggers.md`).
 
 ## Trigger Surface

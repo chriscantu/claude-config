@@ -43,8 +43,10 @@ function make_repo_fixture
     echo $fixture
 end
 
+# Registers the gate hook, as a real install does, so execution-mode.md is skipped.
 function make_home_fixture
     set fixture (mktemp -d)
+    echo '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/x/hooks/rules-shadow.sh"}]}]}}' >$fixture/settings.json
     echo $fixture
 end
 
@@ -163,6 +165,22 @@ if test $on_demand_leaked -eq 0
 else
     t_fail "rules/execution-mode.md leaked into iterator output"
 end
+
+# Without the hook registered nothing would inject execution-mode.md, so it
+# stays linked and the iterator warns on stderr.
+set bare_home (mktemp -d)
+set bare_entries (each_symlink_target $repo $bare_home 2>$bare_home/stderr)
+if string match -q "*rules/execution-mode.md*" $bare_entries
+    t_pass "rules/execution-mode.md stays linked when the gate hook is not registered"
+else
+    t_fail "rules/execution-mode.md dropped although no hook would inject it"
+end
+if grep -q 'rules-shadow.sh is not registered' $bare_home/stderr
+    t_pass "unregistered gate hook is reported on stderr"
+else
+    t_fail "no warning for an unregistered gate hook"
+end
+cleanup_fixture $bare_home
 
 # test-*.sh must NOT appear
 set test_hook_leaked 0

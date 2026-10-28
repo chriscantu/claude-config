@@ -1196,7 +1196,7 @@ function _phase_1p
         # the bullet inventory hangs off. Without this, a README that lost the
         # header AND has zero on-disk subdirs would silently pass the
         # bidirectional check (both lists empty → match). Mirrors the test-plan
-        # locator contract in rules/pr-validation.md.
+        # locator contract in rules/references/pr-validation-procedure.md.
         set -l header_check (grep -cE '^Current suites:\s*$' $rules_evals_readme)
         set -l header_grep_status $status
         if test $header_grep_status -ge 2

@@ -121,8 +121,8 @@ tier-downgrade mechanism; it bypasses individual gates, not the entire pipeline.
 
 Before starting implementation, announce the mode in one line:
 `[Execution mode: single-implementer]` or `[Execution mode: subagent-driven]`,
-plus the rationale. The sizing rule, [`execution-mode.md`](execution-mode.md),
-loads on demand: a hook injects it when an implementer subagent starts.
+plus the rationale. The sizing rule, `rules/execution-mode.md`, is not loaded
+on every prompt: a hook injects it when an implementer subagent starts.
 
 ## Decision Framework
 

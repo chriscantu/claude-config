@@ -1,12 +1,13 @@
 #!/bin/bash
-# gate-classify.sh — Phase 1 shadow classifier (sourced, never executed).
+# gate-classify.sh — gate classifier for the rules-reduction program (sourced,
+# never executed).
 #
 # Answers one question per gate: given an event the agent just produced, SHOULD
-# the gate fire? Phase 1 only logs the answer — both rules stay loaded and
-# nothing here changes behavior. Phase 2 reuses these same functions to inject
-# the guidance once the rule text is unlinked, so the verdicts measured in
-# Phase 1 are the verdicts Phase 2 ships. Forking the two would measure one
-# classifier and deploy a different one.
+# the gate fire? Phase 1 logged the answer and changed nothing. Since Phase 2 the
+# hook acts on it: a pr-validation action fire blocks the command once, and an
+# execution-mode fire injects the rule. The verdicts measured in Phase 1 are the
+# verdicts Phase 2 ships, so the hook must never second-guess them with its own
+# parsing: a second parser would measure one classifier and deploy another.
 #
 # Every function is PURE: input as arguments, one record on stdout, no I/O.
 # That is the seam tests/hooks/gate-classify.test.sh crosses directly.
@@ -43,12 +44,42 @@
 # Known misses, pinned by tests: a command run through something that takes its
 # own arguments or options (`xargs gh pr merge`, `timeout 60 gh …`, `sudo -u me
 # gh …`), a script passed as a quoted string (`bash -c 'gh pr merge 1'`), and a
-# case arm (`a) gh pr merge 1;;`). Each costs one absent log line. Matching them
-# would bring the mention class back.
+# case arm (`a) gh pr merge 1;;`). Since Phase 2 each one is a merge that goes
+# through unblocked. Matching them would bring the mention class back.
 # shellcheck disable=SC2016  # the backticks are regex characters, not an expansion
 PR_VALIDATION_CMD_POSITION='(^|[;&|(`])[[:space:]]*((then|do|else|if|while|until|time|and|or|not|\{|!|[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*|command|exec|sudo|env|nohup)[[:space:]]+)*([^[:space:];&|()`]*/)?'
 
-PR_VALIDATION_ACTION_PATTERN="${PR_VALIDATION_CMD_POSITION}gh[[:space:]]+pr[[:space:]]+(ready|merge)\\b|${PR_VALIDATION_CMD_POSITION}gh[[:space:]]+pr[[:space:]]+edit\\b[^|;&]*--remove-label[[:space:]]+draft"
+# gh accepts a repo flag before the subcommand: `gh -R o/r pr merge 5`.
+PR_VALIDATION_GH_PR="${PR_VALIDATION_CMD_POSITION}gh[[:space:]]+((-R|--repo)([[:space:]]+|=)[^[:space:]]+[[:space:]]+)?pr[[:space:]]+"
+PR_VALIDATION_ACTION_PATTERN="${PR_VALIDATION_GH_PR}(ready|merge)\\b"
+PR_VALIDATION_EDIT_PATTERN="${PR_VALIDATION_GH_PR}edit\\b"
+
+# Read from the RAW command: _gate_strip_mentions blanks a quoted "draft".
+# Matches draft alone, quoted, after =, or inside a comma list (wip,draft).
+PR_VALIDATION_DRAFT_LABEL="--remove-label([[:space:]]+|=)[\"']?([^\"'[:space:],]+,)*draft([\"',[:space:]]|\$)"
+
+# These calls undo readiness or only print help, so they are not readiness actions.
+PR_VALIDATION_NOT_READINESS='[[:space:]](--undo|--help|-h|--disable-auto)([[:space:]]|$)'
+
+# _gate_action_fires COMMAND → 0 when some command in COMMAND really runs a
+# merge, a ready, or a draft-label removal. Commands are checked one at a time
+# (split on ; & |), so `gh pr ready 1 --undo && gh pr merge 1` still fires. The
+# draft label is checked against the whole raw command: approximate, but only
+# once a real `gh pr edit` runs, so a quoted mention alone never fires.
+_gate_action_fires() {
+  local raw="$1" command
+  while IFS= read -r command; do
+    if grep -qiE "$PR_VALIDATION_ACTION_PATTERN" <<<"$command" \
+       && ! grep -qiE -- "$PR_VALIDATION_NOT_READINESS" <<<"$command"; then
+      return 0
+    fi
+    if grep -qiE "$PR_VALIDATION_EDIT_PATTERN" <<<"$command" \
+       && grep -qiE -- "$PR_VALIDATION_DRAFT_LABEL" <<<"$raw"; then
+      return 0
+    fi
+  done < <(_gate_strip_mentions "$raw" | tr ';&|' '\n')
+  return 1
+}
 
 # _gate_strip_mentions COMMAND → COMMAND with shell data blanked, so only text
 # the shell would execute is left to match. Each blanked character becomes a
@@ -166,7 +197,7 @@ gate_pr_validation_verdict() {
 
   case "$surface" in
     bash)
-      if _gate_strip_mentions "$payload" | grep -qiE "$PR_VALIDATION_ACTION_PATTERN"; then
+      if _gate_action_fires "$payload"; then
         trigger=action
         verdict=fire
       fi
@@ -201,8 +232,9 @@ gate_pr_validation_verdict() {
 #      ("Implement Task 3" vs "Review Task 3") breaks the tie. An implement
 #      verb in first position wins over a review word later on, so "Build code
 #      review UI" still fires.
-# Anything neither signal settles fires: a missed announcement is the failure
-# the rule exists to catch, and an extra fire is visible in the log.
+# Anything neither signal settles fires: a miss means Claude never sees the
+# rule (it is not loaded since Phase 2), while an extra fire costs one injection
+# of the rule text per session.
 EXECUTION_MODE_READ_ONLY_TYPE='(^|:)(explore|plan|claude-code-guide|statusline-setup|arbiter)$|(reviewer|adversary|analyzer|challenger|hunter)$'
 EXECUTION_MODE_IMPLEMENT_VERB='^(implement|build|write|add|create|fix|refactor|migrate|port|update|apply|wire|remove|delete|rename)\b'
 EXECUTION_MODE_REVIEW_WORD='\b(re-?review|review|audit|critique|analy[sz]e|explore|investigate|research|search|find|verify|check)\b'
