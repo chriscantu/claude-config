@@ -48,6 +48,38 @@ assert_verdict "unrelated command does not fire" no_fire \
 assert_eq "action trigger is labelled" action \
   "$(field "$(gate_pr_validation_verdict bash 'gh pr merge 529')" trigger)"
 
+echo "── pr-validation: draft removal and repo flags (2026-10-28 review) ──"
+
+assert_verdict "--remove-label=draft fires" fire \
+  "$(gate_pr_validation_verdict bash 'gh pr edit 12 --remove-label=draft')"
+assert_verdict "quoted draft label fires" fire \
+  "$(gate_pr_validation_verdict bash 'gh pr edit 12 --remove-label "draft"')"
+assert_verdict "draft inside a label list fires" fire \
+  "$(gate_pr_validation_verdict bash 'gh pr edit 12 --remove-label wip,draft')"
+assert_verdict "removing another label does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'gh pr edit 12 --remove-label drafting-notes')"
+assert_verdict "draft removal named only in an echo does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'echo "gh pr edit 12 --remove-label draft"')"
+assert_verdict "global -R before pr fires" fire \
+  "$(gate_pr_validation_verdict bash 'gh -R o/r pr merge 5')"
+assert_verdict "global --repo= before pr fires" fire \
+  "$(gate_pr_validation_verdict bash 'gh --repo=o/r pr ready 5')"
+
+echo "── pr-validation: calls that are not readiness actions ──"
+
+assert_verdict "ready --undo does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'gh pr ready 12 --undo')"
+assert_verdict "merge --help does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'gh pr merge --help')"
+assert_verdict "merge -h does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'gh pr merge -h')"
+assert_verdict "merge --disable-auto does not fire" no_fire \
+  "$(gate_pr_validation_verdict bash 'gh pr merge 12 --disable-auto')"
+assert_verdict "undo first, real merge after still fires" fire \
+  "$(gate_pr_validation_verdict bash 'gh pr ready 12 --undo && gh pr merge 12')"
+assert_verdict "merge -m with a number still fires" fire \
+  "$(gate_pr_validation_verdict bash 'gh pr merge -m 12')"
+
 echo "── pr-validation: the command must actually be invoked ──"
 # A command that merely MENTIONS the trigger text is not a draft promotion.
 
@@ -317,6 +349,18 @@ assert_verdict "missing description fires (recall bias)" fire \
   "$(gate_execution_mode_verdict Task '{"subagent_type":"general-purpose","prompt":"go"}')"
 assert_verdict "review words in the prompt alone do not suppress" fire \
   "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Implement Task 1","prompt":"then review your diff"}')"
+
+# Since Phase 2 a no_fire means Claude never sees the execution-mode rule, so
+# recall beats precision here. The 2026-10-28 read's four false fires (job
+# evaluations, research agents) stay as known false fires. "evaluate" and
+# "mine" stay out of EXECUTION_MODE_REVIEW_WORD on purpose: they also start
+# real implementer tasks.
+assert_verdict "evaluate-and-fix is an implementer" fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Evaluate and fix flaky test"}')"
+assert_verdict "mine as a noun does not hide an implementer" fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"general-purpose","description":"Task 2 — mine parser + tests"}')"
+assert_verdict "known false fire: job-evaluation fork" fire \
+  "$(gate_execution_mode_verdict Agent '{"subagent_type":"fork","description":"Evaluate Acme Corp SVP role"}')"
 
 echo "── shape guarantees ──"
 

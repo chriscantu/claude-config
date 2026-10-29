@@ -137,7 +137,7 @@ Shell coordinator instead of LLM-queen — at 5 workers, hierarchical queen pays
 3. Debounces by diff hash + a `debounce_seconds` window (default 30s) so a single editing burst spawns one swarm fire, not one per keystroke.
 4. Captures `git diff HEAD` once into `<sha-dir>/.diff-captured` then spawns the worker `claude --print` invocations (default five) in parallel (each `--agent <role>-adversary`).
 5. Waits for all workers, then spawns the arbiter to read the worker outputs and emit a synthesized `SUMMARY.md`.
-6. After arbiter completes, the coordinator extracts the top-2 finding titles from `SUMMARY.md` and stores them to claude-flow shared memory (`adversarial-patterns` namespace) for cross-session pattern learning. Failure is non-blocking.
+6. After arbiter completes, the coordinator extracts the top-2 finding titles from `SUMMARY.md` and appends them as one JSON line to `.claude/state/critiques/.patterns.jsonl` for cross-session pattern learning. Failure is non-blocking.
 7. Output lands at `.claude/state/critiques/<branch>-<sha>-<diff-hash>/{security,perf,scope,test-gap,correctness,SUMMARY}.md`.
 8. `.claude/state/` is gitignored, so critiques never land in commits.
 
