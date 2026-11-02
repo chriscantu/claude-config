@@ -134,9 +134,11 @@ describe("first-run.fish — fresh sandbox", () => {
     expect(md).toContain("Caveman terseness: `no`");
 
     const settingsJson = JSON.parse(readFileSync(settings, "utf8"));
+    // Claude Code runs hooks itself, so a Bash() allow entry for the hook
+    // does nothing for the guard (#583). The script must not add one.
     const allow: string[] = settingsJson.permissions?.allow ?? [];
     expect(allow.some((s) => s.endsWith("/hooks/block-dangerous-git.sh)"))).toBe(
-      true,
+      false,
     );
 
     // Backup created with .bak.<ISO-timestamp> suffix.
@@ -517,7 +519,8 @@ describe("first-run.fish — settings.json TOCTOU lock (#394)", () => {
     // (the winner's write committed; the loser, if any, never touched it).
     const settingsJson = JSON.parse(readFileSync(settings, "utf8"));
     const allow: string[] = settingsJson.permissions?.allow ?? [];
-    expect(allow.some((s) => s.endsWith("/hooks/block-dangerous-git.sh)"))).toBe(true);
+    expect(guardCommands(readPreToolUse(settings)).length).toBe(1);
+    expect(allow.some((s) => s.endsWith("/hooks/block-dangerous-git.sh)"))).toBe(false);
     expect(allow.some((s) => s.includes("scope-tier"))).toBe(false);
     // Lockdir must not be leaked after both procs settle.
     expect(() => readFileSync(`${settings}.lock`)).toThrow();
