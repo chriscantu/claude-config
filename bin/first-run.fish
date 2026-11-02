@@ -83,8 +83,8 @@ set -l hook_dangerous "$repo/hooks/block-dangerous-git.sh"
 
 # --- preflight: validate hook exec bits before any mutation -------------
 # Even if the user declines hook registration later, we fail fast here so
-# a broken checkout never produces a half-applied install (patched
-# CLAUDE.md + skipped hooks).
+# a broken checkout never produces a half-applied install (written
+# prefs file + skipped hooks).
 
 if not test -x $hook_dangerous
     echo "ERROR: hook not executable: $hook_dangerous" >&2
