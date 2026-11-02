@@ -50,6 +50,20 @@ jobs:
         # naming contract.
         run: fish tests/run-fish-tests.fish
 
+      - name: Run hook regression tests
+        # The hooks are guardrails, so a regression there is silent until it
+        # lets something through. Runs every tests/hooks/*.test.sh and fails
+        # if any fails, after running them all so one failure doesn't hide
+        # another.
+        run: |
+          status=0
+          for t in tests/hooks/*.test.sh; do
+            echo "::group::$t"
+            bash "$t" || { echo "::error::$t failed"; status=1; }
+            echo "::endgroup::"
+          done
+          exit "$status"
+
       - name: Install Bun
         uses: oven-sh/setup-bun@v2
 

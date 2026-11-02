@@ -1,10 +1,13 @@
 # tests/
 
-This directory holds three distinct kinds of test artifact:
+This directory holds four distinct kinds of test artifact:
 
 1. **Fish-shell regression suites** — automated, auto-discovered, run in CI.
 2. **TypeScript regression suites** — `bun:test`, auto-discovered, run in CI.
-3. **TypeScript / behavioral evals** — separate runners (see `EVALS.md`,
+3. **Hook regression suites** — `tests/hooks/*.test.sh`, plain bash scripts
+   that run the scripts in `hooks/`. CI runs every matching file and fails on
+   any non-zero exit.
+4. **TypeScript / behavioral evals** — separate runners (see `EVALS.md`,
    `eval-runner-v2.ts`, `run-scenarios.fish`).
 
 This README documents the **regression contracts** (1 + 2). Evals have their
