@@ -69,8 +69,9 @@ DANGEROUS_PATTERNS=(
   "git +reset +--hard"
   # Destructive cleans
   "git +clean +-[a-z]*f"
-  # Force-delete branch
-  "git +branch +-D"
+  # `git branch -D` is not listed (#571): after a squash merge it is the normal
+  # cleanup. Auto mode's safety check reviews it, unless an allow rule such
+  # as `Bash(git branch *)` pre-approves the command.
   # Wholesale checkout/restore that nukes uncommitted work
   "git +checkout +\\."
   "git +restore +\\."

@@ -44,7 +44,6 @@ test_block "git commit --no-gpg-sign -m x"
 test_block "git reset --hard HEAD~3"
 test_block "git clean -fd"
 test_block "git clean -f"
-test_block "git branch -D feature/x"
 test_block "git checkout ."
 test_block "git restore ."
 
@@ -58,6 +57,16 @@ test_allow "git reset HEAD~1"
 test_allow "git checkout main"
 test_allow "git branch -d feature/x"
 test_allow "ls -la"
+
+# --- Force-delete branch (#571) ---
+# A squash merge makes `git branch -d` refuse, so `-D` is the normal cleanup
+# after merge. See the hook comment for what still reviews it.
+test_allow "git switch main && git pull && git branch -D feature/x"
+# Writing a doc that mentions `git branch -D` must pass too. This holds only
+# because the pattern is gone: the hook greps the whole command string, so
+# text naming any pattern still listed (e.g. `git reset --hard`) is blocked.
+test_allow "printf 'Clean up with git branch -D feature/x' > notes.md"
+test_allow "cat > notes.md <<'EOF'\nRun git branch -D feature/x after merge\nEOF"
 
 # --- jq-absent fail-safe (R2) ---
 # A security guardrail must fail safe, not open. Shim jq off PATH (keeping the

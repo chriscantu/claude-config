@@ -63,10 +63,9 @@ A `PreToolUse` hook at [`hooks/block-dangerous-git.sh`](../hooks/block-dangerous
 | `--no-gpg-sign` | Bypasses commit signing where required. |
 | `git reset --hard` | Discards uncommitted work irreversibly. |
 | `git clean -f` / `git clean -fd` | Deletes untracked files. |
-| `git branch -D` | Force-deletes a branch (vs `-d` which only deletes if merged). |
 | `git checkout .` / `git restore .` | Wipes uncommitted changes wholesale. |
 
-Force-pushing to a feature branch is **allowed**. Routine `git push` and `git commit` are **allowed**.
+Force-pushing to a feature branch is **allowed**. Routine `git push` and `git commit` are **allowed**. `git branch -D` is **allowed**: after a squash merge, `git branch -d` refuses, so `-D` is the normal cleanup.
 
 ### Install
 
