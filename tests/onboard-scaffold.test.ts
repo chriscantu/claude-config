@@ -53,7 +53,10 @@ const makeGhStub = (root: string, behavior: GhStubBehavior = {}): GhStub => {
 };
 
 const runWithStub = (cwd: string, stub: GhStub, ...args: string[]): RunResult => {
-  const result = spawnSync("fish", [SCRIPT, ...args], {
+  // --no-config: a developer's universal `fish_user_paths` is prepended to
+  // PATH at startup, ahead of the stub dir, so the real `gh` would run and
+  // create an actual GitHub repo.
+  const result = spawnSync("fish", ["--no-config", SCRIPT, ...args], {
     cwd,
     encoding: "utf8",
     env: { ...process.env, ...GIT_ENV, PATH: `${stub.stubDir}:${process.env.PATH}` },
