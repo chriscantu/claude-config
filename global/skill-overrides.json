@@ -1,0 +1,16 @@
+{
+  "skillOverrides": {
+    "adr": "user-invocable-only",
+    "architecture-overview": "user-invocable-only",
+    "codebase-design": "user-invocable-only",
+    "cross-project": "user-invocable-only",
+    "domain-modeling": "user-invocable-only",
+    "frontend-slides": "user-invocable-only",
+    "onboard": "user-invocable-only",
+    "prototype": "user-invocable-only",
+    "review-pr-surgical": "user-invocable-only",
+    "sdr": "user-invocable-only",
+    "swarm-batch-dispatcher": "user-invocable-only",
+    "tech-radar": "user-invocable-only"
+  }
+}

@@ -93,7 +93,7 @@ end
 # Canonical phase order. It is not alphabetical (1h/1i run after 1m) because
 # phases were appended in the order they shipped; the driver at the bottom
 # walks this list so a full run keeps its historical output order.
-set all_phase_ids 1a 1b 1c 1d 1e 1f 1g 1j 1k 1l 1m 1h 1i 1n 1o 1p 1q 1r 1s 1t 1u 1v 1w 2
+set all_phase_ids 1a 1b 1c 1d 1e 1f 1g 1j 1k 1l 1m 1h 1i 1n 1o 1p 1q 1r 1s 1t 1u 1v 1w 1x 2
 
 # Reject bad ids before any phase runs: a typo that silently selected zero
 # phases would print an empty report and exit 0, a false pass.
@@ -1739,6 +1739,52 @@ function _phase_1w
         end
         if test $p1w_collision -eq 0
             pass "no eval suite name collisions across skills/ and rules-evals/ ("(count $p1w_skills_names)" skills, "(count $p1w_rules_names)" rules-evals)"
+        end
+    end
+
+    echo ""
+end
+
+# ─────────────────────────────────────────────────
+# 1x. Skill visibility drift (issue #572)
+# ─────────────────────────────────────────────────
+# global/skill-overrides.json lists personal skills hidden from the model's
+# skill listing. Claude Code reads `skillOverrides` only from user or project
+# settings, and ~/.claude/settings.json is not in git, so the committed file is
+# the reviewable copy and the live file is applied by hand. This phase warns
+# when the two disagree. It warns rather than fails because the live file is
+# per-machine state, and it skips when that file is absent (CI).
+function _phase_1x
+    _phase_begin "1x"
+    echo "── Phase 1x: skill visibility drift (issue #572)"
+
+    set -l p1x_committed "$repo_dir/global/skill-overrides.json"
+    set -l p1x_live "$HOME/.claude/settings.json"
+
+    if not test -f "$p1x_committed"
+        pass "no global/skill-overrides.json — nothing to check"
+    else if not test -f "$p1x_live"
+        pass "no $p1x_live — drift check skipped"
+    else if not command -q jq
+        warn "jq not on PATH — skill visibility drift check skipped"
+    else
+        # One "name<TAB>expected<TAB>actual" row per committed entry whose live
+        # value differs; actual is "missing" when the live file lacks the entry.
+        set -l p1x_drift (jq -r --slurpfile live "$p1x_live" '
+            .skillOverrides | to_entries[]
+            | (($live[0].skillOverrides // {})[.key]) as $actual
+            | select($actual != .value)
+            | [.key, .value, ($actual // "missing")] | @tsv' "$p1x_committed")
+        for row in $p1x_drift
+            set -l p1x_cols (string split \t -- $row)
+            if test "$p1x_cols[3]" = missing
+                warn "skill '$p1x_cols[1]' missing from $p1x_live skillOverrides (expected \"$p1x_cols[2]\")"
+            else
+                warn "skill '$p1x_cols[1]' is \"$p1x_cols[3]\" in $p1x_live, expected \"$p1x_cols[2]\""
+            end
+        end
+        if test (count $p1x_drift) -eq 0
+            pass (jq '.skillOverrides | length' "$p1x_committed")" skill overrides match $p1x_live"
         end
     end
 
