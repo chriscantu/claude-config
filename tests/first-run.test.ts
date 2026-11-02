@@ -7,6 +7,7 @@ import {
   readFileSync,
   readdirSync,
   rmSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -147,6 +148,118 @@ describe("first-run.fish — fresh sandbox", () => {
       f.startsWith("settings.json.bak."),
     );
     expect(backups.length).toBe(1);
+  });
+});
+
+// Issue #557: the script used to print "Registered hooks" while writing only a
+// permission entry, so non-plugin users had no guard. These tests check the
+// hook entry lands AND that the command it names actually blocks a force-push.
+type HookEntry = {
+  matcher?: string;
+  hooks?: { type?: string; command?: string; timeout?: number }[];
+};
+
+const GUARD = "block-dangerous-git.sh";
+
+const readPreToolUse = (settings: string): HookEntry[] =>
+  JSON.parse(readFileSync(settings, "utf8")).hooks?.PreToolUse ?? [];
+
+const guardCommands = (entries: HookEntry[]): string[] =>
+  entries
+    .filter((e) => e.matcher === "Bash")
+    .flatMap((e) => e.hooks ?? [])
+    .map((h) => h.command ?? "")
+    .filter((c) => c.endsWith(`/${GUARD}`));
+
+const runGuard = (command: string, bashCommand: string, home: string) =>
+  spawnSync(command, {
+    input: JSON.stringify({
+      hook_event_name: "PreToolUse",
+      tool_name: "Bash",
+      tool_input: { command: bashCommand },
+    }),
+    // HOME isolates the guard's ~/.claude/DISABLE_GIT_GUARDRAILS kill switch
+    // from the developer's real one.
+    env: { ...process.env, HOME: home, CLAUDE_PROJECT_DIR: home },
+    cwd: home,
+    encoding: "utf8",
+  });
+
+describe("first-run.fish — hook registration (#557)", () => {
+  test("adds a PreToolUse/Bash command entry for the guard", () => {
+    const { settings, env } = seedFixture();
+    assertExit("fresh run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+
+    const entries = readPreToolUse(settings);
+    const guard = entries.find((e) => guardCommands([e]).length > 0);
+    expect(guard).toEqual({
+      matcher: "Bash",
+      hooks: [{ type: "command", command: join(REPO, "hooks", GUARD), timeout: 5 }],
+    });
+  });
+
+  test("the registered command blocks a force-push to main and allows git status", () => {
+    const { home, settings, env } = seedFixture();
+    assertExit("fresh run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+
+    const [command] = guardCommands(readPreToolUse(settings));
+    expect(command).toBeDefined();
+    const blocked = runGuard(command!, "git push --force origin main", home);
+    expect(blocked.status).toBe(2);
+    expect(blocked.stderr).toContain("BLOCKED");
+    expect(runGuard(command!, "git status", home).status).toBe(0);
+  });
+
+  test("re-running leaves settings.json byte-identical", () => {
+    const { settings, env } = seedFixture();
+    assertExit("first run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    const afterFirst = readFileSync(settings, "utf8");
+    assertExit("second run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(readFileSync(settings, "utf8")).toBe(afterFirst);
+    expect(guardCommands(readPreToolUse(settings)).length).toBe(1);
+  });
+
+  test("an existing entry via a symlink to the same script is not duplicated", () => {
+    const { home, settings, env } = seedFixture();
+    const linkDir = join(home, ".claude", "hooks");
+    mkdirSync(linkDir, { recursive: true });
+    const link = join(linkDir, GUARD);
+    symlinkSync(join(REPO, "hooks", GUARD), link);
+    writeFileSync(
+      settings,
+      JSON.stringify({
+        hooks: {
+          PreToolUse: [
+            { matcher: "Bash", hooks: [{ type: "command", command: link, timeout: 5 }] },
+          ],
+        },
+      }),
+    );
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(guardCommands(readPreToolUse(settings))).toEqual([link]);
+  });
+
+  test("unrelated hooks and permissions survive", () => {
+    const { settings, env } = seedFixture();
+    const other: HookEntry = {
+      matcher: "Edit",
+      hooks: [{ type: "command", command: "/opt/other.sh", timeout: 9 }],
+    };
+    writeFileSync(
+      settings,
+      JSON.stringify({
+        permissions: { allow: ["Bash(ls)"] },
+        hooks: { PreToolUse: [other], Stop: [{ hooks: [{ type: "command", command: "/opt/stop.sh" }] }] },
+      }),
+    );
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    const json = JSON.parse(readFileSync(settings, "utf8"));
+    expect(json.permissions.allow).toContain("Bash(ls)");
+    expect(json.hooks.PreToolUse[0]).toEqual(other);
+    expect(json.hooks.Stop[0].hooks[0].command).toBe("/opt/stop.sh");
+    expect(guardCommands(json.hooks.PreToolUse).length).toBe(1);
   });
 });
 
