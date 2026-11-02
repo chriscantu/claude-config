@@ -334,18 +334,9 @@ if test $hooks_enabled -eq 1
         set add_hook false
     end
 
-    # Add a Bash permission entry for the hook absolute path. Dedup by
-    # exact string match in .permissions.allow.
     set -l tmp (mktemp)
-    jq --arg d "Bash($hook_dangerous)" --arg cmd $hook_dangerous --argjson add_hook $add_hook '
-        .permissions //= {}
-        | .permissions.allow //= []
-        | .permissions.allow |= (
-            (. + [$d])
-            | unique_by(.)
-            | sort
-        )
-        | if $add_hook then
+    jq --arg cmd $hook_dangerous --argjson add_hook $add_hook '
+        if $add_hook then
             .hooks //= {}
             | .hooks.PreToolUse //= []
             | .hooks.PreToolUse += [{
