@@ -3,18 +3,19 @@
 #
 # Drops time-to-first-value after `bash install.sh` from "hours of fish +
 # symlink + hook troubleshooting" to "<10min interactive walkthrough" by:
-#   1. Detecting whether the user has already customized global/CLAUDE.md
-#   2. Prompting for shell flavor, primary language, TDD discipline,
+#   1. Prompting for shell flavor, primary language, TDD discipline,
 #      sycophancy intensity, and caveman opt-in
-#   3. Atomically writing a managed block into global/CLAUDE.md
-#   4. Registering the repo hook in ~/.claude/settings.json
+#   2. Atomically writing the answers to
+#      ~/.claude/rules/first-run-personalization.md
+#   3. Registering the repo hook in ~/.claude/settings.json
 #      (block-dangerous-git.sh)
-#   5. Verifying the install via link-config.fish --check + validate.fish
-#   6. Printing three next-action suggestions
+#   4. Verifying the install via link-config.fish --check + validate.fish
+#   5. Printing three next-action suggestions
 #
-# Issue #378. Safe to re-run: idempotent via the managed-block marker pair
-# (<!-- managed:first-run --> ... <!-- /managed:first-run -->). User edits
-# outside the managed block are preserved.
+# Issue #378. Safe to re-run: the script owns the whole prefs file and
+# replaces it. Answers go to a per-user rule, not the tracked, shared
+# global/CLAUDE.md, so one user's answers never ship to every clone.
+# Claude Code loads regular files in ~/.claude/rules/ as user-level rules.
 #
 # Usage:
 #   fish bin/first-run.fish            # interactive walkthrough
@@ -25,7 +26,6 @@
 #                                        shell,language,tdd,sycophancy,caveman,hooks,probe
 #                                        e.g. "fish,TypeScript,pragmatic,default,N,Y,N"
 #   FIRST_RUN_SETTINGS_PATH=<path>     # override ~/.claude/settings.json target
-#   FIRST_RUN_CLAUDE_MD_PATH=<path>    # override global/CLAUDE.md target
 #   FIRST_RUN_SKIP_VERIFY=1            # skip link-config/validate gates
 #                                        (tests run them separately)
 
@@ -61,7 +61,7 @@ if test (count $argv) -gt 0
             echo "Usage: fish bin/first-run.fish"
             echo ""
             echo "Interactive personalization walkthrough. Run once after install.sh."
-            echo "Safe to re-run — managed block is replaced, user edits preserved."
+            echo "Safe to re-run — your saved answers are replaced."
             exit 0
         case '*'
             echo "ERROR: unknown argument: $argv[1]" >&2
@@ -72,25 +72,19 @@ end
 
 # --- paths --------------------------------------------------------------
 
-set -l claude_md $repo/global/CLAUDE.md
-if set -q FIRST_RUN_CLAUDE_MD_PATH
-    set claude_md $FIRST_RUN_CLAUDE_MD_PATH
-end
+set -l prefs $HOME/.claude/rules/first-run-personalization.md
 
 set -l settings $HOME/.claude/settings.json
 if set -q FIRST_RUN_SETTINGS_PATH
     set settings $FIRST_RUN_SETTINGS_PATH
 end
 
-set -l marker_open  "<!-- managed:first-run -->"
-set -l marker_close "<!-- /managed:first-run -->"
-
 set -l hook_dangerous "$repo/hooks/block-dangerous-git.sh"
 
 # --- preflight: validate hook exec bits before any mutation -------------
 # Even if the user declines hook registration later, we fail fast here so
-# a broken checkout never produces a half-applied install (patched
-# CLAUDE.md + skipped hooks).
+# a broken checkout never produces a half-applied install (written
+# prefs file + skipped hooks).
 
 if not test -x $hook_dangerous
     echo "ERROR: hook not executable: $hook_dangerous" >&2
@@ -129,37 +123,7 @@ function ask --argument-names prompt_text default_value
     end
 end
 
-# --- step 1: detect fresh vs customized ---------------------------------
-
-if not test -f $claude_md
-    echo "ERROR: $claude_md not found. Run install.sh first." >&2
-    exit 2
-end
-
-# If marker present, this is a re-run — safe to proceed (we'll replace
-# only the managed block). If marker absent, check whether the user has
-# edited the file vs the repo HEAD. If they have, abort cleanly.
-set -l marker_present 0
-if grep -qF "$marker_open" $claude_md
-    set marker_present 1
-end
-
-if test $marker_present -eq 0
-    # No marker yet — this is either a true fresh install OR a user who
-    # has stripped/rewritten global/CLAUDE.md. Discriminate on a stable
-    # upstream sentinel: the H1 heading shipped from main. If it's absent,
-    # the user has customized the file and we refuse to touch it.
-    if not grep -qF "# Global Claude Code Configuration" $claude_md
-        echo "ERROR: $claude_md has local edits and no managed block." >&2
-        echo "       Refusing to overwrite. To re-init: restore the upstream" >&2
-        echo "       global/CLAUDE.md, or manually add the marker pair:" >&2
-        echo "         $marker_open" >&2
-        echo "         $marker_close" >&2
-        exit 1
-    end
-end
-
-# --- step 2: prompt for personalization ---------------------------------
+# --- step 1: prompt for personalization ---------------------------------
 
 echo "claude-config first-run personalization"
 echo "---------------------------------------"
@@ -202,7 +166,7 @@ echo "  off by default; toggle anytime via /caveman"
 set -l caveman_yn   (ask "Enable? (y/N) [N]:" N)
 
 # Validate enum-shaped answers; fall back to default on garbage. Keeps the
-# managed block sane even if a user fat-fingers an option.
+# prefs file sane even if a user fat-fingers an option.
 if not contains -- $shell_choice fish bash zsh
     set shell_choice fish
 end
@@ -217,70 +181,32 @@ if string match -qi 'y*' -- $caveman_yn
     set caveman_enabled "yes"
 end
 
-# --- step 3: patch global/CLAUDE.md atomically --------------------------
+# --- step 2: write the prefs rule atomically ----------------------------
 
-# Build the managed block content.
-set -l block_tmp (mktemp)
-echo "$marker_open" > $block_tmp
-echo "" >> $block_tmp
-echo "## First-Run Personalization" >> $block_tmp
-echo "" >> $block_tmp
-echo "Generated by `bin/first-run.fish`. Re-run that script to update." >> $block_tmp
-echo "" >> $block_tmp
-echo "- Shell flavor: `$shell_choice`" >> $block_tmp
-echo "- Primary language: `$lang_choice`" >> $block_tmp
-echo "- TDD discipline: `$tdd_choice`" >> $block_tmp
-echo "- Sycophancy intensity: `$syco_choice`" >> $block_tmp
-echo "- Caveman terseness: `$caveman_enabled`" >> $block_tmp
-echo "" >> $block_tmp
-echo "$marker_close" >> $block_tmp
+# Write beside the target, then rename: a same-directory mv is atomic, so
+# Claude Code never loads a half-written file.
+set -l prefs_tmp (mktemp "$prefs.XXXXXX")
+begin
+    echo "## First-Run Personalization"
+    echo ""
+    echo "Generated by `bin/first-run.fish`. Re-run that script to update; it replaces this file."
+    echo ""
+    echo "- Shell flavor: `$shell_choice`"
+    echo "- Primary language: `$lang_choice`"
+    echo "- TDD discipline: `$tdd_choice`"
+    echo "- Sycophancy intensity: `$syco_choice`"
+    echo "- Caveman terseness: `$caveman_enabled`"
+end > $prefs_tmp
 
-# Write the file: preserve everything outside the marker pair; replace
-# everything inside (or append at end if no marker present).
-set -l out_tmp (mktemp)
-if test $marker_present -eq 1
-    # Replace existing block. awk handles multi-line marker replacement
-    # without sed portability headaches.
-    #
-    # IDEMPOTENCY CONTRACT: $block_tmp ALREADY contains its own open + close
-    # marker pair (built above). This awk drops the EXISTING markers + their
-    # contents from $claude_md and splices in the entire $block_tmp verbatim
-    # — markers included. If you ever change the block builder to omit the
-    # markers, this branch will silently strip them on re-run and the next
-    # invocation will append a new block instead of replacing. Test
-    # `idempotent re-run` asserts opens.length === 1 across N runs; keep it.
-    awk -v marker_open_s="$marker_open" -v marker_close_s="$marker_close" -v blockfile="$block_tmp" '
-        BEGIN { in_block = 0 }
-        index($0, marker_open_s) == 1 && !in_block {
-            in_block = 1
-            while ((getline line < blockfile) > 0) print line
-            close(blockfile)
-            next
-        }
-        in_block && index($0, marker_close_s) == 1 { in_block = 0; next }
-        !in_block { print }
-    ' $claude_md > $out_tmp
-else
-    # Append: copy existing file, then a blank line, then the block.
-    cat $claude_md > $out_tmp
-    # Ensure trailing newline before the block.
-    if test (tail -c 1 $out_tmp | wc -l | string trim) = "0"
-        echo "" >> $out_tmp
-    end
-    echo "" >> $out_tmp
-    cat $block_tmp >> $out_tmp
-end
-
-if not mv $out_tmp $claude_md
-    echo "ERROR: failed to write $claude_md" >&2
-    rm -f $block_tmp $out_tmp
+if not mv $prefs_tmp $prefs
+    echo "ERROR: failed to write $prefs" >&2
+    rm -f $prefs_tmp
     exit 2
 end
-rm -f $block_tmp
 
-echo "Patched: $claude_md"
+echo "Saved preferences: $prefs"
 
-# --- step 4: enable hooks (optional) ------------------------------------
+# --- step 3: enable hooks (optional) ------------------------------------
 
 set -l hooks_yn (ask "Register repo hook (block-dangerous-git) in $settings? (Y/n) [Y]:" Y)
 set -l hooks_enabled 0
@@ -449,7 +375,7 @@ else
     echo "Skipped hook registration."
 end
 
-# --- step 5: verify -----------------------------------------------------
+# --- step 4: verify -----------------------------------------------------
 
 if not set -q FIRST_RUN_SKIP_VERIFY
     echo ""
@@ -477,7 +403,7 @@ if not set -q FIRST_RUN_SKIP_VERIFY
     end
 end
 
-# --- step 6: next actions -----------------------------------------------
+# --- step 5: next actions -----------------------------------------------
 
 echo ""
 echo "Done. Next actions:"
