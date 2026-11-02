@@ -240,6 +240,18 @@ describe("first-run.fish — hook registration (#557)", () => {
     expect(guardCommands(readPreToolUse(settings))).toEqual([link]);
   });
 
+  test("a malformed PreToolUse element doesn't make each run add another entry", () => {
+    const { settings, env } = seedFixture();
+    writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: ["junk", { matcher: 7 }] } }));
+
+    assertExit("first run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    assertExit("second run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    const entries = readPreToolUse(settings);
+    expect(entries.slice(0, 2)).toEqual(["junk", { matcher: 7 }] as unknown as HookEntry[]);
+    expect(guardCommands(entries.slice(2)).length).toBe(1);
+    expect(entries.length).toBe(3);
+  });
+
   test("unrelated hooks and permissions survive", () => {
     const { settings, env } = seedFixture();
     const other: HookEntry = {

@@ -295,8 +295,10 @@ if test $hooks_enabled -eq 1
     # as $hook. Commands that aren't plain paths (args, ${VARS}) don't count.
     function __first_run_guard_registered --argument-names settings hook
         set -l hook_real (realpath $hook)
-        set -l bash_matcher '.matcher // "" | test("^[*]?$|Bash")'
-        for cmd in (jq -r ".hooks.PreToolUse[]? | select($bash_matcher) | .hooks[]?.command // empty" $settings)
+        # objects/strings skip malformed elements; a jq error here would
+        # read as "not registered" and add a new entry on every run.
+        set -l bash_matcher '(.matcher // "") | strings | test("^[*]?$|Bash")'
+        for cmd in (jq -r ".hooks.PreToolUse[]? | objects | select($bash_matcher) | .hooks[]?.command? // empty" $settings)
             if test -e "$cmd"; and test (realpath -- "$cmd") = "$hook_real"
                 return 0
             end
