@@ -46,6 +46,10 @@ Current suites:
 - `pr-validation/` — covers the trigger surface (speech-act + action-bound),
   test-plan locator, and zero-functional-change carve-out from
   [`rules/pr-validation.md`](../rules/pr-validation.md)
+- `sa-handoff/` — covers the `skills/systems-analysis` Handoff step: after the
+  systems pass, the skill invokes brainstorming in the same turn instead of
+  asking "Ready to move to solution design?". A one-eval suite, kept apart from
+  `skills/systems-analysis/evals/` so a RED/GREEN proof costs one session per run
 - `ship-permission/` — covers the standing permission in `global/CLAUDE.md`
   § Git Conventions: on a feature branch the agent commits and pushes without
   asking (discriminator), and it still never pushes to main (control). Uses a

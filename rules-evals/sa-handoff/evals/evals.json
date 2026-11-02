@@ -1,0 +1,32 @@
+{
+  "skill": "sa-handoff",
+  "evals": [
+    {
+      "name": "handoff-continues-to-brainstorming",
+      "summary": "Discriminator for the systems-analysis Handoff step. The problem is already confirmed and sits outside this config's own domain, so nothing in the user's environment should change the problem statement. After the systems pass, GREEN invokes brainstorming in the same turn; RED (old Handoff text) asks \"Ready to move to solution design?\".",
+      "prompt": "/systems-analysis Confirmed problem statement (we finished define-the-problem last session): the volunteer coordinator at a community food bank double-books delivery drivers because the shift sign-up sheet lets two volunteers claim the same route. It happened 6 times last month and 2 deliveries were missed. The sign-up sheet is a shared Google Sheet that about 40 volunteers edit. Run the systems pass.",
+      "assertions": [
+        {
+          "type": "regex",
+          "pattern": "(Stage: Systems Analysis|surface[- ]area scan)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Precondition: the systems pass ran, so the handoff step was reached. The slash prompt expands the skill inline, so this checks the stage banner instead of a Skill tool call."
+        },
+        {
+          "type": "skill_invoked",
+          "skill": "superpowers:brainstorming",
+          "tier": "required",
+          "description": "Hands off to brainstorming in the same turn. Failure mode caught: the turn ends at a stage-advance question."
+        },
+        {
+          "type": "not_regex",
+          "pattern": "ready to (move|proceed) (on )?to (solution design|brainstorming)",
+          "flags": "i",
+          "tier": "required",
+          "description": "Does not ask the stage-advance question."
+        }
+      ]
+    }
+  ]
+}
