@@ -291,6 +291,21 @@ end
 if test $hooks_enabled -eq 1
     # Hook paths + exec-bit validation already ran at preflight (top of file).
 
+    # True when a PreToolUse entry that fires on Bash runs the same real file
+    # as $hook. Commands that aren't plain paths (args, ${VARS}) don't count.
+    function __first_run_guard_registered --argument-names settings hook
+        set -l hook_real (realpath $hook)
+        # objects/strings skip malformed elements; a jq error here would
+        # read as "not registered" and add a new entry on every run.
+        set -l bash_matcher '(.matcher // "") | strings | test("^[*]?$|Bash")'
+        for cmd in (jq -r ".hooks.PreToolUse[]? | objects | select($bash_matcher) | .hooks[]?.command? // empty" $settings)
+            if test -e "$cmd"; and test (realpath -- "$cmd") = "$hook_real"
+                return 0
+            end
+        end
+        return 1
+    end
+
     # Ensure parent dir exists and seed an empty settings.json if missing.
     set -l settings_dir (dirname $settings)
     if not test -d $settings_dir
@@ -385,10 +400,18 @@ if test $hooks_enabled -eq 1
     end
     echo "Backed up: $settings -> $backup"
 
+    # Skip adding the PreToolUse entry when one already runs the same file.
+    # Compare real paths, not strings: link-config installs the guard as a
+    # ~/.claude/hooks/ symlink, and a second entry would run it twice.
+    set -l add_hook true
+    if __first_run_guard_registered $settings $hook_dangerous
+        set add_hook false
+    end
+
     # Add a Bash permission entry for the hook absolute path. Dedup by
     # exact string match in .permissions.allow.
     set -l tmp (mktemp)
-    jq --arg d "Bash($hook_dangerous)" '
+    jq --arg d "Bash($hook_dangerous)" --arg cmd $hook_dangerous --argjson add_hook $add_hook '
         .permissions //= {}
         | .permissions.allow //= []
         | .permissions.allow |= (
@@ -396,6 +419,14 @@ if test $hooks_enabled -eq 1
             | unique_by(.)
             | sort
         )
+        | if $add_hook then
+            .hooks //= {}
+            | .hooks.PreToolUse //= []
+            | .hooks.PreToolUse += [{
+                matcher: "Bash",
+                hooks: [{type: "command", command: $cmd, timeout: 5}]
+            }]
+          else . end
     ' $settings > $tmp
     if test $status -ne 0
         echo "ERROR: jq failed on $settings" >&2
@@ -405,6 +436,12 @@ if test $hooks_enabled -eq 1
     if not mv $tmp $settings
         echo "ERROR: failed to write $settings" >&2
         rm -f $tmp
+        exit 2
+    end
+    # Read back before claiming success (#557: this line once printed with
+    # no hook written).
+    if not __first_run_guard_registered $settings $hook_dangerous
+        echo "ERROR: wrote $settings but no PreToolUse hook runs $hook_dangerous" >&2
         exit 2
     end
     echo "Registered hooks in: $settings"
