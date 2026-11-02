@@ -88,7 +88,7 @@ cd ~/repos/claude-config
 
 Existing real files are backed up with `.bak`. Re-running is safe. CI uses `fish bin/link-config.fish --check` for verification.
 
-**Optional — guided personalization.** After install, run `fish bin/first-run.fish` for an interactive walkthrough that patches `global/CLAUDE.md` with your shell/language/TDD/sycophancy preferences, registers the repo hooks in `~/.claude/settings.json` (with a timestamped backup), and verifies the install. Idempotent via a managed-block marker — re-run safely to update preferences.
+**Optional — guided personalization.** After install, run `fish bin/first-run.fish` for an interactive walkthrough. It saves your shell, language, TDD and sycophancy preferences to `~/.claude/rules/first-run-personalization.md`, a personal file outside the repo. It also registers the repo hooks in `~/.claude/settings.json` (with a timestamped backup) and verifies the install. Re-run it any time to update your preferences.
 
 **What you get:** everything in the plugin path PLUS `rules/` (HARD-GATE pre-load enforcement), `validate.fish` (structural + concept validation across rules, skills, agents, hooks, evals), `rules-evals/` (discriminating-signal eval suites), `bin/` tooling, and the ADR/SDR governance docs.
 

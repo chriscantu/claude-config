@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import {
-  copyFileSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
@@ -17,8 +16,7 @@ import { join, resolve } from "node:path";
 //
 // Sandboxing strategy:
 //   - HOME=<tmpdir> so the script writes to a throwaway ~/.claude/settings.json
-//   - FIRST_RUN_CLAUDE_MD_PATH=<tmpdir>/CLAUDE.md so we never touch the real
-//     global/CLAUDE.md tracked in the repo
+//     and ~/.claude/rules/first-run-personalization.md
 //   - FIRST_RUN_SETTINGS_PATH=<tmpdir>/.claude/settings.json (redundant with HOME,
 //     but explicit makes the test intent obvious)
 //   - FIRST_RUN_ANSWERS=<csv> pre-fills the interactive prompts
@@ -68,9 +66,14 @@ const assertExit = (
 
 const fixtures: string[] = [];
 
+// Answers live in a per-user rule file, never in the shared, tracked
+// global/CLAUDE.md, so one user's answers can't ship to every clone.
+const PREFS_NAME = "first-run-personalization.md";
+const REPO_CLAUDE_MD = join(REPO, "global", "CLAUDE.md");
+
 const seedFixture = (): {
   home: string;
-  claudeMd: string;
+  prefs: string;
   settings: string;
   env: Record<string, string>;
 } => {
@@ -85,21 +88,13 @@ const seedFixture = (): {
   // seedFixture() — they should inline a HOME setup that omits this dir.
   // See "pre-install preflight" test for the canonical pattern.
   mkdirSync(join(home, ".claude", "rules"), { recursive: true });
-  // Seed a CLAUDE.md identical to the repo's HEAD copy. The script's
-  // "user has local edits" detection greps for the upstream H1 sentinel
-  // (`# Global Claude Code Configuration`) — copying the real repo file
-  // gives the sentinel a known baseline; stripping it in a test exercises
-  // the abort path.
-  const claudeMd = join(home, "CLAUDE.md");
-  copyFileSync(join(REPO, "global", "CLAUDE.md"), claudeMd);
   const settings = join(home, ".claude", "settings.json");
   return {
     home,
-    claudeMd,
+    prefs: join(home, ".claude", "rules", PREFS_NAME),
     settings,
     env: {
       HOME: home,
-      FIRST_RUN_CLAUDE_MD_PATH: claudeMd,
       FIRST_RUN_SETTINGS_PATH: settings,
       FIRST_RUN_SKIP_VERIFY: "1",
     },
@@ -122,15 +117,16 @@ afterEach(() => {
 const DEFAULT_ANSWERS = "fish,TypeScript,pragmatic,default,N,Y,N";
 
 describe("first-run.fish — fresh sandbox", () => {
-  test("completes; managed block patched; hooks registered; backup exists", () => {
-    const { claudeMd, settings, env } = seedFixture();
+  test("completes; prefs rule written; hooks registered; backup exists", () => {
+    const { prefs, settings, env } = seedFixture();
+    const repoMdBefore = readFileSync(REPO_CLAUDE_MD, "utf8");
 
     const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS });
     assertExit("fresh run", r, "zero");
 
-    const md = readFileSync(claudeMd, "utf8");
-    expect(md).toContain("<!-- managed:first-run -->");
-    expect(md).toContain("<!-- /managed:first-run -->");
+    expect(readFileSync(REPO_CLAUDE_MD, "utf8")).toBe(repoMdBefore);
+    const md = readFileSync(prefs, "utf8");
+    expect(md).toContain("## First-Run Personalization");
     expect(md).toContain("Shell flavor: `fish`");
     expect(md).toContain("Primary language: `TypeScript`");
     expect(md).toContain("TDD discipline: `pragmatic`");
@@ -276,48 +272,39 @@ describe("first-run.fish — hook registration (#557)", () => {
 });
 
 describe("first-run.fish — idempotency", () => {
-  test("re-running with marker present replaces managed block, exits clean", () => {
-    const { claudeMd, env } = seedFixture();
+  test("re-running replaces the prefs rule, exits clean", () => {
+    const { prefs, env } = seedFixture();
 
     const first = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS });
     assertExit("first run", first, "zero");
 
-    // Second run with different answers — managed block should be replaced.
+    // Second run with different answers — the whole file is replaced.
     const second = runFirstRun({
       ...env,
       FIRST_RUN_ANSWERS: "bash,Python,strict,tone-down,N,Y,N",
     });
     assertExit("second run", second, "zero");
 
-    const md = readFileSync(claudeMd, "utf8");
+    const md = readFileSync(prefs, "utf8");
     expect(md).toContain("Shell flavor: `bash`");
     expect(md).toContain("Primary language: `Python`");
     expect(md).toContain("TDD discipline: `strict`");
     expect(md).toContain("Sycophancy intensity: `tone-down`");
-    // Exactly one managed block.
-    const opens = md.match(/<!-- managed:first-run -->/g) ?? [];
-    expect(opens.length).toBe(1);
+    expect(md).not.toContain("Shell flavor: `fish`");
+    const headings = md.match(/## First-Run Personalization/g) ?? [];
+    expect(headings.length).toBe(1);
   });
-});
 
-describe("first-run.fish — user pre-edited CLAUDE.md outside managed block", () => {
-  test("aborts non-zero; settings.json untouched", () => {
-    const { claudeMd, settings, env } = seedFixture();
-    // Mutate the seed away from HEAD with no marker.
-    writeFileSync(claudeMd, "# my personal claude.md\n\nCustom edits.\n");
-
-    const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS });
-    assertExit("abort run", r, "non-zero");
-    expect(r.stderr).toContain("local edits and no managed block");
-
-    // settings.json must not have been created (hooks step never reached).
-    expect(() => readFileSync(settings, "utf8")).toThrow();
+  test("no repo rule shares the prefs file name", () => {
+    // link-config symlinks every rules/*.md into ~/.claude/rules/; a repo
+    // rule with this name would collide with the generated file.
+    expect(readdirSync(join(REPO, "rules"))).not.toContain(PREFS_NAME);
   });
 });
 
 describe("first-run.fish — hook prompt declined", () => {
-  test("CLAUDE.md patched but settings.json unmodified", () => {
-    const { claudeMd, settings, env } = seedFixture();
+  test("prefs rule written but settings.json unmodified", () => {
+    const { prefs, settings, env } = seedFixture();
 
     const r = runFirstRun({
       ...env,
@@ -326,9 +313,7 @@ describe("first-run.fish — hook prompt declined", () => {
     });
     assertExit("hooks-declined run", r, "zero");
 
-    expect(readFileSync(claudeMd, "utf8")).toContain(
-      "<!-- managed:first-run -->",
-    );
+    expect(readFileSync(prefs, "utf8")).toContain("## First-Run Personalization");
     expect(() => readFileSync(settings, "utf8")).toThrow();
     expect(r.stdout).toContain("Skipped hook registration");
   });
@@ -372,9 +357,8 @@ describe("first-run.fish — link-config --check failure surfaces", () => {
     // The script runs link-config --check against the REAL ~/.claude when
     // FIRST_RUN_SKIP_VERIFY is unset. We simulate failure by pointing HOME
     // at an empty dir (no symlinks → link-config --check reports MISSING
-    // for every managed entry). FIRST_RUN_CLAUDE_MD_PATH still redirects
-    // the patch target.
-    const { claudeMd, env } = seedFixture();
+    // for every managed entry).
+    const { prefs, env } = seedFixture();
     const verifyEnv = { ...env };
     delete verifyEnv.FIRST_RUN_SKIP_VERIFY;
 
@@ -386,12 +370,9 @@ describe("first-run.fish — link-config --check failure surfaces", () => {
     // Combined output should contain a MISSING line from link-config.fish.
     const combined = r.stdout + r.stderr;
     expect(combined).toMatch(/MISSING link:/);
-    // The CLAUDE.md patch happens BEFORE the verify step, so we can also
-    // confirm the script got far enough to apply the managed block before
-    // failing the gate.
-    expect(readFileSync(claudeMd, "utf8")).toContain(
-      "<!-- managed:first-run -->",
-    );
+    // The prefs write happens BEFORE the verify step, so we can also
+    // confirm the script got that far before failing the gate.
+    expect(readFileSync(prefs, "utf8")).toContain("## First-Run Personalization");
   });
 });
 
@@ -420,13 +401,10 @@ describe("first-run.fish — pre-install preflight (#396)", () => {
     const home = mkdtempSync(join(tmpdir(), "first-run-preflight-"));
     fixtures.push(home);
     mkdirSync(join(home, ".claude"), { recursive: true });
-    const claudeMd = join(home, "CLAUDE.md");
-    copyFileSync(join(REPO, "global", "CLAUDE.md"), claudeMd);
     const settings = join(home, ".claude", "settings.json");
 
     const r = runFirstRun({
       HOME: home,
-      FIRST_RUN_CLAUDE_MD_PATH: claudeMd,
       FIRST_RUN_SETTINGS_PATH: settings,
       FIRST_RUN_SKIP_VERIFY: "1",
       FIRST_RUN_ANSWERS: DEFAULT_ANSWERS,
@@ -436,10 +414,8 @@ describe("first-run.fish — pre-install preflight (#396)", () => {
     // Match install hint loosely — exact prose may evolve, but the
     // user-recovery contract is "name the install script."
     expect(r.stderr).toMatch(/install/i);
-    // CLAUDE.md must remain untouched — preflight runs before any mutation.
-    expect(readFileSync(claudeMd, "utf8")).not.toContain(
-      "<!-- managed:first-run -->",
-    );
+    // Preflight runs before any mutation: no prefs rule anywhere.
+    expect(readdirSync(join(home, ".claude"))).not.toContain("rules");
     // Settings.json must not have been created.
     expect(() => readFileSync(settings, "utf8")).toThrow();
   });
