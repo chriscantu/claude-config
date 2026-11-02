@@ -12,7 +12,9 @@ REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
 [[ -z "$REPO_ROOT" ]] && exit 0
 cd "$REPO_ROOT" || exit 0
 
-LOG_FILE=".claude/state/critiques/.spawn-log"
+# Absolute paths: the reviewers run from a throwaway copy, not from here.
+CRITIQUES_DIR="$REPO_ROOT/.claude/state/critiques"
+LOG_FILE="$CRITIQUES_DIR/.spawn-log"
 mkdir -p .claude/state/critiques
 
 # ── Input validation (fixes #1, #2) ──────────────────────────────────────────
@@ -46,11 +48,58 @@ BRANCH=$(git branch --show-current 2>/dev/null | tr -c 'a-zA-Z0-9._-' '_' | sed 
 [[ -z "$BRANCH" ]] && BRANCH="detached"
 SHA=$(git rev-parse --short HEAD 2>/dev/null || echo "nosha")
 
-SHA_DIR=".claude/state/critiques/${BRANCH}-${SHA}-${DIFF_HASH}"
+SHA_DIR="$CRITIQUES_DIR/${BRANCH}-${SHA}-${DIFF_HASH}"
 mkdir -p "$SHA_DIR"
 
 DIFF_FILE="$SHA_DIR/.diff"
 git diff HEAD 2>/dev/null > "$DIFF_FILE"
+
+# ── Review copy (#578) ───────────────────────────────────────────────────────
+# Reviewers run with permission checks off, and the test-gap reviewer's revert
+# probe is `git stash`. In the live checkout that empties the working tree
+# while the user may be committing. So reviewers run in a throwaway local
+# clone that matches HEAD plus every uncommitted change. A clone, not a
+# worktree: a worktree shares the stash and branches with this checkout.
+REVIEW_TMP=$(mktemp -d -t adv-review.XXXXXX) || exit 0
+trap 'rm -rf "$REVIEW_TMP"' EXIT
+REVIEW_COPY="$REVIEW_TMP/repo"
+
+# Prints a tree of tracked and untracked (non-ignored) files. A private index
+# keeps the real one untouched; only unreferenced objects are written.
+snapshot_tree() {
+  local index="$REVIEW_TMP/index"
+  GIT_INDEX_FILE="$index" git read-tree HEAD &&
+    GIT_INDEX_FILE="$index" git add -A &&
+    GIT_INDEX_FILE="$index" git write-tree
+}
+
+# Clones at HEAD, lays the snapshot over the files and resets the index to
+# HEAD, so `git diff HEAD` in the copy matches the live checkout. Leaves the
+# shell in the copy.
+build_review_copy() {
+  local head tree
+  head=$(git rev-parse HEAD) || return 1
+  tree=$(snapshot_tree) || return 1
+  git clone -q --local --no-checkout "$REPO_ROOT" "$REVIEW_COPY" || return 1
+  cd "$REVIEW_COPY" || return 1
+  # No remote, so a reviewer's `git push` cannot reach the live repo.
+  git remote remove origin &&
+    git checkout -q --detach "$head" &&
+    git read-tree -u --reset "$tree" &&
+    git reset -q || return 1
+  # Reviewers run the test suite, which needs installed packages.
+  if [[ -d "$REPO_ROOT/node_modules" ]]; then
+    ln -s "$REPO_ROOT/node_modules" node_modules
+    echo "/node_modules" >> .git/info/exclude
+  fi
+}
+
+# Never fall back to the live checkout: skipping a review is cheap, a
+# reviewer stashing the user's work is not.
+if ! build_review_copy >>"$LOG_FILE" 2>&1; then
+  echo "[$(date -u +%FT%TZ)] skip review_copy_failed dir=$SHA_DIR" >> "$LOG_FILE"
+  exit 0
+fi
 
 # ── Pure-bash timeout wrapper (fix #3) ───────────────────────────────────────
 # Usage: run_with_timeout <seconds> <cmd...>
@@ -101,7 +150,6 @@ spawn_worker() {
     --agent "$agent" \
     --max-budget-usd "$MAX_BUDGET" \
     --dangerously-skip-permissions \
-    --add-dir "$REPO_ROOT" \
     --output-format text \
     "$prompt" \
     < "$DIFF_FILE" \
@@ -150,7 +198,7 @@ run_with_timeout "$ARBITER_TIMEOUT" \
   --agent arbiter \
   --max-budget-usd "$MAX_BUDGET" \
   --dangerously-skip-permissions \
-  --add-dir "$REPO_ROOT" \
+  --add-dir "$SHA_DIR" \
   --output-format text \
   "$ARBITER_PROMPT" \
   > "$ARBITER_OUT" 2>>"$LOG_FILE"
@@ -176,7 +224,7 @@ if [[ -s "$ARBITER_OUT" ]]; then
     --arg top1 "$TOP1" \
     --arg top2 "$TOP2" \
     '{ts:$ts, branch:$branch, sha:$sha, hash:$hash, top1:$top1, top2:$top2}' \
-    >> ".claude/state/critiques/.patterns.jsonl" 2>>"$LOG_FILE" || true
+    >> "$CRITIQUES_DIR/.patterns.jsonl" 2>>"$LOG_FILE" || true
 fi
 
 {
