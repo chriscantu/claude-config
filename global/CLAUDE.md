@@ -1,18 +1,19 @@
 # Global Claude Code Configuration
 
 ## Shell Environment
-- User runs **fish shell** — all terminal commands must be fish-compatible
-- No bash heredocs (`<<'EOF'`): write multiline content to a temp file instead
-  ```fish
-  echo "subject line
+- Your Bash tool runs **zsh**, not fish. Write Bash tool commands in zsh/bash syntax (`for … do … done`, `$(…)`); fish-only syntax such as `for … end` fails there. To run fish code, call `fish -c '…'` or `fish script.fish`.
+- User runs **fish shell** — commands you give the user to paste must be fish-compatible:
+  - No bash heredocs (`<<'EOF'`): write multiline content to a temp file instead
+    ```fish
+    echo "subject line
 
-  Body paragraph.
+    Body paragraph.
 
-  Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" > /tmp/commitmsg
-  git commit -F /tmp/commitmsg
-  ```
-- No `$(...)` command substitution: use `(...)` in fish
-- `&&` chaining works in fish 3.0+; `;` is fine for unconditional sequencing
+    Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>" > /tmp/commitmsg
+    git commit -F /tmp/commitmsg
+    ```
+  - No `$(...)` command substitution: use `(...)` in fish
+  - `&&` chaining works in fish 3.0+; `;` is fine for unconditional sequencing
 
 ## Documentation & Diagrams
 - Use Markdown for all documentation and written deliverables
@@ -24,6 +25,7 @@
 - Feature branches: `feature/<short-description>` (e.g., `feature/auth-middleware`)
 - Commit messages: concise subject, imperative mood (e.g., "Add session timeout handling")
 - NEVER push directly to main/master without explicit approval
+- On a feature branch, commit, push, and open or update its PR without asking first; say what you did. Merging, force-pushing, deleting branches, and anything on main/master still need my explicit OK.
 
 ## Development Defaults
 - **TypeScript is required for all new projects** — server-side code is TypeScript, no exceptions. Client-side and tooling default to TypeScript; deviate only when the runtime forbids it (e.g. raw shell scripts, build-config `.mjs` where TS toolchain isn't justified)

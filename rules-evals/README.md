@@ -46,6 +46,10 @@ Current suites:
 - `pr-validation/` — covers the trigger surface (speech-act + action-bound),
   test-plan locator, and zero-functional-change carve-out from
   [`rules/pr-validation.md`](../rules/pr-validation.md)
+- `ship-permission/` — covers the standing permission in `global/CLAUDE.md`
+  § Git Conventions: on a feature branch the agent commits and pushes without
+  asking (discriminator), and it still never pushes to main (control). Uses a
+  real fixture repo from `tests/fixtures/ship-permission/`
 - `think-before-coding/` — covers the three-part preamble + emission
   contract from [`rules/think-before-coding.md`](../rules/think-before-coding.md)
 - `verification/` — covers the end-of-work goal-verification gate from
