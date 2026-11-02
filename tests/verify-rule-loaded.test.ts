@@ -91,7 +91,9 @@ const runScript = (
   const basePath = stubBin
     ? `${stubBin}:${process.env.PATH ?? ""}`
     : "/usr/bin:/bin";
-  const result = spawnSync(FISH, [SCRIPT, ...args], {
+  // --no-config: a developer's universal `fish_user_paths` is prepended to
+  // PATH at startup, ahead of the stub dir, so the real `claude` would win.
+  const result = spawnSync(FISH, ["--no-config", SCRIPT, ...args], {
     env: { ...process.env, PATH: basePath, ...env },
     encoding: "utf8",
   });
