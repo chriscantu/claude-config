@@ -163,6 +163,9 @@ above is the analysis — no need to reformat.
 ## Handoff
 
 1. Display the analysis summary (if not just displayed)
-2. Ask: "Systems context mapped. Ready to move to solution design?"
-3. On confirmation, invoke `superpowers:brainstorming` with both the problem
-   statement and systems analysis as context
+2. Announce **[Stage: Solution Design]** and invoke `superpowers:brainstorming`
+   in the same turn, with both the problem statement and systems analysis as
+   context. Do not ask first: brainstorming opens with its own choice for the
+   user, so a "ready to move on?" question adds a round trip without a decision.
+3. Exception: if the analysis surfaced something that changes the problem
+   statement itself, stop and ask the user to confirm the revised problem instead.
