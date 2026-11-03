@@ -67,8 +67,9 @@ Classify each cell by applying these rules in order; the first match wins:
 
 The rule order above is authoritative; the table only names the classes. Only
 `cell-gap` has a fill: a light diagonal hatch with a bold label, so a bucket
-with nobody in it stands out at a glance instead of looking like an undercovered one. Inside each cell: the bucket name, a `<br>`, then the count. Put
-the dimension name in the row's `.row-label`. Keep the **Key** line under the grid.
+with nobody in it stands out at a glance instead of looking like an undercovered
+one. Inside each cell: the bucket name, a `<br>`, then the count. Put the
+dimension name in the row's `.row-label`. Keep the **Key** line under the grid.
 
 ## Text Fallback
 
