@@ -177,7 +177,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(fallback (hierarchy|order)|artifact (tool|page)|html (sketch|page)|excalidraw.{0,40}(html|fallback|first|default|canvas)|html.{0,20}fallback|preview[_ -]?start|excalidraw[- ]canvas|visual artifact|(isn'?t|not|never) (just )?(a )?text list|text list (isn'?t|is not))",
+          "pattern": "(fallback (hierarchy|order)|artifact (tool|page)|html (sketch|page)|boxed (ascii|plain text|text)|(instead of|didn'?t use|not) (using )?a bullet list|bullet list (would|hides|is)|excalidraw.{0,40}(html|fallback|first|default|canvas)|html.{0,20}fallback|preview[_ -]?start|excalidraw[- ]canvas|visual artifact|(isn'?t|not|never) (just )?(a )?text list|text list (isn'?t|is not))",
           "flags": "i",
           "description": "Rebuts the 'text list only' ask by naming the fallback hierarchy, the excalidraw/HTML path, or the 'visual artifact, not text' rule"
         },
