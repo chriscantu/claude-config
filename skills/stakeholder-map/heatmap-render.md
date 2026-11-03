@@ -62,11 +62,12 @@ Classify each cell by applying these rules in order; the first match wins:
 |------------|-------|--------|
 | Well-covered | `cell-well` | solid, thick (4px) |
 | Undercovered | `cell-under` | solid, thin (1px) |
-| Empty gap | `cell-gap` | solid, thin (1px) |
+| Empty gap | `cell-gap` | solid, thin (1px), hatched |
 | Unknown | `cell-unknown` | dashed, thin (1px) |
 
-The rule order above is authoritative; the table only names the classes. Cells
-have no fill. Inside each cell: the bucket name, a `<br>`, then the count. Put
+The rule order above is authoritative; the table only names the classes. Only
+`cell-gap` has a fill: a light diagonal hatch with a bold label, so a bucket
+with nobody in it stands out at a glance instead of looking like an undercovered one. Inside each cell: the bucket name, a `<br>`, then the count. Put
 the dimension name in the row's `.row-label`. Keep the **Key** line under the grid.
 
 ## Text Fallback

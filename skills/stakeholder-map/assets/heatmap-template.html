@@ -11,7 +11,7 @@
 <style>
   /* Monochrome with no dark-mode tokens on purpose: a print-style local view
      where stroke weight and dashes encode coverage and must not invert. */
-  :root { --paper: #fff; --ink: #000; }
+  :root { --paper: #fff; --ink: #000; --hatch: #ccc; }
   body {
     background: var(--paper);
     color: var(--ink);
@@ -31,6 +31,8 @@
   .cell { width: 110px; flex: none; min-height: 52px; padding: 6px; box-sizing: border-box; font-size: 13px; }
   .cell-well { border: 4px solid var(--ink); }
   .cell-under, .cell-gap { border: 1px solid var(--ink); }
+  /* Light hatch: an empty bucket must stand out without hiding its label. */
+  .cell-gap { background: repeating-linear-gradient(45deg, var(--hatch) 0 1px, transparent 1px 9px); font-weight: 600; }
   .cell-unknown { border: 1px dashed var(--ink); }
   .cell-empty-slot { border: 0; }
   .key { font-size: 13px; margin-top: 12px; }
@@ -57,7 +59,7 @@
     <div class="cell cell-empty-slot"></div>
   </div>
 </div>
-<div class="key">Key: thick border = well covered (2+). Thin border = undercovered or a gap. Dashed = unknown (no data).</div>
+<div class="key">Key: thick border = well covered (2+). Thin border = undercovered (1). Hatched = gap (nobody yet). Dashed = unknown (no data).</div>
 
 <h2>Structural Gaps</h2>
 <ol><li>Person - mentioned in 2 observations, not on the map</li></ol>

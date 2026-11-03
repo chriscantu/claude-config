@@ -151,6 +151,8 @@ for (const page of pages) {
           if (look.includes(style)) expect(rules).toContain(style);
           else expect(rules).not.toContain(style);
         }
+        if (look.includes("hatched")) expect(rules).toContain("repeating-linear-gradient");
+        else expect(rules).not.toContain("gradient");
       });
     }
   });
