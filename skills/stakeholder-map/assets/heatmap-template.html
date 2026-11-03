@@ -33,9 +33,15 @@
   .cell-under, .cell-gap { border: 1px solid var(--ink); }
   /* Light hatch: an empty bucket must stand out without hiding its label. */
   .cell-gap { background: repeating-linear-gradient(45deg, var(--hatch) 0 1px, transparent 1px 9px); font-weight: 600; }
+  /* Double border plus a written label: a lopsided bucket has people in it, so
+     it must not read as either "covered" (thick) or "empty" (hatched). */
+  .cell-unbalanced { border: 4px double var(--ink); }
+  .cell.cell-unbalanced::after { content: "out of balance"; display: block; font-style: italic; }
   .cell-unknown { border: 1px dashed var(--ink); }
   .cell-empty-slot { border: 0; }
-  .key { font-size: 13px; margin-top: 12px; }
+  .key { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 13px; margin-top: 12px; }
+  .key-item { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { display: inline-block; width: 28px; height: 18px; box-sizing: border-box; }
   ol { padding-left: 24px; }
 </style>
 
@@ -46,20 +52,26 @@
 <div class="grid">
   <div class="row">
     <div class="row-label">Function</div>
-    <div class="cell cell-well">Engineering<br>3</div>
-    <div class="cell cell-under">Sales<br>1</div>
-    <div class="cell cell-gap">Legal<br>0</div>
+    <div class="cell cell-well">engineering<br>3</div>
+    <div class="cell cell-under">product<br>1</div>
+    <div class="cell cell-gap">design<br>0</div>
     <div class="cell cell-unknown">unknown<br>2</div>
   </div>
   <div class="row">
-    <div class="row-label">Tenure</div>
-    <div class="cell cell-well">0-2y<br>2</div>
+    <div class="row-label">Role</div>
+    <div class="cell cell-well">manager<br>2</div>
+    <div class="cell cell-unbalanced">ic<br>18</div>
     <div class="cell cell-unknown">unknown<br>0</div>
-    <div class="cell cell-empty-slot"></div>
     <div class="cell cell-empty-slot"></div>
   </div>
 </div>
-<div class="key">Key: thick border = well covered (2+). Thin border = undercovered (1). Hatched = gap (nobody yet). Dashed = unknown (no data).</div>
+<div class="key">
+  <span class="key-item"><span class="swatch cell-well"></span>well covered (2 or more)</span>
+  <span class="key-item"><span class="swatch cell-under"></span>only one person</span>
+  <span class="key-item"><span class="swatch cell-gap"></span>nobody yet</span>
+  <span class="key-item"><span class="swatch cell-unbalanced"></span>out of balance: too few or too many vs. the rest</span>
+  <span class="key-item"><span class="swatch cell-unknown"></span>people with this field not recorded</span>
+</div>
 
 <h2>Structural Gaps</h2>
 <ol><li>Person - mentioned in 2 observations, not on the map</li></ol>

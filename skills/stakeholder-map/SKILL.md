@@ -54,9 +54,13 @@ The page stays on this machine (see Privacy above). If writing the file fails or
 ```
 /stakeholder-map --mode=leader-onboarding [--seed-from-calendar [--days=30]]
 /stakeholder-map --mode=coverage-review
-/stakeholder-map --render                     # rebuild the last view's page from the current graph
+/stakeholder-map --render                     # rebuild a page from the current graph (see below)
 /stakeholder-map --sync                       # drain pending-sync
 ```
+
+`--render` rebuilds the page for the mode run last in this session. In a new
+session, ask which view to build: the chart (leader-onboarding) or the heatmap
+(coverage-review).
 
 `--sync` drains pending-sync files in `skills/stakeholder-map/pending-sync/`
 into the memory graph. Line format, partial-replay semantics, and

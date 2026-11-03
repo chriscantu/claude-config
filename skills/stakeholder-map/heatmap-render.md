@@ -43,33 +43,45 @@ Page sections, top to bottom:
    Pad each row with `.cell-empty-slot` cells up to the longest row's cell
    count, so the columns line up.
 4. **Structural Gaps** — numbered list from `structural_gaps`, one line each:
-   `{name} - mentioned in {mention_count} observations, not on the map`.
-5. **Recommended Next Interviews** — numbered list.
+   `{name} - mentioned in {mention_count} observations, not on the map`
+   (write `1 observation` when the count is 1).
+5. **Recommended Next Interviews** — numbered list from `next_interviews`, one
+   line each: `{name} - {rationale}`.
+
+Keep both list headings even when a list is empty; the list is then one
+`<li>None found</li>`.
 
 ## Heatmap Grid Cell Encoding
 
 Classify each cell by applying these rules in order; the first match wins:
 
-1. **Unknown** — the bucket is the `unknown` bucket for its dimension (no data
-   vs. a real bucket with count 0). Class: `cell-unknown`.
-2. **Empty gap** — `count == 0`. Class: `cell-gap`.
-3. **Undercovered** — `count == 1` OR the bucket is in `gap_buckets` with
-   `count < 2`. Class: `cell-under`.
-4. **Well-covered** — `count >= 2` AND bucket is NOT in `gap_buckets`. Class:
-   `cell-well`.
+1. **Unknown** — the bucket is the `unknown` bucket for its dimension: people
+   whose field isn't recorded. Class: `cell-unknown`.
+2. **Nobody yet** — `count == 0`. Class: `cell-gap`.
+3. **Only one** — `count == 1`. Class: `cell-under`.
+4. **Out of balance** — the bucket is in `gap_buckets` (so `count >= 2`): its
+   portion of the total is too small or too large, per the dimension's gap rule in
+   [coverage-queries.md](coverage-queries.md). Class: `cell-unbalanced`.
+5. **Well covered** — everything else (`count >= 2`, not in `gap_buckets`).
+   Class: `cell-well`.
 
-| Cell state | Class | Border |
-|------------|-------|--------|
-| Well-covered | `cell-well` | solid, thick (4px) |
-| Undercovered | `cell-under` | solid, thin (1px) |
-| Empty gap | `cell-gap` | solid, thin (1px), hatched |
+Every cell matches exactly one rule. The table names each class and its look;
+the tests check the look against the template CSS.
+
+| Cell state | Class | Look |
+|------------|-------|------|
+| Well covered | `cell-well` | solid, thick (4px) |
+| Only one | `cell-under` | solid, thin (1px) |
+| Nobody yet | `cell-gap` | solid, thin (1px), hatched |
+| Out of balance | `cell-unbalanced` | double (4px), labelled |
 | Unknown | `cell-unknown` | dashed, thin (1px) |
 
-The rule order above is authoritative; the table only names the classes. Only
-`cell-gap` has a fill: a light diagonal hatch with a bold label, so a bucket
-with nobody in it stands out at a glance instead of looking like an undercovered
-one. Inside each cell: the bucket name, a `<br>`, then the count. Put the
-dimension name in the row's `.row-label`. Keep the **Key** line under the grid.
+`cell-gap` is hatched with a bold label, so an empty bucket stands out at a
+glance. `cell-unbalanced` adds an "out of balance" line under the count by
+itself (from the CSS), so don't type that text. Inside each cell: the bucket
+name, a `<br>`, then the count. Put the dimension name in the row's
+`.row-label`, capitalized (`Function`, `Role`). Leave the **Key** under the grid
+as the template has it.
 
 ## Text Fallback
 
@@ -85,14 +97,14 @@ If writing the HTML file fails or `open` exits non-zero, print markdown:
 ## Coverage
 
 ### {dimension_name}
-- {bucket}: {count} {if in gap_buckets: "(gap)"}
+- {bucket}: {count} {"(nobody yet)" | "(only one)" | "(out of balance)" per the cell rules, else nothing}
 ...
 
 ## Structural Gaps
-1. {name} — mentioned in {mention_count} observations, not on the map
+1. {name} - mentioned in {mention_count} observations, not on the map
 ...
 
 ## Recommended Next Interviews
-1. {name} — {rationale}
+1. {name} - {rationale}
 ...
 ```

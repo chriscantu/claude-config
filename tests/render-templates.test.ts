@@ -112,11 +112,6 @@ for (const page of pages) {
       expect(spec).toMatch(/HTML-escape/);
     });
 
-    test("mentions no Excalidraw tooling", () => {
-      expect(html).not.toMatch(/excalidraw/i);
-      expect(spec).not.toMatch(/excalidraw|batch_create_elements|describe_scene/i);
-    });
-
     if (page.kind === "local") {
       test("is a standalone page with its own skeleton and UTF-8 charset", () => {
         expect(html).toMatch(/^<!doctype html>/i);
@@ -147,7 +142,7 @@ for (const page of pages) {
       test(`.${cls} draws "${look}" as the spec says`, () => {
         const rules = rulesFor(css, cls);
         for (const px of look.match(/\d+px/g) ?? []) expect(rules).toContain(px);
-        for (const style of ["dashed", "dotted"]) {
+        for (const style of ["dashed", "dotted", "double"]) {
           if (look.includes(style)) expect(rules).toContain(style);
           else expect(rules).not.toContain(style);
         }
@@ -169,8 +164,54 @@ describe("render specs name the classes they use", () => {
   });
 });
 
+// A first-time reader decodes the page from its key, so every encoding the
+// spec defines must have a sample in the key, drawn with the same class.
+describe("each stakeholder key shows every encoding", () => {
+  const keyOf = (html: string) => html.match(/<div class="key">([\s\S]*?)(?=<h2>|$)/)?.[1] ?? "";
+
+  test("heatmap key has a swatch for every cell state", () => {
+    const key = keyOf(read("stakeholder-map/assets/heatmap-template.html"));
+    for (const { cls } of tableClassRows(read("stakeholder-map/heatmap-render.md"))) {
+      expect(key).toMatch(new RegExp(`class="swatch ${cls}"`));
+    }
+  });
+
+  test("chart key has a sample circle for every informal-power level", () => {
+    const key = keyOf(read("stakeholder-map/assets/chart-template.html"));
+    for (const level of ["low", "medium", "high"]) {
+      expect(key).toMatch(new RegExp(`class="badge badge-${level}"`));
+    }
+  });
+});
+
 describe("swot grid page", () => {
   const html = read("swot/assets/swot-template.html");
+  const spec = read("swot/export-formats.md");
+  const css = cssOf(html);
+
+  test("lays the quadrants out as a 2x2 grid", () => {
+    expect(rulesFor(css, "grid")).toMatch(/grid-template-columns:\s*repeat\(2,/);
+  });
+
+  test("dark theme swaps to dark paper and light ink", () => {
+    const light = css.match(/:root\s*\{([^}]*)\}/)?.[1] ?? "";
+    const dark = css.match(/:root\[data-theme="dark"\]\s*\{([^}]*)\}/)?.[1] ?? "";
+    const token = (block: string, name: string) => block.match(new RegExp(`--${name}:\\s*([^;]+)`))?.[1];
+    for (const name of ["bg", "fg"]) {
+      expect(token(dark, name)).toBeDefined();
+      expect(token(dark, name)).not.toBe(token(light, name));
+    }
+  });
+
+  test("the republish lookup title matches the template title", () => {
+    const lookup = spec.match(/titled\s+`([^`<]+)<Org Name>`/)?.[1];
+    expect(lookup).toBeDefined();
+    expect(html).toContain(`<title>${lookup}Org Name</title>`);
+  });
+
+  test("local fallback adds the charset the Artifact wrapper would", () => {
+    expect(spec).toMatch(/<meta charset="utf-8">/);
+  });
 
   test("has all four quadrants", () => {
     for (const q of ["STRENGTHS", "WEAKNESSES", "OPPORTUNITIES", "THREATS"]) {
@@ -202,11 +243,33 @@ describe("stakeholder-map stays local", () => {
     expect(privacy).not.toMatch(/\b(unless|except|only if|only when)\b/i);
   });
 
-  test("every Privacy sentence about publishing is a prohibition", () => {
+  test("every Privacy sentence about publishing is a prohibition with no way out", () => {
     const sentences = privacy.replace(/\s+/g, " ").split(/(?<=\.)\s/);
-    for (const s of sentences.filter((s) => /publish|artifact|upload/i.test(s))) {
+    for (const s of sentences.filter((s) => /publish|artifact|upload|gist/i.test(s))) {
       expect(s).toMatch(/\b(never|not)\b|n't\b/i);
+      expect(s).not.toMatch(/\b(but|once|when|after|until)\b/i);
     }
+  });
+
+  test("both render specs keep the page in the scratchpad and out of the repo", () => {
+    for (const spec of ["stakeholder-map/chart-render.md", "stakeholder-map/heatmap-render.md"]) {
+      expect(read(spec)).toMatch(/session scratchpad/);
+      expect(read(spec)).toMatch(/Never write it into a repo/);
+    }
+  });
+
+  test("no other skill tells Claude to publish stakeholder-map output", () => {
+    const offenders = readdirSync(skillsDir, { recursive: true })
+      .map(String)
+      .filter((f) => f.endsWith(".md") && !f.startsWith("stakeholder-map/"))
+      .sort()
+      .flatMap((f) =>
+        read(f)
+          .split("\n")
+          .filter((line) => /stakeholder/i.test(line) && /publish|upload|gist|\bArtifact tool\b/i.test(line))
+          .map((line) => `${f}: ${line.trim()}`),
+      );
+    expect(offenders).toEqual([]);
   });
 
   const files = [
@@ -219,7 +282,10 @@ describe("stakeholder-map stays local", () => {
   for (const file of files) {
     test(`${file} says nothing about publishing outside the Privacy section`, () => {
       const text = file === "stakeholder-map/SKILL.md" ? skill.replace(privacy, "") : read(file);
-      expect(text).not.toMatch(/publish|artifact|upload/i);
+      expect(text).not.toMatch(/publish|artifact|upload|gist/i);
+      for (const line of text.split("\n").filter((l) => /\b(share|send|post)\b/i.test(l))) {
+        expect(line).toMatch(/\b(never|not|no)\b|n't\b/i);
+      }
     });
   }
 });

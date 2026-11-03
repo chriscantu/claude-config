@@ -82,9 +82,9 @@ List each relation under **Relations** as one line, using the class for its type
 Text: `{source} reports to {target}`, `{source} informally reports to {target}`,
 or `{source} influences {target}`. Skip relations whose target is not on the chart.
 
-Order: by relation type in the table order above, then by source, then by
-target, each name compared with the **canonical sort-order tie-break** from
-[graph-schema.md](graph-schema.md#canonical-sort-order-for-ties).
+Order: by relation type in the table order above, then by source name, then by
+target name. Compare names in case-sensitive Unicode codepoint order (step 4 of
+the [canonical sort order](graph-schema.md#canonical-sort-order-for-ties)).
 
 ## Meet-in-What-Order List
 
@@ -114,7 +114,8 @@ Sort descending by score. Break ties using the **canonical sort order** in
 
 Add ` [unmet]` only when the person has no `[coverage:met]` observation.
 
-Keep the **Key** line at the bottom of the template.
+Leave both **Key** blocks as the template has them: the main key under the
+columns, and the bar key under the Relations heading.
 
 ## Text Fallback
 
@@ -127,10 +128,10 @@ instead:
 ## By Category
 
 ### Direct Reports
-- {name} — {function} · {team} · formal={level}, informal={level} [met|unmet]
+- {name} - {function}, {team}, formal={level}, informal={level} [met|unmet]
 ...
 
 ## Meet in What Order (top 10)
-1. {name} — {rationale}
+1. {name} - {category}, formal={level}, informal={level} [unmet]
 ...
 ```

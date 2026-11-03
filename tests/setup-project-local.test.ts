@@ -41,7 +41,7 @@ describe("bin/setup-project-local.fish", () => {
 
   test("a second run leaves the file byte-identical", () => {
     const box = makeSandbox();
-    box.run();
+    expect(box.run().status).toBe(0);
     const first = readFileSync(box.settings, "utf8");
     expect(box.run().status).toBe(0);
     expect(readFileSync(box.settings, "utf8")).toBe(first);
@@ -71,7 +71,7 @@ describe("bin/setup-project-local.fish", () => {
 
   test("creates no launch.json", () => {
     const box = makeSandbox();
-    box.run();
+    expect(box.run().status).toBe(0);
     expect(existsSync(join(box.dir, ".claude", "launch.json"))).toBe(false);
   });
 });

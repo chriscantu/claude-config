@@ -42,7 +42,9 @@
   .rel-reports_to { border-left: 3px solid var(--ink); padding-left: 8px; }
   .rel-reports_to_informally { border-left: 3px dashed var(--ink); padding-left: 8px; }
   .rel-influences { border-left: 3px dotted var(--ink); padding-left: 8px; }
-  .key { font-size: 13px; margin-top: 28px; }
+  .key { display: flex; flex-direction: column; gap: 6px; font-size: 13px; margin-top: 20px; }
+  /* Sample circles sit inline in the key instead of on a node's corner. */
+  .key .badge { position: static; display: inline-block; vertical-align: middle; margin: 0 4px 0 10px; }
   ol { padding-left: 24px; }
 </style>
 
@@ -66,7 +68,14 @@
   </div>
 </div>
 
+<div class="key">
+  <div>Box width = formal power: wider box = more power. Dashed box = unknown.</div>
+  <div>Circle = informal power:<span class="badge badge-low"></span>low<span class="badge badge-medium"></span>medium<span class="badge badge-high"></span>high. No circle = unknown.</div>
+  <div>[x] = met, [ ] = not met yet.</div>
+</div>
+
 <h2>Relations</h2>
+<div class="key">Solid bar = reports to. Dashed bar = reports to informally. Dotted bar = influences.</div>
 <div class="rel rel-reports_to">Person B reports to Person A</div>
 
 <h2>Meet in What Order</h2>
@@ -74,4 +83,3 @@
   <li>Person A - direct_report, formal=high, informal=medium [unmet]</li>
 </ol>
 
-<div class="key">Key: box size = formal power (dashed = unknown). Circle size = informal power (none = unknown). [x] met, [ ] not met yet. Relations: solid = reports to, dashed = reports to informally, dotted = influences.</div>
