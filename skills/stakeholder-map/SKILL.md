@@ -39,12 +39,11 @@ the current write). The file format mirrors 1on1-prep — see
 [`../1on1-prep/pending-sync.md`](../1on1-prep/pending-sync.md). Check for existing
 pending-sync files on entry.
 
-Rendering requires the excalidraw canvas to be reachable via Preview. Check at
-render time (not skill invocation) using `mcp__Claude_Preview__preview_list` and
-`mcp__excalidraw__describe_scene`. On failure, fall back to text output and print:
-
-> Excalidraw canvas not reachable. To enable visual output, run
-> `preview_start("excalidraw-canvas")` and re-render with `/stakeholder-map --render`.
+Rendering writes a local HTML page and opens it in the browser (see
+[chart-render.md](chart-render.md) and [heatmap-render.md](heatmap-render.md)).
+It never publishes the page: per Privacy above, the people data stays on this
+machine. If the page can't be written or opened, the render files give a text
+summary to print instead.
 
 ## Invocation
 
@@ -104,9 +103,9 @@ Load [`coverage-queries.md`](coverage-queries.md) and run the queries. Load
   `[context]`-only entities (from `seen-but-skip` or 1on1-prep upgrades) are NOT
   on the map per the membership predicate. Don't let them leak into charts or
   coverage counts.
-- **Rendering without preflight.** Always run `preview_list` + `describe_scene`
-  before drawing. If either fails, use the text fallback — do not silently skip
-  the render.
+- **Publishing the render.** The chart and heatmap pages stay local. Don't publish
+  them with the Artifact tool unless the user asks on that run. If the page can't
+  be written or opened, use the text fallback — do not silently skip the render.
 
 ## Compatibility With 1on1-prep
 
@@ -126,4 +125,4 @@ Per [ADR #0020](../../adrs/0020-memory-layer-primary-and-delegations.md), per-le
 
 **Not used by this skill:** auto-memory MD, ruflo MCP, user working repo (no committed exports — Privacy forbids them), scheduled-tasks MCP, plugin-internal memory (`decisions.md` / `patterns.md`).
 
-Out-of-scope local files (not memory layers): `pending-sync/` (transient buffer when MCP unavailable, drained by `--sync`), excalidraw canvas (rendering sink, not state).
+Out-of-scope local files (not memory layers): `pending-sync/` (transient buffer when MCP unavailable, drained by `--sync`), local HTML render files in the scratchpad (rendering sink, not state).

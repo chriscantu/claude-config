@@ -74,7 +74,7 @@ Precedence on conflict: User instructions > `rules/*.md` HARD-GATEs > Karpathy C
 |-------|---------|
 | `/onboard <org>` | 90-day senior-eng-leader ramp orchestrator. Per-org git-isolated workspace, cadence nags, confidentiality boundary for raw 1:1 notes (`interviews/raw/` refused via `onboard-guard.ts`), calendar-watch, graduation flow. |
 | `/strategy-doc <org>` | 90-day-plan authoring. Collates `/swot`, `/stakeholder-map`, `/architecture-overview`, free-form `notes/*.md` into a 7-section markdown artifact under `~/repos/onboard-<org>/decisions/`. Section 3 (problems observed) and Section 4 (problems suspected) are observation-only; intervention lives in Section 6 milestones. Layered challenge pass: completeness → quality → consistency → `/present` Slidev handoff. |
-| `/swot` | SWOT landscape analysis with cross-session memory-graph accumulation. Conversational capture, artifact-pointed capture, challenge pass, multi-format export (markdown / excalidraw 2x2 / Slidev deck). |
+| `/swot` | SWOT landscape analysis with cross-session memory-graph accumulation. Conversational capture, artifact-pointed capture, challenge pass, multi-format export (markdown / 2x2 grid page / Slidev deck). |
 | `/stakeholder-map` | Political-topology map for new leadership ramps. Coverage-review queries; meet-in-what-order guidance. |
 | `/org-design <org>` | Inherited-org analysis (Phase 1, `analyze` mode). Descriptive read of the org a new leader walked into — span of control, single points of failure, on-call distribution, skill gaps, manager:IC ratio, inherited-shape flags — into a 7-section artifact under `~/repos/onboard-<org>/decisions/`. Sole structural source is a manual `org/structure.md`; authority-SPOF reads the `/stakeholder-map` memory graph. Phase 2a adds `--mode=scenario` (`split-team`): projects a reorg, validates it structurally (orphan / reporting cycle / 0-report manager / sub-viable on-call), and gates on explicit user review before writing a `*-org-scenario-<slug>.md` artifact. Other scenario modes (merge / headcount / reporting-change), the trade-off matrix, and recommended-option are Phase 2b. |
 | `/1on1-prep` | Per-person 1:1 preparation from accumulated context. |
@@ -86,7 +86,6 @@ Precedence on conflict: User instructions > `rules/*.md` HARD-GATEs > Karpathy C
 |-------|---------|
 | `/catalog` | In-session inventory of rules, skills, agents, and templates — grouped by purpose. Read-only. |
 | `/new-project` | New-project scaffold from a vetted template. |
-| `/excalidraw` | Drive an Excalidraw canvas via MCP for diagrams, flowcharts, and visuals. |
 | `/technical-writing` | Concrete style rules (Google-doc-style-guide-derived) for technical prose and code comments — voice/tense/formatting + comment-the-why discipline. Complements CLAUDE.md's tone/format basics; also supplies the style rules `doc-coauthoring` applies. |
 | `/doc-coauthoring` | Anthropic's structured long-form doc workflow (context-gathering → refinement → reader-testing). Vendored from `anthropics/skills`. Use for substantial docs; pairs with `/technical-writing` for the sentence-level rules. |
 

@@ -1,14 +1,17 @@
 # Stakeholder-Map — Chart Rendering (Mode A)
 
-Excalidraw canvas output for the leader-onboarding view.
+A local HTML page for the leader-onboarding view.
 
-## Preflight
+## Where it goes
 
-1. `mcp__Claude_Preview__preview_list` → confirm `excalidraw-canvas` server present.
-   If absent: `preview_start("excalidraw-canvas")` (creates or reuses).
-2. `mcp__excalidraw__describe_scene` — confirm canvas reachable.
-3. If either fails, fall back to the text summary (see bottom of this file) and
-   print the hint from SKILL.md.
+Copy `assets/chart-template.html` to the session scratchpad (or a temp dir), fill
+it in, and open it with `open <file>`. **Never publish it with the Artifact tool**
+and never write it into a repo. The page shows people's names and power ratings,
+and the Privacy section in SKILL.md keeps that data on this machine. Publish only
+if the user asks for it on that run.
+
+If the file can't be written or opened, print the text summary at the bottom of
+this file instead.
 
 ## Inputs
 
@@ -26,70 +29,58 @@ entity, read:
 
 ## Layout
 
-Five columns, left to right, in this order (each is a category bucket):
+One `.col` per category, left to right, in this order:
 
-| Column | Category | X origin |
-|--------|----------|----------|
-| 1 | `direct_report` | 80 |
-| 2 | `skip` | 340 |
-| 3 | `peer` | 600 |
-| 4 | `skip_up` | 860 |
-| 5 | `cross_functional` | 1120 |
+| Column | Category | Heading |
+|--------|----------|---------|
+| 1 | `direct_report` | Direct Reports |
+| 2 | `skip` | Skips |
+| 3 | `peer` | Peers |
+| 4 | `skip_up` | Skip-Ups |
+| 5 | `cross_functional` | Cross-Functional |
 
-Column headers at y=60, `fontSize=16`, Excalifont. Within each column, nodes are
-sorted by meet-in-what-order score descending (see "Meet-in-What-Order List"
-below for the formula), with the **canonical sort-order tie-break** from
-[graph-schema.md](graph-schema.md#canonical-sort-order-for-ties) applied to
-equal scores. The top-scoring node starts at y=120. Each subsequent node is
-placed 20px below the previous node's bottom edge (the 20px is between-node
-padding; the first node has no extra top padding beyond y=120).
+Within each column, sort nodes by meet-in-what-order score, highest first (see
+"Meet-in-What-Order List" below for the formula). Break equal scores with the
+**canonical sort-order tie-break** from
+[graph-schema.md](graph-schema.md#canonical-sort-order-for-ties). Leave out a
+column that has no people.
 
 ## Node Encoding
 
-Each person renders as a `rectangle` whose size encodes **formal power**:
+Each person is one `.node`. Its class encodes **formal power** as box size:
 
-| Formal power | Width × Height | Stroke |
-|--------------|----------------|--------|
-| `high` | 220 × 80 | solid |
-| `medium` | 180 × 64 | solid |
-| `low` | 140 × 50 | solid |
-| unknown | 140 × 50 | dashed (`strokeStyle: "dashed"`) |
+| Formal power | Class | Box |
+|--------------|-------|-----|
+| `high` | `formal-high` | 220px wide, solid |
+| `medium` | `formal-medium` | 180px wide, solid |
+| `low` | `formal-low` | 140px wide, solid |
+| unknown | `formal-unknown` | 140px wide, dashed |
 
-Inside the rectangle, a `text` label with `fontSize=13`, Excalifont:
-- Line 1: `{name}`
-- Line 2: `{function} · {team}` (omit any field that is unknown)
+Inside the node:
+- `.name`: `{name}`
+- `.meta`: `{function} - {team}` (omit any field that is unknown; omit the line if both are)
+- `.met`: `[x]` if at least one `[coverage:met]` observation exists, else `[ ]`
 
-**Informal power badge** — an `ellipse` anchored to the top-right corner of the
-node rectangle. Stroke-only, no fill.
-
-| Informal power | Diameter |
-|----------------|----------|
-| `high` | 24 |
-| `medium` | 16 |
-| `low` | 10 |
-| unknown | no badge |
-
-**Met-or-not-yet marker** — a small `[ ]` (unmet) or `[x]` (met) text anchor at
-the bottom-left of the node, `fontSize=13`. "Met" = at least one `[coverage:met]`
-observation exists.
+**Informal power badge** — a circle on the node's top-right corner:
+`<span class="badge badge-high|badge-medium|badge-low"></span>`. No badge when
+informal power is unknown.
 
 ## Relations
 
-Draw arrows between bound node IDs. Use `batch_create_elements` with
-`startElementId`/`endElementId`:
+List each relation under **Relations** as one line, using the class for its type:
 
-| Relation | Arrow style |
-|----------|-------------|
-| `reports_to` | solid, `strokeWidth: 2` |
-| `reports_to_informally` | dashed, `strokeWidth: 2` |
-| `influences` | dotted, `strokeWidth: 2` |
+| Relation | Class | Line |
+|----------|-------|------|
+| `reports_to` | `rel-reports_to` | solid |
+| `reports_to_informally` | `rel-reports_to_informally` | dashed |
+| `influences` | `rel-influences` | dotted |
 
-Skip relations whose target entity is not on the chart.
+Text: `{source} reports to {target}`, `{source} informally reports to {target}`,
+or `{source} influences {target}`. Skip relations whose target is not on the chart.
 
 ## Meet-in-What-Order List
 
-Below the chart, starting at y equals `(max column height) + 80`, render a
-numbered list of the top 10 stakeholders by score.
+Under **Meet in What Order**, an `<ol>` of the top 10 stakeholders by score.
 
 Score formula:
 
@@ -107,32 +98,20 @@ unmet_bonus: +10 if no [coverage:met] observation exists, else 0
 Sort descending by score. Break ties using the **canonical sort order** in
 [graph-schema.md](graph-schema.md#canonical-sort-order-for-ties). Truncation at
 10 is applied after the full sort so the boundary is deterministic. Emit up to
-10 lines as `text` elements:
+10 lines, one `<li>` each:
 
 ```
-1. {name} — {category}, formal={level}, informal={level} [unmet]
+{name} - {category}, formal={level}, informal={level} [unmet]
 ```
 
-`fontSize=13`, Excalifont, left-aligned at x=80.
-
-## Staged Drawing
-
-Follow the fat-marker-sketch Pass conventions:
-
-1. **Pass 1 — column frames**: one `batch_create_elements` call per column
-   (rectangle bounding the column).
-2. **Pass 2 — column titles and node rectangles**: one batch.
-3. **Pass 3 — node text, badges, met markers**: one batch.
-4. **Pass 4 — relation arrows and meet-in-order list**: one batch.
+Keep the **Key** line at the bottom of the template.
 
 ## Text Fallback
 
-If preflight fails, print this markdown to stdout instead:
+If the HTML file can't be written or opened, print this markdown instead:
 
 ```markdown
-# Stakeholder Map (text fallback)
-
-_Excalidraw unavailable — run `preview_start("excalidraw-canvas")` and re-render._
+# Stakeholder Map (text)
 
 ## By Category
 

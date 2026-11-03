@@ -1,0 +1,66 @@
+<title>Coverage Review</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  Coverage review heatmap. Written to a local file and opened in the browser.
+  Never published: the people data stays on this machine.
+  One .row per dimension. One .cell per bucket, in bucket order. Pad shorter
+  rows with <div class="cell cell-empty-slot"></div> so columns line up.
+  Cell classes (first matching rule in heatmap-render.md wins):
+    .cell-unknown | .cell-gap | .cell-under | .cell-well
+  Omit the .echo block when echo_chamber is null. ASCII only.
+-->
+<style>
+  /* Monochrome on purpose: stroke weight and dashes encode coverage. */
+  :root { --paper: #fff; --ink: #000; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    padding-block: 32px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  h1 { font-size: 22px; margin: 0 0 12px; }
+  h2 { font-size: 17px; margin: 28px 0 10px; }
+  .freshness { font-size: 16px; margin-bottom: 16px; }
+  .echo { border: 2px solid var(--ink); padding: 12px; margin-bottom: 24px; max-width: 900px; }
+  .grid { overflow-x: auto; }
+  .row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 8px; }
+  .row-label { width: 120px; flex: none; font-size: 16px; font-weight: 600; align-self: center; }
+  .cell { width: 110px; flex: none; min-height: 52px; padding: 6px; box-sizing: border-box; font-size: 13px; }
+  .cell-well { border: 4px solid var(--ink); }
+  .cell-under, .cell-gap { border: 1px solid var(--ink); }
+  .cell-unknown { border: 1px dashed var(--ink); }
+  .cell-empty-slot { border: 0; }
+  .key { font-size: 13px; margin-top: 12px; }
+  ol { padding-left: 24px; }
+</style>
+
+<h1>Coverage Review</h1>
+<div class="freshness">Freshness banner text</div>
+<div class="echo">Echo-chamber banner text</div>
+
+<div class="grid">
+  <div class="row">
+    <div class="row-label">Function</div>
+    <div class="cell cell-well">Engineering<br>3</div>
+    <div class="cell cell-under">Sales<br>1</div>
+    <div class="cell cell-gap">Legal<br>0</div>
+    <div class="cell cell-unknown">unknown<br>2</div>
+  </div>
+  <div class="row">
+    <div class="row-label">Tenure</div>
+    <div class="cell cell-well">0-2y<br>2</div>
+    <div class="cell cell-unknown">unknown<br>0</div>
+    <div class="cell cell-empty-slot"></div>
+    <div class="cell cell-empty-slot"></div>
+  </div>
+</div>
+<div class="key">Key: thick border = well covered (2+). Thin border = undercovered or a gap. Dashed = unknown (no data).</div>
+
+<h2>Structural Gaps</h2>
+<ol><li>Gap description</li></ol>
+
+<h2>Recommended Next Interviews</h2>
+<ol><li>Person - rationale</li></ol>

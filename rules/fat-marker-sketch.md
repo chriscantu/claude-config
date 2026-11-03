@@ -44,6 +44,5 @@ questions, and backtracking protocol.
 
 A fat marker sketch is a VISUAL artifact: an HTML page of thick black bordered boxes
 in a marker font, published with the built-in Artifact tool (no server or setup).
-Without the Artifact tool, write the same HTML file and open it locally. Use
-Excalidraw only when the user asks, and never wait on its canvas. If it doesn't have
-visible borders around screens and regions, it's not a sketch.
+Without the Artifact tool, write the same HTML file and open it locally. If it doesn't
+have visible borders around screens and regions, it's not a sketch.

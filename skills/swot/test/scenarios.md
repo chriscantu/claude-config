@@ -153,22 +153,22 @@ mcp__memory__add_observations({ observations: [{ entityName: "Test Corp Delta SW
 
 **Cleanup:** Delete test entities and any remaining pending-sync files.
 
-## Scenario 7: Excalidraw Export
+## Scenario 7: Grid Page Export
 
 **Setup:** Same as Scenario 5 (entity with observations across quadrants).
 
 **Steps:**
 1. Run `/swot "Test Corp Delta" --mode=review`
-2. Select Excalidraw export
-3. Verify canvas is cleared
-4. Verify 2x2 grid drawn with four quadrant rectangles
+2. Select the grid page export
+3. Verify the Artifact tool publishes `swot-test-corp-delta.html` and returns a link
+4. Verify the page shows a 2x2 grid with four quadrants
 5. Verify quadrant titles present: "STRENGTHS", "WEAKNESSES", "OPPORTUNITIES", "THREATS"
-6. Verify observations rendered as text within correct quadrants
-7. Verify title text above grid
+6. Verify observations appear in the correct quadrants, grouped by landscape tag
+7. Verify the title "SWOT Landscape: Test Corp Delta" above the grid
 
-**Expected:** 2x2 SWOT grid rendered on excalidraw canvas.
+**Expected:** 2x2 SWOT grid published as a private Artifact page.
 
-**Cleanup:** `mcp__memory__delete_entities({ entityNames: ["Test Corp Delta SWOT"] })`
+**Cleanup:** `mcp__memory__delete_entities({ entityNames: ["Test Corp Delta SWOT"] })`, then delete the test Artifact.
 
 ## Scenario 8: Existing Org Lookup
 

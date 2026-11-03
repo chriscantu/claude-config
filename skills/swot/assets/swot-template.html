@@ -1,0 +1,55 @@
+<title>SWOT: Org Name</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  SWOT 2x2 grid, published with the Artifact tool.
+  Replace Org Name in the title and heading. In each quadrant, group entries
+  by landscape tag. Past about 8 entries, end with "... and M more".
+  ASCII only.
+-->
+<style>
+  /* Plain report look: one neutral ink, quadrants told apart by position
+     and label, so it reads the same in light and dark. */
+  :root { --bg: #fff; --fg: #111; --muted: #555; --line: #111; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #141414; --fg: #eee; --muted: #aaa; --line: #eee; color-scheme: dark } }
+  :root[data-theme="dark"] { --bg: #141414; --fg: #eee; --muted: #aaa; --line: #eee; color-scheme: dark }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    padding-block: 32px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  h1 { font-size: 22px; margin: 0 0 20px; text-wrap: balance; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 2px solid var(--line); max-width: 1000px; }
+  @media (max-width: 600px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .q { padding: 16px; border: 1px solid var(--line); min-width: 0; }
+  .q h2 { font-size: 16px; margin: 0; letter-spacing: 0.04em; }
+  .q .side { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .tag { color: var(--muted); font-size: 13px; }
+  ul { margin: 0; padding-left: 18px; }
+  li { margin: 4px 0; }
+</style>
+
+<h1>SWOT Landscape: Org Name</h1>
+
+<div class="grid">
+  <section class="q">
+    <h2>STRENGTHS</h2><div class="side">internal +</div>
+    <ul><li><span class="tag">[technical]</span> Entry</li></ul>
+  </section>
+  <section class="q">
+    <h2>WEAKNESSES</h2><div class="side">internal -</div>
+    <ul><li><span class="tag">[org]</span> Entry</li></ul>
+  </section>
+  <section class="q">
+    <h2>OPPORTUNITIES</h2><div class="side">external +</div>
+    <ul><li><span class="tag">[market]</span> Entry</li></ul>
+  </section>
+  <section class="q">
+    <h2>THREATS</h2><div class="side">external -</div>
+    <ul><li><span class="tag">[market]</span> Entry</li></ul>
+  </section>
+</div>

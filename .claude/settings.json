@@ -3,11 +3,6 @@
     "allow": [
       "Skill(update-config)",
       "Skill(update-config:*)",
-      "mcp__excalidraw__describe_scene",
-      "mcp__excalidraw__batch_create_elements",
-      "mcp__excalidraw__clear_canvas",
-      "mcp__excalidraw__get_canvas_screenshot",
-      "mcp__excalidraw__snapshot_scene",
       "Edit(~/.claude/skills/fat-marker-sketch/**)",
       "Skill(commit-commands:commit-push-pr)",
       "Skill(commit-commands:commit-push-pr:*)",

@@ -4,7 +4,7 @@ After rendering the review report, offer export options:
 
 > "Export this SWOT? Choose a format:
 > 1. [Markdown] — standalone doc to docs/swot/
-> 2. [Excalidraw] — 2x2 SWOT grid on the canvas
+> 2. [Grid page] — 2x2 SWOT grid as a private Artifact page
 > 3. [Presentation] — Slidev deck via /present
 > 4. [All] — generate all three
 > Or skip to continue without exporting."
@@ -17,36 +17,21 @@ Write point-in-time snapshot to `docs/swot/YYYY-MM-DD-<org-name-sanitized>.md`
 (same sanitization as pending-sync filenames). Same structure as review report.
 This is the artifact downstream skills (`/strategy-doc`, `/okr`) consume.
 
-## Excalidraw Export
+## Grid Page Export
 
-Render a classic 2x2 SWOT grid on the excalidraw canvas.
+Publish a classic 2x2 SWOT grid with the built-in Artifact tool. The page is
+private to the user until they share it.
 
-**Prerequisites**: Check `mcp__excalidraw__*` tools. If unavailable, skip with message.
-
-**Layout**:
-
-```
-+-------------------------+-------------------------+
-|       STRENGTHS         |       WEAKNESSES        |
-|     (internal +)        |     (internal -)        |
-|  [technical] entry 1    |  [technical] entry 1    |
-|  [cultural] entry 2     |  [org] entry 2          |
-+-------------------------+-------------------------+
-|     OPPORTUNITIES       |        THREATS          |
-|     (external +)        |     (external -)        |
-|  [market] entry 1       |  [market] entry 1       |
-|  [technical] entry 2    |  [org] entry 2          |
-+-------------------------+-------------------------+
-```
-
-**Drawing steps**:
-1. Warn before clearing canvas. If declined, skip.
-2. Four quadrant rectangles via `batch_create_elements` — outline-only, 2x2 grid
-3. Quadrant titles: "STRENGTHS (internal +)", etc.
-4. Observations grouped by landscape tag per quadrant, fontSize ≥ 14. Truncate with
-   "... and M more" if needed.
-5. Title above grid: "SWOT Landscape: <Org Name>"
-6. `set_viewport({ scrollToContent: true })`
+**Steps**:
+1. Copy `assets/swot-template.html` to the scratchpad as
+   `swot-<org-name-sanitized>.html` (same sanitization as the Markdown export).
+2. Replace `Org Name` in the `<title>` and the heading.
+3. Fill each quadrant (Strengths, Weaknesses, Opportunities, Threats) with its
+   observations, grouped by landscape tag (`[technical]`, `[org]`, `[market]`, ...).
+   Past about 8 entries in a quadrant, end with "... and M more".
+4. Publish it with the Artifact tool (`icon: "grid"`). To refresh it later, edit
+   the same file and publish again, so the link stays the same.
+5. If the Artifact tool isn't available, open the file locally with `open <file>`.
 
 ## Presentation Export
 
