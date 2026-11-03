@@ -17,7 +17,7 @@ Apply these fidelity rules regardless of format:
 - **Explicit actions** — label every user action in brackets: [Get Started], [Next],
   [Activate], [+ Add Goal]. These make the flow traceable.
 - **No styling** — no colors, no shadows, no fills. Uneven border-radius for a
-  hand-drawn feel is the one exception. Crude progress indicators (block characters)
+  hand-drawn feel is the one exception. Crude ASCII progress bars (`#####-----`)
   are fine for showing proportional state.
 - **ASCII-safe characters only** — use `->` for arrows, `[x]` for checked, `[ ]` for
   unchecked. Do NOT use Unicode arrows or checkmarks — they render as garbled text

@@ -20,7 +20,14 @@ This is the artifact downstream skills (`/strategy-doc`, `/okr`) consume.
 ## Grid Page Export
 
 Publish a classic 2x2 SWOT grid with the built-in Artifact tool. The page is
-private to the user until they share it.
+private to the user until they share it. Unlike stakeholder-map, SWOT may
+publish: its entries describe the organization rather than rate individual
+people, and the Markdown export already commits the same entries to the repo,
+so a private page adds no new exposure.
+
+Write entries as the people who'll read them would: accented names, real
+punctuation and non-English words are fine. The Artifact tool wraps the page
+with a UTF-8 charset, so nothing needs to be flattened to ASCII.
 
 **Steps**:
 1. Copy `assets/swot-template.html` to the scratchpad as
@@ -33,8 +40,11 @@ private to the user until they share it.
    quadrant has more than 8 entries, show the first 8 in that order, then one
    last `<li>` reading `... and M more`, where M is the number left out.
    HTML-escape `&`, `<`, `>` and `"` in every value you insert.
-4. Publish it with the Artifact tool (`icon: "grid"`). To refresh it later, edit
-   the same file and publish again, so the link stays the same.
+4. Publish it with the Artifact tool (`icon: "grid"`), and tell the user the link.
+   To refresh it in a later run, keep the same link: list artifacts
+   (`action: "list"`), find the one titled `SWOT: <Org Name>`, read it
+   (`action: "read"`), then publish the new file with `url` set to that link. If
+   none is listed, publish a new page.
 5. If the Artifact tool isn't available, open the file locally with `open <file>`.
 
 ## Presentation Export

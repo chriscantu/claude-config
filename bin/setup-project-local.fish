@@ -1,20 +1,15 @@
 #!/usr/bin/env fish
-# setup-project-local.fish — render machine-specific PROJECT config that must
-# never be committed (it carries per-machine absolute paths).
+# setup-project-local.fish — add $HOME/presentations to the gitignored
+# .claude/settings.local.json, so the committed .claude/settings.json stays
+# free of per-machine absolute paths.
 #
-# The committed repo stays path-free: .claude/settings.json contains no
-# username paths. This script localizes it for the current machine into one
-# gitignored file:
+# The path is merged into permissions.additionalDirectories, keeping any
+# existing local settings.
 #
-#   .claude/settings.local.json  adds $HOME/presentations to
-#                                permissions.additionalDirectories, merged
-#                                into any existing local settings
-#
-# Idempotent — safe to re-run. Run once after install.sh, or whenever the
-# setup changes.
+# Idempotent — safe to re-run. Run once after install.sh.
 #
 # Usage:
-#   fish bin/setup-project-local.fish        # render local config
+#   fish bin/setup-project-local.fish        # update local settings
 #   fish bin/setup-project-local.fish --help
 
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
@@ -29,7 +24,7 @@ if test (count $argv) -gt 0
         case --help -h
             echo "Usage: fish bin/setup-project-local.fish"
             echo ""
-            echo "Renders machine-specific .claude/settings.local.json"
+            echo "Adds \$HOME/presentations to .claude/settings.local.json."
             echo "Idempotent; safe to re-run."
             exit 0
         case '*'
@@ -39,7 +34,6 @@ if test (count $argv) -gt 0
     end
 end
 
-# --- merge presentations dir into settings.local.json ----------------
 set -l local_settings $repo/.claude/settings.local.json
 set -l presentations "$HOME/presentations"
 if not test -f $local_settings

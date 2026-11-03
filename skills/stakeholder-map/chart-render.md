@@ -61,7 +61,8 @@ Each person is one `.node`. Its class encodes **formal power** as box size:
 
 Inside the node:
 - `.name`: `{name}`
-- `.meta`: `{function} - {team}` (omit any field that is unknown; omit the line if both are)
+- `.meta`: `{function} - {team}`. If only one is known, show it alone with no
+  ` - `. Leave out the `.meta` line if both are unknown.
 - `.met`: `[x]` if at least one `[coverage:met]` observation exists, else `[ ]`
 
 **Informal power badge** — a circle on the node's top-right corner:
@@ -110,6 +111,8 @@ Sort descending by score. Break ties using the **canonical sort order** in
 ```
 {name} - {category}, formal={level}, informal={level} [unmet]
 ```
+
+Add ` [unmet]` only when the person has no `[coverage:met]` observation.
 
 Keep the **Key** line at the bottom of the template.
 

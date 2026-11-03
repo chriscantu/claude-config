@@ -54,7 +54,7 @@ The page stays on this machine (see Privacy above). If writing the file fails or
 ```
 /stakeholder-map --mode=leader-onboarding [--seed-from-calendar [--days=30]]
 /stakeholder-map --mode=coverage-review
-/stakeholder-map --render                     # re-render last output
+/stakeholder-map --render                     # rebuild the last view's page from the current graph
 /stakeholder-map --sync                       # drain pending-sync
 ```
 

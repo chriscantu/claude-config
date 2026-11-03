@@ -1,6 +1,8 @@
 *.profraw
 .vscode/
 .DS_Store
+# Leftover log from the removed Excalidraw MCP. Drop these two lines once no
+# checkout still has the file.
 excalidraw.log
 excalidraw.log.*
 .claude/worktrees/
@@ -10,6 +12,9 @@ excalidraw.log.*
 .claude/memory/session-log.md
 # Machine-specific project config — written by bin/setup-project-local.fish
 # (never commit; carries per-machine paths).
+# Old checkouts may still hold launch.json from the removed canvas setup; it
+# carries a username path, so keep it ignored.
+.claude/launch.json
 .claude/settings.local.json
 # Nested skill/sub-agent runtime state (e.g. skills/*/.claude/state/) — root patterns above are anchored, so catch any depth too.
 **/.claude/state/

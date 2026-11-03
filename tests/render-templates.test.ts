@@ -200,6 +200,13 @@ describe("stakeholder-map stays local", () => {
     expect(privacy).not.toMatch(/\b(unless|except|only if|only when)\b/i);
   });
 
+  test("every Privacy sentence about publishing is a prohibition", () => {
+    const sentences = privacy.replace(/\s+/g, " ").split(/(?<=\.)\s/);
+    for (const s of sentences.filter((s) => /publish|artifact|upload/i.test(s))) {
+      expect(s).toMatch(/\b(never|not)\b|n't\b/i);
+    }
+  });
+
   const files = [
     ...readdirSync(join(skillsDir, "stakeholder-map"))
       .filter((f) => f.endsWith(".md"))

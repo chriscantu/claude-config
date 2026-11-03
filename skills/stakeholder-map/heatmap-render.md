@@ -40,8 +40,10 @@ Page sections, top to bottom:
 3. **Heatmap grid** — one `.row` per dimension, one `.cell` per bucket. Bucket
    order within each row follows the **Bucket ordering** rule in
    [graph-schema.md](graph-schema.md#bucket-ordering-for-dimension-outputs).
-   Pad shorter rows with `.cell-empty-slot` cells so the columns line up.
-4. **Structural Gaps** — numbered list.
+   Pad each row with `.cell-empty-slot` cells up to the longest row's cell
+   count, so the columns line up.
+4. **Structural Gaps** — numbered list from `structural_gaps`, one line each:
+   `{name} - mentioned in {mention_count} observations, not on the map`.
 5. **Recommended Next Interviews** — numbered list.
 
 ## Heatmap Grid Cell Encoding
@@ -84,8 +86,8 @@ If writing the HTML file fails or `open` exits non-zero, print markdown:
 - {bucket}: {count} {if in gap_buckets: "(gap)"}
 ...
 
-## Names That Came Up
-1. {name} — mentioned in {count} observations
+## Structural Gaps
+1. {name} — mentioned in {mention_count} observations, not on the map
 ...
 
 ## Recommended Next Interviews

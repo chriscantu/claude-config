@@ -5,8 +5,8 @@
   fill rules. Published with the Artifact tool, which supplies the doctype.
 -->
 <style>
-  /* Plain report look: one neutral ink, quadrants told apart by position
-     and label, so it reads the same in light and dark. */
+  /* Plain report look: quadrants are told apart by position and label, not
+     colour, so their meaning survives the light/dark swap. */
   :root { --bg: #fff; --fg: #111; --muted: #555; --line: #111; }
   @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #141414; --fg: #eee; --muted: #aaa; --line: #eee; color-scheme: dark } }
   :root[data-theme="dark"] { --bg: #141414; --fg: #eee; --muted: #aaa; --line: #eee; color-scheme: dark }
