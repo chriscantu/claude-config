@@ -4,17 +4,21 @@ A local HTML page for the leader-onboarding view.
 
 ## Where it goes
 
-Copy `assets/chart-template.html` to the session scratchpad as
-`stakeholder-map-chart.html`, overwriting any earlier copy. Fill it in and open
-it with `open <file>`. Never write it into a repo. The page shows people's names
-and power ratings, so it follows the Privacy rule in SKILL.md: it stays on this
-machine.
+These rules cover both stakeholder pages: this chart and the heatmap in
+[heatmap-render.md](heatmap-render.md).
+
+Copy the page's template to the session scratchpad under its file name,
+overwriting any earlier copy. For this chart: `assets/chart-template.html` as
+`stakeholder-map-chart.html`. Fill it in and open it with `open <file>`. Never
+write it into a repo. The page shows people's names and assessments, so it
+follows the Privacy rule in SKILL.md: it stays on this machine.
 
 HTML-escape `&`, `<`, `>` and `"` in every value you insert (names, teams,
-functions), so a value like `Ops <interim>` shows as text.
+bucket names, banner text, rationales), so a value like `Ops <interim>` shows as
+text.
 
-If writing the file fails or `open` exits non-zero, print the text summary at the
-bottom of this file instead.
+If writing the file fails or `open` exits non-zero, print the page's Text
+Fallback instead.
 
 ## Inputs
 
@@ -34,13 +38,13 @@ entity, read:
 
 One `.col` per category, left to right, in this order:
 
-| Column | Category | Heading |
-|--------|----------|---------|
-| 1 | `direct_report` | Direct Reports |
-| 2 | `skip` | Skips |
-| 3 | `peer` | Peers |
-| 4 | `skip_up` | Skip-Ups |
-| 5 | `cross_functional` | Cross-Functional |
+| Column | Category | Heading | In lists |
+|--------|----------|---------|----------|
+| 1 | `direct_report` | Direct Reports | direct report |
+| 2 | `skip` | Skips | skip |
+| 3 | `peer` | Peers | peer |
+| 4 | `skip_up` | Skip-Ups | skip-up |
+| 5 | `cross_functional` | Cross-Functional | cross-functional |
 
 Within each column, sort nodes by meet-in-what-order score, highest first (see
 "Meet-in-What-Order List" below for the formula). Break equal scores with the
@@ -65,9 +69,16 @@ Inside the node:
   ` - `. Leave out the `.meta` line if both are unknown.
 - `.met`: `[x]` if at least one `[coverage:met]` observation exists, else `[ ]`
 
-**Informal power badge** — a circle on the node's top-right corner:
-`<span class="badge badge-high|badge-medium|badge-low"></span>`. No badge when
-informal power is unknown.
+**Informal power badge** — a circle on the node's top-right corner. It is a
+`<span>` with class `.badge` plus the class for its level:
+
+| Informal power | Class | Circle |
+|----------------|-------|--------|
+| `high` | `badge-high` | 24px wide |
+| `medium` | `badge-medium` | 16px wide |
+| `low` | `badge-low` | 10px wide |
+
+No badge when informal power is unknown.
 
 ## Relations
 
@@ -109,18 +120,19 @@ Sort descending by score. Break ties using the **canonical sort order** in
 10 lines, one `<li>` each:
 
 ```
-{name} - {category}, formal={level}, informal={level} [unmet]
+{name} - {in-lists label}, formal power {level}, informal power {level}
 ```
 
-Add ` [unmet]` only when the person has no `[coverage:met]` observation.
+`{in-lists label}` comes from the Layout table. `{level}` is `high`, `medium`,
+`low` or `unknown`. Add `, not met yet` at the end only when the person has no
+`[coverage:met]` observation.
 
 Leave both **Key** blocks as the template has them: the main key under the
 columns, and the bar key under the Relations heading.
 
 ## Text Fallback
 
-If writing the HTML file fails or `open` exits non-zero, print this markdown
-instead:
+The markdown to print when the page can't be shown (see Where it goes):
 
 ```markdown
 # Stakeholder Map (text)
@@ -128,10 +140,10 @@ instead:
 ## By Category
 
 ### Direct Reports
-- {name} - {function}, {team}, formal={level}, informal={level} [met|unmet]
+- {name} - {function}, {team}, formal power {level}, informal power {level}, {met | not met yet}
 ...
 
 ## Meet in What Order (top 10)
-1. {name} - {category}, formal={level}, informal={level} [unmet]
+1. {same line as the HTML list}
 ...
 ```

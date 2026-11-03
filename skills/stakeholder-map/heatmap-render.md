@@ -4,17 +4,8 @@ A local HTML page for the coverage-review view.
 
 ## Where it goes
 
-Same rules as [chart-render.md](chart-render.md#where-it-goes): copy
-`assets/heatmap-template.html` to the session scratchpad as
-`stakeholder-map-heatmap.html`, overwriting any earlier copy. Fill it in and open
-it with `open <file>`. Never write it into a repo. It follows the Privacy rule in
-SKILL.md: it stays on this machine.
-
-HTML-escape `&`, `<`, `>` and `"` in every value you insert (bucket names,
-banner text, names, rationales).
-
-If writing the file fails or `open` exits non-zero, print the text summary at the
-bottom of this file instead.
+Follow [chart-render.md](chart-render.md#where-it-goes), with the template
+`assets/heatmap-template.html` and the file name `stakeholder-map-heatmap.html`.
 
 ## Inputs
 
@@ -85,7 +76,7 @@ as the template has it.
 
 ## Text Fallback
 
-If writing the HTML file fails or `open` exits non-zero, print markdown:
+The markdown to print when the page can't be shown (see Where it goes):
 
 ```markdown
 # Coverage Review (text)

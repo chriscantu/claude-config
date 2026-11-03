@@ -4,14 +4,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stakeholder Map</title>
 <!--
-  Fill per ../chart-render.md, the only source of the layout and class rules.
+  Fill per ../chart-render.md, which decides which class goes where.
   Opened as a local file, so it carries its own doctype and UTF-8 charset:
   accented names must render as written.
   Stays on this machine: see Privacy in ../SKILL.md.
 -->
 <style>
-  /* Monochrome with no dark-mode tokens on purpose: a print-style local view
-     whose size, stroke, and dash encodings must not invert. */
+  /* Fixed white paper with no dark-mode tokens on purpose: a local, print-style
+     view that looks the same on screen, in screenshots, and on paper. */
   :root { --paper: #fff; --ink: #000; }
   body {
     background: var(--paper);
@@ -28,9 +28,9 @@
   .col { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
   .col-title { font-size: 16px; font-weight: 600; }
   .node { position: relative; border: 2px solid var(--ink); padding: 8px 10px; box-sizing: border-box; }
-  .formal-high { width: 220px; min-height: 80px; }
-  .formal-medium { width: 180px; min-height: 64px; }
-  .formal-low { width: 140px; min-height: 50px; }
+  .formal-high { width: 220px; min-height: 80px; border-style: solid; }
+  .formal-medium { width: 180px; min-height: 64px; border-style: solid; }
+  .formal-low { width: 140px; min-height: 50px; border-style: solid; }
   .formal-unknown { width: 140px; min-height: 50px; border-style: dashed; }
   .name { font-weight: 600; }
   .meta, .met { font-size: 13px; }
@@ -80,6 +80,6 @@
 
 <h2>Meet in What Order</h2>
 <ol>
-  <li>Person A - direct_report, formal=high, informal=medium [unmet]</li>
+  <li>Person A - direct report, formal power high, informal power medium, not met yet</li>
 </ol>
 

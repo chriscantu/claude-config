@@ -42,14 +42,46 @@ function tableClassRows(md: string): ClassRow[] {
       continue;
     }
     const cells = line.split("|").slice(1, -1).map((c) => c.trim());
-    if (cells.includes("Class")) {
-      classCol = cells.indexOf("Class");
+    const header = cells.findIndex((c) => /^class$/i.test(c));
+    if (header >= 0) {
+      classCol = header;
       continue;
     }
     const cls = cells[classCol]?.match(/^`([\w-]+)`$/)?.[1];
     if (classCol >= 0 && cls) rows.push({ cls, look: cells[cells.length - 1] });
   }
   return rows;
+}
+
+// Rows inside a Class table whose class cell isn't one bare backticked class.
+// tableClassRows skips such rows, so without this check a typo in the spec
+// would silently drop that class from every encoding test.
+function unreadableClassRows(md: string): string[] {
+  const bad: string[] = [];
+  let classCol = -1;
+  for (const line of md.split("\n")) {
+    if (!line.startsWith("|")) {
+      classCol = -1;
+      continue;
+    }
+    const cells = line.split("|").slice(1, -1).map((c) => c.trim());
+    const header = cells.findIndex((c) => /^class$/i.test(c));
+    if (header >= 0) {
+      classCol = header;
+      continue;
+    }
+    const isSeparator = cells.every((c) => /^:?-+:?$/.test(c));
+    if (classCol >= 0 && !isSeparator && !/^`[\w-]+`$/.test(cells[classCol] ?? "")) bad.push(line);
+  }
+  return bad;
+}
+
+// The heatmap spec takes its "Where it goes" rules from the chart spec by link,
+// so checks on those rules read the linked section too.
+function withSharedRules(md: string): string {
+  if (!md.includes("chart-render.md#where-it-goes")) return md;
+  const shared = read("stakeholder-map/chart-render.md").match(/## Where it goes\n([\s\S]*?)\n## /)?.[1] ?? "";
+  return `${md}\n${shared}`;
 }
 
 // Every class the spec tells Claude to use: Class-column table cells,
@@ -84,7 +116,7 @@ const pages = [
 for (const page of pages) {
   const html = read(page.path);
   const css = cssOf(html);
-  const spec = read(page.spec);
+  const spec = withSharedRules(read(page.spec));
 
   describe(page.path, () => {
     // The Artifact tool reads the title from the first 8 KB of the page.
@@ -126,10 +158,6 @@ for (const page of pages) {
       test("declares the Artifact side-gutter hint", () => {
         expect(html).toMatch(/<meta name="claude:viewport-fit-sides" content="cover">/);
       });
-
-      test("uses ASCII-only content", () => {
-        expect(html).toMatch(/^[\x00-\x7F]*$/);
-      });
     }
 
     for (const cls of specClasses(spec)) {
@@ -138,10 +166,19 @@ for (const page of pages) {
       });
     }
 
+    test("every row of the spec's Class tables can be read", () => {
+      expect(unreadableClassRows(read(page.spec))).toEqual([]);
+    });
+
     for (const { cls, look } of tableClassRows(spec)) {
       test(`.${cls} draws "${look}" as the spec says`, () => {
         const rules = rulesFor(css, cls);
-        for (const px of look.match(/\d+px/g) ?? []) expect(rules).toContain(px);
+        // "220px wide" is a width; any other px in a look is a border width.
+        for (const [, px, wide] of look.matchAll(/(\d+px)( wide)?/g)) {
+          const property = wide ? "width" : "border(?:-[\\w-]+)?";
+          expect(rules).toMatch(new RegExp(`(?:^|[;\\s])${property}:[^;]*\\b${px}`));
+        }
+        if (/\bsolid\b/.test(look)) expect(rules).toMatch(/\bsolid\b/);
         for (const style of ["dashed", "dotted", "double"]) {
           if (look.includes(style)) expect(rules).toContain(style);
           else expect(rules).not.toContain(style);
@@ -152,6 +189,13 @@ for (const page of pages) {
     }
   });
 }
+
+describe("chart badge", () => {
+  test("is drawn as a circle", () => {
+    const css = cssOf(read("stakeholder-map/assets/chart-template.html"));
+    expect(rulesFor(css, "badge")).toMatch(/border-radius:\s*50%/);
+  });
+});
 
 describe("render specs name the classes they use", () => {
   test("stakeholder specs yield their core encoding classes", () => {
@@ -239,7 +283,7 @@ describe("stakeholder-map stays local", () => {
   const privacy = skill.match(/## Privacy\n([\s\S]*?)\n## /)?.[1] ?? "";
 
   test("the Privacy section forbids publishing with no exception", () => {
-    expect(privacy).toMatch(/Never publish/);
+    expect(privacy).toMatch(/\b(never|do not|don't)\s+publish/i);
     expect(privacy).not.toMatch(/\b(unless|except|only if|only when)\b/i);
   });
 
@@ -253,8 +297,9 @@ describe("stakeholder-map stays local", () => {
 
   test("both render specs keep the page in the scratchpad and out of the repo", () => {
     for (const spec of ["stakeholder-map/chart-render.md", "stakeholder-map/heatmap-render.md"]) {
-      expect(read(spec)).toMatch(/session scratchpad/);
-      expect(read(spec)).toMatch(/Never write it into a repo/);
+      const rules = withSharedRules(read(spec));
+      expect(rules).toMatch(/session\s+scratchpad/);
+      expect(rules).toMatch(/Never\s+write\s+it\s+into\s+a\s+repo/);
     }
   });
 

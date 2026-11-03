@@ -44,10 +44,10 @@ the current write). The file format mirrors 1on1-prep — see
 [`../1on1-prep/pending-sync.md`](../1on1-prep/pending-sync.md). Check for existing
 pending-sync files on entry.
 
-Rendering writes a local HTML page and opens it in the browser (see
-[chart-render.md](chart-render.md) and [heatmap-render.md](heatmap-render.md)).
-The page stays on this machine (see Privacy above). If writing the file fails or
-`open` exits non-zero, the render files give a text summary to print instead.
+Rendering writes a local HTML page and opens it in the browser. Where the page
+goes, and when to print a text fallback instead, is in
+[chart-render.md](chart-render.md#where-it-goes). The page stays on this machine
+(see Privacy above).
 
 ## Invocation
 
@@ -112,8 +112,9 @@ Load [`coverage-queries.md`](coverage-queries.md) and run the queries. Load
   on the map per the membership predicate. Don't let them leak into charts or
   coverage counts.
 - **Sending the render off this machine.** The chart and heatmap pages follow the
-  Privacy rule above, with no exceptions. If writing the file fails or `open`
-  exits non-zero, use the text fallback — do not silently skip the render.
+  Privacy rule above, with no exceptions.
+- **Skipping the render silently.** When the page can't be shown, print the text
+  fallback instead.
 
 ## Compatibility With 1on1-prep
 

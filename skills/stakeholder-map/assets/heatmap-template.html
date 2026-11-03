@@ -4,13 +4,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Coverage Review</title>
 <!--
-  Fill per ../heatmap-render.md, the only source of the layout and cell rules.
+  Fill per ../heatmap-render.md, which decides which class goes where.
   Opened as a local file, so it carries its own doctype and UTF-8 charset.
   Stays on this machine: see Privacy in ../SKILL.md.
 -->
 <style>
-  /* Monochrome with no dark-mode tokens on purpose: a print-style local view
-     where stroke weight and dashes encode coverage and must not invert. */
+  /* Fixed white paper with no dark-mode tokens on purpose: a local, print-style
+     view that looks the same on screen, in screenshots, and on paper. */
   :root { --paper: #fff; --ink: #000; --hatch: #ccc; }
   body {
     background: var(--paper);
