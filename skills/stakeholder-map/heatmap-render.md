@@ -4,10 +4,16 @@ A local HTML page for the coverage-review view.
 
 ## Where it goes
 
-Same as [chart-render.md](chart-render.md#where-it-goes): copy
-`assets/heatmap-template.html` to the scratchpad, fill it in, and open it with
-`open <file>`. **Never publish it with the Artifact tool** and never write it into
-a repo. If the file can't be written or opened, print the text summary at the
+Same rules as [chart-render.md](chart-render.md#where-it-goes): copy
+`assets/heatmap-template.html` to the session scratchpad as
+`stakeholder-map-heatmap.html`, overwriting any earlier copy. Fill it in and open
+it with `open <file>`. Never write it into a repo. It follows the Privacy rule in
+SKILL.md: it stays on this machine.
+
+HTML-escape `&`, `<`, `>` and `"` in every value you insert (bucket names,
+banner text, names, rationales).
+
+If writing the file fails or `open` exits non-zero, print the text summary at the
 bottom of this file instead.
 
 ## Inputs
@@ -63,7 +69,7 @@ the dimension name in the row's `.row-label`. Keep the **Key** line under the gr
 
 ## Text Fallback
 
-If the HTML file can't be written or opened, print markdown:
+If writing the HTML file fails or `open` exits non-zero, print markdown:
 
 ```markdown
 # Coverage Review (text)

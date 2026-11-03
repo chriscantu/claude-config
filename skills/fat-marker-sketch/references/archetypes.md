@@ -5,7 +5,7 @@ especially for archetypes added after the original UI / system-integration pair
 (before/after, sequence, C4, data-flow, state machine).
 
 All archetypes share the base fidelity rules from `SKILL.md` (black on white,
-outline-only shapes, Excalifont or Permanent Marker, no bullets-in-boxes). The sections
+outline-only shapes, Permanent Marker, no bullets-in-boxes). The sections
 below only call out what's **specific** to each archetype.
 
 ---
@@ -54,7 +54,7 @@ activity diagrams read better only for people with computer science training.
 
 ## CLI / Command
 
-- Top box: the command invocation, in monospace-style label (still Excalifont, but
+- Top box: the command invocation, in monospace-style label (still Permanent Marker, but
   prefix with `$ `).
 - Below: a second box showing rough representative stdout. Fake data is fine.
 - Optional third box: a one-line note on failure mode, if the failure shape is the

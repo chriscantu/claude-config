@@ -31,6 +31,11 @@ review your coverage]."
 Person entities contain sensitive assessments. Storage is local memory MCP only —
 never export to repo or share the raw graph.
 
+The rendered chart and heatmap carry the same data, so they stay on this machine
+as local HTML files. Never publish them with the Artifact tool or upload them
+anywhere, even if asked. If the user wants to share a view, print the text
+fallback from the render file so they can choose what to copy.
+
 ## Prerequisites
 
 Verify memory MCP: `mcp__memory__read_graph`. If unavailable, warn and set a
@@ -41,9 +46,8 @@ pending-sync files on entry.
 
 Rendering writes a local HTML page and opens it in the browser (see
 [chart-render.md](chart-render.md) and [heatmap-render.md](heatmap-render.md)).
-It never publishes the page: per Privacy above, the people data stays on this
-machine. If the page can't be written or opened, the render files give a text
-summary to print instead.
+The page stays on this machine (see Privacy above). If writing the file fails or
+`open` exits non-zero, the render files give a text summary to print instead.
 
 ## Invocation
 
@@ -103,9 +107,9 @@ Load [`coverage-queries.md`](coverage-queries.md) and run the queries. Load
   `[context]`-only entities (from `seen-but-skip` or 1on1-prep upgrades) are NOT
   on the map per the membership predicate. Don't let them leak into charts or
   coverage counts.
-- **Publishing the render.** The chart and heatmap pages stay local. Don't publish
-  them with the Artifact tool unless the user asks on that run. If the page can't
-  be written or opened, use the text fallback — do not silently skip the render.
+- **Sending the render off this machine.** The chart and heatmap pages follow the
+  Privacy rule above, with no exceptions. If writing the file fails or `open`
+  exits non-zero, use the text fallback — do not silently skip the render.
 
 ## Compatibility With 1on1-prep
 

@@ -4,14 +4,17 @@ A local HTML page for the leader-onboarding view.
 
 ## Where it goes
 
-Copy `assets/chart-template.html` to the session scratchpad (or a temp dir), fill
-it in, and open it with `open <file>`. **Never publish it with the Artifact tool**
-and never write it into a repo. The page shows people's names and power ratings,
-and the Privacy section in SKILL.md keeps that data on this machine. Publish only
-if the user asks for it on that run.
+Copy `assets/chart-template.html` to the session scratchpad as
+`stakeholder-map-chart.html`, overwriting any earlier copy. Fill it in and open
+it with `open <file>`. Never write it into a repo. The page shows people's names
+and power ratings, so it follows the Privacy rule in SKILL.md: it stays on this
+machine.
 
-If the file can't be written or opened, print the text summary at the bottom of
-this file instead.
+HTML-escape `&`, `<`, `>` and `"` in every value you insert (names, teams,
+functions), so a value like `Ops <interim>` shows as text.
+
+If writing the file fails or `open` exits non-zero, print the text summary at the
+bottom of this file instead.
 
 ## Inputs
 
@@ -78,6 +81,10 @@ List each relation under **Relations** as one line, using the class for its type
 Text: `{source} reports to {target}`, `{source} informally reports to {target}`,
 or `{source} influences {target}`. Skip relations whose target is not on the chart.
 
+Order: by relation type in the table order above, then by source, then by
+target, each name compared with the **canonical sort-order tie-break** from
+[graph-schema.md](graph-schema.md#canonical-sort-order-for-ties).
+
 ## Meet-in-What-Order List
 
 Under **Meet in What Order**, an `<ol>` of the top 10 stakeholders by score.
@@ -108,7 +115,8 @@ Keep the **Key** line at the bottom of the template.
 
 ## Text Fallback
 
-If the HTML file can't be written or opened, print this markdown instead:
+If writing the HTML file fails or `open` exits non-zero, print this markdown
+instead:
 
 ```markdown
 # Stakeholder Map (text)

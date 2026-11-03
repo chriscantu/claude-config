@@ -1,18 +1,17 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Stakeholder Map</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <!--
-  Stakeholder map (leader-onboarding view). Written to a local file and opened
-  in the browser. Never published: the people data stays on this machine.
-  One .col per category, in this order: direct_report, skip, peer, skip_up,
-  cross_functional. One .node per person, sorted by meet-in-what-order score.
-  Node classes:
-    formal power -> .formal-high | .formal-medium | .formal-low | .formal-unknown
-    informal power -> add <span class="badge badge-high|medium|low"></span>, or none if unknown
-  Met marker: [x] met, [ ] not met yet. ASCII only.
+  Fill per ../chart-render.md, the only source of the layout and class rules.
+  Opened as a local file, so it carries its own doctype and UTF-8 charset:
+  accented names must render as written.
+  Stays on this machine: see Privacy in ../SKILL.md.
 -->
 <style>
-  /* Monochrome on purpose: encodings are size, stroke, and dashes, so the map
-     prints and reads the same in any theme. */
+  /* Monochrome with no dark-mode tokens on purpose: a print-style local view
+     whose size, stroke, and dash encodings must not invert. */
   :root { --paper: #fff; --ink: #000; }
   body {
     background: var(--paper);

@@ -27,8 +27,12 @@ private to the user until they share it.
    `swot-<org-name-sanitized>.html` (same sanitization as the Markdown export).
 2. Replace `Org Name` in the `<title>` and the heading.
 3. Fill each quadrant (Strengths, Weaknesses, Opportunities, Threats) with its
-   observations, grouped by landscape tag (`[technical]`, `[org]`, `[market]`, ...).
-   Past about 8 entries in a quadrant, end with "... and M more".
+   observations. Each entry is one `<li>` that starts with its landscape tag
+   (`[technical]`, `[org]`, `[market]`, ...). Order entries by tag
+   alphabetically, then keep the review report's order within a tag. If a
+   quadrant has more than 8 entries, show the first 8 in that order, then one
+   last `<li>` reading `... and M more`, where M is the number left out.
+   HTML-escape `&`, `<`, `>` and `"` in every value you insert.
 4. Publish it with the Artifact tool (`icon: "grid"`). To refresh it later, edit
    the same file and publish again, so the link stays the same.
 5. If the Artifact tool isn't available, open the file locally with `open <file>`.

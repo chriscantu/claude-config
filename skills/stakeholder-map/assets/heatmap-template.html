@@ -1,16 +1,16 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Coverage Review</title>
-<meta name="claude:viewport-fit-sides" content="cover">
 <!--
-  Coverage review heatmap. Written to a local file and opened in the browser.
-  Never published: the people data stays on this machine.
-  One .row per dimension. One .cell per bucket, in bucket order. Pad shorter
-  rows with <div class="cell cell-empty-slot"></div> so columns line up.
-  Cell classes (first matching rule in heatmap-render.md wins):
-    .cell-unknown | .cell-gap | .cell-under | .cell-well
-  Omit the .echo block when echo_chamber is null. ASCII only.
+  Fill per ../heatmap-render.md, the only source of the layout and cell rules.
+  Opened as a local file, so it carries its own doctype and UTF-8 charset.
+  Stays on this machine: see Privacy in ../SKILL.md.
 -->
 <style>
-  /* Monochrome on purpose: stroke weight and dashes encode coverage. */
+  /* Monochrome with no dark-mode tokens on purpose: a print-style local view
+     where stroke weight and dashes encode coverage and must not invert. */
   :root { --paper: #fff; --ink: #000; }
   body {
     background: var(--paper);
