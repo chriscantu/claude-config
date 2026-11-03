@@ -29,7 +29,26 @@
   .title { font-size: 22px; margin-bottom: 8px; }
   .action { margin-top: 10px; }
   .flow { border: 4px solid var(--ink); padding: 16px; }
+  /* Process sketches: steps stacked top to bottom, so order reads without arrows
+     to decode. A decision's branches sit side by side under its question box. */
+  .column { display: flex; flex-direction: column; align-items: flex-start; margin-bottom: 24px; }
+  .arrow { padding: 4px 0 4px 40px; }
+  .branches { display: flex; flex-wrap: wrap; gap: 24px; }
 </style>
+<!--
+  Process sketch layout (use instead of .screens for a process / workflow):
+  <div class="column">
+    <div class="screen" style="border-radius: ...">START: trigger</div>
+    <div class="arrow">v</div>
+    <div class="screen" style="border-radius: ...">1. Verb object</div>
+    <div class="arrow">v</div>
+    <div class="screen" style="border-radius: ...">Question?</div>
+    <div class="branches">
+      <div class="column"><div class="arrow">yes v</div> ...steps... </div>
+      <div class="column"><div class="arrow">no v</div> ...steps... </div>
+    </div>
+  </div>
+-->
 
 <div class="screens">
 

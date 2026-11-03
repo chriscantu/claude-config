@@ -23,7 +23,17 @@ any of the "too detailed" items, STOP and simplify. If you're missing any of the
 - Using a markdown code block when rendering HTML
 - Showing only a single screen instead of the multi-screen journey
 - Inheriting a dark theme instead of setting explicit white background
-- Missing the FLOW section that maps screen-to-screen connections
+- Missing the FLOW section that maps screen-to-screen connections (process sketches are exempt: the column of steps and arrows is the flow)
+
+## Process Sketches (Flowchart)
+
+- No `START:` box, or a path that stops without an `END: <outcome>` box
+- More than 10 steps, or more than 2 decisions
+- A step labeled with a noun or system name instead of verb + object ("Approval" instead of "Approve request")
+- A decision that isn't a question, or a branch without a `yes`/`no` (or named) label
+- UML or BPMN symbols (filled dots, fork bars, empty diamonds, `[guard]` text)
+
+See `references/archetypes.md` § Process / Workflow for the rules and their sources.
 
 ## Too High Fidelity (HTML)
 
