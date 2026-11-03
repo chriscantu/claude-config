@@ -1,34 +1,54 @@
+<title>SKETCH NAME</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <!--
-  Fat marker sketch HTML template.
-  Duplicate the screen div for each step in the journey.
+  Fat marker sketch template. Publish it with the Artifact tool.
+  Replace SKETCH NAME with the feature name (2-4 words).
+  Duplicate the .screen div for each step in the journey.
   Fill in screen names, region descriptions, and bracketed actions.
   Use ASCII-safe characters only: -> for arrows, [x] for checked, [ ] for unchecked.
   Vary the border-radius values (1px-5px) on each box for a hand-drawn feel.
+  Keep it crude: no colors, no second font, no shadows, fills, or images.
 -->
-<meta charset="utf-8">
 <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet">
-<div style="background:#fff;color:#000;font-family:'Permanent Marker',cursive;padding:40px;font-size:20px">
+<style>
+  /* Whiteboard: black marker on white paper. One look on purpose, so the
+     page stays white in dark mode instead of following the viewer's theme. */
+  :root { --paper: #fff; --ink: #000; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Permanent Marker', 'Comic Sans MS', cursive;
+    font-size: 20px;
+    padding-block: 40px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  .screens { display: flex; flex-wrap: wrap; gap: 24px; margin-bottom: 24px; }
+  .screen { border: 4px solid var(--ink); padding: 16px; min-width: 190px; max-width: 250px; }
+  .region { border: 3px solid var(--ink); padding: 6px; margin: 8px 0; }
+  .title { font-size: 22px; margin-bottom: 8px; }
+  .action { margin-top: 10px; }
+  .flow { border: 4px solid var(--ink); padding: 16px; }
+</style>
 
-  <div style="display:flex;gap:24px;flex-wrap:wrap;margin-bottom:24px">
+<div class="screens">
 
-    <div style="border:4px solid #000;padding:16px;min-width:190px;max-width:250px;border-radius:2px 5px 4px 3px">
-      <div style="font-size:22px;margin-bottom:8px">1. SCREEN NAME</div>
-      <div style="border:3px solid #000;padding:6px;margin:8px 0;border-radius:3px 1px 4px 2px">Region description</div>
-      <div style="border:3px solid #000;padding:6px;margin:8px 0;border-radius:1px 3px 2px 4px">Another region</div>
-      <div style="margin-top:10px">[Action]</div>
-    </div>
-
-    <div style="border:4px solid #000;padding:16px;min-width:190px;max-width:250px;border-radius:4px 2px 5px 3px">
-      <div style="font-size:22px;margin-bottom:8px">2. NEXT SCREEN</div>
-      <div style="border:3px solid #000;padding:6px;margin:8px 0;border-radius:2px 4px 1px 3px">Region description</div>
-      <div style="margin-top:10px">[Action]</div>
-    </div>
-
+  <div class="screen" style="border-radius: 2px 5px 4px 3px">
+    <div class="title">1. SCREEN NAME</div>
+    <div class="region" style="border-radius: 3px 1px 4px 2px">Region description</div>
+    <div class="region" style="border-radius: 1px 3px 2px 4px">Another region</div>
+    <div class="action">[Action]</div>
   </div>
 
-  <div style="border:4px solid #000;padding:16px;border-radius:3px 5px 2px 4px">
-    <div style="font-size:22px;margin-bottom:6px">FLOW</div>
-    Screen 1 -> [Action] -> Screen 2 -> [Action] -> Screen 3
+  <div class="screen" style="border-radius: 4px 2px 5px 3px">
+    <div class="title">2. NEXT SCREEN</div>
+    <div class="region" style="border-radius: 2px 4px 1px 3px">Region description</div>
+    <div class="action">[Action]</div>
   </div>
 
+</div>
+
+<div class="flow" style="border-radius: 3px 5px 2px 4px">
+  <div class="title">FLOW</div>
+  Screen 1 -> [Action] -> Screen 2 -> [Action] -> Screen 3
 </div>

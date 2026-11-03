@@ -25,12 +25,14 @@ any of the "too detailed" items, STOP and simplify. If you're missing any of the
 - Inheriting a dark theme instead of setting explicit white background
 - Missing the FLOW section that maps screen-to-screen connections
 
-## Excalidraw-Specific
+## Too High Fidelity (HTML)
 
-- Font size below minimum per element type: headers < 20px, screen titles < 16px, body labels < 13px — will render blurry; fix by reducing element count, not font size
-- All elements created in a single `batch_create_elements` call — staged drawing is required: one call per screen frame for Pass 1, then one call each for Passes 2, 3, and 4
-- Shapes have fills set — should be outline-only with no fills or background colors
-- Transparent background not set — canvas should render as a whiteboard (transparent), not dark or colored
+- Any color other than black and white, or a dark-mode version of the page
+- A second typeface, or a font other than Permanent Marker
+- Shadows, fills, gradients, images, icons, or animation
+- Layout styling added beyond the template's classes (polish from the Artifact design guidance)
+
+For Excalidraw checks, see `references/excalidraw-rendering.md`.
 
 ## Right Level
 

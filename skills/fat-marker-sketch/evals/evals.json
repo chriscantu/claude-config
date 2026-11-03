@@ -27,7 +27,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(excalidraw|html fallback|preview[_ -]?start|napkin[- ](level|sketch)|napkin sketch|(2|two)[- ]minute|quick sketch|(let me|i'?ll|i will|here'?s) (a |the )?(quick |napkin[- ]?level |2[- ]minute |two[- ]minute )?sketch|produce (a|the) (quick |napkin[- ]?level )?sketch)",
+          "pattern": "(excalidraw|html fallback|artifact( tool| page)?|html (sketch|page)|preview[_ -]?start|napkin[- ](level|sketch)|napkin sketch|(2|two)[- ]minute|quick sketch|(let me|i'?ll|i will|here'?s) (a |the )?(quick |napkin[- ]?level |2[- ]minute |two[- ]minute )?sketch|produce (a|the) (quick |napkin[- ]?level )?sketch)",
           "flags": "i",
           "description": "Affirmatively offers to produce the sketch (naming a rendering option, napkin-level, or 2-minute timebox) rather than capitulating"
         }
@@ -177,7 +177,7 @@
         },
         {
           "type": "regex",
-          "pattern": "(fallback (hierarchy|order)|excalidraw.{0,40}(html|fallback|first|default|canvas)|html.{0,20}fallback|preview[_ -]?start|excalidraw[- ]canvas|visual artifact|(isn'?t|not|never) (just )?(a )?text list|text list (isn'?t|is not))",
+          "pattern": "(fallback (hierarchy|order)|artifact (tool|page)|html (sketch|page)|excalidraw.{0,40}(html|fallback|first|default|canvas)|html.{0,20}fallback|preview[_ -]?start|excalidraw[- ]canvas|visual artifact|(isn'?t|not|never) (just )?(a )?text list|text list (isn'?t|is not))",
           "flags": "i",
           "description": "Rebuts the 'text list only' ask by naming the fallback hierarchy, the excalidraw/HTML path, or the 'visual artifact, not text' rule"
         },

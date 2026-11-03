@@ -42,8 +42,8 @@ When it's time to produce the sketch, invoke the `fat-marker-sketch` skill. The 
 contains rendering format, fidelity rules, format taxonomy, examples, validation
 questions, and backtracking protocol.
 
-A fat marker sketch is a VISUAL artifact rendered using excalidraw (outline shapes,
-Excalifont, transparent background) — not a text list, not a code block, not prose.
-Fall back to HTML with bordered boxes if excalidraw is unavailable (requires the
-canvas with an active browser/Preview client — see the skill for setup and preflight). If it doesn't have
+A fat marker sketch is a VISUAL artifact: an HTML page of thick black bordered boxes
+in a marker font, published with the built-in Artifact tool (no server or setup).
+Without the Artifact tool, write the same HTML file and open it locally. Use
+Excalidraw only when the user asks, and never wait on its canvas. If it doesn't have
 visible borders around screens and regions, it's not a sketch.

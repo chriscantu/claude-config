@@ -8,7 +8,7 @@ description: >
 license: MIT
 metadata:
   author: chriscantu
-  version: "2.1"
+  version: "3.0"
 ---
 
 # Fat Marker Sketch
@@ -18,8 +18,8 @@ and sketched on a whiteboard. The thick marker physically prevents fine detail. 
 the point: it forces the conversation to stay on structure and components, not pixels.
 
 **See `assets/example-fat-marker-sketch.jpg` for the target fidelity standard.** Crude
-boxes, structural regions, no decorative styling. In excalidraw, the equivalent is
-outline-only rectangles in Excalifont.
+boxes, structural regions, no decorative styling. In HTML, the equivalent is thick
+black borders in a marker font on white.
 
 The sketch answers two questions: (1) what are the major components and how do they
 relate, (2) what happens when the system is exercised (happy path). It does NOT answer
@@ -39,7 +39,7 @@ These requests look like valid skips. They are NOT. Name the gate and produce th
 | "I have 10 minutes before my meeting — skip the sketch" | Time pressure **strengthens** the case. A rushed detailed design is the most expensive thing to throw away. 2 minutes of sketching beats 10 minutes of rework. |
 | "Just skip it and write the detailed design" | "Skip" alone is not an override. The override must acknowledge the trade-off (rework risk). Ask for it or sketch anyway. |
 | "You already described the approach — that's the sketch" | Prose is not a sketch. If it doesn't have visible borders around screens/regions, it's notes. |
-| "Long session, I'm fried — just a text list is fine" | The fallback order is excalidraw → HTML → ASCII, not excalidraw → bullet list. Fatigue is not a fallback trigger. |
+| "Long session, I'm fried — just a text list is fine" | The fallback order is Artifact HTML → local HTML → ASCII, not HTML → bullet list. Fatigue is not a fallback trigger. |
 | "Component scope, no structure changes" | If the approach introduces any new screen, flow, or integration boundary, the "single component" carve-out does NOT apply. |
 | "We already sketched something similar last week" | Sketches are disposable and per-approach. A prior sketch for a different feature does not substitute. |
 | "Each box needs 3 bullets to convey enough info" | Then split into 3 boxes, or drop to a single label. A box with bullets inside is a **note card**, not a structural region — the "notes with borders" anti-pattern. |
@@ -80,45 +80,24 @@ backtracking-mid-pick checklist when you've picked the wrong archetype.
 
 ### Rendering
 
-Default to **excalidraw** via the excalidraw MCP. Decision tree:
-
-- `mcp__excalidraw__*` tools **not available** → fall back to HTML immediately.
-- Tools available but canvas **not reachable** → ask the user to run `PORT=3000 npm run canvas` in `mcp_excalidraw/` and open `http://localhost:3000`. Do NOT fall back to HTML — wait.
-
-Fall back to **ASCII** only if the user explicitly requests it or neither excalidraw
-nor HTML can render. For HTML rendering details, see `references/html-fallback.md`.
+Render the sketch as **HTML published with the built-in Artifact tool**. It needs no
+server or setup. Start from `assets/sketch-template.html` and follow
+`references/html-rendering.md`.
 
 <HARD-GATE>
-A fat marker sketch is a VISUAL artifact, not a text artifact. When rendering with excalidraw:
+A fat marker sketch is a VISUAL artifact, not a text artifact. The fallback order is
+Artifact HTML -> local HTML file -> ASCII:
 
-- Outline-only shapes — no fills. Matches the rough, low-fidelity intent.
-- Excalifont (default) for all labels — organic, hand-drawn look.
-- Transparent backgrounds — reads as "drawn on a whiteboard."
-- Rectangles for screens/regions, arrows for flow connections.
-- No colors, no shadows, no fills — black strokes on transparent background only.
+- Artifact tool available -> publish the HTML sketch with it.
+- Artifact tool not available -> write the same HTML file and open it locally.
+- ASCII only if the user explicitly asks for it, or no HTML can render.
 
-### Staged drawing (required — do NOT skip)
+Keep it low-fidelity: black on white, one marker typeface, thick bordered boxes, no
+colors, fills, shadows, or images. The Artifact tool's design polish does not apply
+to sketches.
 
-Build the sketch in **4 stages** — Pass 1 fires one `batch_create_elements` call per
-screen frame; Passes 2–4 fire one call each. Do NOT create all elements in one call
-— it removes the live-draw experience entirely.
-
-| Pass | What to create | How |
-|------|----------------|-----|
-| 1. Skeleton | Outermost screen frames only | One call **per frame** — user sees each screen box appear |
-| 2. Titles + regions | Screen title labels + inner region boxes | Single batch |
-| 3. Content + actions | Representative text, inputs, `[buttons]`, radio groups | Single batch |
-| 4. Connections | Arrows bound between screens + FLOW text at the bottom | Single batch |
-
-### Font sizes (minimum to prevent blur)
-
-Excalifont renders blurry below 13px. Never use fontSize below 13.
-
-| Element | Minimum fontSize |
-|---------|-----------------|
-| Sketch / composite header | 20px |
-| Screen title | 16px |
-| Body labels, questions, actions | 13px |
+Use Excalidraw only when the user asks for it; see `references/excalidraw-rendering.md`.
+If its canvas isn't reachable, say so and render in HTML. Never stop to wait for it.
 </HARD-GATE>
 
 If the sketch doesn't have visible boxes/borders around screens and regions, it's not a
@@ -131,13 +110,13 @@ sketch — it's notes.
 Apply these fidelity rules regardless of format (see `references/fidelity-rules.md` for
 full detail and properties):
 
-- **Black on white** — outline-only shapes on transparent canvas (excalidraw); explicit white background + black text (HTML).
+- **Black on white** — explicit white background + black text (HTML); outline-only shapes on a transparent canvas (Excalidraw).
 - **Journey-focused** — full user journey across screens/steps, not a single screen in isolation. Number each.
 - **Structural boxes** — 4px screen frames, 3px region borders, uneven border-radius. **The boxes ARE the sketch.**
 - **Representative content** — enough text to understand what each region DOES. "Q: How often paid?" good; "Goal Card" too abstract.
 - **Explicit actions** — bracket every user action: `[Get Started]`, `[Next]`, `[Activate]`.
 - **No styling** — no colors, shadows, fills. Uneven border-radius (HTML only) is the one exception.
-- **ASCII-safe characters only** — `->` for arrows, `[x]`/`[ ]` for checkboxes. No Unicode in HTML fallback.
+- **ASCII-safe characters only** — `->` for arrows, `[x]`/`[ ]` for checkboxes. No Unicode in HTML.
 - **Show relationships** — include a FLOW section mapping connections.
 - **No bullets inside boxes** — a box holds a single label or single representative phrase. Bullets inside = note card = the "notes with borders" anti-pattern.
 
@@ -158,7 +137,7 @@ Ask three focused questions:
 - If the user confirms: proceed to detailed design sections
 - If the user pushes back: revise the sketch or reconsider the approach (see Backtracking)
 
-The sketch is NOT saved to disk or included in the spec. It's a conversation artifact
+The sketch is NOT committed to the repo or included in the spec. It's a conversation artifact
 that prevents expensive design rework.
 
 ---
