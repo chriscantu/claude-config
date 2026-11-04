@@ -190,6 +190,16 @@ for (const page of pages) {
   });
 }
 
+// With nobody on the map, a page of keys and empty headings explains nothing,
+// so the spec must send the reader to onboarding instead of drawing it.
+describe("chart with nobody on the map", () => {
+  test("spec prints a pointer to onboarding instead of a page", () => {
+    const spec = read("stakeholder-map/chart-render.md").replace(/\s+/g, " ");
+    expect(spec).toMatch(/If no entity is on the map, don't write or open the page/);
+    expect(spec).toMatch(/`Nobody is on the map yet\. Run `?\/stakeholder-map --mode=leader-onboarding/);
+  });
+});
+
 describe("chart badge", () => {
   test("is drawn as a circle", () => {
     const css = cssOf(read("stakeholder-map/assets/chart-template.html"));
@@ -251,6 +261,14 @@ describe("swot grid page", () => {
     const lookup = spec.match(/titled\s+`([^`<]+)<Org Name>`/)?.[1];
     expect(lookup).toBeDefined();
     expect(html).toContain(`<title>${lookup}Org Name</title>`);
+  });
+
+  // The landscape tag is optional in the graph, so the grid needs a line shape
+  // for entries that have none, or each run would invent its own.
+  test("spec says how to show an entry with no landscape tag", () => {
+    const flat = spec.replace(/\s+/g, " ");
+    expect(flat).toMatch(/An entry with no landscape tag is `<li>\{observation text\}<\/li>`/);
+    expect(flat).toMatch(/after the tagged ones/);
   });
 
   test("local fallback adds the charset the Artifact wrapper would", () => {

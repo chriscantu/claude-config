@@ -34,6 +34,10 @@ entity, read:
 - All `[coverage:met]` observations (to compute last-met and met-or-not-yet)
 - Relations: `reports_to`, `reports_to_informally`, `influences`
 
+If no entity is on the map, don't write or open the page: its keys would explain
+boxes that aren't there. Print this line instead:
+`Nobody is on the map yet. Run /stakeholder-map --mode=leader-onboarding to add people.`
+
 ## Layout
 
 One `.col` per category, left to right, in this order:

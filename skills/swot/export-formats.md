@@ -49,8 +49,11 @@ with a UTF-8 charset, so nothing needs to be flattened to ASCII.
 3. Fill each quadrant (Strengths, Weaknesses, Opportunities, Threats) with its
    observations. Each entry is one line:
    `<li><span class="tag">[{tag}]</span> {observation text}</li>`. The text is
-   the observation body only, without its date or provenance. Order entries by
-   tag alphabetically, then keep the review report's order within a tag. If a
+   the observation body only, without its date or provenance. The landscape tag
+   is optional in the graph. An entry with no landscape tag is
+   `<li>{observation text}</li>`. Order entries by tag alphabetically, put
+   entries with no tag after the tagged ones, then keep the review report's
+   order within each group. If a
    quadrant has more than 8 entries, show the first 8 in that order, then one
    last `<li>` reading `... and M more`, where M is the number left out. A
    quadrant with no entries gets one `<li>None recorded</li>`. Keep the
