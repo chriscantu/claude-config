@@ -42,8 +42,6 @@ See `references/archetypes.md` § Process / Workflow for the rules and their sou
 - Shadows, fills, gradients, images, icons, or animation
 - Layout styling added beyond the template's classes (polish from the Artifact design guidance)
 
-For Excalidraw checks, see `references/excalidraw-rendering.md`.
-
 ## Right Level
 
 The sketch should look like something drawn in 2 minutes on a whiteboard — bordered

@@ -95,9 +95,6 @@ Artifact HTML -> local HTML file -> ASCII:
 Keep it low-fidelity: black on white, one marker typeface, thick bordered boxes, no
 colors, fills, shadows, or images. The Artifact tool's design polish does not apply
 to sketches.
-
-Use Excalidraw only when the user asks for it; see `references/excalidraw-rendering.md`.
-If its canvas isn't reachable, say so and render in HTML. Never stop to wait for it.
 </HARD-GATE>
 
 If the sketch doesn't have visible boxes/borders around screens and regions, it's not a
@@ -110,7 +107,7 @@ sketch — it's notes.
 Apply these fidelity rules regardless of format (see `references/fidelity-rules.md` for
 full detail and properties):
 
-- **Black on white** — explicit white background + black text (HTML); outline-only shapes on a transparent canvas (Excalidraw).
+- **Black on white** — explicit white background + black text.
 - **Journey-focused** — full user journey across screens/steps, not a single screen in isolation. Number each.
 - **Structural boxes** — 4px screen frames, 3px region borders, uneven border-radius. **The boxes ARE the sketch.**
 - **Representative content** — enough text to understand what each region DOES. "Q: How often paid?" good; "Goal Card" too abstract.

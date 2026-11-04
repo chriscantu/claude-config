@@ -20,7 +20,7 @@ review, and multi-format export.
 - [pending-sync.md](pending-sync.md) — file format, sync flow, error handling
 - [capture-form.md](capture-form.md) — observation-first capture form, parsing, auto-tag confirm flow
 - [challenge-checks.md](challenge-checks.md) — 4 quality checks with examples
-- [export-formats.md](export-formats.md) — markdown, excalidraw, presentation export
+- [export-formats.md](export-formats.md) — markdown, grid page (Artifact), presentation export
 
 ## Prerequisites
 
@@ -153,7 +153,7 @@ Per [ADR #0020](../../adrs/0020-memory-layer-primary-and-delegations.md), per-le
 
 **Not used by this skill:** auto-memory MD, ruflo MCP, scheduled-tasks MCP, plugin-internal memory (`decisions.md` / `patterns.md`).
 
-Out-of-scope local files (not memory layers): `pending-sync/` (transient fallback drained by `--sync`), Excalidraw / Slidev exports (rendering sinks, not persistence).
+Out-of-scope local files (not memory layers): `pending-sync/` (transient fallback drained by `--sync`), grid page / Slidev exports (rendering sinks, not persistence).
 
 ## Common Mistakes
 
@@ -168,6 +168,6 @@ Out-of-scope local files (not memory layers): `pending-sync/` (transient fallbac
 ## Composition
 
 - **Reads**: `/1on1-prep` (`--from=1on1-prep`, built), `/architecture-overview`, `/stakeholder-map` (future `--from`)
-- **Writes**: knowledge graph, `docs/swot/`, excalidraw canvas, Slidev
+- **Writes**: knowledge graph, `docs/swot/`, private Artifact grid page, Slidev
 - **Feeds**: `/strategy-doc` (#42), `/okr` (#36)
 - **Downstream review**: this skill's Challenge Mode checks SWOT *coverage*; substance is stress-tested one level up — once these observations are synthesized into a strategy via `/strategy-doc`, that strategy gets the independent `strategy-adversary` pass. No adversary on raw observations.

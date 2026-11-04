@@ -141,7 +141,7 @@ Export failure recovery (missing theme, missing Chromium, PPTX limitations): see
 - One-off documents, memos, or reports — deliver as a Word document (`.docx`) instead
 - A quick outline or bullet list that doesn't need to be rendered — just reply in Markdown
 - Technical documentation that belongs in a README or runbook
-- The user wants a static image or diagram only — use excalidraw or mermaid directly
+- The user wants a static image or diagram only — use mermaid or an Artifact HTML page directly
 - Slidev is not installed and the user doesn't want to install it — don't try to fake slides in another format
 
 ## Common Mistakes

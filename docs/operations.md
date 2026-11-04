@@ -240,42 +240,6 @@ interactive sessions during one.
 
 ## Log Hygiene
 
-### `excalidraw.log` rotation
-
-The excalidraw MCP server writes to `excalidraw.log` in the repo root and
-does not rotate the file itself. It is `.gitignore`d so it never lands in
-commits, but it can grow indefinitely on disk (observed at 8.6MB after a
-few weeks of canvas use). [`bin/rotate-excalidraw-log.fish`](../bin/rotate-excalidraw-log.fish)
-rotates the file when it crosses a size threshold:
-
-```sh
-fish bin/rotate-excalidraw-log.fish              # default: 10MB cap, 1MB tail kept
-fish bin/rotate-excalidraw-log.fish --threshold-mb 25 --keep-tail-mb 5
-```
-
-When the log exceeds the threshold, the script keeps a tail of recent
-entries at `excalidraw.log.1` (also `.gitignore`d via the same wildcard)
-and truncates the active log. Idempotent — safe to invoke from a
-SessionStart hook, cron, or manually. Exits 0 silently when the log
-doesn't exist or is under the threshold.
-
-To run on every session start, add to `~/.claude/settings.json`:
-
-```json
-{
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|resume",
-        "hooks": [
-          { "type": "command", "command": "fish /Users/<you>/repos/claude-config/bin/rotate-excalidraw-log.fish", "timeout": 5 }
-        ]
-      }
-    ]
-  }
-}
-```
-
 ### Plans.md drift
 
 The `claude-code-harness:harness-progress` skill scans `Plans.md` for

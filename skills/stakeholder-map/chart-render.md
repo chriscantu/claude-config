@@ -1,14 +1,24 @@
 # Stakeholder-Map — Chart Rendering (Mode A)
 
-Excalidraw canvas output for the leader-onboarding view.
+A local HTML page for the leader-onboarding view.
 
-## Preflight
+## Where it goes
 
-1. `mcp__Claude_Preview__preview_list` → confirm `excalidraw-canvas` server present.
-   If absent: `preview_start("excalidraw-canvas")` (creates or reuses).
-2. `mcp__excalidraw__describe_scene` — confirm canvas reachable.
-3. If either fails, fall back to the text summary (see bottom of this file) and
-   print the hint from SKILL.md.
+These rules cover both stakeholder pages: this chart and the heatmap in
+[heatmap-render.md](heatmap-render.md).
+
+Copy the page's template to the session scratchpad under its file name,
+overwriting any earlier copy. For this chart: `assets/chart-template.html` as
+`stakeholder-map-chart.html`. Fill it in and open it with `open <file>`. Never
+write it into a repo. The page shows people's names and assessments, so it
+follows the Privacy rule in SKILL.md: it stays on this machine.
+
+HTML-escape `&`, `<`, `>` and `"` in every value you insert (names, teams,
+bucket names, banner text, rationales), so a value like `Ops <interim>` shows as
+text.
+
+If writing the file fails or `open` exits non-zero, print the page's Text
+Fallback instead.
 
 ## Inputs
 
@@ -24,72 +34,76 @@ entity, read:
 - All `[coverage:met]` observations (to compute last-met and met-or-not-yet)
 - Relations: `reports_to`, `reports_to_informally`, `influences`
 
+If no entity is on the map, don't write or open the page: its keys would explain
+boxes that aren't there. Print this line instead:
+`Nobody is on the map yet. Run /stakeholder-map --mode=leader-onboarding to add people.`
+
 ## Layout
 
-Five columns, left to right, in this order (each is a category bucket):
+One `.col` per category, left to right, in this order:
 
-| Column | Category | X origin |
-|--------|----------|----------|
-| 1 | `direct_report` | 80 |
-| 2 | `skip` | 340 |
-| 3 | `peer` | 600 |
-| 4 | `skip_up` | 860 |
-| 5 | `cross_functional` | 1120 |
+| Column | Category | Heading | In lists |
+|--------|----------|---------|----------|
+| 1 | `direct_report` | Direct Reports | direct report |
+| 2 | `skip` | Skips | skip |
+| 3 | `peer` | Peers | peer |
+| 4 | `skip_up` | Skip-Ups | skip-up |
+| 5 | `cross_functional` | Cross-Functional | cross-functional |
 
-Column headers at y=60, `fontSize=16`, Excalifont. Within each column, nodes are
-sorted by meet-in-what-order score descending (see "Meet-in-What-Order List"
-below for the formula), with the **canonical sort-order tie-break** from
-[graph-schema.md](graph-schema.md#canonical-sort-order-for-ties) applied to
-equal scores. The top-scoring node starts at y=120. Each subsequent node is
-placed 20px below the previous node's bottom edge (the 20px is between-node
-padding; the first node has no extra top padding beyond y=120).
+Within each column, sort nodes by meet-in-what-order score, highest first (see
+"Meet-in-What-Order List" below for the formula). Break equal scores with the
+**canonical sort-order tie-break** from
+[graph-schema.md](graph-schema.md#canonical-sort-order-for-ties). Leave out a
+column that has no people.
 
 ## Node Encoding
 
-Each person renders as a `rectangle` whose size encodes **formal power**:
+Each person is one `.node`. Its class encodes **formal power** as box size:
 
-| Formal power | Width × Height | Stroke |
-|--------------|----------------|--------|
-| `high` | 220 × 80 | solid |
-| `medium` | 180 × 64 | solid |
-| `low` | 140 × 50 | solid |
-| unknown | 140 × 50 | dashed (`strokeStyle: "dashed"`) |
+| Formal power | Class | Box |
+|--------------|-------|-----|
+| `high` | `formal-high` | 220px wide, solid |
+| `medium` | `formal-medium` | 180px wide, solid |
+| `low` | `formal-low` | 140px wide, solid |
+| unknown | `formal-unknown` | 140px wide, dashed |
 
-Inside the rectangle, a `text` label with `fontSize=13`, Excalifont:
-- Line 1: `{name}`
-- Line 2: `{function} · {team}` (omit any field that is unknown)
+Inside the node:
+- `.name`: `{name}`
+- `.meta`: `{function} - {team}`. If only one is known, show it alone with no
+  ` - `. Leave out the `.meta` line if both are unknown.
+- `.met`: `[x]` if at least one `[coverage:met]` observation exists, else `[ ]`
 
-**Informal power badge** — an `ellipse` anchored to the top-right corner of the
-node rectangle. Stroke-only, no fill.
+**Informal power badge** — a circle on the node's top-right corner. It is a
+`<span>` with class `.badge` plus the class for its level:
 
-| Informal power | Diameter |
-|----------------|----------|
-| `high` | 24 |
-| `medium` | 16 |
-| `low` | 10 |
-| unknown | no badge |
+| Informal power | Class | Circle |
+|----------------|-------|--------|
+| `high` | `badge-high` | 24px wide |
+| `medium` | `badge-medium` | 16px wide |
+| `low` | `badge-low` | 10px wide |
 
-**Met-or-not-yet marker** — a small `[ ]` (unmet) or `[x]` (met) text anchor at
-the bottom-left of the node, `fontSize=13`. "Met" = at least one `[coverage:met]`
-observation exists.
+No badge when informal power is unknown.
 
 ## Relations
 
-Draw arrows between bound node IDs. Use `batch_create_elements` with
-`startElementId`/`endElementId`:
+List each relation under **Relations** as one line, using the class for its type:
 
-| Relation | Arrow style |
-|----------|-------------|
-| `reports_to` | solid, `strokeWidth: 2` |
-| `reports_to_informally` | dashed, `strokeWidth: 2` |
-| `influences` | dotted, `strokeWidth: 2` |
+| Relation | Class | Line |
+|----------|-------|------|
+| `reports_to` | `rel-reports_to` | solid |
+| `reports_to_informally` | `rel-reports_to_informally` | dashed |
+| `influences` | `rel-influences` | dotted |
 
-Skip relations whose target entity is not on the chart.
+Text: `{source} reports to {target}`, `{source} informally reports to {target}`,
+or `{source} influences {target}`. Skip relations whose target is not on the chart.
+
+Order: by relation type in the table order above, then by source name, then by
+target name. Compare names in case-sensitive Unicode codepoint order (step 4 of
+the [canonical sort order](graph-schema.md#canonical-sort-order-for-ties)).
 
 ## Meet-in-What-Order List
 
-Below the chart, starting at y equals `(max column height) + 80`, render a
-numbered list of the top 10 stakeholders by score.
+Under **Meet in What Order**, an `<ol>` of the top 10 stakeholders by score.
 
 Score formula:
 
@@ -107,40 +121,33 @@ unmet_bonus: +10 if no [coverage:met] observation exists, else 0
 Sort descending by score. Break ties using the **canonical sort order** in
 [graph-schema.md](graph-schema.md#canonical-sort-order-for-ties). Truncation at
 10 is applied after the full sort so the boundary is deterministic. Emit up to
-10 lines as `text` elements:
+10 lines, one `<li>` each:
 
 ```
-1. {name} — {category}, formal={level}, informal={level} [unmet]
+{name} - {in-lists label}, formal power {level}, informal power {level}
 ```
 
-`fontSize=13`, Excalifont, left-aligned at x=80.
+`{in-lists label}` comes from the Layout table. `{level}` is `high`, `medium`,
+`low` or `unknown`. Add `, not met yet` at the end only when the person has no
+`[coverage:met]` observation.
 
-## Staged Drawing
-
-Follow the fat-marker-sketch Pass conventions:
-
-1. **Pass 1 — column frames**: one `batch_create_elements` call per column
-   (rectangle bounding the column).
-2. **Pass 2 — column titles and node rectangles**: one batch.
-3. **Pass 3 — node text, badges, met markers**: one batch.
-4. **Pass 4 — relation arrows and meet-in-order list**: one batch.
+Leave both **Key** blocks as the template has them: the main key under the
+columns, and the bar key under the Relations heading.
 
 ## Text Fallback
 
-If preflight fails, print this markdown to stdout instead:
+The markdown to print when the page can't be shown (see Where it goes):
 
 ```markdown
-# Stakeholder Map (text fallback)
-
-_Excalidraw unavailable — run `preview_start("excalidraw-canvas")` and re-render._
+# Stakeholder Map (text)
 
 ## By Category
 
 ### Direct Reports
-- {name} — {function} · {team} · formal={level}, informal={level} [met|unmet]
+- {name} - {function}, {team}, formal power {level}, informal power {level}, {met | not met yet}
 ...
 
 ## Meet in What Order (top 10)
-1. {name} — {rationale}
+1. {same line as the HTML list}
 ...
 ```

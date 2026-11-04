@@ -216,7 +216,7 @@ artifact path, type (`org-design scenario`), and decision context; it never rewr
 
 Phase 2b ships `--mode=scenario` with all five operations — `split-team` + `add-headcount` + `merge-teams` + `change-reporting` + `reduce-headcount` (the last gated by a machine layoff acknowledgment) — plus the multi-scenario trade-off matrix and recommended-option output. Deferred beyond 2b:
 
-- Excalidraw rendering (Mermaid only).
+- Rendered visuals beyond Mermaid (Mermaid only for now).
 - HRIS / directory auto-import — structure is manual by design (issue #35: no HRIS).
 - Automated hand-off into `/strategy-doc` — the user folds output into their notes manually.
 - Any scalar org-quality score or auto-applied recommendation — the matrix is facts-only; ranking is a decision aid the user adjudicates.

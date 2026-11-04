@@ -1,0 +1,54 @@
+<title>SWOT: Org Name</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<!--
+  Fill per ../export-formats.md (Grid Page Export), which decides what goes
+  in each quadrant. Published with the Artifact tool, which supplies the doctype and
+  the UTF-8 charset; the local fallback adds both itself.
+-->
+<style>
+  /* Plain report look: quadrants are told apart by position and label, not
+     colour, so their meaning survives the light/dark swap. */
+  :root { --bg: #fff; --fg: #111; --muted: #555; --line: #111; }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --bg: #141414; --fg: #eee; --muted: #aaa; --line: #eee; color-scheme: dark } }
+  :root[data-theme="dark"] { --bg: #141414; --fg: #eee; --muted: #aaa; --line: #eee; color-scheme: dark }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    line-height: 1.45;
+    padding-block: 32px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  h1 { font-size: 22px; margin: 0 0 20px; text-wrap: balance; }
+  .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border: 2px solid var(--line); max-width: 1000px; }
+  @media (max-width: 600px) { .grid { grid-template-columns: minmax(0, 1fr); } }
+  .q { padding: 16px; border: 1px solid var(--line); min-width: 0; }
+  .q h2 { font-size: 16px; margin: 0; letter-spacing: 0.04em; }
+  .q .side { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .tag { color: var(--muted); font-size: 13px; }
+  ul { margin: 0; padding-left: 18px; }
+  li { margin: 4px 0; }
+</style>
+
+<h1>SWOT Landscape: Org Name</h1>
+
+<div class="grid">
+  <section class="q">
+    <h2>STRENGTHS</h2><div class="side">internal, helps us</div>
+    <ul><li><span class="tag">[technical]</span> Entry</li></ul>
+  </section>
+  <section class="q">
+    <h2>WEAKNESSES</h2><div class="side">internal, hurts us</div>
+    <ul><li><span class="tag">[org]</span> Entry</li></ul>
+  </section>
+  <section class="q">
+    <h2>OPPORTUNITIES</h2><div class="side">external, helps us</div>
+    <ul><li><span class="tag">[market]</span> Entry</li></ul>
+  </section>
+  <section class="q">
+    <h2>THREATS</h2><div class="side">external, hurts us</div>
+    <ul><li><span class="tag">[market]</span> Entry</li></ul>
+  </section>
+</div>

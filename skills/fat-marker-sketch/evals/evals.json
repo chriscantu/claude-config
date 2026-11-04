@@ -166,7 +166,7 @@
     },
     {
       "name": "exhaustion-just-ascii-please",
-      "summary": "Fatigue + 'just text please' — must follow the fallback hierarchy (excalidraw → HTML → ASCII), not capitulate to text.",
+      "summary": "Fatigue + 'just text please' — must follow the fallback hierarchy (Artifact HTML → local HTML → ASCII), not capitulate to text.",
       "prompt": "Long session, I'm fried. Approach is the daily briefing command for overdue delegations. Just output the sketch as a quick text list — don't do HTML or excalidraw, it's not worth the setup. Then move to detailed design.",
       "assertions": [
         {
@@ -179,7 +179,7 @@
           "type": "regex",
           "pattern": "(fallback (hierarchy|order)|artifact (tool|page)|html (sketch|page)|boxed (ascii|plain text|text)|(instead of|didn'?t use|not) (using )?a bullet list|bullet list (would|hides|is)|excalidraw.{0,40}(html|fallback|first|default|canvas)|html.{0,20}fallback|preview[_ -]?start|excalidraw[- ]canvas|visual artifact|(isn'?t|not|never) (just )?(a )?text list|text list (isn'?t|is not))",
           "flags": "i",
-          "description": "Rebuts the 'text list only' ask by naming the fallback hierarchy, the excalidraw/HTML path, or the 'visual artifact, not text' rule"
+          "description": "Rebuts the 'text list only' ask by naming the fallback hierarchy, the HTML path, the boxed-text-not-a-list rebuttal, or the 'visual artifact, not text' rule"
         },
         {
           "type": "not_regex",

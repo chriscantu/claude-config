@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coverage Review</title>
+<!--
+  Fill per ../heatmap-render.md, which decides which class goes where.
+  Opened as a local file, so it carries its own doctype and UTF-8 charset.
+  Stays on this machine: see Privacy in ../SKILL.md.
+-->
+<style>
+  /* Fixed white paper with no dark-mode tokens on purpose: a local, print-style
+     view that looks the same on screen, in screenshots, and on paper. */
+  :root { --paper: #fff; --ink: #000; --hatch: #ccc; }
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+    font-size: 15px;
+    padding-block: 32px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  h1 { font-size: 22px; margin: 0 0 12px; }
+  h2 { font-size: 17px; margin: 28px 0 10px; }
+  .freshness { font-size: 16px; margin-bottom: 16px; }
+  .echo { border: 2px solid var(--ink); padding: 12px; margin-bottom: 24px; max-width: 900px; }
+  .grid { overflow-x: auto; }
+  .row { display: flex; gap: 8px; align-items: stretch; margin-bottom: 8px; }
+  .row-label { width: 120px; flex: none; font-size: 16px; font-weight: 600; align-self: center; }
+  .cell { width: 110px; flex: none; min-height: 52px; padding: 6px; box-sizing: border-box; font-size: 13px; }
+  .cell-well { border: 4px solid var(--ink); }
+  .cell-under, .cell-gap { border: 1px solid var(--ink); }
+  /* Light hatch: an empty bucket must stand out without hiding its label. */
+  .cell-gap { background: repeating-linear-gradient(45deg, var(--hatch) 0 1px, transparent 1px 9px); font-weight: 600; }
+  /* Double border plus a written label: a lopsided bucket has people in it, so
+     it must not read as either "covered" (thick) or "empty" (hatched). */
+  .cell-unbalanced { border: 4px double var(--ink); }
+  .cell.cell-unbalanced::after { content: "out of balance"; display: block; font-style: italic; }
+  .cell-unknown { border: 1px dashed var(--ink); }
+  .cell-empty-slot { border: 0; }
+  .key { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; font-size: 13px; margin-top: 12px; }
+  .key-item { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { display: inline-block; width: 28px; height: 18px; box-sizing: border-box; }
+  ol { padding-left: 24px; }
+</style>
+
+<h1>Coverage Review</h1>
+<div class="freshness">Freshness banner text</div>
+<div class="echo">Echo-chamber banner text</div>
+
+<div class="grid">
+  <div class="row">
+    <div class="row-label">Function</div>
+    <div class="cell cell-well">engineering<br>3</div>
+    <div class="cell cell-under">product<br>1</div>
+    <div class="cell cell-gap">design<br>0</div>
+    <div class="cell cell-unknown">unknown<br>2</div>
+  </div>
+  <div class="row">
+    <div class="row-label">Role</div>
+    <div class="cell cell-well">manager<br>2</div>
+    <div class="cell cell-unbalanced">ic<br>18</div>
+    <div class="cell cell-unknown">unknown<br>0</div>
+    <div class="cell cell-empty-slot"></div>
+  </div>
+</div>
+<div class="key">
+  <span class="key-item"><span class="swatch cell-well"></span>well covered (2 or more)</span>
+  <span class="key-item"><span class="swatch cell-under"></span>only one person</span>
+  <span class="key-item"><span class="swatch cell-gap"></span>nobody yet</span>
+  <span class="key-item"><span class="swatch cell-unbalanced"></span>out of balance: too few or too many vs. the rest</span>
+  <span class="key-item"><span class="swatch cell-unknown"></span>people with this field not recorded</span>
+</div>
+
+<h2>Structural Gaps</h2>
+<ol><li>Person - mentioned in 2 observations, not on the map</li></ol>
+
+<h2>Recommended Next Interviews</h2>
+<ol><li>Person - rationale</li></ol>
