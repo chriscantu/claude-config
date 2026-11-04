@@ -20,9 +20,33 @@ Summary: N numbered screens side by side, 3–5 regions per screen, `[bracketed 
 
 ## Process / Workflow
 
-- Numbered steps in a single column or row.
-- Each step is one box with one short label — **no bullets inside**.
-- Arrows between steps show order. Do not include conditional branches — happy path only.
+Draw a plain flowchart that a non-engineer can read on first sight. The rules below
+come from research on process-diagram comprehension: the Seven Process Modeling
+Guidelines (Mendling, Reijers, van der Aalst, 2010) and Moody's semantic transparency
+(2009), where a novice can guess what a shape means from its look alone. Studies of
+novices found plain labels and simple structure matter more than notation, and UML
+activity diagrams read better only for people with computer science training.
+
+- **One start; every path ends in a labeled end.** The first box says
+  `START: <trigger>`. Each path stops at an `END: <outcome>` box ("END: Expense paid").
+  The guidelines prefer a single end, but rejoining branches needs drawn arrows a
+  crude sketch can't show cleanly, so name each outcome instead.
+- **Numbered steps** stacked top to bottom with a `v` arrow between each, at most 10.
+  In HTML, use the template's `.column` / `.arrow` / `.branches` layout, not `.screens`. Past 10, split into two
+  sketches or group steps into named stages.
+- **Verb + object labels in the reader's words** — "Submit receipt", "Approve
+  request". Not "Receipt", not a system or function name.
+- **One short label per box** — **no bullets inside**.
+- **Arrows show order.** Show the happy path; leave out error handling and edge cases.
+- **Decisions only where the main path really splits** (approve or reject, in stock or
+  not), at most 2 per sketch. Write each one as a question box ("Approved?") and label
+  every branch (`yes ->`, `no ->`). Every branch reaches a step or END.
+- **No "any of these" branches.** If several paths can happen at once, ask separate
+  yes/no questions instead.
+- **No UML or BPMN symbols** — no filled start dots, fork bars, empty diamonds, or
+  `[guard]` text. Say everything in words.
+- **One lane only.** If 2+ people or systems hand work to each other, use the
+  Sequence / Swimlane archetype instead.
 - If a step has a side-effect worth naming, show it as a labeled arrow out to a small
   box, not as a bullet inside the step.
 

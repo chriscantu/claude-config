@@ -23,14 +23,26 @@ any of the "too detailed" items, STOP and simplify. If you're missing any of the
 - Using a markdown code block when rendering HTML
 - Showing only a single screen instead of the multi-screen journey
 - Inheriting a dark theme instead of setting explicit white background
-- Missing the FLOW section that maps screen-to-screen connections
+- Missing the FLOW section that maps screen-to-screen connections (process sketches are exempt: the column of steps and arrows is the flow)
 
-## Excalidraw-Specific
+## Process Sketches (Flowchart)
 
-- Font size below minimum per element type: headers < 20px, screen titles < 16px, body labels < 13px — will render blurry; fix by reducing element count, not font size
-- All elements created in a single `batch_create_elements` call — staged drawing is required: one call per screen frame for Pass 1, then one call each for Passes 2, 3, and 4
-- Shapes have fills set — should be outline-only with no fills or background colors
-- Transparent background not set — canvas should render as a whiteboard (transparent), not dark or colored
+- No `START:` box, or a path that stops without an `END: <outcome>` box
+- More than 10 steps, or more than 2 decisions
+- A step labeled with a noun or system name instead of verb + object ("Approval" instead of "Approve request")
+- A decision that isn't a question, or a branch without a `yes`/`no` (or named) label
+- UML or BPMN symbols (filled dots, fork bars, empty diamonds, `[guard]` text)
+
+See `references/archetypes.md` § Process / Workflow for the rules and their sources.
+
+## Too High Fidelity (HTML)
+
+- Any color other than black and white, or a dark-mode version of the page
+- A second typeface, or a font other than Permanent Marker
+- Shadows, fills, gradients, images, icons, or animation
+- Layout styling added beyond the template's classes (polish from the Artifact design guidance)
+
+For Excalidraw checks, see `references/excalidraw-rendering.md`.
 
 ## Right Level
 

@@ -6,7 +6,7 @@ across all of them.
 ## UI Example
 
 See `assets/example-ui-sketch.html` for a complete rendered example of a guided
-savings feature (HTML fallback path). It shows four screens
+savings feature (HTML). It shows four screens
 (Welcome -> Guided Q's -> Your Plan -> Dashboard) with representative content,
 bracketed actions, and a FLOW section.
 
@@ -32,10 +32,10 @@ strikethrough on removed paths, heavier stroke on added nodes, and a DELTA foote
 names the change so the reader doesn't have to diff two lists. That is the fidelity
 bar for the **Before/After diptych** archetype.
 
-## Sequence Example (HTML fallback)
+## Sequence Example (HTML)
 
 See `assets/example-sequence-sketch.html` for a rendered sequence-shaped sketch
-(User → API → Worker → DB checkout flow). HTML fallback rendering for the
+(User → API → Worker → DB checkout flow). HTML rendering for the
 **Sequence / swimlane** archetype requires vertical dashed lifelines under each
 actor, horizontal message arrows (solid for synchronous calls, dashed with reversed
 arrowhead for returns), and activation bars on receiver lifelines. Top-to-bottom
