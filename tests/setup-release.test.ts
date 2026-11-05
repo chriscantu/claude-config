@@ -68,6 +68,9 @@ beforeEach(() => {
   const origin = join(root, "origin.git");
   const steps: string[][] = [
     ["init", "-q", "--bare", origin],
+    // CI checks out shallow, and git refuses a push from a shallow clone
+    // unless the receiving repo allows it.
+    ["-C", origin, "config", "receive.shallowUpdate", "true"],
     ["-C", REPO, "push", "-q", origin, "HEAD:refs/heads/main"],
     ["clone", "-q", origin, clone],
   ];
