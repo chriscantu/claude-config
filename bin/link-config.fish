@@ -34,11 +34,12 @@
 #   --check — read-only verification; exit 1 on missing/stale/orphan, exit 0 if clean
 #
 # Orphan: a symlink under ~/.claude/<managed-dir>/ whose readlink target
-# points INTO this repo but whose dst path is no longer in the managed
-# layout (e.g., README.md after the skip rule landed in PR #198). The
-# repo-prefix guard inside each_orphan_symlink keeps user's other plugins
-# under ~/.claude/<managed-dir>/ off-limits — only repo-targeting symlinks
-# are pruned. Issue #431.
+# points INTO the source or this checkout but whose dst path is no longer in
+# the managed layout (e.g., README.md after the skip rule landed in PR #198,
+# or a skill deleted before the release copy became the source). The
+# prefix guard inside each_orphan_symlink keeps user's other plugins
+# under ~/.claude/<managed-dir>/ off-limits — only symlinks into those two
+# trees are pruned. Issue #431.
 #
 # Safe to re-run: existing correct symlinks are left alone, broken or wrong-target
 # symlinks are repaired, real files are never silently overwritten, orphan
@@ -224,7 +225,7 @@ if test "$mode" = check
     end
     # Report orphans alongside missing/stale — counted into the failure exit
     # so CI catches them without needing a separate run.
-    for orphan in (each_orphan_symlink $source $home_claude)
+    for orphan in (each_orphan_symlink $source $home_claude $repo)
         set -l parts (string split -m 3 "|" $orphan)
         set -l dst $parts[2]
         set -l target $parts[3]
@@ -259,7 +260,7 @@ else
     # the managed layout (e.g., README.md after the skip-rule landed in PR #198).
     # Repo-prefix guard inside each_orphan_symlink keeps user's other plugins
     # off-limits. Issue #431.
-    for orphan in (each_orphan_symlink $source $home_claude)
+    for orphan in (each_orphan_symlink $source $home_claude $repo)
         set -l parts (string split -m 3 "|" $orphan)
         set -l dst $parts[2]
         set -l target $parts[3]

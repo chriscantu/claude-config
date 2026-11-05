@@ -332,6 +332,29 @@ cleanup_fixture $repo
 cleanup_fixture $home
 
 echo ""
+echo "── Test G2: each_orphan_symlink also flags links into an OTHER_ROOT"
+set repo (make_repo_fixture)
+set old (make_repo_fixture)
+set home (make_home_fixture)
+install_layout $repo $home
+# A link left over from an older source (the checkout before cutover).
+ln -s $old/skills/gone $home/skills/gone
+set orphans (each_orphan_symlink $repo $home $old)
+if contains "ORPHAN|$home/skills/gone|$old/skills/gone" $orphans
+    t_pass "link into OTHER_ROOT reported"
+else
+    t_fail "link into OTHER_ROOT not reported: $orphans"
+end
+if test (count (each_orphan_symlink $repo $home)) -eq 0
+    t_pass "without OTHER_ROOT the same link is ignored"
+else
+    t_fail "link outside repo flagged without OTHER_ROOT"
+end
+cleanup_fixture $repo
+cleanup_fixture $old
+cleanup_fixture $home
+
+echo ""
 echo "── Test H: each_orphan_symlink ignores real files at managed dst"
 set repo (make_repo_fixture)
 set home (make_home_fixture)

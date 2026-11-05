@@ -28,8 +28,12 @@ type RunResult = {
 };
 
 const runLinkConfig = (home: string, ...args: string[]): RunResult => {
+  // Drop the operator's overrides so every path resolves inside the fixture HOME.
+  const env = { ...process.env, HOME: home };
+  delete env.CLAUDE_CONFIG_RELEASE_DIR;
+  delete env.CLAUDE_EVAL_HOME;
   const result = spawnSync("fish", [SCRIPT, ...args], {
-    env: { ...process.env, HOME: home },
+    env,
     encoding: "utf8",
   });
   // spawn itself failed (fish missing, fork limit, etc.) → status is null
@@ -238,5 +242,38 @@ describe("link-config.fish round-trip", () => {
     const check = runLinkConfig(home, "--check");
     assertExit("--check", check, "non-zero");
     expect(check.stdout).toMatch(/^STALE link:/m);
+  });
+
+  // Cutover: ~/.claude used to link into the checkout. Once the release copy
+  // is the source, leftover links into the checkout for files the layout no
+  // longer has (a deleted skill) must not survive or pass --check.
+  test("links into the old checkout that are not in the layout are reported, then pruned", () => {
+    const home = makeFixtureHome();
+    cloneRelease(home);
+    assertExit("first sync", runLinkConfig(home), "zero");
+
+    const deadSkill = join(home, ".claude", "skills", "retired-skill");
+    symlinkSync(join(REPO, "skills", "retired-skill"), deadSkill);
+    const oldRule = join(home, ".claude", "rules", "retired.md");
+    symlinkSync(join(REPO, "rules", "GOVERNANCE.md"), oldRule);
+    const foreignDir = mkdtempSync(join(tmpdir(), "foreign-plugin-"));
+    fixtures.push(foreignDir);
+    const foreign = join(home, ".claude", "rules", "from-other-plugin.md");
+    symlinkSync(join(foreignDir, "x.md"), foreign);
+
+    const check = runLinkConfig(home, "--check");
+    assertExit("--check with old-checkout links", check, "non-zero");
+    expect(check.stdout).toMatch(/^ORPHAN link: .*skills\/retired-skill/m);
+    expect(check.stdout).toMatch(/^ORPHAN link: .*rules\/retired\.md/m);
+    expect(check.stdout).not.toMatch(/from-other-plugin/);
+
+    const sync = runLinkConfig(home);
+    assertExit("sync", sync, "zero");
+    expect(sync.stdout).toMatch(/PRUNED:.*retired-skill/);
+    expect(sync.stdout).toMatch(/PRUNED:.*retired\.md/);
+    expect(existsSync(oldRule)).toBe(false);
+    expect(() => lstatSync(deadSkill)).toThrow();
+    expect(lstatSync(foreign).isSymbolicLink()).toBe(true);
+    assertExit("--check after prune", runLinkConfig(home, "--check"), "zero");
   });
 });
