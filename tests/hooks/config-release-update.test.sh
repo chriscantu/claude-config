@@ -104,6 +104,7 @@ echo "── added file triggers relink ──"
 new_case add
 push_change sh -c 'echo b > rules/b.md'
 run_hook
+assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" updated+relinked "$(field update result)"
 assert_eq "link ran once" 1 "$(link_count)"
 
@@ -111,6 +112,7 @@ echo "── rename triggers relink ──"
 new_case rename
 push_change git mv rules/a.md rules/c.md
 run_hook
+assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" updated+relinked "$(field update result)"
 
 echo "── needs-registration is surfaced ──"
@@ -118,6 +120,7 @@ new_case reg
 push_change sh -c 'echo b > rules/b.md'
 LINK_CMD="echo 'WARNING: hooks/rules-shadow.sh is not registered in settings.json' >&2"
 run_hook
+assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" updated+relinked+needs-registration "$(field update result)"
 
 echo "── failing link command → relink-failed ──"
@@ -125,7 +128,39 @@ new_case relinkfail
 push_change sh -c 'echo b > rules/b.md'
 LINK_CMD="exit 3"
 run_hook
+assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" relink-failed "$(field update result)"
+
+echo "── registration warning survives a failing link command ──"
+new_case regfail
+push_change sh -c 'echo b > rules/b.md'
+LINK_CMD="echo 'WARNING: hooks/rules-shadow.sh is not registered in settings.json' >&2; exit 2"
+run_hook
+assert_eq "stdout empty" "" "$OUT"
+assert_eq "result" relink-failed+needs-registration "$(field update result)"
+
+echo "── checkout failure leaves HEAD alone ──"
+new_case checkoutfail
+push_change sh -c 'echo two > rules/a.md'
+before=$(head_sha)
+touch "$REL/.git/index.lock"
+run_hook
+rm -f "$REL/.git/index.lock"
+assert_eq "stdout empty" "" "$OUT"
+assert_eq "result" checkout-failed "$(field update result)"
+assert_eq "HEAD unchanged" "$before" "$(head_sha)"
+
+echo "── worker runs in its own process group ──"
+new_case pgid
+hook_pgid=$(ps -o pgid= -p $$ | tr -d ' ')
+run_hook CONFIG_RELEASE_SYNC= CONFIG_RELEASE_WORKER="ps -o pgid= -p \$\$ | tr -d ' ' > $CASE/worker.pgid"
+assert_eq "stdout empty" "" "$OUT"
+for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20; do
+  [[ -s "$CASE/worker.pgid" ]] && break
+  sleep 0.25
+done
+worker_pgid=$(cat "$CASE/worker.pgid" 2>/dev/null)
+[[ -n "$worker_pgid" && "$worker_pgid" != "$hook_pgid" ]] && pass "worker pgid $worker_pgid != hook pgid $hook_pgid" || fail "pgid worker='$worker_pgid' hook='$hook_pgid'"
 
 echo "── dirty release is left alone ──"
 new_case dirty
@@ -133,6 +168,7 @@ push_change sh -c 'echo two > rules/a.md'
 echo local > "$REL/rules/a.md"
 before=$(head_sha)
 run_hook
+assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" skipped:dirty "$(field update result)"
 assert_eq "HEAD unchanged" "$before" "$(head_sha)"
 assert_eq "file unchanged" local "$(cat "$REL/rules/a.md")"
@@ -143,6 +179,7 @@ git -C "$REL" commit -q --allow-empty -m local
 before=$(head_sha)
 push_change sh -c 'echo two > rules/a.md'
 run_hook
+assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" skipped:not-fast-forward "$(field update result)"
 assert_eq "HEAD unchanged" "$before" "$(head_sha)"
 
@@ -151,6 +188,7 @@ new_case fetchfail
 before=$(head_sha)
 git -C "$REL" remote set-url origin "$CASE/missing.git"
 run_hook
+assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" fetch-failed "$(field update result)"
 assert_eq "HEAD unchanged" "$before" "$(head_sha)"
 
@@ -160,6 +198,7 @@ push_change sh -c 'echo two > rules/a.md'
 before=$(head_sha)
 mkdir "$REL/.git/config-release-update.lock"
 run_hook
+assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" skipped:locked "$(field update result)"
 assert_eq "HEAD unchanged" "$before" "$(head_sha)"
 
@@ -169,6 +208,7 @@ push_change sh -c 'echo two > rules/a.md'
 mkdir "$REL/.git/config-release-update.lock"
 touch -t 202001010000 "$REL/.git/config-release-update.lock"
 run_hook
+assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" updated "$(field update result)"
 assert_eq "lock removed after run" no "$([[ -e $REL/.git/config-release-update.lock ]] && echo yes || echo no)"
 

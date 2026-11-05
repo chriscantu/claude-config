@@ -82,15 +82,16 @@ fetch_origin || log_update fetch-failed
 TARGET=$(git -C "$REL" rev-parse origin/main 2>/dev/null) || log_update fetch-failed
 [[ "$TARGET" != "$FROM" ]] || log_update unchanged
 git -C "$REL" merge-base --is-ancestor HEAD origin/main 2>/dev/null || log_update skipped:not-fast-forward
-git -C "$REL" checkout -q --detach origin/main 2>/dev/null || log_update skipped:not-fast-forward
+git -C "$REL" checkout -q --detach "$TARGET" 2>/dev/null || log_update checkout-failed
 TO="$TARGET"
 
 relink_needed || log_update updated
 
-if ! LINK_OUT=$(run_relink); then
-  log_update relink-failed
-fi
+# Scan the output before judging the exit code: a failed link-config can still
+# have printed the registration warning, and that must not be lost.
+RESULT=updated+relinked
+LINK_OUT=$(run_relink) || RESULT=relink-failed
 if [[ "$LINK_OUT" == *"hooks/rules-shadow.sh is not registered"* ]]; then
-  log_update updated+relinked+needs-registration
+  RESULT+="+needs-registration"
 fi
-log_update updated+relinked
+log_update "$RESULT"

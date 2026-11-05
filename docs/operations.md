@@ -115,7 +115,7 @@ Edit `hooks/block-dangerous-git.sh` and adjust `DANGEROUS_PATTERNS`. Patterns ar
 
 A `SessionStart` hook at [`hooks/config-release-update.sh`](../hooks/config-release-update.sh) keeps the release copy of claude-config (`$CLAUDE_CONFIG_RELEASE_DIR`, default `~/.claude-config-release`) current. It starts a detached worker, [`hooks/lib/config-release-worker.sh`](../hooks/lib/config-release-worker.sh), that fetches `origin/main` and fast-forwards the copy. The hook never waits on the network and prints nothing. Claude Code reads rules before this hook runs, so an update shows up in the next session.
 
-The worker never resets, stashes or deletes anything. A dirty or diverged copy is left alone. When files are added, deleted or renamed, it re-runs `bin/link-config.fish`. Each run appends a record to `~/.claude/logs/config-release.jsonl`. To turn it off, create a file named `DISABLE_CONFIG_RELEASE_UPDATE` under `~/.claude/`. Tests: `bash tests/hooks/config-release-update.test.sh`.
+The worker never resets, stashes or deletes anything. A dirty or diverged copy is left alone. When files are added, deleted or renamed, it re-runs `bin/link-config.fish`. Each run appends a record to `~/.claude/logs/config-release.jsonl`. To turn it off, create a file named `DISABLE_CONFIG_RELEASE_UPDATE` under `~/.claude/`. Each update record's `result` is one of `updated`, `updated+relinked`, `updated+relinked+needs-registration`, `unchanged`, `skipped:dirty`, `skipped:not-fast-forward`, `skipped:locked`, `fetch-failed`, `checkout-failed`, `relink-failed` or `relink-failed+needs-registration`. Tests: `bash tests/hooks/config-release-update.test.sh`.
 
 ## Adversarial Code Review Swarm (opt-in)
 

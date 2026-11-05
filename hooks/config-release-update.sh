@@ -51,7 +51,12 @@ start_worker() {
     "${cmd[@]}"
     return 0
   fi
+  # Own session (setsid) so a harness that kills the hook's process group on exit
+  # cannot take the worker with it; perl ships with macOS, which has no setsid(1).
   # nohup + closed fds + & so the hook exits without waiting on git.
+  if command -v perl >/dev/null 2>&1; then
+    cmd=(perl -MPOSIX -e 'POSIX::setsid(); exec @ARGV' -- "${cmd[@]}")
+  fi
   nohup "${cmd[@]}" >/dev/null 2>&1 </dev/null &
 }
 
