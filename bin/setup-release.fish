@@ -60,7 +60,17 @@ if not test -e $release/.git
     echo "Created release copy: $release"
 end
 
-if not fish $release/bin/link-config.fish $link_flags
+# The hook treats its own checkout as the release copy only when it finds this
+# marker, so a working copy that happens to be detached is never updated.
+set -l release_git_dir (git -C $release rev-parse --absolute-git-dir)
+if test -z "$release_git_dir"; or not touch $release_git_dir/claude-config-release
+    echo "ERROR: could not mark $release as the release copy" >&2
+    exit 2
+end
+
+# --prune-root: links into the checkout ~/.claude used before are orphans too,
+# including ones for files only that checkout's branch has.
+if not fish $release/bin/link-config.fish --prune-root $repo $link_flags
     echo "ERROR: link-config.fish failed for $release" >&2
     exit 2
 end

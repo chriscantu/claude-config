@@ -16,13 +16,15 @@
 #   ./bin/link-config.fish            # idempotent sync; refuse-on-real-file
 #   ./bin/link-config.fish --install  # first-time setup; back up real files to .bak
 #   ./bin/link-config.fish --check    # exit 1 if any link missing/stale/orphan
-#   ./bin/link-config.fish [--install|--check] [--source DIR] [--home DIR]
+#   ./bin/link-config.fish [--install|--check] [--source DIR] [--home DIR] [--prune-root DIR]
 #
 # Flags (any order):
 #   --source DIR  directory to link FROM. Default: the release copy
 #                 ($CLAUDE_CONFIG_RELEASE_DIR or ~/.claude-config-release)
 #                 when it exists, else this checkout (with a NOTE on stderr).
 #   --home DIR    directory to link INTO. Default: ~/.claude.
+#   --prune-root DIR  also prune orphan links into DIR (repeatable). setup-release
+#                 passes the old checkout, since this script runs from the release copy.
 #   Relative paths are taken from your current directory. A --source that is
 #   not a directory exits 2.
 #
@@ -58,6 +60,7 @@ source $repo/bin/lib/symlinks.fish
 set -g mode install
 set -l source ""
 set -l home_claude $HOME/.claude
+set -l prune_roots
 set -l i 1
 while test $i -le (count $argv)
     switch $argv[$i]
@@ -65,21 +68,26 @@ while test $i -le (count $argv)
             set -g mode check
         case --install
             set -g mode first-install
-        case --source --home
+        case --source --home --prune-root
             set -l flag $argv[$i]
             set i (math $i + 1)
             if test $i -gt (count $argv)
                 echo "ERROR: $flag needs a directory argument" >&2
                 exit 2
             end
-            if test "$flag" = --source
-                set source $argv[$i]
-            else
-                set home_claude $argv[$i]
+            switch $flag
+                case --source
+                    set source $argv[$i]
+                case --home
+                    set home_claude $argv[$i]
+                case --prune-root
+                    set -l root $argv[$i]
+                    string match -q '/*' -- $root; or set root $caller_pwd/$root
+                    set -a prune_roots $root
             end
         case '*'
             echo "ERROR: unknown argument: $argv[$i]" >&2
-            echo "Usage: ./bin/link-config.fish [--install | --check] [--source DIR] [--home DIR]" >&2
+            echo "Usage: ./bin/link-config.fish [--install | --check] [--source DIR] [--home DIR] [--prune-root DIR]" >&2
             exit 2
     end
     set i (math $i + 1)
@@ -241,7 +249,7 @@ if test "$mode" = check
     end
     # Report orphans alongside missing/stale — counted into the failure exit
     # so CI catches them without needing a separate run.
-    for orphan in (each_orphan_symlink $source $home_claude $repo)
+    for orphan in (each_orphan_symlink $source $home_claude $repo $prune_roots)
         set -l parts (string split -m 3 "|" $orphan)
         set -l dst $parts[2]
         set -l target $parts[3]
@@ -276,7 +284,7 @@ else
     # the managed layout (e.g., README.md after the skip-rule landed in PR #198).
     # Repo-prefix guard inside each_orphan_symlink keeps user's other plugins
     # off-limits. Issue #431.
-    for orphan in (each_orphan_symlink $source $home_claude $repo)
+    for orphan in (each_orphan_symlink $source $home_claude $repo $prune_roots)
         set -l parts (string split -m 3 "|" $orphan)
         set -l dst $parts[2]
         set -l target $parts[3]

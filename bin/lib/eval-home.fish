@@ -11,6 +11,13 @@ function eval_home_dir
     end
 end
 
+# _eval_home_resolve PATH → PATH with symlinks resolved, or PATH unchanged when
+# it does not exist. link-config stores resolved targets, but callers pass the
+# checkout as `pwd` gives it, which keeps symlinks (/tmp vs /private/tmp).
+function _eval_home_resolve --argument-names path
+    realpath $path 2>/dev/null; or echo $path
+end
+
 # eval_home_check REPO → 0 when the eval folder's CLAUDE.md links to
 # REPO/global/CLAUDE.md. Otherwise prints why and the fix to stderr and
 # returns 1, so callers never run against some other copy of the config.
@@ -20,7 +27,7 @@ function eval_home_check --argument-names repo
     set -l actual (readlink $dir/CLAUDE.md 2>/dev/null)
     if test -z "$actual"
         echo "ERROR: eval config folder $dir is missing or not set up." >&2
-    else if test "$actual" != "$expected"
+    else if test (_eval_home_resolve $actual) != (_eval_home_resolve $expected)
         echo "ERROR: eval config folder $dir links CLAUDE.md to $actual, not this checkout ($expected)." >&2
     else
         return 0

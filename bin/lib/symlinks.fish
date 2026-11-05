@@ -33,8 +33,9 @@
 #     An orphan is a symlink whose readlink target points INTO REPO (or into
 #     any OTHER_ROOT) but whose dst path is NOT in the current
 #     each_symlink_target REPO output. link-config passes the checkout it runs
-#     from as OTHER_ROOT, so links left over from before the release copy
-#     became the source are pruned too.
+#     from, plus any --prune-root (setup-release passes the old checkout), as
+#     OTHER_ROOT, so links left over from before the release copy became the
+#     source are pruned too.
 #     Closes the silent-failure mode where a file dropped from the managed
 #     layout (e.g., README.md skip-rule landed in PR #198) leaves its old
 #     symlink in place, silently auto-loading content that's no longer

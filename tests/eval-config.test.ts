@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, test } from "bun:test";
-import { mkdirSync, mkdtempSync, rmSync, symlinkSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EvalConfigError, evalConfigEnv } from "./eval-config.ts";
@@ -47,6 +47,15 @@ describe("evalConfigEnv", () => {
     const root = tmp();
     const dir = linkedEvalDir(root, "/some/other/repo");
     expect(() => evalConfigEnv({ CLAUDE_EVAL_HOME: dir }, root, "/the/repo")).toThrow(EvalConfigError);
+  });
+
+  test("accepts a checkout reached through a symlinked folder", () => {
+    const root = tmp();
+    mkdirSync(join(root, "real", "global"), { recursive: true });
+    writeFileSync(join(root, "real", "global", "CLAUDE.md"), "x");
+    symlinkSync(join(root, "real"), join(root, "alias"));
+    const dir = linkedEvalDir(root, realpathSync(join(root, "real")));
+    expect(evalConfigEnv({ CLAUDE_EVAL_HOME: dir }, root, join(root, "alias"))).toEqual({ CLAUDE_CONFIG_DIR: dir });
   });
 
   test("EVAL_ALLOW_DEFAULT_CONFIG=1 returns {} without checking", () => {

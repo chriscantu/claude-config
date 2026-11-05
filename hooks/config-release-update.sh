@@ -27,19 +27,21 @@ source "$HOOK_DIR/lib/hook-runtime.sh"
 LOG_FILE="${CONFIG_RELEASE_LOG:-${HOME}/.claude/logs/config-release.jsonl}"
 
 # release_dir → the release copy path. CLAUDE_CONFIG_RELEASE_DIR wins when set.
-# Otherwise use the checkout this hook lives in when it is detached, like the
-# release copy: a custom release dir set only in your shell may never reach
-# Claude Code's env. A checkout on a branch is a working copy, never the
-# release copy, so it falls back to the default (as release_source_root does
-# in bin/lib/symlinks.fish).
+# Otherwise use the checkout this hook lives in when it is detached and carries
+# the marker setup-release.fish writes into its git dir: a custom release dir
+# set only in your shell may never reach Claude Code's env. Detached HEAD alone
+# is not enough, since a working copy is also detached mid-bisect or mid-rebase;
+# anything else falls back to the default.
 release_dir() {
-  local own
+  local own git_dir
   if [[ -n "${CLAUDE_CONFIG_RELEASE_DIR:-}" ]]; then
     printf '%s' "$CLAUDE_CONFIG_RELEASE_DIR"
     return 0
   fi
   own="$(dirname "$HOOK_DIR")"
-  if [[ -e "$own/.git" ]] && ! git -C "$own" symbolic-ref -q HEAD >/dev/null 2>&1; then
+  git_dir="$(git -C "$own" rev-parse --absolute-git-dir 2>/dev/null)"
+  if [[ -n "$git_dir" && -e "$git_dir/claude-config-release" ]] &&
+    ! git -C "$own" symbolic-ref -q HEAD >/dev/null 2>&1; then
     printf '%s' "$own"
     return 0
   fi

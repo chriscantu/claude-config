@@ -1,7 +1,19 @@
-import { readlinkSync } from "node:fs";
+import { readlinkSync, realpathSync } from "node:fs";
 import { join } from "node:path";
 
 export class EvalConfigError extends Error {}
+
+/**
+ * The path with symlinks resolved, or unchanged when it does not exist.
+ * The link holds a resolved path; the checkout may be reached through a symlink.
+ */
+const resolved = (path: string): string => {
+  try {
+    return realpathSync(path);
+  } catch {
+    return path;
+  }
+};
 
 /**
  * Child-env override that points `claude` at the eval config folder.
@@ -24,7 +36,7 @@ export function evalConfigEnv(
   } catch {
     throw new EvalConfigError(`Eval config folder ${dir} is missing or not set up. Run: fish bin/setup-eval-home.fish`);
   }
-  if (actual !== expected) {
+  if (resolved(actual) !== resolved(expected)) {
     throw new EvalConfigError(
       `Eval config folder ${dir} links CLAUDE.md to ${actual}, not this checkout (${expected}). Run: fish bin/setup-eval-home.fish`,
     );

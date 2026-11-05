@@ -1,6 +1,17 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  lstatSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  readdirSync,
+  readlinkSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -27,6 +38,16 @@ const run = (...extra: string[]) => {
   });
   if (r.error) throw r.error;
   return { exitCode: r.status ?? -1, stdout: r.stdout, stderr: r.stderr };
+};
+
+/** True when PATH exists, even as a dangling link. */
+const lstatExists = (path: string) => {
+  try {
+    lstatSync(path);
+    return true;
+  } catch {
+    return false;
+  }
 };
 
 const hookCount = () => {
@@ -98,6 +119,22 @@ describe("setup-release.fish", () => {
     writeFileSync(join(home, ".claude", "settings.json"), "{not json");
     expect(run().exitCode).toBe(2);
     expect(readFileSync(join(home, ".claude", "settings.json"), "utf8")).toBe("{not json");
+  });
+
+  test("prunes links into --repo for paths the release copy lacks", () => {
+    // A skill that exists only on the working checkout's branch.
+    mkdirSync(join(clone, "skills", "branch-only"), { recursive: true });
+    mkdirSync(join(home, ".claude", "skills"), { recursive: true });
+    const dst = join(home, ".claude", "skills", "branch-only");
+    symlinkSync(join(clone, "skills", "branch-only"), dst);
+    expect(run().exitCode).toBe(0);
+    expect(lstatExists(dst)).toBe(false);
+  });
+
+  test("marks the release copy so the hook can recognize it", () => {
+    expect(run().exitCode).toBe(0);
+    const gitDir = git(rel, "rev-parse", "--absolute-git-dir").out;
+    expect(existsSync(join(gitDir, "claude-config-release"))).toBe(true);
   });
 
   test("refuses a non-git release dir", () => {

@@ -266,16 +266,28 @@ copy_hook_into_rel() {
   ln -s "$REL/hooks/config-release-update.sh" "$CASE/home/.claude/hooks/config-release-update.sh"
   HOOK="$CASE/home/.claude/hooks/config-release-update.sh"
 }
+# mark_release → the marker setup-release.fish writes into the release copy.
+mark_release() {
+  : > "$(git -C "$REL" rev-parse --absolute-git-dir)/claude-config-release"
+}
 RECORD_REL="printf '%s' \"\$1\" > \"\$(dirname \"\$2\")/worker.rel\""
 
 echo "── release dir comes from the hook's own location ──"
 new_case selfloc
 copy_hook_into_rel
+mark_release
 run_hook CLAUDE_CONFIG_RELEASE_DIR= CONFIG_RELEASE_WORKER="$RECORD_REL"
 assert_eq "stdout empty" "" "$OUT"
 assert_eq "session.result" started "$(field session result)"
 assert_eq "worker got the hook's checkout" "$(cd "$REL" && pwd -P)" "$(cat "$CASE/worker.rel" 2>/dev/null)"
 assert_eq "session.loaded" "$(head_sha)" "$(field session loaded)"
+
+echo "── a detached checkout without the marker (e.g. mid-bisect) is not the release copy ──"
+new_case selfnomark
+copy_hook_into_rel
+run_hook CLAUDE_CONFIG_RELEASE_DIR= CONFIG_RELEASE_WORKER="$RECORD_REL"
+assert_eq "session.result" skipped:no-release "$(field session result)"
+assert_eq "worker not started" no "$([[ -e $CASE/worker.rel ]] && echo yes || echo no)"
 
 echo "── CLAUDE_CONFIG_RELEASE_DIR still wins when set ──"
 new_case selfenv
