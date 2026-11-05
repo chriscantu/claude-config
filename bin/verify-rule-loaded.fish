@@ -35,7 +35,7 @@
 #     with VERIFY_RULE_MODEL=<name>.
 #   - Plain YES/NO contract chosen over `--output-format json` because
 #     `--print` does not guarantee structured output across model tiers.
-#     The strict single-word match (line ~92) absorbs trailing punctuation
+#     The strict single-word match (`^YES[.!]?$` below) absorbs trailing punctuation
 #     but rejects "YES, however..." paraphrases that could otherwise
 #     silently false-positive a missing rule.
 #   - Not run from CI by default (auth + billing). Wire in selectively from
