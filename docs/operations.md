@@ -280,8 +280,8 @@ Without it, the job's guard step fails loud with a setup pointer.
 The companion to running evals is proving each rule actually *discriminates* behavior
 (ADR #0005 §4). See [`rules-evals/REDGREEN-RUNBOOK.md`](../rules-evals/REDGREEN-RUNBOOK.md)
 and the harness [`bin/redgreen.fish`](../bin/redgreen.fish). Live proofs consume the same
-Max usage window and briefly strip a rule from `~/.claude` — don't run concurrent
-interactive sessions during one.
+Max usage window and briefly strip a rule from the eval folder (`~/.claude-eval`).
+Everyday sessions are unaffected, but don't run other evals during one.
 
 ## Log Hygiene
 
