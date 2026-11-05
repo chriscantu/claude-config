@@ -378,19 +378,29 @@ describe("first-run.fish — hook registration (#557)", () => {
 
     const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS, PATH: `${shim}:${process.env.PATH}` });
     expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("failed to copy");
     expect(readFileSync(settings, "utf8")).toBe(original);
   });
 
-  test("an object-shaped PreToolUse holding an old entry is left as it was", () => {
-    const { settings, env } = seedFixture();
-    const original = JSON.stringify({
-      hooks: { PreToolUse: { old: guardEntry(join(REPO, "hooks", GUARD)) } },
-    });
-    writeFileSync(settings, original);
+  // Claude Code needs PreToolUse to be a list; any other shape is refused
+  // before a backup or write, rather than reported as registered.
+  for (const [shape, preToolUse] of [
+    ["an object holding an old entry", { old: guardEntry(join(REPO, "hooks", GUARD)) }],
+    ["a string", "junk"],
+  ] as const) {
+    test(`PreToolUse as ${shape} → exit 2, file unchanged, no backup`, () => {
+      const { home, settings, env } = seedFixture();
+      const original = JSON.stringify({ hooks: { PreToolUse: preToolUse } });
+      writeFileSync(settings, original);
 
-    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
-    expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual(JSON.parse(original));
-  });
+      const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS });
+      expect(r.exitCode).toBe(2);
+      expect(r.stderr).toContain("PreToolUse in");
+      expect(r.stderr).toContain("is not a list");
+      expect(readFileSync(settings, "utf8")).toBe(original);
+      expect(readdirSync(join(home, ".claude")).some((f) => f.startsWith("settings.json.bak."))).toBe(false);
+    });
+  }
 
   test("a malformed PreToolUse element doesn't make each run add another entry", () => {
     const { settings, env } = seedFixture();

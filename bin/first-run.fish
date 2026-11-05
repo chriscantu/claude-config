@@ -228,7 +228,7 @@ if test $hooks_enabled -eq 1
         # objects/strings skip malformed elements; a jq error here would
         # read as "not registered" and add a new entry on every run.
         set -l bash_matcher '(.matcher // "") | strings | test("^[*]?$|Bash")'
-        for cmd in (jq -r ".hooks.PreToolUse[]? | objects | select($bash_matcher) | .hooks[]?.command? // empty" $settings)
+        for cmd in (jq -r ".hooks.PreToolUse? | arrays | .[] | objects | select($bash_matcher) | .hooks[]?.command? // empty" $settings)
             if test -e "$cmd"; and test (realpath -- "$cmd") = "$hook_real"
                 return 0
             end
@@ -320,6 +320,15 @@ if test $hooks_enabled -eq 1
         exit 1
     end
 
+    # Claude Code needs PreToolUse to be a list. Any other shape is already
+    # broken, and the steps below assume a list, so refuse before writing.
+    set -l pre_tool_use_ok 'if (.hooks | type) == "object" then (.hooks.PreToolUse | type) as $t | $t == "array" or $t == "null" else true end'
+    if not jq -e $pre_tool_use_ok $settings >/dev/null 2>&1
+        echo "ERROR: PreToolUse in $settings is not a list. Refusing to modify." >&2
+        echo "       Fix it by hand, then re-run." >&2
+        exit 2
+    end
+
     # Backup with ISO-8601 timestamp. tests assert the .bak.<timestamp>
     # exists, so the suffix must be predictable.
     set -l ts (date -u +%Y%m%dT%H%M%SZ)
@@ -336,7 +345,7 @@ if test $hooks_enabled -eq 1
     # Only paths inside a claude-config checkout (it has bin/first-run.fish)
     # count; other entries are the user's own and are never touched.
     set -l stale_guards
-    for cmd in (jq -r '.hooks.PreToolUse[]? | objects | .hooks[]? | objects | .command? // empty | strings' $settings)
+    for cmd in (jq -r '.hooks.PreToolUse? | arrays | .[] | objects | .hooks[]? | objects | .command? // empty | strings' $settings)
         string match -q "*/hooks/block-dangerous-git.sh" -- $cmd; or continue
         test "$cmd" = "$hook_dangerous"; and continue
         test -e (dirname (dirname $cmd))/bin/first-run.fish; and set -a stale_guards $cmd
