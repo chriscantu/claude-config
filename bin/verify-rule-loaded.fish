@@ -1,6 +1,6 @@
 #!/usr/bin/env fish
-# Probe-session check that a rule actually loads into a fresh Claude Code
-# session's context — the third gate after `link-config.fish --check` and
+# Probe-session check that a rule loads from the working copy, through the
+# eval config folder, into a fresh Claude Code session's context — the third gate after `link-config.fish --check` and
 # `validate.fish`.
 #
 # Why this exists:
@@ -27,8 +27,9 @@
 #      name, probe transport failure, ambiguous model response)
 #
 # Caveats:
-#   - Spawns a real Claude Code session. Requires the user's normal auth
-#     (OAuth/keychain) and incurs API cost per probe. Default model is
+#   - Spawns a real Claude Code session with CLAUDE_CONFIG_DIR set to the eval
+#     folder (see bin/setup-eval-home.fish), so it needs that folder's login
+#     (OAuth/keychain), not the everyday ~/.claude and incurs API cost per probe. Default model is
 #     read from $default_model (line 53); override with VERIFY_RULE_MODEL=<name>.
 #   - Plain YES/NO contract chosen over `--output-format json` because
 #     `--print` does not guarantee structured output across model tiers.
@@ -37,6 +38,8 @@
 #     silently false-positive a missing rule.
 #   - Not run from CI by default (auth + billing). Wire in selectively from
 #     a pre-merge check, or run locally after adding a new rule.
+
+source (dirname (status --current-filename))/lib/eval-home.fish
 
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
 set -l readme $repo/rules/README.md
@@ -85,7 +88,7 @@ function probe_rule --argument-names rule_name model
     # instead of just rc=N.
     set -l err_file (mktemp)
     # Non-interactive, no session pollution, no skill side effects.
-    set -l response (claude --print --model $model --no-session-persistence --output-format text --disable-slash-commands "$prompt" 2>$err_file)
+    set -l response (env -u ANTHROPIC_API_KEY CLAUDE_CONFIG_DIR=(eval_home_dir) claude --print --model $model --no-session-persistence --output-format text --disable-slash-commands "$prompt" 2>$err_file)
     set -l rc $status
     set -l err_msg (cat $err_file 2>/dev/null)
     rm -f $err_file

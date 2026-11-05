@@ -25,9 +25,10 @@
 
 import { execSync, spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { homedir, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { EvalConfigError, evalConfigEnv } from "./eval-config.ts";
 import {
   type EvalFile,
   type EvalTally,
@@ -215,7 +216,9 @@ export const CLI_BASE_ARGS = ["--print", "--output-format", "stream-json", "--ve
  * is overridden on purpose: a stale one that points nowhere would switch
  * logging back on.
  */
-const CLI_CHILD_ENV = {
+// main() adds CLAUDE_CONFIG_DIR (the eval folder) to this object before any
+// session starts. The lookup can fail, so it cannot run at import time.
+const CLI_CHILD_ENV: NodeJS.ProcessEnv = {
   ...process.env,
   RULES_SHADOW_SENTINEL: join(repoDir, "tests", "fixtures", "rules-shadow-off"),
 };
@@ -759,6 +762,23 @@ function writeChainTranscript(a: ChainTranscriptArgs): void {
 }
 
 async function main() {
+  // Point every claude session at the eval config folder, or stop. Never fall
+  // back to ~/.claude: that would silently test the wrong copy.
+  try {
+    const cfg = evalConfigEnv(process.env, homedir(), repoDir);
+    Object.assign(CLI_CHILD_ENV, cfg);
+    if (!cfg.CLAUDE_CONFIG_DIR) {
+      console.error(
+        yellow("⚠️  Using the default claude config via EVAL_ALLOW_DEFAULT_CONFIG=1. ") +
+          yellow("Evals are NOT isolated from ~/.claude."),
+      );
+    }
+  } catch (err) {
+    if (!(err instanceof EvalConfigError)) throw err;
+    console.error(red(`✗ ${err.message}`));
+    process.exit(1);
+  }
+
   // Discover from two roots: skills/ (skill-layer evals) and rules-evals/
   // (rules-layer evals — HARD-GATEs in rules/ that have no skill counterpart).
   // Both roots use identical <root>/<name>/evals/evals.json layout, so the

@@ -5,13 +5,13 @@
 #   ADR #0005 §4 requires a behavioral rule's discrimination to be *demonstrated,
 #   not asserted*: its eval suite must pass with the rule present (GREEN) and fail
 #   with the rule removed (RED). The first such proof (execution-mode) was assembled
-#   by hand — stripping the ~/.claude/rules/<rule>.md symlink, running the suite,
+#   by hand — stripping the <eval>/rules/<rule>.md symlink, running the suite,
 #   restoring. This script automates that loop so every remaining gate is turnkey.
 #   See rules-evals/REDGREEN-RUNBOOK.md for the protocol and the backlog.
 #
 # Method (mirrors rules-evals/execution-mode/REDGREEN.md):
-#   - The ONLY variable is the ~/.claude/rules/<rule>.md symlink target (the harness
-#     globs ~/.claude/rules/*.md; there is no @-import in CLAUDE.md). The suite JSON
+#   - The ONLY variable is the <eval>/rules/<rule>.md symlink target (the harness
+#     globs <eval>/rules/*.md; <eval> is the eval config folder, see bin/setup-eval-home.fish; there is no @-import in CLAUDE.md). The suite JSON
 #     is discovered from this repo and is never the variable.
 #   - GREEN: symlink intact, run the suite N times (default 3).
 #   - RED-strip: symlink repointed to an emptied copy, run N times (default 2).
@@ -34,7 +34,7 @@
 # Caveats:
 #   - Live runs spawn real Claude Code sessions on your subscription and consume
 #     your Max usage window. Do not run concurrent interactive sessions during a
-#     live proof — the rule is briefly stripped from ~/.claude for ALL sessions.
+#     live proof. Only the eval folder is touched, so everyday sessions are unaffected.
 #   - Uses env -u ANTHROPIC_API_KEY + EVAL_SKIP_AUTH_PROBE=1, matching the
 #     execution-mode proof (subscription path, probe skipped for speed).
 
@@ -102,11 +102,12 @@ if test $dry_run -eq 0; and not type -q claude
     exit 1
 end
 
-set -g __rg_live_link $HOME/.claude/rules/$rule_name.md
+source (dirname (status --current-filename))/lib/eval-home.fish
+set -g __rg_live_link (eval_home_dir)/rules/$rule_name.md
 if not test -L $__rg_live_link
     echo "ERROR: $__rg_live_link is not a symlink." >&2
-    echo "       The harness only manipulates the live ~/.claude/rules symlink;" >&2
-    echo "       run bin/link-config.fish --install first, or check the rule name." >&2
+    echo "       The harness only manipulates the eval folder's rules symlink;" >&2
+    echo "       run fish bin/setup-eval-home.fish first, or check the rule name." >&2
     exit 2
 end
 
@@ -118,10 +119,9 @@ echo "  → original target: $__rg_orig_target"
 
 # ---- restore machinery (trap + explicit) ------------------------------------
 # Idempotent: ln -sf is safe to call more than once. Never rm the repo file.
-# The RED phase repoints the LIVE ~/.claude symlink for ALL sessions, so restore
-# MUST cover every exit path — normal return, error abort, and interrupt — not
-# just Ctrl-C. A missed restore leaves the HARD-GATE globally stripped with no
-# recovery. fish_exit fires on any non-signal exit; the signal handler covers
+# The RED phase repoints the eval folder's symlink, so restore MUST cover every
+# exit path — normal return, error abort, and interrupt — not just Ctrl-C. A
+# missed restore leaves the HARD-GATE stripped from later eval runs. fish_exit fires on any non-signal exit; the signal handler covers
 # INT/TERM/HUP (terminal close). Both funnel through __rg_restore (idempotent).
 function __rg_restore --on-event fish_exit
     if test -n "$__rg_orig_target"

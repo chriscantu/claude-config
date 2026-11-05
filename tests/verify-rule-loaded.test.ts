@@ -69,6 +69,9 @@ const makeStubClaude = (opts: StubOpts = {}): string => {
   if (opts.recordArgs) {
     lines.push(`printf '%s\\n' "$*" >> '${escape(argvLog)}'`);
   }
+  if (opts.recordArgs) {
+    lines.push(`printf '%s\\n' "$CLAUDE_CONFIG_DIR" >> '${escape(join(binDir, "config.log"))}'`);
+  }
   if (opts.stderr) {
     lines.push(`printf '%s\\n' '${escape(opts.stderr)}' >&2`);
   }
@@ -106,6 +109,13 @@ const runScript = (
 };
 
 describe("verify-rule-loaded.fish", () => {
+  test("probe runs claude with CLAUDE_CONFIG_DIR set to the eval folder", () => {
+    const stub = makeStubClaude({ response: "YES", recordArgs: true });
+    const r = runScript(stub, ["planning-pipeline"], { CLAUDE_EVAL_HOME: "/fixture/eval-home" });
+    expect(r.exitCode).toBe(0);
+    expect(readFileSync(join(stub, "config.log"), "utf8").trim()).toBe("/fixture/eval-home");
+  });
+
   test("no args → usage error, exit 2", () => {
     const stub = makeStubClaude({ response: "YES" });
     const r = runScript(stub, []);

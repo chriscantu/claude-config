@@ -13,9 +13,9 @@
 
 import { describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { CLI_BASE_ARGS, isTransientCliFailure, withCliRetry } from "./eval-runner-v2.ts";
 
 type CliRun = Awaited<ReturnType<typeof withCliRetry>>;
@@ -37,6 +37,16 @@ describe("CLI_BASE_ARGS model pin", () => {
   });
 });
 
+const REPO = resolve(import.meta.dir, "..");
+
+/** An eval folder linked to this checkout, as bin/setup-eval-home.fish builds it. */
+const makeEvalDir = (root: string): string => {
+  const evalDir = join(root, "eval-home");
+  mkdirSync(evalDir, { recursive: true });
+  symlinkSync(join(REPO, "global", "CLAUDE.md"), join(evalDir, "CLAUDE.md"));
+  return evalDir;
+};
+
 describe("rules-shadow sentinel (issue #536)", () => {
   // Eval sessions run the user's hooks. Without the sentinel, the shadow hook
   // logs every eval turn as if it were real work and pollutes the Phase 1
@@ -53,14 +63,24 @@ describe("rules-shadow sentinel (issue #536)", () => {
         '[ "$1" = "--version" ] && { echo "0.0.0 (fake)"; exit 0; }',
         'cat > /dev/null',
         'echo "${RULES_SHADOW_SENTINEL:-UNSET}" >> "$SEEN_FILE"',
+        'echo "${CLAUDE_CONFIG_DIR:-UNSET}" >> "$CONFIG_SEEN_FILE"',
         `echo '{"type":"result","subtype":"success","is_error":false,"result":"ok"}'`,
       ].join("\n"),
     );
     chmodSync(fakeClaude, 0o755);
+    const evalDir = makeEvalDir(dir);
+    const configSeen = join(dir, "config-seen.txt");
 
     spawnSync("bun", ["run", join(import.meta.dir, "eval-runner-v2.ts"), "code-clarity"], {
       // A stale operator value must not switch logging back on.
-      env: { ...process.env, CLAUDE_BIN: fakeClaude, SEEN_FILE: seen, RULES_SHADOW_SENTINEL: join(dir, "missing") },
+      env: {
+        ...process.env,
+        CLAUDE_BIN: fakeClaude,
+        SEEN_FILE: seen,
+        CONFIG_SEEN_FILE: configSeen,
+        CLAUDE_EVAL_HOME: evalDir,
+        RULES_SHADOW_SENTINEL: join(dir, "missing"),
+      },
       encoding: "utf8",
       timeout: 60_000,
     });
@@ -72,7 +92,23 @@ describe("rules-shadow sentinel (issue #536)", () => {
       expect(sentinel).not.toBe("UNSET");
       expect(existsSync(sentinel)).toBe(true);
     }
+    // Probe and every eval turn run against the eval folder, never ~/.claude.
+    const configs = readFileSync(configSeen, "utf8").trim().split("\n");
+    expect(configs.length).toBe(lines.length);
+    for (const c of configs) expect(c).toBe(evalDir);
     rmSync(dir, { recursive: true, force: true });
+  });
+
+  test("missing eval folder exits 1 and names the setup script", () => {
+    const dir = mkdtempSync(join(tmpdir(), "no-eval-home-"));
+    const r = spawnSync("bun", ["run", join(import.meta.dir, "eval-runner-v2.ts"), "code-clarity"], {
+      env: { ...process.env, CLAUDE_EVAL_HOME: join(dir, "absent"), EVAL_ALLOW_DEFAULT_CONFIG: "" },
+      encoding: "utf8",
+      timeout: 60_000,
+    });
+    rmSync(dir, { recursive: true, force: true });
+    expect(r.status).toBe(1);
+    expect(r.stderr).toMatch(/setup-eval-home/);
   });
 });
 
