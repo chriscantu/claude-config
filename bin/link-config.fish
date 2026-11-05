@@ -23,6 +23,8 @@
 #                 ($CLAUDE_CONFIG_RELEASE_DIR or ~/.claude-config-release)
 #                 when it exists, else this checkout (with a NOTE on stderr).
 #   --home DIR    directory to link INTO. Default: ~/.claude.
+#   Relative paths are taken from your current directory. A --source that is
+#   not a directory exits 2.
 #
 # Mode semantics:
 #   default — install missing links, repair stale ones, prune orphan symlinks
@@ -45,6 +47,8 @@
 # symlinks are repaired, real files are never silently overwritten, orphan
 # symlinks pointing into the repo are pruned.
 
+# Relative --source/--home are relative to the caller; the cd below moves us.
+set -l caller_pwd $PWD
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
 
 # Single source of truth for the managed symlink layout — shared with
@@ -80,6 +84,18 @@ while test $i -le (count $argv)
     end
     set i (math $i + 1)
 end
+
+# Links must hold absolute targets: a relative one would resolve against the
+# link's own folder, not the caller's working directory.
+if test -n "$source"
+    string match -q '/*' -- $source; or set source $caller_pwd/$source
+    if not test -d "$source"
+        echo "ERROR: --source $source is not a directory" >&2
+        exit 2
+    end
+    set source (realpath $source)
+end
+string match -q '/*' -- $home_claude; or set home_claude $caller_pwd/$home_claude
 
 if test -z "$source"
     set source (release_source_root $repo)

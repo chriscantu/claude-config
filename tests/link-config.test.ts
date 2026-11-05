@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { existsSync, mkdirSync, readlinkSync, mkdtempSync, rmSync, lstatSync, unlinkSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 // Round-trip regression test for bin/link-config.fish.
 //
@@ -27,12 +27,13 @@ type RunResult = {
   stderr: string;
 };
 
-const runLinkConfig = (home: string, ...args: string[]): RunResult => {
+const runLinkConfigIn = (cwd: string, home: string, ...args: string[]): RunResult => {
   // Drop the operator's overrides so every path resolves inside the fixture HOME.
   const env = { ...process.env, HOME: home };
   delete env.CLAUDE_CONFIG_RELEASE_DIR;
   delete env.CLAUDE_EVAL_HOME;
   const result = spawnSync("fish", [SCRIPT, ...args], {
+    cwd,
     env,
     encoding: "utf8",
   });
@@ -46,6 +47,8 @@ const runLinkConfig = (home: string, ...args: string[]): RunResult => {
     stderr: result.stderr,
   };
 };
+
+const runLinkConfig = (home: string, ...args: string[]): RunResult => runLinkConfigIn(REPO, home, ...args);
 
 // expect(...).toBe(0) on a non-zero exit shows only the diff. The fish
 // origin printed the captured log on failure so CI logs explained why the
@@ -242,6 +245,25 @@ describe("link-config.fish round-trip", () => {
     const check = runLinkConfig(home, "--check");
     assertExit("--check", check, "non-zero");
     expect(check.stdout).toMatch(/^STALE link:/m);
+  });
+
+  test("relative --source and --home resolve to absolute paths", () => {
+    const home = makeFixtureHome();
+    const relSource = runLinkConfigIn(dirname(REPO), home, "--source", basename(REPO), "--home", join(home, "a"));
+    assertExit("relative --source", relSource, "zero");
+    expect(readlinkSync(join(home, "a", "CLAUDE.md"))).toBe(join(REPO, "global", "CLAUDE.md"));
+
+    const relHome = runLinkConfigIn(home, home, "--source", REPO, "--home", "b");
+    assertExit("relative --home", relHome, "zero");
+    expect(readlinkSync(join(home, "b", "CLAUDE.md"))).toBe(join(REPO, "global", "CLAUDE.md"));
+  });
+
+  test("--source that is not a directory exits 2", () => {
+    const home = makeFixtureHome();
+    const r = runLinkConfig(home, "--source", join(home, "missing"), "--home", join(home, "eval"));
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toMatch(/--source .*missing.* is not a directory/);
+    expect(existsSync(join(home, "eval"))).toBe(false);
   });
 
   // Cutover: ~/.claude used to link into the checkout. Once the release copy
