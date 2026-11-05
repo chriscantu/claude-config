@@ -24,7 +24,8 @@ materialize will not elicit verify-then-declare behavior.
 
 - `--dry-run` exercises the strip→restore cycle and runs the suite with the runner's
   own `--dry-run` — **no `claude` sessions, no window spend.** Always dry-run first.
-- The only variable is the `~/.claude/rules/<rule>.md` symlink target; the suite JSON is
+- The only variable is the eval folder's `rules/<rule>.md` symlink target
+  (`~/.claude-eval` by default, see `bin/setup-eval-home.fish`); the suite JSON is
   never the variable. The harness captures the original target via `readlink`, repoints
   it to an emptied file for the RED phase, and restores it (trap + explicit, never `rm`).
 - Logs land in `/tmp/redgreen-<rule>-logs/`; the printed matrix line per run is the
@@ -32,8 +33,9 @@ materialize will not elicit verify-then-declare behavior.
 
 **Cost & safety.** Live runs spawn real Claude Code sessions on your Max subscription
 and consume the shared usage window (rolling 5-hour + weekly). One proof ≈ `green+red`
-runs × the suite's eval count. The rule is briefly stripped from `~/.claude` for **all**
-sessions during the RED phase — don't run concurrent interactive work during a live proof.
+runs × the suite's eval count. The rule is briefly stripped from the eval folder during
+the RED phase. Everyday sessions use `~/.claude` and are unaffected, but don't run other
+evals during a live proof.
 
 ## Authoring the REDGREEN.md
 

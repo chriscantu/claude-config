@@ -69,8 +69,19 @@ if test -z "$release_git_dir"; or not touch $release_git_dir/claude-config-relea
 end
 
 # --prune-root: links into the checkout ~/.claude used before are orphans too,
-# including ones for files only that checkout's branch has.
-if not fish $release/bin/link-config.fish --prune-root $repo $link_flags
+# including ones for files only that checkout's branch has. That checkout may
+# not be $repo (setup run from a second worktree), so also read it from the
+# current CLAUDE.md link. Only a claude-config checkout counts: a CLAUDE.md
+# from the user's own dotfiles must not get their other links pruned.
+set -l prune_flags --prune-root $repo
+set -l old_target (readlink $HOME/.claude/CLAUDE.md 2>/dev/null)
+if test -n "$old_target"
+    set -l old_root (dirname (dirname $old_target))
+    if test -e $old_root/bin/link-config.fish
+        set -a prune_flags --prune-root $old_root
+    end
+end
+if not fish $release/bin/link-config.fish $prune_flags $link_flags
     echo "ERROR: link-config.fish failed for $release" >&2
     exit 2
 end

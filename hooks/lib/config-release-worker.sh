@@ -68,7 +68,7 @@ run_relink() {
   if [[ -n "${CONFIG_RELEASE_LINK_CMD:-}" ]]; then
     bash -c "$CONFIG_RELEASE_LINK_CMD" 2>&1
   else
-    fish "$REL/bin/link-config.fish" 2>&1
+    fish "$REL/bin/link-config.fish" --source "$REL" 2>&1
   fi
 }
 

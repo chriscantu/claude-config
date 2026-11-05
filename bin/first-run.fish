@@ -338,9 +338,33 @@ if test $hooks_enabled -eq 1
         set add_hook false
     end
 
+    # Older runs registered a checkout's own guard file, which runs whatever
+    # branch that checkout has. Point those entries at the link instead of
+    # adding a second one. Only paths inside a claude-config checkout (it has
+    # bin/first-run.fish) are moved; other entries are the user's own.
+    set -l stale_guards
+    for cmd in (jq -r '.hooks.PreToolUse[]? | objects | .hooks[]? | objects | .command? // empty | strings' $settings)
+        string match -q "*/hooks/block-dangerous-git.sh" -- $cmd; or continue
+        test "$cmd" = "$hook_dangerous"; and continue
+        test -e (dirname (dirname $cmd))/bin/first-run.fish; and set -a stale_guards $cmd
+    end
+    set -l stale_json '[]'
+    if test (count $stale_guards) -gt 0
+        set stale_json (printf '%s\n' $stale_guards | jq -R . | jq -s -c .)
+        set add_hook false
+    end
+
     set -l tmp (mktemp)
-    jq --arg cmd $hook_dangerous --argjson add_hook $add_hook '
-        if $add_hook then
+    jq --arg cmd $hook_dangerous --argjson add_hook $add_hook --argjson stale $stale_json '
+        if (.hooks | type) == "object" and (.hooks.PreToolUse | type) == "array" then
+            .hooks.PreToolUse |= map(
+                if type == "object" and (.hooks | type) == "array" then
+                    .hooks |= map(
+                        if type == "object" and (.command as $c | any($stale[]; . == $c))
+                        then .command = $cmd else . end)
+                else . end)
+          else . end
+        | if $add_hook then
             .hooks //= {}
             | .hooks.PreToolUse //= []
             | .hooks.PreToolUse += [{

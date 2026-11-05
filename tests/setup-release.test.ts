@@ -131,6 +131,34 @@ describe("setup-release.fish", () => {
     expect(lstatExists(dst)).toBe(false);
   });
 
+  test("prunes links into the checkout ~/.claude used before, even when --repo differs", () => {
+    // ~/.claude linked into a second checkout, not the one running setup.
+    const other = join(root, "other");
+    // -b main: the bare origin's HEAD may name a branch that doesn't exist.
+    expect(spawnSync("git", ["clone", "-q", "-b", "main", join(root, "origin.git"), other]).status).toBe(0);
+    mkdirSync(join(other, "skills", "branch-only"), { recursive: true });
+    mkdirSync(join(home, ".claude", "skills"), { recursive: true });
+    symlinkSync(join(other, "global", "CLAUDE.md"), join(home, ".claude", "CLAUDE.md"));
+    const dst = join(home, ".claude", "skills", "branch-only");
+    symlinkSync(join(other, "skills", "branch-only"), dst);
+    expect(run().exitCode).toBe(0);
+    expect(lstatExists(dst)).toBe(false);
+  });
+
+  test("leaves links into a folder that is not a claude-config checkout", () => {
+    // CLAUDE.md came from the user's own dotfiles; their other links stay.
+    const dots = join(root, "dotfiles");
+    mkdirSync(join(dots, "global"), { recursive: true });
+    mkdirSync(join(dots, "skills", "mine"), { recursive: true });
+    writeFileSync(join(dots, "global", "CLAUDE.md"), "mine");
+    mkdirSync(join(home, ".claude", "skills"), { recursive: true });
+    symlinkSync(join(dots, "global", "CLAUDE.md"), join(home, ".claude", "CLAUDE.md"));
+    const dst = join(home, ".claude", "skills", "mine");
+    symlinkSync(join(dots, "skills", "mine"), dst);
+    expect(run().exitCode).toBe(0);
+    expect(lstatExists(dst)).toBe(true);
+  });
+
   test("marks the release copy so the hook can recognize it", () => {
     expect(run().exitCode).toBe(0);
     const gitDir = git(rel, "rev-parse", "--absolute-git-dir").out;

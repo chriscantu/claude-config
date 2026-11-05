@@ -115,6 +115,15 @@ run_hook
 assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" updated+relinked "$(field update result)"
 
+echo "── real relink links from the copy it just updated ──"
+new_case realrelink
+# A stub link-config in origin records the arguments the worker passes.
+push_change sh -c "mkdir -p bin && echo b > rules/b.md && printf '%s\n' 'printf \"%s\n\" \$argv > $CASE/linkargs' > bin/link-config.fish"
+LINK_CMD=""
+run_hook
+assert_eq "result" updated+relinked "$(field update result)"
+assert_eq "link-config got --source REL" "--source $REL" "$(tr '\n' ' ' < "$CASE/linkargs" 2>/dev/null | sed 's/ $//')"
+
 echo "── needs-registration is surfaced ──"
 new_case reg
 push_change sh -c 'echo b > rules/b.md'

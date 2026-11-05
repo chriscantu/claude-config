@@ -242,10 +242,10 @@ describe("first-run.fish — hook registration (#557)", () => {
     expect(guardCommands(readPreToolUse(settings)).length).toBe(1);
   });
 
-  test("an existing entry via another path to the same script is not duplicated", () => {
-    const { settings, env } = seedFixture();
-    // The fixture link points at this checkout's guard; this entry names
-    // that file directly.
+  test("an old entry into a checkout moves to the ~/.claude/hooks link, not duplicated", () => {
+    // Before the release copy, first-run registered the checkout's own file,
+    // which runs whatever branch is checked out.
+    const { home, settings, env } = seedFixture();
     const direct = join(REPO, "hooks", GUARD);
     writeFileSync(
       settings,
@@ -259,7 +259,24 @@ describe("first-run.fish — hook registration (#557)", () => {
     );
 
     assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
-    expect(guardCommands(readPreToolUse(settings))).toEqual([direct]);
+    expect(guardCommands(readPreToolUse(settings))).toEqual([join(home, ".claude", "hooks", GUARD)]);
+  });
+
+  test("an entry into a folder that is not a checkout is left alone", () => {
+    const { home, settings, env } = seedFixture();
+    // Another path to the same script, outside any claude-config checkout.
+    const elsewhere = join(home, "bin", GUARD);
+    mkdirSync(join(home, "bin"));
+    symlinkSync(join(REPO, "hooks", GUARD), elsewhere);
+    writeFileSync(
+      settings,
+      JSON.stringify({
+        hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: elsewhere, timeout: 5 }] }] },
+      }),
+    );
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(guardCommands(readPreToolUse(settings))).toEqual([elsewhere]);
   });
 
   test("a malformed PreToolUse element doesn't make each run add another entry", () => {
