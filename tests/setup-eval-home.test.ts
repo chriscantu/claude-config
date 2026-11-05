@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readlinkSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -14,8 +14,13 @@ let home: string;
 let evalHome: string;
 
 const run = (extraEnv: Record<string, string> = {}) => {
+  // Drop the operator's overrides: the default eval folder must resolve inside
+  // the fixture HOME, never to a real one.
+  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home };
+  delete env.CLAUDE_EVAL_HOME;
+  delete env.CLAUDE_CONFIG_RELEASE_DIR;
   const r = spawnSync("fish", [SCRIPT, "--no-auth-check"], {
-    env: { ...process.env, HOME: home, ...extraEnv },
+    env: { ...env, ...extraEnv },
     encoding: "utf8",
   });
   if (r.error) throw r.error;
@@ -94,5 +99,46 @@ describe("setup-eval-home.fish", () => {
     expect(readlinkSync(join(evalHome, "rules", "first-run-personalization.md"))).toBe(
       join(home, ".claude", "rules", "first-run-personalization.md"),
     );
+  });
+
+  test("ignores the operator's CLAUDE_EVAL_HOME", () => {
+    const operator = join(home, "operator-eval");
+    const saved = process.env.CLAUDE_EVAL_HOME;
+    process.env.CLAUDE_EVAL_HOME = operator;
+    try {
+      expect(run().exitCode).toBe(0);
+    } finally {
+      if (saved === undefined) delete process.env.CLAUDE_EVAL_HOME;
+      else process.env.CLAUDE_EVAL_HOME = saved;
+    }
+    expect(existsSync(operator)).toBe(false);
+    expect(readlinkSync(join(evalHome, "CLAUDE.md"))).toBe(join(REPO, "global", "CLAUDE.md"));
+  });
+
+  test("refuses to use ~/.claude as the eval folder", () => {
+    mkdirSync(join(home, "aliases"));
+    symlinkSync(join(home, ".claude"), join(home, "aliases", "prod"));
+    for (const dir of [join(home, ".claude"), `${join(home, ".claude")}/`, join(home, "aliases", "prod")]) {
+      const r = run({ CLAUDE_EVAL_HOME: dir });
+      expect(r.exitCode).toBe(2);
+      expect(r.stderr).toContain("is your everyday config folder");
+    }
+    expect(existsSync(join(home, ".claude", "CLAUDE.md"))).toBe(false);
+    expect(JSON.parse(readFileSync(join(home, ".claude", "settings.json"), "utf8")).model).toBe("opus");
+  });
+
+  test("first run skips rules/execution-mode.md when production registers rules-shadow.sh", () => {
+    writeFileSync(
+      join(home, ".claude", "settings.json"),
+      JSON.stringify({
+        hooks: {
+          SubagentStart: [{ hooks: [{ type: "command", command: `${home}/.claude/hooks/rules-shadow.sh` }] }],
+        },
+      }),
+    );
+    const r = run();
+    expect(r.exitCode).toBe(0);
+    expect(r.stderr).not.toContain("rules-shadow.sh is not registered");
+    expect(existsSync(join(evalHome, "rules", "execution-mode.md"))).toBe(false);
   });
 });

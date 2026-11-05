@@ -23,14 +23,27 @@ for arg in $argv
     end
 end
 
-set -l eval_home (eval_home_dir)
+set -l eval_home (string trim --right --chars=/ -- (eval_home_dir))
 set -l prod $HOME/.claude
 
-# 1. Link the checkout into the eval folder.
-mkdir -p $eval_home; or exit 2
-fish $repo/bin/link-config.fish --source $repo --home $eval_home; or exit 2
+# Guard: the eval folder must never be the everyday config folder. Linking
+# the checkout there would put the branch in front of every session.
+if test -z "$eval_home"
+    echo "ERROR: the eval folder path is empty" >&2
+    exit 2
+end
+set -l eval_real $eval_home
+test -e $eval_home; and set eval_real (realpath $eval_home)
+set -l prod_real $prod
+test -e $prod; and set prod_real (realpath $prod)
+if test "$eval_real" = "$prod_real"
+    echo "ERROR: $eval_home is your everyday config folder ($prod). Set CLAUDE_EVAL_HOME to another folder." >&2
+    exit 2
+end
 
-# 2. Share production plugins. Keep a real plugins dir as plugins.bak (once).
+mkdir -p $eval_home; or exit 2
+
+# 1. Share production plugins. Keep a real plugins dir as plugins.bak (once).
 if test -d $eval_home/plugins; and not test -L $eval_home/plugins
     if test -e $eval_home/plugins.bak
         echo "ERROR: $eval_home/plugins is a real directory and plugins.bak already exists; resolve by hand" >&2
@@ -40,7 +53,9 @@ if test -d $eval_home/plugins; and not test -L $eval_home/plugins
 end
 ln -sfn $prod/plugins $eval_home/plugins; or exit 2
 
-# 3. Derive settings.json: hooks run from the eval folder; drop the updater.
+# 2. Derive settings.json: hooks run from the eval folder; drop the updater.
+# This runs before link-config, which reads settings.json to decide whether
+# rules/execution-mode.md is loaded by a hook or must be linked.
 if not test -f $prod/settings.json
     echo "ERROR: $prod/settings.json not found" >&2
     exit 2
@@ -66,6 +81,9 @@ or begin
     exit 2
 end
 mv $eval_home/settings.json.tmp $eval_home/settings.json; or exit 2
+
+# 3. Link the checkout into the eval folder.
+fish $repo/bin/link-config.fish --source $repo --home $eval_home; or exit 2
 
 # 4. Carry over the personal rules file written by first-run.
 if test -e $prod/rules/first-run-personalization.md
