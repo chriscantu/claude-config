@@ -317,6 +317,52 @@ describe("first-run.fish — hook registration (#557)", () => {
     expect(readPreToolUse(settings)).toEqual([guardEntry(link), other]);
   });
 
+  test("a link entry under a non-Bash matcher doesn't stand in for the Bash guard", () => {
+    const { home, settings, env } = seedFixture();
+    const link = join(home, ".claude", "hooks", GUARD);
+    const editGuard: HookEntry = { matcher: "Edit", hooks: [{ type: "command", command: link }] };
+    writeFileSync(
+      settings,
+      JSON.stringify({ hooks: { PreToolUse: [editGuard, guardEntry(join(REPO, "hooks", GUARD))] } }),
+    );
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(readPreToolUse(settings)).toEqual([editGuard, guardEntry(link)]);
+  });
+
+  test("the user's own link entry wins over an old checkout entry before it", () => {
+    const { home, settings, env } = seedFixture();
+    const mine: HookEntry = {
+      matcher: "Bash",
+      hooks: [{ type: "command", command: join(home, ".claude", "hooks", GUARD), timeout: 60 }],
+    };
+    writeFileSync(
+      settings,
+      JSON.stringify({ hooks: { PreToolUse: [guardEntry(join(REPO, "hooks", GUARD)), mine] } }),
+    );
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(readPreToolUse(settings)).toEqual([mine]);
+  });
+
+  test("other hooks in an old entry's group survive", () => {
+    const { home, settings, env } = seedFixture();
+    const mixed: HookEntry = {
+      matcher: "Bash",
+      hooks: [
+        { type: "command", command: join(REPO, "hooks", GUARD), timeout: 5 },
+        { type: "command", command: "/opt/x.sh", timeout: 9 },
+      ],
+    };
+    writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: [mixed] } }));
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(readPreToolUse(settings)).toEqual([
+      { matcher: "Bash", hooks: [{ type: "command", command: "/opt/x.sh", timeout: 9 }] },
+      guardEntry(join(home, ".claude", "hooks", GUARD)),
+    ]);
+  });
+
   test("a malformed PreToolUse element doesn't make each run add another entry", () => {
     const { settings, env } = seedFixture();
     writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: ["junk", { matcher: 7 }] } }));

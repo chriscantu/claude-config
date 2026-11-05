@@ -330,55 +330,47 @@ if test $hooks_enabled -eq 1
     end
     echo "Backed up: $settings -> $backup"
 
-    # Skip adding the PreToolUse entry when one already runs the same file.
-    # Compare real paths, not strings: an entry may name the link or the
-    # file it points at, and a second entry would run the guard twice.
-    set -l add_hook true
-    if __first_run_guard_registered $settings $hook_dangerous
-        set add_hook false
-    end
-
     # Older runs registered a checkout's own guard file, which runs whatever
-    # branch that checkout has. Point those entries at the link instead of
-    # adding a second one. Only paths inside a claude-config checkout (it has
-    # bin/first-run.fish) are moved; other entries are the user's own.
+    # branch that checkout has. Delete those entries, and any group they leave
+    # empty; the check below then adds the link if nothing else covers Bash.
+    # Only paths inside a claude-config checkout (it has bin/first-run.fish)
+    # count; other entries are the user's own and are never touched.
     set -l stale_guards
     for cmd in (jq -r '.hooks.PreToolUse[]? | objects | .hooks[]? | objects | .command? // empty | strings' $settings)
         string match -q "*/hooks/block-dangerous-git.sh" -- $cmd; or continue
         test "$cmd" = "$hook_dangerous"; and continue
         test -e (dirname (dirname $cmd))/bin/first-run.fish; and set -a stale_guards $cmd
     end
-    set -l stale_json '[]'
-    if test (count $stale_guards) -gt 0
-        set stale_json (printf '%s\n' $stale_guards | jq -R . | jq -s -c .)
+    set -l cleaned (mktemp)
+    if test (count $stale_guards) -eq 0
+        cp $settings $cleaned
+    else
+        set -l stale_json (printf '%s\n' $stale_guards | jq -R . | jq -s -c .)
+        jq --argjson stale $stale_json '
+            .hooks.PreToolUse |= map(
+                if type == "object" and (.hooks | type) == "array" and (.hooks | length) > 0 then
+                    (.hooks | map(select((type == "object" and (.command as $c | any($stale[]; . == $c))) | not))) as $kept
+                    | if ($kept | length) == 0 then empty else .hooks = $kept end
+                else . end)
+        ' $settings > $cleaned
+        if test $status -ne 0
+            echo "ERROR: jq failed on $settings" >&2
+            rm -f $cleaned
+            exit 2
+        end
+    end
+
+    # Skip adding the PreToolUse entry when one already runs the same file.
+    # Compare real paths, not strings: an entry may name the link or the
+    # file it points at, and a second entry would run the guard twice.
+    set -l add_hook true
+    if __first_run_guard_registered $cleaned $hook_dangerous
         set add_hook false
     end
 
     set -l tmp (mktemp)
-    jq --arg cmd $hook_dangerous --argjson add_hook $add_hook --argjson stale $stale_json '
-        if (.hooks | type) == "object" and (.hooks.PreToolUse | type) == "array" then
-            .hooks.PreToolUse |= map(
-                if type == "object" and (.hooks | type) == "array" then
-                    .hooks |= map(
-                        if type == "object" and (.command as $c | any($stale[]; . == $c))
-                        then .command = $cmd else . end)
-                else . end)
-            # Two old entries (one per checkout), or an old entry next to a
-            # link entry, now both name the link: keep the first, drop the
-            # rest, and drop any group that empties.
-            | if ($stale | length) > 0 then
-                .hooks.PreToolUse |= (reduce .[] as $e ({seen: false, out: []};
-                    if ($e | type) == "object" and ($e.hooks | type) == "array" and ($e.hooks | length) > 0 then
-                        (reduce $e.hooks[] as $h ({seen: .seen, kept: []};
-                            if ($h | type) == "object" and $h.command == $cmd then
-                                if .seen then . else .seen = true | .kept += [$h] end
-                            else .kept += [$h] end)) as $r
-                        | .seen = $r.seen
-                        | if ($r.kept | length) == 0 then . else .out += [$e | .hooks = $r.kept] end
-                    else .out += [$e] end) | .out)
-              else . end
-          else . end
-        | if $add_hook then
+    jq --arg cmd $hook_dangerous --argjson add_hook $add_hook '
+        if $add_hook then
             .hooks //= {}
             | .hooks.PreToolUse //= []
             | .hooks.PreToolUse += [{
@@ -386,8 +378,10 @@ if test $hooks_enabled -eq 1
                 hooks: [{type: "command", command: $cmd, timeout: 5}]
             }]
           else . end
-    ' $settings > $tmp
-    if test $status -ne 0
+    ' $cleaned > $tmp
+    set -l jq_status $status
+    rm -f $cleaned
+    if test $jq_status -ne 0
         echo "ERROR: jq failed on $settings" >&2
         rm -f $tmp
         exit 2
