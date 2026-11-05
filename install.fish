@@ -9,7 +9,11 @@
 #
 # Symlink logic lives in bin/link-config.fish (single source of truth).
 # To undo the split and link ~/.claude to this checkout again:
-#   fish bin/link-config.fish --source <checkout>
+#   1. Remove the SessionStart entry for config-release-update.sh from
+#      ~/.claude/settings.json.
+#   2. git worktree remove ~/.claude-config-release
+#   3. fish bin/link-config.fish (with no release copy, it links this checkout)
+# See "Release copy and eval folder" in docs/operations.md.
 
 set -l repo_dir (cd (dirname (status filename)); and pwd)
 
