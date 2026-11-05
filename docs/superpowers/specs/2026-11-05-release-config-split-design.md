@@ -99,8 +99,10 @@ flowchart LR
   deletes.
 - **Added, removed, or renamed files** *(my call)*. A fast-forward alone only
   updates files that are already linked. When the update changes the set of
-  managed files, the hook also runs `link-config.fish --install`. That command
-  is safe to re-run and prunes orphan links. It touches only links whose
+  managed files, the hook also runs `link-config.fish` in its default mode.
+  That mode is safe to re-run, prunes orphan links, and refuses to replace real
+  files (`--install` would back them up and replace them, which is too much for
+  an unattended run). It touches only links whose
   target changed, so it doesn't swap out files a running session is reading.
 - **Accepted limit:** hook *registrations* in `~/.claude/settings.json` are not
   in the repo, so a merge that needs a new registration still needs a manual
