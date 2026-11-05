@@ -29,7 +29,7 @@ type RunResult = {
 
 const runLinkConfigIn = (cwd: string, home: string, ...args: string[]): RunResult => {
   // Drop the operator's overrides so every path resolves inside the fixture HOME.
-  const env = { ...process.env, HOME: home };
+  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home };
   delete env.CLAUDE_CONFIG_RELEASE_DIR;
   delete env.CLAUDE_EVAL_HOME;
   const result = spawnSync("fish", [SCRIPT, ...args], {
