@@ -103,6 +103,8 @@ if test $dry_run -eq 0; and not type -q claude
 end
 
 source (dirname (status --current-filename))/lib/eval-home.fish
+# The suite must run against this checkout's rules, not another copy's.
+eval_home_check $repo; or exit 2
 set -g __rg_live_link (eval_home_dir)/rules/$rule_name.md
 if not test -L $__rg_live_link
     echo "ERROR: $__rg_live_link is not a symlink." >&2

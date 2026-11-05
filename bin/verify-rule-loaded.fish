@@ -54,6 +54,9 @@ if not type -q claude
     exit 2
 end
 
+# The probe must see this checkout's rules, not another copy's.
+eval_home_check $repo; or exit 2
+
 set -l default_model haiku
 set -l model $default_model
 if set -q VERIFY_RULE_MODEL
