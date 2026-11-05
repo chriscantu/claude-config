@@ -1,5 +1,7 @@
 # Release Config Split — Design
 
+**Status:** Shipped (PR #587, 2026-11-05). Follow-ups in #588.
+
 ## What this is and why it matters
 
 claude-config installs your standards (rules, skills, agents, commands, hooks,

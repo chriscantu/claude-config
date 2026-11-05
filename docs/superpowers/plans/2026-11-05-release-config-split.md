@@ -1,5 +1,7 @@
 # Release Config Split Implementation Plan
 
+> **Status: SHIPPED via PR #587 (2026-11-05). Completed; checkboxes below not retroactively ticked. Follow-ups in #588.**
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Everyday Claude Code sessions load only claude-config rules merged to GitHub `main`, and eval runs load the branch in the working copy.
