@@ -332,6 +332,29 @@ cleanup_fixture $repo
 cleanup_fixture $home
 
 echo ""
+echo "── Test G2: each_orphan_symlink also flags links into an OTHER_ROOT"
+set repo (make_repo_fixture)
+set old (make_repo_fixture)
+set home (make_home_fixture)
+install_layout $repo $home
+# A link left over from an older source (the checkout before cutover).
+ln -s $old/skills/gone $home/skills/gone
+set orphans (each_orphan_symlink $repo $home $old)
+if contains "ORPHAN|$home/skills/gone|$old/skills/gone" $orphans
+    t_pass "link into OTHER_ROOT reported"
+else
+    t_fail "link into OTHER_ROOT not reported: $orphans"
+end
+if test (count (each_orphan_symlink $repo $home)) -eq 0
+    t_pass "without OTHER_ROOT the same link is ignored"
+else
+    t_fail "link outside repo flagged without OTHER_ROOT"
+end
+cleanup_fixture $repo
+cleanup_fixture $old
+cleanup_fixture $home
+
+echo ""
 echo "── Test H: each_orphan_symlink ignores real files at managed dst"
 set repo (make_repo_fixture)
 set home (make_home_fixture)
@@ -354,6 +377,36 @@ else
 end
 cleanup_fixture $repo
 cleanup_fixture $home
+
+echo ""
+echo "── Test I: release_source_root"
+set checkout (make_repo_fixture)
+set rel_home (mktemp -d)
+set -lx CLAUDE_CONFIG_RELEASE_DIR $rel_home/release
+mkdir -p $rel_home/release
+echo "gitdir: elsewhere" > $rel_home/release/.git
+if test (release_source_root $checkout) = $rel_home/release
+    t_pass "returns release dir when it has a .git entry"
+else
+    t_fail "expected release dir, got "(release_source_root $checkout)
+end
+rm -rf $rel_home/release
+if test (release_source_root $checkout) = $checkout
+    t_pass "returns checkout when release dir is missing"
+else
+    t_fail "expected checkout, got "(release_source_root $checkout)
+end
+set -e CLAUDE_CONFIG_RELEASE_DIR
+set -lx HOME $rel_home
+mkdir -p $rel_home/.claude-config-release
+echo "gitdir: elsewhere" > $rel_home/.claude-config-release/.git
+if test (release_source_root $checkout) = $rel_home/.claude-config-release
+    t_pass "defaults to \$HOME/.claude-config-release"
+else
+    t_fail "default release dir not used: "(release_source_root $checkout)
+end
+cleanup_fixture $checkout
+cleanup_fixture $rel_home
 
 echo ""
 echo "─────────────────────────────────────────────────"

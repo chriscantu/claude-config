@@ -12,16 +12,19 @@ and `commands/` (loaded from `~/.claude/commands/`).
 
 1. Create `rules/<your-rule>.md` in this repo with the required frontmatter
    (see existing rules for the pattern: `description:`, optionally `globs:`).
-2. Run the install script:
+2. Link the new file into the eval folder:
 
    ```
-   ./bin/link-config.fish
+   fish bin/setup-eval-home.fish
    ```
 
-   It is idempotent and safe to re-run. It will only create new symlinks;
-   it will never overwrite a real file at the destination.
-3. **Open a fresh Claude Code session** to load the new rule. Existing
-   sessions will not pick it up — rules load at session start.
+   The eval folder (`~/.claude-eval`) links to your working copy, so it can
+   see the rule before it merges. Everyday sessions use `~/.claude`, which
+   links to the release copy of `main`. They get the rule after it merges.
+   The script is safe to re-run. It never overwrites a real file.
+3. **Open a fresh session on the eval folder** to load the new rule:
+   `env CLAUDE_CONFIG_DIR=$HOME/.claude-eval claude`. Existing sessions
+   will not pick it up — rules load at session start.
 4. Verify the rule loaded. Two options:
 
    **Automated probe** (preferred):

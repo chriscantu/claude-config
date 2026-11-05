@@ -83,10 +83,17 @@ Requires [fish shell](https://fishshell.com/) (`brew install fish` on macOS, `ap
 ```sh
 git clone https://github.com/chriscantu/claude-config.git ~/repos/claude-config
 cd ~/repos/claude-config
-./bin/link-config.fish
+fish install.fish
 ```
 
-Existing real files are backed up with `.bak`. Re-running is safe. CI uses `fish bin/link-config.fish --check` for verification.
+Existing real files in `~/.claude` are backed up with `.bak`. Re-running is safe. CI uses `fish bin/link-config.fish --check` for verification.
+
+**What the installer sets up.** It makes two folders, so a half-finished branch never changes your everyday sessions.
+
+- **Release copy** (`~/.claude-config-release`). A second checkout of this repo, locked to `origin/main`. `~/.claude` links to it. Your everyday sessions in every repo read only merged rules. A session-start hook fast-forwards it in the background, so a merge reaches your second new session after the merge.
+- **Eval folder** (`~/.claude-eval`). Linked to your working copy, whatever branch it is on. `bin/redgreen.fish` and the eval runner use it, so they test your branch. To try a branch by hand, run `env CLAUDE_CONFIG_DIR=$HOME/.claude-eval claude`.
+
+The eval folder needs its own login once. If the installer warns about it, run `env CLAUDE_CONFIG_DIR=$HOME/.claude-eval claude auth login`. Details and undo steps are in [docs/operations.md](docs/operations.md#release-copy-and-eval-folder).
 
 **Optional — guided personalization.** After install, run `fish bin/first-run.fish` for an interactive walkthrough. It saves your shell, language, TDD and sycophancy preferences to `~/.claude/rules/first-run-personalization.md`, a personal file outside the repo. It also registers the repo hooks in `~/.claude/settings.json` (with a timestamped backup) and verifies the install. Re-run it any time to update your preferences.
 

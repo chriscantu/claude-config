@@ -7,8 +7,8 @@
 #      sycophancy intensity, and caveman opt-in
 #   2. Atomically writing the answers to
 #      ~/.claude/rules/first-run-personalization.md
-#   3. Registering the repo hook in ~/.claude/settings.json
-#      (block-dangerous-git.sh)
+#   3. Registering the guard hook in ~/.claude/settings.json
+#      (~/.claude/hooks/block-dangerous-git.sh)
 #   4. Verifying the install via link-config.fish --check + validate.fish
 #   5. Printing three next-action suggestions
 #
@@ -79,7 +79,10 @@ if set -q FIRST_RUN_SETTINGS_PATH
     set settings $FIRST_RUN_SETTINGS_PATH
 end
 
-set -l hook_dangerous "$repo/hooks/block-dangerous-git.sh"
+# Register the ~/.claude/hooks link, not this checkout's file: the link
+# follows whatever ~/.claude links to (the release copy), so a branch
+# checkout never ends up guarding every session.
+set -l hook_dangerous "$HOME/.claude/hooks/block-dangerous-git.sh"
 
 # --- preflight: validate hook exec bits before any mutation -------------
 # Even if the user declines hook registration later, we fail fast here so
@@ -88,6 +91,7 @@ set -l hook_dangerous "$repo/hooks/block-dangerous-git.sh"
 
 if not test -x $hook_dangerous
     echo "ERROR: hook not executable: $hook_dangerous" >&2
+    echo "       Run 'fish install.fish' from the repo root first, then re-run this script." >&2
     exit 2
 end
 
@@ -224,7 +228,7 @@ if test $hooks_enabled -eq 1
         # objects/strings skip malformed elements; a jq error here would
         # read as "not registered" and add a new entry on every run.
         set -l bash_matcher '(.matcher // "") | strings | test("^[*]?$|Bash")'
-        for cmd in (jq -r ".hooks.PreToolUse[]? | objects | select($bash_matcher) | .hooks[]?.command? // empty" $settings)
+        for cmd in (jq -r ".hooks.PreToolUse? | arrays | .[] | objects | select($bash_matcher) | .hooks[]?.command? // empty" $settings)
             if test -e "$cmd"; and test (realpath -- "$cmd") = "$hook_real"
                 return 0
             end
@@ -316,6 +320,15 @@ if test $hooks_enabled -eq 1
         exit 1
     end
 
+    # Claude Code needs PreToolUse to be a list. Any other shape is already
+    # broken, and the steps below assume a list, so refuse before writing.
+    set -l pre_tool_use_ok 'if (.hooks | type) == "object" then (.hooks.PreToolUse | type) as $t | $t == "array" or $t == "null" else true end'
+    if not jq -e $pre_tool_use_ok $settings >/dev/null 2>&1
+        echo "ERROR: PreToolUse in $settings is not a list. Refusing to modify." >&2
+        echo "       Fix it by hand, then re-run." >&2
+        exit 2
+    end
+
     # Backup with ISO-8601 timestamp. tests assert the .bak.<timestamp>
     # exists, so the suffix must be predictable.
     set -l ts (date -u +%Y%m%dT%H%M%SZ)
@@ -326,11 +339,48 @@ if test $hooks_enabled -eq 1
     end
     echo "Backed up: $settings -> $backup"
 
+    # Older runs registered a checkout's own guard file, which runs whatever
+    # branch that checkout has. Delete those entries, and any group they leave
+    # empty; the check below then adds the link if nothing else covers Bash.
+    # Only paths inside a claude-config checkout (it has bin/first-run.fish)
+    # count; other entries are the user's own and are never touched.
+    set -l stale_guards
+    for cmd in (jq -r '.hooks.PreToolUse? | arrays | .[] | objects | .hooks[]? | objects | .command? // empty | strings' $settings)
+        string match -q "*/hooks/block-dangerous-git.sh" -- $cmd; or continue
+        test "$cmd" = "$hook_dangerous"; and continue
+        test -e (dirname (dirname $cmd))/bin/first-run.fish; and set -a stale_guards $cmd
+    end
+    set -l cleaned (mktemp)
+    if test (count $stale_guards) -eq 0
+        if not cp $settings $cleaned
+            echo "ERROR: failed to copy $settings" >&2
+            rm -f $cleaned
+            exit 2
+        end
+    else
+        # Only a PreToolUse list is cleaned; any other shape is left as it is.
+        set -l stale_json (printf '%s\n' $stale_guards | jq -R . | jq -s -c .)
+        jq --argjson stale $stale_json '
+            if (.hooks.PreToolUse | type) == "array" then
+                .hooks.PreToolUse |= map(
+                    if type == "object" and (.hooks | type) == "array" and (.hooks | length) > 0 then
+                        (.hooks | map(select((type == "object" and (.command as $c | any($stale[]; . == $c))) | not))) as $kept
+                        | if ($kept | length) == 0 then empty else .hooks = $kept end
+                    else . end)
+            else . end
+        ' $settings > $cleaned
+        if test $status -ne 0
+            echo "ERROR: jq failed on $settings" >&2
+            rm -f $cleaned
+            exit 2
+        end
+    end
+
     # Skip adding the PreToolUse entry when one already runs the same file.
-    # Compare real paths, not strings: link-config installs the guard as a
-    # ~/.claude/hooks/ symlink, and a second entry would run it twice.
+    # Compare real paths, not strings: an entry may name the link or the
+    # file it points at, and a second entry would run the guard twice.
     set -l add_hook true
-    if __first_run_guard_registered $settings $hook_dangerous
+    if __first_run_guard_registered $cleaned $hook_dangerous
         set add_hook false
     end
 
@@ -344,8 +394,11 @@ if test $hooks_enabled -eq 1
                 hooks: [{type: "command", command: $cmd, timeout: 5}]
             }]
           else . end
-    ' $settings > $tmp
-    if test $status -ne 0
+    ' $cleaned > $tmp
+    set -l jq_status $status
+    rm -f $cleaned
+    # An empty result means an earlier step lost the input; never write it.
+    if test $jq_status -ne 0; or not test -s $tmp
         echo "ERROR: jq failed on $settings" >&2
         rm -f $tmp
         exit 2

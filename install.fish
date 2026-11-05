@@ -1,20 +1,38 @@
 #!/usr/bin/env fish
-# Install claude-config by symlinking files into ~/.claude/
+# Install claude-config in two parts:
+#   1. A release copy (detached worktree of origin/main) that ~/.claude links to,
+#      so everyday sessions run only merged config. See bin/setup-release.fish.
+#   2. An eval folder (~/.claude-eval) linked to this checkout, so evals test
+#      the branch you are working on. See bin/setup-eval-home.fish.
 # Run: fish install.fish
-# Re-run safely — existing symlinks are replaced, regular files are backed up to .bak.
+# Re-run safely.
 #
 # Symlink logic lives in bin/link-config.fish (single source of truth).
-# This script delegates with --install (back-up-and-link) semantics.
-# For idempotent re-sync without backup, use: fish bin/link-config.fish
+# To undo the split and link ~/.claude to this checkout again:
+#   1. Remove the SessionStart entry for config-release-update.sh from
+#      ~/.claude/settings.json.
+#   2. git worktree remove ~/.claude-config-release
+#   3. fish bin/link-config.fish (with no release copy, it links this checkout)
+# See "Release copy and eval folder" in docs/operations.md.
 
 set -l repo_dir (cd (dirname (status filename)); and pwd)
-fish $repo_dir/bin/link-config.fish --install
-set -l link_status $status
 
-if test $link_status -eq 0
-    echo ""
-    echo "Want to personalize global/CLAUDE.md and register hooks?"
-    echo "  Run: fish $repo_dir/bin/first-run.fish"
+fish $repo_dir/bin/setup-release.fish --repo $repo_dir --install
+set -l release_status $status
+if test $release_status -ne 0
+    exit $release_status
 end
 
-exit $link_status
+fish $repo_dir/bin/setup-eval-home.fish
+set -l eval_status $status
+# Exit 1 means the eval login is missing. The script already printed the
+# login command. Install can finish; evals just won't run until you log in.
+if test $eval_status -eq 1
+    echo "WARNING: eval login missing. Evals will not run until you log in (command above)." >&2
+else if test $eval_status -ne 0
+    exit $eval_status
+end
+
+echo ""
+echo "Want to personalize global/CLAUDE.md and register hooks?"
+echo "  Run: fish $repo_dir/bin/first-run.fish"

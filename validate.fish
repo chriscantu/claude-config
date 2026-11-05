@@ -523,7 +523,7 @@ function _phase_1e
     _phase_begin "1e"
     echo "── Symlink verification"
 
-    set results (check_symlink_layout $repo_dir $claude_dir)
+    set results (check_symlink_layout (release_source_root $repo_dir) $claude_dir)
     if test (count $results) -eq 0
         fail "check_symlink_layout returned no entries — repo or home unset?"
     else

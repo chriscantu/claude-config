@@ -1,8 +1,8 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, lstatSync, unlinkSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readlinkSync, mkdtempSync, rmSync, lstatSync, unlinkSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { basename, dirname, join, resolve } from "node:path";
 
 // Round-trip regression test for bin/link-config.fish.
 //
@@ -27,9 +27,14 @@ type RunResult = {
   stderr: string;
 };
 
-const runLinkConfig = (home: string, ...args: string[]): RunResult => {
+const runLinkConfigIn = (cwd: string, home: string, ...args: string[]): RunResult => {
+  // Drop the operator's overrides so every path resolves inside the fixture HOME.
+  const env: NodeJS.ProcessEnv = { ...process.env, HOME: home };
+  delete env.CLAUDE_CONFIG_RELEASE_DIR;
+  delete env.CLAUDE_EVAL_HOME;
   const result = spawnSync("fish", [SCRIPT, ...args], {
-    env: { ...process.env, HOME: home },
+    cwd,
+    env,
     encoding: "utf8",
   });
   // spawn itself failed (fish missing, fork limit, etc.) → status is null
@@ -42,6 +47,8 @@ const runLinkConfig = (home: string, ...args: string[]): RunResult => {
     stderr: result.stderr,
   };
 };
+
+const runLinkConfig = (home: string, ...args: string[]): RunResult => runLinkConfigIn(REPO, home, ...args);
 
 // expect(...).toBe(0) on a non-zero exit shows only the diff. The fish
 // origin printed the captured log on failure so CI logs explained why the
@@ -190,5 +197,105 @@ describe("link-config.fish round-trip", () => {
       .split("\n")
       .find((line) => /^STALE link:.*CLAUDE\.md/.test(line));
     expect(staleLine).toBeDefined();
+  });
+
+  const cloneRelease = (home: string) => {
+    const r = spawnSync("git", ["clone", "-q", "--shared", REPO, join(home, ".claude-config-release")], {
+      encoding: "utf8",
+    });
+    if (r.status !== 0) throw new Error(`git clone failed: ${r.stderr}`);
+  };
+
+  test("default source is the release copy when one exists", () => {
+    const home = makeFixtureHome();
+    cloneRelease(home);
+
+    assertExit("--install", runLinkConfig(home, "--install"), "zero");
+
+    expect(readlinkSync(join(home, ".claude", "CLAUDE.md"))).toBe(
+      join(home, ".claude-config-release", "global", "CLAUDE.md"),
+    );
+  });
+
+  test("default source falls back to the checkout with a NOTE", () => {
+    const home = makeFixtureHome();
+
+    const install = runLinkConfig(home, "--install");
+    assertExit("--install", install, "zero");
+
+    expect(readlinkSync(join(home, ".claude", "CLAUDE.md"))).toBe(join(REPO, "global", "CLAUDE.md"));
+    expect(install.stderr).toMatch(/^NOTE: no release copy at /m);
+  });
+
+  test("--source and --home override defaults", () => {
+    const home = makeFixtureHome();
+
+    const install = runLinkConfig(home, "--install", "--source", REPO, "--home", join(home, "eval"));
+    assertExit("--install with overrides", install, "zero");
+
+    expect(readlinkSync(join(home, "eval", "CLAUDE.md"))).toBe(join(REPO, "global", "CLAUDE.md"));
+    expect(existsSync(join(home, ".claude"))).toBe(false);
+  });
+
+  test("--check flags links into the checkout as STALE once a release copy exists", () => {
+    const home = makeFixtureHome();
+    assertExit("--install", runLinkConfig(home, "--install"), "zero");
+    cloneRelease(home);
+
+    const check = runLinkConfig(home, "--check");
+    assertExit("--check", check, "non-zero");
+    expect(check.stdout).toMatch(/^STALE link:/m);
+  });
+
+  test("relative --source and --home resolve to absolute paths", () => {
+    const home = makeFixtureHome();
+    const relSource = runLinkConfigIn(dirname(REPO), home, "--source", basename(REPO), "--home", join(home, "a"));
+    assertExit("relative --source", relSource, "zero");
+    expect(readlinkSync(join(home, "a", "CLAUDE.md"))).toBe(join(REPO, "global", "CLAUDE.md"));
+
+    const relHome = runLinkConfigIn(home, home, "--source", REPO, "--home", "b");
+    assertExit("relative --home", relHome, "zero");
+    expect(readlinkSync(join(home, "b", "CLAUDE.md"))).toBe(join(REPO, "global", "CLAUDE.md"));
+  });
+
+  test("--source that is not a directory exits 2", () => {
+    const home = makeFixtureHome();
+    const r = runLinkConfig(home, "--source", join(home, "missing"), "--home", join(home, "eval"));
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toMatch(/--source .*missing.* is not a directory/);
+    expect(existsSync(join(home, "eval"))).toBe(false);
+  });
+
+  // Cutover: ~/.claude used to link into the checkout. Once the release copy
+  // is the source, leftover links into the checkout for files the layout no
+  // longer has (a deleted skill) must not survive or pass --check.
+  test("links into the old checkout that are not in the layout are reported, then pruned", () => {
+    const home = makeFixtureHome();
+    cloneRelease(home);
+    assertExit("first sync", runLinkConfig(home), "zero");
+
+    const deadSkill = join(home, ".claude", "skills", "retired-skill");
+    symlinkSync(join(REPO, "skills", "retired-skill"), deadSkill);
+    const oldRule = join(home, ".claude", "rules", "retired.md");
+    symlinkSync(join(REPO, "rules", "GOVERNANCE.md"), oldRule);
+    const foreignDir = mkdtempSync(join(tmpdir(), "foreign-plugin-"));
+    fixtures.push(foreignDir);
+    const foreign = join(home, ".claude", "rules", "from-other-plugin.md");
+    symlinkSync(join(foreignDir, "x.md"), foreign);
+
+    const check = runLinkConfig(home, "--check");
+    assertExit("--check with old-checkout links", check, "non-zero");
+    expect(check.stdout).toMatch(/^ORPHAN link: .*skills\/retired-skill/m);
+    expect(check.stdout).toMatch(/^ORPHAN link: .*rules\/retired\.md/m);
+    expect(check.stdout).not.toMatch(/from-other-plugin/);
+
+    const sync = runLinkConfig(home);
+    assertExit("sync", sync, "zero");
+    expect(sync.stdout).toMatch(/PRUNED:.*retired-skill/);
+    expect(sync.stdout).toMatch(/PRUNED:.*retired\.md/);
+    expect(existsSync(oldRule)).toBe(false);
+    expect(() => lstatSync(deadSkill)).toThrow();
+    expect(lstatSync(foreign).isSymbolicLink()).toBe(true);
+    assertExit("--check after prune", runLinkConfig(home, "--check"), "zero");
   });
 });

@@ -16,6 +16,17 @@
 #   ./bin/link-config.fish            # idempotent sync; refuse-on-real-file
 #   ./bin/link-config.fish --install  # first-time setup; back up real files to .bak
 #   ./bin/link-config.fish --check    # exit 1 if any link missing/stale/orphan
+#   ./bin/link-config.fish [--install|--check] [--source DIR] [--home DIR] [--prune-root DIR]
+#
+# Flags (any order):
+#   --source DIR  directory to link FROM. Default: the release copy
+#                 ($CLAUDE_CONFIG_RELEASE_DIR or ~/.claude-config-release)
+#                 when it exists, else this checkout (with a NOTE on stderr).
+#   --home DIR    directory to link INTO. Default: ~/.claude.
+#   --prune-root DIR  also prune orphan links into DIR (repeatable). setup-release
+#                 passes the old checkout, since this script runs from the release copy.
+#   Relative paths are taken from your current directory. A --source that is
+#   not a directory exits 2.
 #
 # Mode semantics:
 #   default — install missing links, repair stale ones, prune orphan symlinks
@@ -27,34 +38,79 @@
 #   --check — read-only verification; exit 1 on missing/stale/orphan, exit 0 if clean
 #
 # Orphan: a symlink under ~/.claude/<managed-dir>/ whose readlink target
-# points INTO this repo but whose dst path is no longer in the managed
-# layout (e.g., README.md after the skip rule landed in PR #198). The
-# repo-prefix guard inside each_orphan_symlink keeps user's other plugins
-# under ~/.claude/<managed-dir>/ off-limits — only repo-targeting symlinks
-# are pruned. Issue #431.
+# points INTO the source or this checkout but whose dst path is no longer in
+# the managed layout (e.g., README.md after the skip rule landed in PR #198,
+# or a skill deleted before the release copy became the source). The
+# prefix guard inside each_orphan_symlink keeps user's other plugins
+# under ~/.claude/<managed-dir>/ off-limits — only symlinks into those two
+# trees are pruned. Issue #431.
 #
 # Safe to re-run: existing correct symlinks are left alone, broken or wrong-target
 # symlinks are repaired, real files are never silently overwritten, orphan
 # symlinks pointing into the repo are pruned.
 
+# Relative --source/--home are relative to the caller; the cd below moves us.
+set -l caller_pwd $PWD
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
-set -l home_claude $HOME/.claude
 
 # Single source of truth for the managed symlink layout — shared with
 # validate.fish Phase 1e via bin/lib/symlinks.fish.
 source $repo/bin/lib/symlinks.fish
 
 set -g mode install
-if test (count $argv) -gt 0
-    switch $argv[1]
+set -l source ""
+set -l home_claude $HOME/.claude
+set -l prune_roots
+set -l i 1
+while test $i -le (count $argv)
+    switch $argv[$i]
         case --check
             set -g mode check
         case --install
             set -g mode first-install
+        case --source --home --prune-root
+            set -l flag $argv[$i]
+            set i (math $i + 1)
+            if test $i -gt (count $argv)
+                echo "ERROR: $flag needs a directory argument" >&2
+                exit 2
+            end
+            switch $flag
+                case --source
+                    set source $argv[$i]
+                case --home
+                    set home_claude $argv[$i]
+                case --prune-root
+                    set -l root $argv[$i]
+                    string match -q '/*' -- $root; or set root $caller_pwd/$root
+                    set -a prune_roots $root
+            end
         case '*'
-            echo "ERROR: unknown argument: $argv[1]" >&2
-            echo "Usage: ./bin/link-config.fish [--install | --check]" >&2
+            echo "ERROR: unknown argument: $argv[$i]" >&2
+            echo "Usage: ./bin/link-config.fish [--install | --check] [--source DIR] [--home DIR] [--prune-root DIR]" >&2
             exit 2
+    end
+    set i (math $i + 1)
+end
+
+# Links must hold absolute targets: a relative one would resolve against the
+# link's own folder, not the caller's working directory.
+if test -n "$source"
+    string match -q '/*' -- $source; or set source $caller_pwd/$source
+    if not test -d "$source"
+        echo "ERROR: --source $source is not a directory" >&2
+        exit 2
+    end
+    set source (realpath $source)
+end
+string match -q '/*' -- $home_claude; or set home_claude $caller_pwd/$home_claude
+
+if test -z "$source"
+    set source (release_source_root $repo)
+    if test "$source" = "$repo"
+        set -l release_dir $HOME/.claude-config-release
+        test -n "$CLAUDE_CONFIG_RELEASE_DIR"; and set release_dir $CLAUDE_CONFIG_RELEASE_DIR
+        echo "NOTE: no release copy at $release_dir; linking from $repo" >&2
     end
 end
 
@@ -164,7 +220,7 @@ end
 # needed" semantics as install mode's already-ok counter, just relabeled in
 # the summary.
 if test "$mode" = check
-    set -l results (check_symlink_layout $repo $home_claude)
+    set -l results (check_symlink_layout $source $home_claude)
     if test (count $results) -eq 0
         echo "ERROR: check_symlink_layout returned no entries — repo or home unset?" >&2
         exit 2
@@ -193,7 +249,7 @@ if test "$mode" = check
     end
     # Report orphans alongside missing/stale — counted into the failure exit
     # so CI catches them without needing a separate run.
-    for orphan in (each_orphan_symlink $repo $home_claude)
+    for orphan in (each_orphan_symlink $source $home_claude $repo $prune_roots)
         set -l parts (string split -m 3 "|" $orphan)
         set -l dst $parts[2]
         set -l target $parts[3]
@@ -202,7 +258,7 @@ if test "$mode" = check
     end
 else
     # Install / first-install: iterate the shared layout and create symlinks.
-    set -l entries (each_symlink_target $repo $home_claude)
+    set -l entries (each_symlink_target $source $home_claude)
     if test (count $entries) -eq 0
         echo "ERROR: each_symlink_target returned no entries — repo or home unset?" >&2
         exit 2
@@ -228,7 +284,7 @@ else
     # the managed layout (e.g., README.md after the skip-rule landed in PR #198).
     # Repo-prefix guard inside each_orphan_symlink keeps user's other plugins
     # off-limits. Issue #431.
-    for orphan in (each_orphan_symlink $repo $home_claude)
+    for orphan in (each_orphan_symlink $source $home_claude $repo $prune_roots)
         set -l parts (string split -m 3 "|" $orphan)
         set -l dst $parts[2]
         set -l target $parts[3]

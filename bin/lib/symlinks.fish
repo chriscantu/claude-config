@@ -26,12 +26,16 @@
 #       STALE       — dst is symlink with wrong target; detail = current target
 #       NOT_SYMLINK — dst exists as real file/dir; detail = "real file"
 #
-#   each_orphan_symlink REPO HOME_CLAUDE
+#   each_orphan_symlink REPO HOME_CLAUDE [OTHER_ROOT...]
 #     Walks managed namespace dirs (rules, agents, commands, hooks, skills)
 #     under HOME_CLAUDE and yields one line per orphan:
 #       ORPHAN|dst|target
-#     An orphan is a symlink whose readlink target points INTO REPO but
-#     whose dst path is NOT in the current each_symlink_target output.
+#     An orphan is a symlink whose readlink target points INTO REPO (or into
+#     any OTHER_ROOT) but whose dst path is NOT in the current
+#     each_symlink_target REPO output. link-config passes the checkout it runs
+#     from, plus any --prune-root (setup-release passes the old checkout), as
+#     OTHER_ROOT, so links left over from before the release copy became the
+#     source are pruned too.
 #     Closes the silent-failure mode where a file dropped from the managed
 #     layout (e.g., README.md skip-rule landed in PR #198) leaves its old
 #     symlink in place, silently auto-loading content that's no longer
@@ -41,6 +45,23 @@
 # Both callers (validate.fish Phase 1e and bin/link-config.fish) source this
 # file. If the layout changes, edit each_symlink_target — both validators
 # inherit the change automatically.
+
+# release_source_root CHECKOUT → the directory ~/.claude should link into.
+# That is the release copy ($CLAUDE_CONFIG_RELEASE_DIR, default
+# $HOME/.claude-config-release) when it is a git checkout or worktree (has a
+# .git entry), else CHECKOUT. Always exits 0.
+function release_source_root --argument-names checkout
+    set -l release_dir $HOME/.claude-config-release
+    if test -n "$CLAUDE_CONFIG_RELEASE_DIR"
+        set release_dir $CLAUDE_CONFIG_RELEASE_DIR
+    end
+    if test -e $release_dir/.git
+        echo $release_dir
+    else
+        echo $checkout
+    end
+    return 0
+end
 
 # gate_hook_registered HOME_CLAUDE → true when HOME_CLAUDE/settings.json runs
 # hooks/rules-shadow.sh, the hook that injects rules/execution-mode.md.
@@ -173,9 +194,10 @@ end
 
 function each_orphan_symlink --argument-names repo home_claude
     if test -z "$repo"; or test -z "$home_claude"
-        echo "each_orphan_symlink: usage: each_orphan_symlink REPO HOME_CLAUDE" >&2
+        echo "each_orphan_symlink: usage: each_orphan_symlink REPO HOME_CLAUDE [OTHER_ROOT...]" >&2
         return 2
     end
+    set -l roots $repo $argv[3..-1]
 
     # Materialize the expected-dst set once. Each entry is kind|src|dst|label;
     # we only need the dst column.
@@ -197,13 +219,17 @@ function each_orphan_symlink --argument-names repo home_claude
                 continue
             end
             set -l target (readlink $path)
-            # Repo-prefix guard: only consider symlinks pointing INTO this repo.
-            # Trailing slash on $repo prevents prefix collisions (/foo vs /foobar).
-            if not string match -q "$repo/*" $target
+            if contains $path $expected
                 continue
             end
-            if not contains $path $expected
-                printf 'ORPHAN|%s|%s\n' $path $target
+            # Root-prefix guard: only consider symlinks pointing INTO one of
+            # the roots. The trailing slash prevents prefix collisions
+            # (/foo vs /foobar).
+            for root in $roots
+                if string match -q "$root/*" $target
+                    printf 'ORPHAN|%s|%s\n' $path $target
+                    break
+                end
             end
         end
     end

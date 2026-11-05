@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, rmSync, writeFileSync, chmodSync, mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdtempSync, rmSync, symlinkSync, writeFileSync, chmodSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -69,6 +69,9 @@ const makeStubClaude = (opts: StubOpts = {}): string => {
   if (opts.recordArgs) {
     lines.push(`printf '%s\\n' "$*" >> '${escape(argvLog)}'`);
   }
+  if (opts.recordArgs) {
+    lines.push(`printf '%s\\n' "$CLAUDE_CONFIG_DIR" >> '${escape(join(binDir, "config.log"))}'`);
+  }
   if (opts.stderr) {
     lines.push(`printf '%s\\n' '${escape(opts.stderr)}' >&2`);
   }
@@ -80,6 +83,14 @@ const makeStubClaude = (opts: StubOpts = {}): string => {
   writeFileSync(stubPath, lines.join("\n") + "\n");
   chmodSync(stubPath, 0o755);
   return binDir;
+};
+
+// makeEvalHome(target) → a fixture eval folder whose CLAUDE.md links to
+// target (default: this checkout's global/CLAUDE.md, a correctly set-up folder).
+const makeEvalHome = (target = join(REPO, "global", "CLAUDE.md")): string => {
+  const dir = makeFixture();
+  symlinkSync(target, join(dir, "CLAUDE.md"));
+  return dir;
 };
 
 const runScript = (
@@ -94,7 +105,7 @@ const runScript = (
   // --no-config: a developer's universal `fish_user_paths` is prepended to
   // PATH at startup, ahead of the stub dir, so the real `claude` would win.
   const result = spawnSync(FISH, ["--no-config", SCRIPT, ...args], {
-    env: { ...process.env, PATH: basePath, ...env },
+    env: { ...process.env, PATH: basePath, CLAUDE_EVAL_HOME: makeEvalHome(), ...env },
     encoding: "utf8",
   });
   if (result.error) throw result.error;
@@ -106,6 +117,31 @@ const runScript = (
 };
 
 describe("verify-rule-loaded.fish", () => {
+  test("probe runs claude with CLAUDE_CONFIG_DIR set to the eval folder", () => {
+    const stub = makeStubClaude({ response: "YES", recordArgs: true });
+    const evalHome = makeEvalHome();
+    const r = runScript(stub, ["planning-pipeline"], { CLAUDE_EVAL_HOME: evalHome });
+    expect(r.exitCode).toBe(0);
+    expect(readFileSync(join(stub, "config.log"), "utf8").trim()).toBe(evalHome);
+  });
+
+  test("eval folder linked to another checkout → exit 2 before probing", () => {
+    const stub = makeStubClaude({ response: "YES", recordArgs: true });
+    const other = makeEvalHome("/some/other/checkout/global/CLAUDE.md");
+    const r = runScript(stub, ["planning-pipeline"], { CLAUDE_EVAL_HOME: other });
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("Run: fish bin/setup-eval-home.fish");
+    expect(existsSync(join(stub, "argv.log"))).toBe(false);
+  });
+
+  test("missing eval folder → exit 2 before probing", () => {
+    const stub = makeStubClaude({ response: "YES", recordArgs: true });
+    const r = runScript(stub, ["planning-pipeline"], { CLAUDE_EVAL_HOME: join(makeFixture(), "nope") });
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("Run: fish bin/setup-eval-home.fish");
+    expect(existsSync(join(stub, "argv.log"))).toBe(false);
+  });
+
   test("no args → usage error, exit 2", () => {
     const stub = makeStubClaude({ response: "YES" });
     const r = runScript(stub, []);
