@@ -363,6 +363,35 @@ describe("first-run.fish — hook registration (#557)", () => {
     ]);
   });
 
+  test("a failed copy of settings.json exits 2 and leaves the file intact", () => {
+    const { home, settings, env } = seedFixture();
+    const original = JSON.stringify({ model: "keep-me" });
+    writeFileSync(settings, original);
+    // A cp that fails for everything but the backup, like a full temp dir.
+    const shim = join(home, "shim");
+    mkdirSync(shim);
+    writeFileSync(
+      join(shim, "cp"),
+      '#!/bin/sh\ncase "$2" in *.bak.*) exec /bin/cp "$@" ;; esac\nexit 1\n',
+      { mode: 0o755 },
+    );
+
+    const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS, PATH: `${shim}:${process.env.PATH}` });
+    expect(r.exitCode).toBe(2);
+    expect(readFileSync(settings, "utf8")).toBe(original);
+  });
+
+  test("an object-shaped PreToolUse holding an old entry is left as it was", () => {
+    const { settings, env } = seedFixture();
+    const original = JSON.stringify({
+      hooks: { PreToolUse: { old: guardEntry(join(REPO, "hooks", GUARD)) } },
+    });
+    writeFileSync(settings, original);
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(JSON.parse(readFileSync(settings, "utf8"))).toEqual(JSON.parse(original));
+  });
+
   test("a malformed PreToolUse element doesn't make each run add another entry", () => {
     const { settings, env } = seedFixture();
     writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: ["junk", { matcher: 7 }] } }));

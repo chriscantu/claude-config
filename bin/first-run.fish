@@ -343,15 +343,22 @@ if test $hooks_enabled -eq 1
     end
     set -l cleaned (mktemp)
     if test (count $stale_guards) -eq 0
-        cp $settings $cleaned
+        if not cp $settings $cleaned
+            echo "ERROR: failed to copy $settings" >&2
+            rm -f $cleaned
+            exit 2
+        end
     else
+        # Only a PreToolUse list is cleaned; any other shape is left as it is.
         set -l stale_json (printf '%s\n' $stale_guards | jq -R . | jq -s -c .)
         jq --argjson stale $stale_json '
-            .hooks.PreToolUse |= map(
-                if type == "object" and (.hooks | type) == "array" and (.hooks | length) > 0 then
-                    (.hooks | map(select((type == "object" and (.command as $c | any($stale[]; . == $c))) | not))) as $kept
-                    | if ($kept | length) == 0 then empty else .hooks = $kept end
-                else . end)
+            if (.hooks.PreToolUse | type) == "array" then
+                .hooks.PreToolUse |= map(
+                    if type == "object" and (.hooks | type) == "array" and (.hooks | length) > 0 then
+                        (.hooks | map(select((type == "object" and (.command as $c | any($stale[]; . == $c))) | not))) as $kept
+                        | if ($kept | length) == 0 then empty else .hooks = $kept end
+                    else . end)
+            else . end
         ' $settings > $cleaned
         if test $status -ne 0
             echo "ERROR: jq failed on $settings" >&2
@@ -381,7 +388,8 @@ if test $hooks_enabled -eq 1
     ' $cleaned > $tmp
     set -l jq_status $status
     rm -f $cleaned
-    if test $jq_status -ne 0
+    # An empty result means an earlier step lost the input; never write it.
+    if test $jq_status -ne 0; or not test -s $tmp
         echo "ERROR: jq failed on $settings" >&2
         rm -f $tmp
         exit 2
