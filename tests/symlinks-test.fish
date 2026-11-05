@@ -356,6 +356,36 @@ cleanup_fixture $repo
 cleanup_fixture $home
 
 echo ""
+echo "── Test I: release_source_root"
+set checkout (make_repo_fixture)
+set rel_home (mktemp -d)
+set -lx CLAUDE_CONFIG_RELEASE_DIR $rel_home/release
+mkdir -p $rel_home/release
+echo "gitdir: elsewhere" > $rel_home/release/.git
+if test (release_source_root $checkout) = $rel_home/release
+    t_pass "returns release dir when it has a .git entry"
+else
+    t_fail "expected release dir, got "(release_source_root $checkout)
+end
+rm -rf $rel_home/release
+if test (release_source_root $checkout) = $checkout
+    t_pass "returns checkout when release dir is missing"
+else
+    t_fail "expected checkout, got "(release_source_root $checkout)
+end
+set -e CLAUDE_CONFIG_RELEASE_DIR
+set -lx HOME $rel_home
+mkdir -p $rel_home/.claude-config-release
+echo "gitdir: elsewhere" > $rel_home/.claude-config-release/.git
+if test (release_source_root $checkout) = $rel_home/.claude-config-release
+    t_pass "defaults to \$HOME/.claude-config-release"
+else
+    t_fail "default release dir not used: "(release_source_root $checkout)
+end
+cleanup_fixture $checkout
+cleanup_fixture $rel_home
+
+echo ""
 echo "─────────────────────────────────────────────────"
 echo "Symlinks lib regression: $test_pass passed, $test_fail failed"
 if test $test_fail -gt 0

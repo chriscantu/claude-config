@@ -44,6 +44,23 @@
 
 # gate_hook_registered HOME_CLAUDE → true when HOME_CLAUDE/settings.json runs
 # hooks/rules-shadow.sh, the hook that injects rules/execution-mode.md.
+# release_source_root CHECKOUT → the directory ~/.claude should link into.
+# That is the release copy ($CLAUDE_CONFIG_RELEASE_DIR, default
+# $HOME/.claude-config-release) when it is a git checkout or worktree (has a
+# .git entry), else CHECKOUT. Always exits 0.
+function release_source_root --argument-names checkout
+    set -l release_dir $HOME/.claude-config-release
+    if test -n "$CLAUDE_CONFIG_RELEASE_DIR"
+        set release_dir $CLAUDE_CONFIG_RELEASE_DIR
+    end
+    if test -e $release_dir/.git
+        echo $release_dir
+    else
+        echo $checkout
+    end
+    return 0
+end
+
 function gate_hook_registered --argument-names home_claude
     test -f $home_claude/settings.json; and grep -q 'rules-shadow\.sh' $home_claude/settings.json
 end

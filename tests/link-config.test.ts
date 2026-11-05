@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, mkdtempSync, rmSync, lstatSync, unlinkSync, symlinkSync } from "node:fs";
+import { existsSync, mkdirSync, readlinkSync, mkdtempSync, rmSync, lstatSync, unlinkSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -190,5 +190,53 @@ describe("link-config.fish round-trip", () => {
       .split("\n")
       .find((line) => /^STALE link:.*CLAUDE\.md/.test(line));
     expect(staleLine).toBeDefined();
+  });
+
+  const cloneRelease = (home: string) => {
+    const r = spawnSync("git", ["clone", "-q", "--shared", REPO, join(home, ".claude-config-release")], {
+      encoding: "utf8",
+    });
+    if (r.status !== 0) throw new Error(`git clone failed: ${r.stderr}`);
+  };
+
+  test("default source is the release copy when one exists", () => {
+    const home = makeFixtureHome();
+    cloneRelease(home);
+
+    assertExit("--install", runLinkConfig(home, "--install"), "zero");
+
+    expect(readlinkSync(join(home, ".claude", "CLAUDE.md"))).toBe(
+      join(home, ".claude-config-release", "global", "CLAUDE.md"),
+    );
+  });
+
+  test("default source falls back to the checkout with a NOTE", () => {
+    const home = makeFixtureHome();
+
+    const install = runLinkConfig(home, "--install");
+    assertExit("--install", install, "zero");
+
+    expect(readlinkSync(join(home, ".claude", "CLAUDE.md"))).toBe(join(REPO, "global", "CLAUDE.md"));
+    expect(install.stderr).toMatch(/^NOTE: no release copy at /m);
+  });
+
+  test("--source and --home override defaults", () => {
+    const home = makeFixtureHome();
+
+    const install = runLinkConfig(home, "--install", "--source", REPO, "--home", join(home, "eval"));
+    assertExit("--install with overrides", install, "zero");
+
+    expect(readlinkSync(join(home, "eval", "CLAUDE.md"))).toBe(join(REPO, "global", "CLAUDE.md"));
+    expect(existsSync(join(home, ".claude"))).toBe(false);
+  });
+
+  test("--check flags links into the checkout as STALE once a release copy exists", () => {
+    const home = makeFixtureHome();
+    assertExit("--install", runLinkConfig(home, "--install"), "zero");
+    cloneRelease(home);
+
+    const check = runLinkConfig(home, "--check");
+    assertExit("--check", check, "non-zero");
+    expect(check.stdout).toMatch(/^STALE link:/m);
   });
 });
