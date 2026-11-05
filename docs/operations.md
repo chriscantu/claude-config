@@ -117,6 +117,31 @@ A `SessionStart` hook at [`hooks/config-release-update.sh`](../hooks/config-rele
 
 The worker never resets, stashes or deletes anything. A dirty or diverged copy is left alone. When files are added, deleted or renamed, it re-runs `bin/link-config.fish`. Each run appends a record to `~/.claude/logs/config-release.jsonl`. To turn it off, create a file named `DISABLE_CONFIG_RELEASE_UPDATE` under `~/.claude/`. Each update record's `result` is one of `updated`, `updated+relinked`, `updated+relinked+needs-registration`, `unchanged`, `skipped:dirty`, `skipped:not-fast-forward`, `skipped:locked`, `fetch-failed`, `checkout-failed`, `relink-failed` or `relink-failed+needs-registration`. Tests: `bash tests/hooks/config-release-update.test.sh`.
 
+### Release copy and eval folder
+
+claude-config keeps two copies of your config, for two jobs.
+
+- **Release copy.** A detached git worktree of `origin/main` at `$CLAUDE_CONFIG_RELEASE_DIR` (default `~/.claude-config-release`). `~/.claude` links to it. Everyday sessions in any repo run only merged rules.
+- **Eval folder.** `$CLAUDE_EVAL_HOME` (default `~/.claude-eval`). It links to your working copy, on any branch. Evals and `bin/redgreen.fish` run against it, so they test unmerged edits and stripping a rule never touches your everyday sessions.
+
+Both exist because your working copy used to be your live config. A feature branch then changed every session on the machine, and a merged rule did not reach sessions until you ran `git pull`.
+
+**Setup.** `fish install.fish` runs `bin/setup-release.fish` and then `bin/setup-eval-home.fish`. Both are safe to re-run. `redgreen --dry-run` and the eval runner need `fish bin/setup-eval-home.fish` to have run first. They stop with an error if the eval folder is missing. They never fall back to `~/.claude`.
+
+**When a merge arrives.** The hook starts after Claude Code has read the rules. A merge on GitHub therefore reaches your second new session after it, not the first.
+
+**Try a branch by hand.** Run `env CLAUDE_CONFIG_DIR=$HOME/.claude-eval claude`. It loads the rules from your working copy.
+
+**Redo the eval login.** The eval folder has its own login. If it expires, run `env CLAUDE_CONFIG_DIR=$HOME/.claude-eval claude auth login`. If `ANTHROPIC_API_KEY` is set in your shell, it overrides the login, so prefix commands with `env -u ANTHROPIC_API_KEY`.
+
+**Hook registration limit.** The updater runs only if `~/.claude/settings.json` registers it. `setup-release.fish` does that for you, with a timestamped backup. Settings files are not in the repo, so a merge that needs a new registration still needs a manual edit. The updater logs a `needs-registration` result when that happens.
+
+**Skills inside this repo.** This repo has its own `.claude/skills/`. Which copy wins over the release copy's skills in `~/.claude/skills` is not yet confirmed. It will be checked and recorded here.
+
+**Kill switch.** Create `~/.claude/DISABLE_CONFIG_RELEASE_UPDATE` to stop the updater. Delete the file to turn it back on.
+
+**Undo.** To link `~/.claude` to your working copy again, run `fish bin/link-config.fish --source <checkout>`. Remove the hook entry from `settings.json` if you want the updater gone too.
+
 ## Adversarial Code Review Swarm (opt-in)
 
 A `PostToolUse` hook at [`hooks/adversarial-trigger.sh`](../hooks/adversarial-trigger.sh) fires on `Write|Edit|MultiEdit` tool results and threshold-gates a backgrounded **swarm** red-team critique of the current `git diff HEAD`. Five specialized adversaries fan out in parallel, then an arbiter synthesizes a single ranked summary. Intended for ongoing development work where you want adversarial review without a PR or CI/CD round-trip.
