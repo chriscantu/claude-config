@@ -29,8 +29,10 @@
 # Caveats:
 #   - Spawns a real Claude Code session with CLAUDE_CONFIG_DIR set to the eval
 #     folder (see bin/setup-eval-home.fish), so it needs that folder's login
-#     (OAuth/keychain), not the everyday ~/.claude and incurs API cost per probe. Default model is
-#     read from $default_model (line 53); override with VERIFY_RULE_MODEL=<name>.
+#     (OAuth/keychain), not the everyday ~/.claude. ANTHROPIC_API_KEY is unset,
+#     matching redgreen, so probes use that login's subscription, not API
+#     credits. Default model is read from $default_model; override
+#     with VERIFY_RULE_MODEL=<name>.
 #   - Plain YES/NO contract chosen over `--output-format json` because
 #     `--print` does not guarantee structured output across model tiers.
 #     The strict single-word match (line ~92) absorbs trailing punctuation
