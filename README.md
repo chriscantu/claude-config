@@ -86,7 +86,7 @@ cd ~/repos/claude-config
 fish install.fish
 ```
 
-Re-running is safe. CI uses `fish bin/link-config.fish --check` for verification.
+Existing real files in `~/.claude` are backed up with `.bak`. Re-running is safe. CI uses `fish bin/link-config.fish --check` for verification.
 
 **What the installer sets up.** It makes two folders, so a half-finished branch never changes your everyday sessions.
 

@@ -3,8 +3,10 @@
 # that ~/.claude links to, so everyday sessions run only merged config.
 # Safe to re-run.
 #
-# Usage: fish bin/setup-release.fish [--repo DIR]
+# Usage: fish bin/setup-release.fish [--repo DIR] [--install]
 #   --repo DIR   checkout to add the worktree to (default: this checkout)
+#   --install    back up real files in ~/.claude as .bak before linking
+#                (default is the safe sync, which errors on real files)
 #
 # Env:
 #   CLAUDE_CONFIG_RELEASE_DIR   release copy location (default ~/.claude-config-release)
@@ -13,6 +15,7 @@
 # Exit: 0 ok, 2 setup error.
 
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
+set -l link_flags
 set -l i 1
 while test $i -le (count $argv)
     switch $argv[$i]
@@ -23,9 +26,11 @@ while test $i -le (count $argv)
                 exit 2
             end
             set repo $argv[$i]
+        case --install
+            set link_flags --install
         case '*'
             echo "ERROR: unknown argument: $argv[$i]" >&2
-            echo "Usage: fish bin/setup-release.fish [--repo DIR]" >&2
+            echo "Usage: fish bin/setup-release.fish [--repo DIR] [--install]" >&2
             exit 2
     end
     set i (math $i + 1)
@@ -55,7 +60,7 @@ if not test -e $release/.git
     echo "Created release copy: $release"
 end
 
-if not fish $release/bin/link-config.fish
+if not fish $release/bin/link-config.fish $link_flags
     echo "ERROR: link-config.fish failed for $release" >&2
     exit 2
 end

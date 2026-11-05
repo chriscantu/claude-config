@@ -20,8 +20,8 @@ const git = (cwd: string, ...args: string[]) => {
   return { status: r.status ?? -1, out: r.stdout.trim() };
 };
 
-const run = () => {
-  const r = spawnSync("fish", [SCRIPT, "--repo", clone], {
+const run = (...extra: string[]) => {
+  const r = spawnSync("fish", [SCRIPT, "--repo", clone, ...extra], {
     env: { ...process.env, HOME: home, CLAUDE_CONFIG_RELEASE_DIR: rel },
     encoding: "utf8",
   });
@@ -42,9 +42,18 @@ beforeEach(() => {
   mkdirSync(home);
   rel = join(root, "release");
   clone = join(root, "clone");
-  // Clone the repo's committed main so origin/main exists in the fixture.
-  spawnSync("git", ["clone", "-q", "--shared", "-b", "main", REPO, clone]);
-  git(clone, "fetch", "-q", "origin", "main");
+  // Bare "origin" gets HEAD as main, so the fixture never needs a local main
+  // branch (CI checks out PRs detached).
+  const origin = join(root, "origin.git");
+  const steps: string[][] = [
+    ["init", "-q", "--bare", origin],
+    ["-C", REPO, "push", "-q", origin, "HEAD:refs/heads/main"],
+    ["clone", "-q", origin, clone],
+  ];
+  for (const args of steps) {
+    const r = spawnSync("git", args, { encoding: "utf8" });
+    if (r.status !== 0) throw new Error(`git ${args.join(" ")} failed: ${r.stderr}`);
+  }
 });
 
 afterEach(() => rmSync(root, { recursive: true, force: true }));
@@ -65,6 +74,15 @@ describe("setup-release.fish", () => {
     expect(run().exitCode).toBe(0);
     expect(run().exitCode).toBe(0);
     expect(hookCount()).toBe(1);
+  });
+
+  test("--install backs up a real file and links to the release copy", () => {
+    mkdirSync(join(home, ".claude"), { recursive: true });
+    writeFileSync(join(home, ".claude", "CLAUDE.md"), "mine");
+    expect(run().exitCode).toBe(2);
+    expect(run("--install").exitCode).toBe(0);
+    expect(existsSync(join(home, ".claude", "CLAUDE.md.bak"))).toBe(true);
+    expect(readlinkSync(join(home, ".claude", "CLAUDE.md"))).toBe(join(rel, "global", "CLAUDE.md"));
   });
 
   test("backs up an existing settings.json before editing", () => {

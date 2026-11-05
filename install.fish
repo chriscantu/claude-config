@@ -13,7 +13,7 @@
 
 set -l repo_dir (cd (dirname (status filename)); and pwd)
 
-fish $repo_dir/bin/setup-release.fish --repo $repo_dir
+fish $repo_dir/bin/setup-release.fish --repo $repo_dir --install
 set -l release_status $status
 if test $release_status -ne 0
     exit $release_status
