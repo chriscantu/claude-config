@@ -7,8 +7,8 @@
 #      sycophancy intensity, and caveman opt-in
 #   2. Atomically writing the answers to
 #      ~/.claude/rules/first-run-personalization.md
-#   3. Registering the repo hook in ~/.claude/settings.json
-#      (block-dangerous-git.sh)
+#   3. Registering the guard hook in ~/.claude/settings.json
+#      (~/.claude/hooks/block-dangerous-git.sh)
 #   4. Verifying the install via link-config.fish --check + validate.fish
 #   5. Printing three next-action suggestions
 #
@@ -79,7 +79,10 @@ if set -q FIRST_RUN_SETTINGS_PATH
     set settings $FIRST_RUN_SETTINGS_PATH
 end
 
-set -l hook_dangerous "$repo/hooks/block-dangerous-git.sh"
+# Register the ~/.claude/hooks link, not this checkout's file: the link
+# follows whatever ~/.claude links to (the release copy), so a branch
+# checkout never ends up guarding every session.
+set -l hook_dangerous "$HOME/.claude/hooks/block-dangerous-git.sh"
 
 # --- preflight: validate hook exec bits before any mutation -------------
 # Even if the user declines hook registration later, we fail fast here so
@@ -88,6 +91,7 @@ set -l hook_dangerous "$repo/hooks/block-dangerous-git.sh"
 
 if not test -x $hook_dangerous
     echo "ERROR: hook not executable: $hook_dangerous" >&2
+    echo "       Run 'fish install.fish' from the repo root first, then re-run this script." >&2
     exit 2
 end
 
@@ -327,8 +331,8 @@ if test $hooks_enabled -eq 1
     echo "Backed up: $settings -> $backup"
 
     # Skip adding the PreToolUse entry when one already runs the same file.
-    # Compare real paths, not strings: link-config installs the guard as a
-    # ~/.claude/hooks/ symlink, and a second entry would run it twice.
+    # Compare real paths, not strings: an entry may name the link or the
+    # file it points at, and a second entry would run the guard twice.
     set -l add_hook true
     if __first_run_guard_registered $settings $hook_dangerous
         set add_hook false

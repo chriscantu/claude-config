@@ -88,6 +88,10 @@ const seedFixture = (): {
   // seedFixture() — they should inline a HOME setup that omits this dir.
   // See "pre-install preflight" test for the canonical pattern.
   mkdirSync(join(home, ".claude", "rules"), { recursive: true });
+  // link-config installs the guard as ~/.claude/hooks/<guard>; first-run
+  // registers that link, so the fixture needs it.
+  mkdirSync(join(home, ".claude", "hooks"), { recursive: true });
+  symlinkSync(join(REPO, "hooks", "block-dangerous-git.sh"), join(home, ".claude", "hooks", "block-dangerous-git.sh"));
   const settings = join(home, ".claude", "settings.json");
   return {
     home,
@@ -184,16 +188,37 @@ const runGuard = (command: string, bashCommand: string, home: string) =>
   });
 
 describe("first-run.fish — hook registration (#557)", () => {
-  test("adds a PreToolUse/Bash command entry for the guard", () => {
-    const { settings, env } = seedFixture();
+  test("adds a PreToolUse/Bash command entry for the ~/.claude/hooks link", () => {
+    const { home, settings, env } = seedFixture();
     assertExit("fresh run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
 
     const entries = readPreToolUse(settings);
     const guard = entries.find((e) => guardCommands([e]).length > 0);
     expect(guard).toEqual({
       matcher: "Bash",
-      hooks: [{ type: "command", command: join(REPO, "hooks", GUARD), timeout: 5 }],
+      hooks: [{ type: "command", command: join(home, ".claude", "hooks", GUARD), timeout: 5 }],
     });
+  });
+
+  test("an entry for the link is not duplicated when the link resolves outside this checkout", () => {
+    // ~/.claude/hooks links into the release copy, not the checkout that runs
+    // first-run, so the two real paths differ.
+    const { home, settings, env } = seedFixture();
+    const release = join(home, "release", "hooks");
+    mkdirSync(release, { recursive: true });
+    writeFileSync(join(release, GUARD), readFileSync(join(REPO, "hooks", GUARD)), { mode: 0o755 });
+    const link = join(home, ".claude", "hooks", GUARD);
+    rmSync(link);
+    symlinkSync(join(release, GUARD), link);
+    writeFileSync(
+      settings,
+      JSON.stringify({
+        hooks: { PreToolUse: [{ matcher: "Bash", hooks: [{ type: "command", command: link, timeout: 5 }] }] },
+      }),
+    );
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(guardCommands(readPreToolUse(settings))).toEqual([link]);
   });
 
   test("the registered command blocks a force-push to main and allows git status", () => {
@@ -217,25 +242,24 @@ describe("first-run.fish — hook registration (#557)", () => {
     expect(guardCommands(readPreToolUse(settings)).length).toBe(1);
   });
 
-  test("an existing entry via a symlink to the same script is not duplicated", () => {
-    const { home, settings, env } = seedFixture();
-    const linkDir = join(home, ".claude", "hooks");
-    mkdirSync(linkDir, { recursive: true });
-    const link = join(linkDir, GUARD);
-    symlinkSync(join(REPO, "hooks", GUARD), link);
+  test("an existing entry via another path to the same script is not duplicated", () => {
+    const { settings, env } = seedFixture();
+    // The fixture link points at this checkout's guard; this entry names
+    // that file directly.
+    const direct = join(REPO, "hooks", GUARD);
     writeFileSync(
       settings,
       JSON.stringify({
         hooks: {
           PreToolUse: [
-            { matcher: "Bash", hooks: [{ type: "command", command: link, timeout: 5 }] },
+            { matcher: "Bash", hooks: [{ type: "command", command: direct, timeout: 5 }] },
           ],
         },
       }),
     );
 
     assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
-    expect(guardCommands(readPreToolUse(settings))).toEqual([link]);
+    expect(guardCommands(readPreToolUse(settings))).toEqual([direct]);
   });
 
   test("a malformed PreToolUse element doesn't make each run add another entry", () => {
