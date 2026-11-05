@@ -2,7 +2,8 @@
 # config-release-update.sh — SessionStart hook that keeps the release copy current.
 #
 # ~/.claude links into a release copy of claude-config (a detached checkout of
-# origin/main at $CLAUDE_CONFIG_RELEASE_DIR, default ~/.claude-config-release).
+# origin/main at $CLAUDE_CONFIG_RELEASE_DIR, else the detached checkout this
+# hook lives in, else ~/.claude-config-release).
 # This hook fast-forwards that copy. Claude Code reads rules BEFORE SessionStart
 # hooks run, so an update only helps the NEXT session; that is why the worker is
 # detached and the hook never waits on the network.
@@ -25,9 +26,24 @@ source "$HOOK_DIR/lib/hook-runtime.sh"
 
 LOG_FILE="${CONFIG_RELEASE_LOG:-${HOME}/.claude/logs/config-release.jsonl}"
 
-# release_dir → the release copy path; mirrors release_source_root in bin/lib/symlinks.fish.
+# release_dir → the release copy path. CLAUDE_CONFIG_RELEASE_DIR wins when set.
+# Otherwise use the checkout this hook lives in when it is detached, like the
+# release copy: a custom release dir set only in your shell may never reach
+# Claude Code's env. A checkout on a branch is a working copy, never the
+# release copy, so it falls back to the default (as release_source_root does
+# in bin/lib/symlinks.fish).
 release_dir() {
-  printf '%s' "${CLAUDE_CONFIG_RELEASE_DIR:-$HOME/.claude-config-release}"
+  local own
+  if [[ -n "${CLAUDE_CONFIG_RELEASE_DIR:-}" ]]; then
+    printf '%s' "$CLAUDE_CONFIG_RELEASE_DIR"
+    return 0
+  fi
+  own="$(dirname "$HOOK_DIR")"
+  if [[ -e "$own/.git" ]] && ! git -C "$own" symbolic-ref -q HEAD >/dev/null 2>&1; then
+    printf '%s' "$own"
+    return 0
+  fi
+  printf '%s' "$HOME/.claude-config-release"
 }
 
 # log_session SESSION LOADED RESULT → append the session record.

@@ -238,6 +238,60 @@ assert_eq "stdout empty" "" "$OUT"
 [[ $ELAPSED -lt 2 ]] && pass "returned in ${ELAPSED}s" || fail "slow hook: ${ELAPSED}s"
 assert_eq "session logged started" started "$(field session result)"
 
+echo "── layout change in bin/lib/symlinks.fish triggers relink ──"
+new_case layout
+push_change sh -c 'mkdir -p bin/lib && echo one > bin/lib/symlinks.fish'
+run_hook
+push_change sh -c 'echo two > bin/lib/symlinks.fish'
+run_hook
+assert_eq "stdout empty" "" "$OUT"
+assert_eq "result" updated+relinked "$(field update result)"
+assert_eq "link ran for add and edit" 2 "$(link_count)"
+
+echo "── broken .git pointer is logged ──"
+new_case brokengit
+rm -rf "$REL/.git"
+echo "gitdir: $CASE/missing-gitdir" > "$REL/.git"
+run_hook
+assert_eq "exit 0" 0 "$RC"
+assert_eq "stdout empty" "" "$OUT"
+assert_eq "result" skipped:broken-git "$(field update result)"
+
+# copy_hook_into_rel → the release copy gets this repo's hook, linked from the
+# fixture ~/.claude/hooks like link-config would, and HOOK points at that link.
+copy_hook_into_rel() {
+  mkdir -p "$REL/hooks/lib" "$CASE/home/.claude/hooks"
+  cp "$REPO_ROOT/hooks/config-release-update.sh" "$REL/hooks/"
+  cp -R "$REPO_ROOT/hooks/lib/." "$REL/hooks/lib/"
+  ln -s "$REL/hooks/config-release-update.sh" "$CASE/home/.claude/hooks/config-release-update.sh"
+  HOOK="$CASE/home/.claude/hooks/config-release-update.sh"
+}
+RECORD_REL="printf '%s' \"\$1\" > \"\$(dirname \"\$2\")/worker.rel\""
+
+echo "── release dir comes from the hook's own location ──"
+new_case selfloc
+copy_hook_into_rel
+run_hook CLAUDE_CONFIG_RELEASE_DIR= CONFIG_RELEASE_WORKER="$RECORD_REL"
+assert_eq "stdout empty" "" "$OUT"
+assert_eq "session.result" started "$(field session result)"
+assert_eq "worker got the hook's checkout" "$(cd "$REL" && pwd -P)" "$(cat "$CASE/worker.rel" 2>/dev/null)"
+assert_eq "session.loaded" "$(head_sha)" "$(field session loaded)"
+
+echo "── CLAUDE_CONFIG_RELEASE_DIR still wins when set ──"
+new_case selfenv
+copy_hook_into_rel
+run_hook CLAUDE_CONFIG_RELEASE_DIR="$CASE/elsewhere" CONFIG_RELEASE_WORKER="$RECORD_REL"
+assert_eq "session.result" skipped:no-release "$(field session result)"
+
+echo "── a hook in a checkout on a branch is not treated as the release copy ──"
+new_case selfbranch
+git -C "$REL" checkout -q -b local
+copy_hook_into_rel
+run_hook CLAUDE_CONFIG_RELEASE_DIR= CONFIG_RELEASE_WORKER="$RECORD_REL"
+assert_eq "session.result" skipped:no-release "$(field session result)"
+assert_eq "worker not started" no "$([[ -e $CASE/worker.rel ]] && echo yes || echo no)"
+HOOK="$REPO_ROOT/hooks/config-release-update.sh"
+
 echo
 echo "Passed: $PASS  Failed: $FAIL"
 if [[ $FAIL -gt 0 ]]; then

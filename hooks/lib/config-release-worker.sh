@@ -18,6 +18,8 @@ FETCH_TIMEOUT=30
 STALE_LOCK_MINUTES=10
 # Paths whose added/deleted/renamed files change what link-config would link.
 LINKED_PATHS=(rules agents commands skills .claude/skills hooks global)
+# The link layout itself; any change to it can change what gets linked.
+LAYOUT_FILE=bin/lib/symlinks.fish
 
 [[ -n "$REL" && -n "$LOG" && -d "$REL" ]] || exit 0
 require_cmd jq || exit 0
@@ -52,9 +54,13 @@ fetch_origin() {
   return "$rc"
 }
 
-# relink_needed → 0 when files were added, deleted or renamed under a linked path.
+# relink_needed → 0 when files were added, deleted or renamed under a linked
+# path, or when LAYOUT_FILE changed at all (it defines what gets linked).
 relink_needed() {
-  [[ -n "$(git -C "$REL" diff --name-only --diff-filter=ADR "$FROM" "$TO" -- "${LINKED_PATHS[@]}" 2>/dev/null)" ]]
+  if [[ -n "$(git -C "$REL" diff --name-only --diff-filter=ADR "$FROM" "$TO" -- "${LINKED_PATHS[@]}" 2>/dev/null)" ]]; then
+    return 0
+  fi
+  [[ -n "$(git -C "$REL" diff --name-only "$FROM" "$TO" -- "$LAYOUT_FILE" 2>/dev/null)" ]]
 }
 
 # run_relink → run link-config; print its combined output. Returns its exit code.
@@ -66,7 +72,7 @@ run_relink() {
   fi
 }
 
-GIT_DIR_ABS=$(git -C "$REL" rev-parse --absolute-git-dir 2>/dev/null) || exit 0
+GIT_DIR_ABS=$(git -C "$REL" rev-parse --absolute-git-dir 2>/dev/null) || log_update skipped:broken-git
 LOCK="$GIT_DIR_ABS/config-release-update.lock"
 
 # A crashed worker leaves its lock behind; after STALE_LOCK_MINUTES it is stale.
