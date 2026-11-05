@@ -279,6 +279,44 @@ describe("first-run.fish — hook registration (#557)", () => {
     expect(guardCommands(readPreToolUse(settings))).toEqual([elsewhere]);
   });
 
+  // Old first-run, run from two checkouts, saved one entry per checkout.
+  const secondCheckoutGuard = (home: string): string => {
+    const wt = join(home, "wt");
+    mkdirSync(join(wt, "bin"), { recursive: true });
+    mkdirSync(join(wt, "hooks"));
+    writeFileSync(join(wt, "bin", "first-run.fish"), "");
+    writeFileSync(join(wt, "hooks", GUARD), readFileSync(join(REPO, "hooks", GUARD)), { mode: 0o755 });
+    return join(wt, "hooks", GUARD);
+  };
+  const guardEntry = (command: string): HookEntry => ({
+    matcher: "Bash",
+    hooks: [{ type: "command", command, timeout: 5 }],
+  });
+
+  test("two old checkout entries become one link entry", () => {
+    const { home, settings, env } = seedFixture();
+    const entries = [guardEntry(join(REPO, "hooks", GUARD)), guardEntry(secondCheckoutGuard(home))];
+    writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: entries } }));
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    const after = readPreToolUse(settings);
+    expect(guardCommands(after)).toEqual([join(home, ".claude", "hooks", GUARD)]);
+    expect(after.length).toBe(1);
+  });
+
+  test("an old checkout entry next to a link entry is removed, not duplicated", () => {
+    const { home, settings, env } = seedFixture();
+    const link = join(home, ".claude", "hooks", GUARD);
+    const other: HookEntry = { matcher: "Edit", hooks: [{ type: "command", command: "/opt/other.sh" }] };
+    writeFileSync(
+      settings,
+      JSON.stringify({ hooks: { PreToolUse: [guardEntry(link), other, guardEntry(join(REPO, "hooks", GUARD))] } }),
+    );
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(readPreToolUse(settings)).toEqual([guardEntry(link), other]);
+  });
+
   test("a malformed PreToolUse element doesn't make each run add another entry", () => {
     const { settings, env } = seedFixture();
     writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: ["junk", { matcher: 7 }] } }));

@@ -33,4 +33,24 @@ describe("redgreen.fish", () => {
     expect(r.stderr).toContain("Run: fish bin/setup-eval-home.fish");
     expect(readlinkSync(ruleLink)).toBe("/some/other/checkout/rules/goal-driven.md");
   });
+
+  test("EVAL_ALLOW_DEFAULT_CONFIG set → exit 2, rule link untouched", () => {
+    // The runner would then use ~/.claude while redgreen strips the eval
+    // folder, so the RED phase would strip nothing.
+    const evalHome = mkdtempSync(join(tmpdir(), "redgreen-eval-"));
+    fixtures.push(evalHome);
+    symlinkSync(join(REPO, "global", "CLAUDE.md"), join(evalHome, "CLAUDE.md"));
+    mkdirSync(join(evalHome, "rules"));
+    const ruleLink = join(evalHome, "rules", "goal-driven.md");
+    symlinkSync(join(REPO, "rules", "goal-driven.md"), ruleLink);
+
+    const r = spawnSync("fish", [SCRIPT, "goal-driven", "--dry-run", "--green", "0", "--red", "0"], {
+      env: { ...process.env, CLAUDE_EVAL_HOME: evalHome, EVAL_ALLOW_DEFAULT_CONFIG: "1" },
+      encoding: "utf8",
+    });
+    if (r.error) throw r.error;
+    expect(r.status).toBe(2);
+    expect(r.stderr).toContain("EVAL_ALLOW_DEFAULT_CONFIG");
+    expect(readlinkSync(ruleLink)).toBe(join(REPO, "rules", "goal-driven.md"));
+  });
 });

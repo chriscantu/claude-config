@@ -363,6 +363,20 @@ if test $hooks_enabled -eq 1
                         if type == "object" and (.command as $c | any($stale[]; . == $c))
                         then .command = $cmd else . end)
                 else . end)
+            # Two old entries (one per checkout), or an old entry next to a
+            # link entry, now both name the link: keep the first, drop the
+            # rest, and drop any group that empties.
+            | if ($stale | length) > 0 then
+                .hooks.PreToolUse |= (reduce .[] as $e ({seen: false, out: []};
+                    if ($e | type) == "object" and ($e.hooks | type) == "array" and ($e.hooks | length) > 0 then
+                        (reduce $e.hooks[] as $h ({seen: .seen, kept: []};
+                            if ($h | type) == "object" and $h.command == $cmd then
+                                if .seen then . else .seen = true | .kept += [$h] end
+                            else .kept += [$h] end)) as $r
+                        | .seen = $r.seen
+                        | if ($r.kept | length) == 0 then . else .out += [$e | .hooks = $r.kept] end
+                    else .out += [$e] end) | .out)
+              else . end
           else . end
         | if $add_hook then
             .hooks //= {}

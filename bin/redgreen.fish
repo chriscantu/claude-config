@@ -104,6 +104,12 @@ end
 
 source (dirname (status --current-filename))/lib/eval-home.fish
 # The suite must run against this checkout's rules, not another copy's.
+# With EVAL_ALLOW_DEFAULT_CONFIG the runner would use ~/.claude while this
+# script strips the eval folder, so the RED phase would strip nothing.
+if test -n "$EVAL_ALLOW_DEFAULT_CONFIG"
+    echo "ERROR: unset EVAL_ALLOW_DEFAULT_CONFIG; redgreen needs the eval folder." >&2
+    exit 2
+end
 eval_home_check $repo; or exit 2
 set -g __rg_live_link (eval_home_dir)/rules/$rule_name.md
 if not test -L $__rg_live_link
