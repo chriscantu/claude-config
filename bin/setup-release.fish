@@ -81,7 +81,9 @@ if test -n "$old_target"
         set -a prune_flags --prune-root $old_root
     end
 end
-if not fish $release/bin/link-config.fish $prune_flags $link_flags
+# --source: without it, link-config run from inside the release copy thinks no
+# release copy exists and prints a false note.
+if not fish $release/bin/link-config.fish --source $release $prune_flags $link_flags
     echo "ERROR: link-config.fish failed for $release" >&2
     exit 2
 end

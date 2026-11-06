@@ -86,18 +86,35 @@ trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 fetch_origin || log_update fetch-failed
 
 TARGET=$(git -C "$REL" rev-parse origin/main 2>/dev/null) || log_update fetch-failed
-[[ "$TARGET" != "$FROM" ]] || log_update unchanged
+
+# A relink that failed last time must run again, even with no new commit:
+# otherwise every later session logs "unchanged" and the links stay stale.
+# Only records that ran a relink count; a fetch-failed or skipped:* record in
+# between says nothing about the links.
+RETRY_RELINK=0
+LAST_RELINK=$(jq -r 'select(.event=="update" and (.result | test("relink"))) | .result' "$LOG" 2>/dev/null | tail -1)
+[[ "$LAST_RELINK" == relink-failed* ]] && RETRY_RELINK=1
+
+# run_relink_logged OK_RESULT → relink, then log OK_RESULT or relink-failed,
+# each with +needs-registration when link-config printed that warning.
+run_relink_logged() {
+  local result="$1" out
+  # Scan the output before judging the exit code: a failed link-config can
+  # still have printed the registration warning, and that must not be lost.
+  out=$(run_relink) || result=relink-failed
+  if [[ "$out" == *"hooks/rules-shadow.sh is not registered"* ]]; then
+    result+="+needs-registration"
+  fi
+  log_update "$result"
+}
+
+if [[ "$TARGET" == "$FROM" ]]; then
+  [[ "$RETRY_RELINK" == 1 ]] || log_update unchanged
+  run_relink_logged relinked
+fi
 git -C "$REL" merge-base --is-ancestor HEAD origin/main 2>/dev/null || log_update skipped:not-fast-forward
 git -C "$REL" checkout -q --detach "$TARGET" 2>/dev/null || log_update checkout-failed
 TO="$TARGET"
 
-relink_needed || log_update updated
-
-# Scan the output before judging the exit code: a failed link-config can still
-# have printed the registration warning, and that must not be lost.
-RESULT=updated+relinked
-LINK_OUT=$(run_relink) || RESULT=relink-failed
-if [[ "$LINK_OUT" == *"hooks/rules-shadow.sh is not registered"* ]]; then
-  RESULT+="+needs-registration"
-fi
-log_update "$RESULT"
+[[ "$RETRY_RELINK" == 1 ]] || relink_needed || log_update updated
+run_relink_logged updated+relinked

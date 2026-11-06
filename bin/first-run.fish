@@ -320,6 +320,13 @@ if test $hooks_enabled -eq 1
         exit 1
     end
 
+    # Claude Code needs hooks to be an object; the steps below index into it.
+    if not jq -e '(.hooks | type) as $t | $t == "object" or $t == "null"' $settings >/dev/null 2>&1
+        echo "ERROR: hooks in $settings is not an object. Refusing to modify." >&2
+        echo "       Fix it by hand, then re-run." >&2
+        exit 2
+    end
+
     # Claude Code needs PreToolUse to be a list. Any other shape is already
     # broken, and the steps below assume a list, so refuse before writing.
     set -l pre_tool_use_ok 'if (.hooks | type) == "object" then (.hooks.PreToolUse | type) as $t | $t == "array" or $t == "null" else true end'
@@ -345,10 +352,17 @@ if test $hooks_enabled -eq 1
     # Only paths inside a claude-config checkout (it has bin/first-run.fish)
     # count; other entries are the user's own and are never touched.
     set -l stale_guards
+    # A command may run the guard through an interpreter (`bash <path>`), so
+    # look at each word, not only the whole command.
     for cmd in (jq -r '.hooks.PreToolUse? | arrays | .[] | objects | .hooks[]? | objects | .command? // empty | strings' $settings)
-        string match -q "*/hooks/block-dangerous-git.sh" -- $cmd; or continue
-        test "$cmd" = "$hook_dangerous"; and continue
-        test -e (dirname (dirname $cmd))/bin/first-run.fish; and set -a stale_guards $cmd
+        for word in (string split -n ' ' -- $cmd)
+            string match -q "*/hooks/block-dangerous-git.sh" -- $word; or continue
+            test "$word" = "$hook_dangerous"; and continue
+            if test -e (dirname (dirname $word))/bin/first-run.fish
+                set -a stale_guards $cmd
+                break
+            end
+        end
     end
     set -l cleaned (mktemp)
     if test (count $stale_guards) -eq 0
@@ -403,15 +417,17 @@ if test $hooks_enabled -eq 1
         rm -f $tmp
         exit 2
     end
-    if not mv $tmp $settings
-        echo "ERROR: failed to write $settings" >&2
+    # Check the new file before it replaces the old one, so a broken result
+    # is refused instead of left in place (#557: success once printed with no
+    # hook written).
+    if not __first_run_guard_registered $tmp $hook_dangerous
+        echo "ERROR: no PreToolUse hook runs $hook_dangerous in the new $settings; left the file unchanged" >&2
         rm -f $tmp
         exit 2
     end
-    # Read back before claiming success (#557: this line once printed with
-    # no hook written).
-    if not __first_run_guard_registered $settings $hook_dangerous
-        echo "ERROR: wrote $settings but no PreToolUse hook runs $hook_dangerous" >&2
+    if not mv $tmp $settings
+        echo "ERROR: failed to write $settings" >&2
+        rm -f $tmp
         exit 2
     end
     echo "Registered hooks in: $settings"
