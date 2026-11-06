@@ -140,6 +140,43 @@ run_hook
 assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" relink-failed "$(field update result)"
 
+echo "── a failed relink is retried on the next session ──"
+new_case relinkretry
+push_change sh -c 'echo b > rules/b.md'
+LINK_CMD="exit 3"
+run_hook
+assert_eq "first run fails" relink-failed "$(field update result)"
+LINK_CMD="echo ran >> $LINKS"
+run_hook
+assert_eq "retry result" relinked "$(field update result)"
+assert_eq "link ran on retry" 1 "$(link_count)"
+run_hook
+assert_eq "no retry after success" unchanged "$(field update result)"
+assert_eq "link not run again" 1 "$(link_count)"
+
+echo "── a failed relink is still retried after a later fetch failure ──"
+new_case relinkretryoffline
+push_change sh -c 'echo b > rules/b.md'
+LINK_CMD="exit 3"
+run_hook
+# An offline session in between logs a record that says nothing about links.
+echo '{"event":"update","result":"fetch-failed"}' >> "$LOG"
+LINK_CMD="echo ran >> $LINKS"
+run_hook
+assert_eq "retry result" relinked "$(field update result)"
+assert_eq "link ran on retry" 1 "$(link_count)"
+
+echo "── a failed relink is retried even when the next commit needs none ──"
+new_case relinkretrynext
+push_change sh -c 'echo b > rules/b.md'
+LINK_CMD="exit 3"
+run_hook
+push_change sh -c 'echo two > rules/a.md'
+LINK_CMD="echo ran >> $LINKS"
+run_hook
+assert_eq "result" updated+relinked "$(field update result)"
+assert_eq "link ran" 1 "$(link_count)"
+
 echo "── registration warning survives a failing link command ──"
 new_case regfail
 push_change sh -c 'echo b > rules/b.md'

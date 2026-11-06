@@ -8,6 +8,7 @@ import {
   readFileSync,
   readdirSync,
   readlinkSync,
+  realpathSync,
   rmSync,
   symlinkSync,
   writeFileSync,
@@ -90,8 +91,16 @@ describe("setup-release.fish", () => {
   });
 
   test("links ~/.claude to the release copy", () => {
+    // link-config resolves --source, as the updater hook does (macOS tmp is /private/var).
     expect(run().exitCode).toBe(0);
-    expect(readlinkSync(join(home, ".claude", "CLAUDE.md"))).toBe(join(rel, "global", "CLAUDE.md"));
+    expect(readlinkSync(join(home, ".claude", "CLAUDE.md"))).toBe(join(realpathSync(rel), "global", "CLAUDE.md"));
+  });
+
+  test("does not claim the release copy is missing", () => {
+    // The release copy exists, so link-config's "no release copy" note is false.
+    const r = run();
+    expect(r.exitCode).toBe(0);
+    expect(r.stderr).not.toContain("no release copy");
   });
 
   test("registers the SessionStart hook once", () => {
@@ -106,7 +115,7 @@ describe("setup-release.fish", () => {
     expect(run().exitCode).toBe(2);
     expect(run("--install").exitCode).toBe(0);
     expect(existsSync(join(home, ".claude", "CLAUDE.md.bak"))).toBe(true);
-    expect(readlinkSync(join(home, ".claude", "CLAUDE.md"))).toBe(join(rel, "global", "CLAUDE.md"));
+    expect(readlinkSync(join(home, ".claude", "CLAUDE.md"))).toBe(join(realpathSync(rel), "global", "CLAUDE.md"));
   });
 
   test("backs up an existing settings.json before editing", () => {

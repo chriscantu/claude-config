@@ -435,6 +435,58 @@ describe("first-run.fish — hook registration (#557)", () => {
     expect(json.hooks.Stop[0].hooks[0].command).toBe("/opt/stop.sh");
     expect(guardCommands(json.hooks.PreToolUse).length).toBe(1);
   });
+
+  // Claude Code needs hooks to be an object. Any other shape is refused
+  // before a backup, so no stray settings.json.bak.* is left behind (#588).
+  for (const [shape, hooks] of [
+    ["a string", "x"],
+    ["a list", []],
+  ] as const) {
+    test(`hooks as ${shape} → exit 2, clear message, file unchanged, no backup`, () => {
+      const { home, settings, env } = seedFixture();
+      const original = JSON.stringify({ hooks });
+      writeFileSync(settings, original);
+
+      const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS });
+      expect(r.exitCode).toBe(2);
+      expect(r.stderr).toContain("hooks in");
+      expect(r.stderr).toContain("is not an object");
+      expect(readFileSync(settings, "utf8")).toBe(original);
+      expect(readdirSync(join(home, ".claude")).some((f) => f.startsWith("settings.json.bak."))).toBe(false);
+    });
+  }
+
+  test("a new file that fails the final check is never moved into place", () => {
+    const { home, settings, env } = seedFixture();
+    const original = JSON.stringify({ model: "keep-me" });
+    writeFileSync(settings, original);
+    // A jq that breaks only the step that adds the guard, like a future bug
+    // in that filter: it prints valid JSON with no guard in it.
+    const realJq = spawnSync("sh", ["-c", "command -v jq"], { encoding: "utf8" }).stdout.trim();
+    const shim = join(home, "shim");
+    mkdirSync(shim);
+    writeFileSync(
+      join(shim, "jq"),
+      `#!/bin/sh\ncase "$*" in *add_hook*) echo '{}'; exit 0 ;; esac\nexec ${realJq} "$@"\n`,
+      { mode: 0o755 },
+    );
+
+    const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS, PATH: `${shim}:${process.env.PATH}` });
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("no PreToolUse hook runs");
+    expect(readFileSync(settings, "utf8")).toBe(original);
+  });
+
+  test("an old checkout entry run through an interpreter moves to the link", () => {
+    // e.g. `bash <checkout>/hooks/block-dangerous-git.sh`: still runs the
+    // checkout's own guard, so it must be cleaned like a bare path.
+    const { home, settings, env } = seedFixture();
+    const viaBash = `bash ${join(REPO, "hooks", GUARD)}`;
+    writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: [guardEntry(viaBash)] } }));
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(readPreToolUse(settings)).toEqual([guardEntry(join(home, ".claude", "hooks", GUARD))]);
+  });
 });
 
 describe("first-run.fish — idempotency", () => {
