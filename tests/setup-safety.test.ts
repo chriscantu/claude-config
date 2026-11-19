@@ -194,6 +194,24 @@ describe("setup-safety.fish", () => {
     expect(s.sandbox.enabled).toBe(true);
   });
 
+  // The link's target is often in a dotfiles git repo, and settings can hold
+  // tokens in env. A backup there could be committed (#598).
+  test("backs up a symlinked settings file beside the link, not in the target's folder", () => {
+    const { home, settingsPath } = seedHome();
+    const dotfiles = join(home, "dotfiles");
+    mkdirSync(dotfiles);
+    const real = join(dotfiles, "claude-settings.json");
+    writeFileSync(real, JSON.stringify({ theme: "dark" }));
+    symlinkSync(real, settingsPath);
+    expect(run(home).code).toBe(0);
+    expect(readdirSync(dotfiles)).toEqual(["claude-settings.json"]);
+    const backups = readdirSync(join(home, ".claude")).filter((f) =>
+      f.startsWith("settings.json.bak."),
+    );
+    expect(backups.length).toBe(1);
+    expect(read(join(home, ".claude", backups[0]))).toEqual({ theme: "dark" });
+  });
+
   test("keeps the settings file's permissions", () => {
     const { home, settingsPath } = seedHome({ theme: "dark" });
     chmodSync(settingsPath, 0o644);
