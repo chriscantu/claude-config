@@ -14,9 +14,11 @@ FAILURES=()
 EMPTY_HOME=$(mktemp -d)
 trap 'rm -rf "$EMPTY_HOME"' EXIT
 
-# Build the payload with jq so commands with quotes stay valid JSON.
+# Build the payload with jq so commands with quotes stay valid JSON. The
+# command goes in on stdin, not --arg: Linux caps one argument at 128 KB, and
+# the long-command case is bigger.
 run_hook() {
-  jq -n --arg c "$1" '{tool_input:{command:$c}}' | HOME="$EMPTY_HOME" "$HOOK" >/dev/null 2>&1
+  printf '%s' "$1" | jq -Rs '{tool_input:{command:.}}' | HOME="$EMPTY_HOME" "$HOOK" >/dev/null 2>&1
   echo $?
 }
 
