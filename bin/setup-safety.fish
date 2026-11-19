@@ -7,8 +7,8 @@
 # registers hooks/block-secret-reads.sh:
 #   - Read deny rules for .env files at any depth, ~/.ssh, and credentials/
 #     directories. With the sandbox on, these also block shell commands at
-#     the OS level. An Edit deny rule keeps Claude from creating the hook's
-#     off switch.
+#     the OS level. Edit deny rules keep Claude from creating the hook's
+#     off switch and from rewriting settings files to undo all of this.
 #   - The sandbox for shell commands, with no unsandboxed retry. `gh` runs
 #     outside it because it fails TLS checks under the macOS sandbox.
 #   - A PreToolUse hook that blocks Bash commands naming those files, so they
