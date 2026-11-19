@@ -75,7 +75,10 @@ describe("setup-safety.fish", () => {
     }
     expect(s.sandbox.enabled).toBe(true);
     expect(s.sandbox.allowUnsandboxedCommands).toBe(false);
-    expect(s.sandbox.excludedCommands).toContain("gh *");
+    // gh runs inside the sandbox now: weaker network isolation lets it pass
+    // TLS checks, so it no longer needs an exclusion (#598).
+    expect(s.sandbox.enableWeakerNetworkIsolation).toBe(true);
+    expect(s.sandbox.excludedCommands).toBeUndefined();
     expect(secretHookCount(s, hook)).toBe(1);
   });
 
@@ -92,7 +95,19 @@ describe("setup-safety.fish", () => {
     expect(s.permissions.deny[0]).toBe("Bash(sudo:*)");
     // An explicit "off" is the user's call; the script fills gaps only.
     expect(s.sandbox.enabled).toBe(false);
-    expect(s.sandbox.excludedCommands).toEqual(["docker *", "gh *"]);
+    expect(s.sandbox.excludedCommands).toEqual(["docker *"]);
+  });
+
+  // Earlier versions of the template added "gh *". The script only adds, so
+  // it names the leftover entry instead of removing it.
+  test("names a leftover gh exclusion on every run, and keeps it", () => {
+    const { home, settingsPath } = seedHome({ sandbox: { excludedCommands: ["gh *"] } });
+    for (const r of [run(home), run(home)]) {
+      expect(r.code).toBe(0);
+      expect(r.out).toContain('"gh *"');
+      expect(r.out).toContain("outside the sandbox");
+    }
+    expect(read(settingsPath).sandbox.excludedCommands).toEqual(["gh *"]);
   });
 
   test("is idempotent: a second run changes nothing", () => {
