@@ -36,3 +36,6 @@ end
 echo ""
 echo "Want to personalize global/CLAUDE.md and register hooks?"
 echo "  Run: fish $repo_dir/bin/first-run.fish"
+echo ""
+echo "Want deny rules for secrets and the shell sandbox turned on?"
+echo "  Run: fish $repo_dir/bin/setup-safety.fish"
