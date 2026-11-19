@@ -103,6 +103,25 @@ describe("setup-safety.fish", () => {
     expect(readFileSync(settingsPath, "utf8")).toBe(first);
   });
 
+  // The sandbox blocks new files beside ~/.claude/settings.json (#598). A
+  // read-only folder has the same effect: a run with nothing to change must
+  // not need to create a temp file there.
+  test("a second run passes when nothing can be written beside the settings file", () => {
+    const { home, settingsPath } = seedHome({});
+    expect(run(home).code).toBe(0);
+    const dir = join(home, ".claude");
+    chmodSync(dir, 0o555);
+    try {
+      const r = run(home);
+      expect(r.out).toContain("Safety settings already present");
+      expect(r.code).toBe(0);
+    } finally {
+      chmodSync(dir, 0o755);
+    }
+    expect(readdirSync(dir).filter((f) => f.startsWith("settings.json.")).length).toBe(1);
+    expect(read(settingsPath).sandbox.enabled).toBe(true);
+  });
+
   test("backs up the settings file before writing", () => {
     const { home } = seedHome({ theme: "dark" });
     expect(run(home).code).toBe(0);
