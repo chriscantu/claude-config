@@ -97,13 +97,13 @@ The eval folder needs its own login once. If the installer warns about it, run `
 
 **Optional — guided personalization.** After install, run `fish bin/first-run.fish` for an interactive walkthrough. It saves your shell, language, TDD and sycophancy preferences to `~/.claude/rules/first-run-personalization.md`, a personal file outside the repo. It also registers the repo hooks in `~/.claude/settings.json` (with a timestamped backup) and verifies the install. Re-run it any time to update your preferences.
 
-**Optional — safety settings.** Rules in a prompt can be missed. Deny rules, the sandbox, and hooks are enforced by Claude Code itself. Run `fish bin/setup-safety.fish` to turn them on. It backs up `~/.claude/settings.json`, then adds only what is missing.
+**Optional — safety settings.** Rules in a prompt can be missed. Deny rules, the sandbox, and hooks are enforced by Claude Code itself. Run `fish bin/setup-safety.fish` to turn them on. It backs up `~/.claude/settings.json`, then adds only what is missing. If you already turned a sandbox setting off, it stays off, and the script prints a note about it on every run.
 
 | Setting | Shipped or personal | What it does |
 |---|---|---|
-| `Read` deny rules for `.env`, `.env.*`, `~/.ssh`, `credentials/` | Shipped ([`templates/safety-settings.json`](templates/safety-settings.json)) | Claude's file tools can't read these files. With the sandbox on, shell commands can't either. |
+| `Read` deny rules for `.env` and `.env.*` in any folder, `~/.ssh`, `credentials/` | Shipped ([`templates/safety-settings.json`](templates/safety-settings.json)) | Claude's file tools can't read these files. With the sandbox on, shell commands can't either. Env templates like `.env.example` are blocked too. |
 | Sandbox on, no unsandboxed retry, `gh` excluded | Shipped (same file) | Shell commands, and the scripts they start, can write only to the working folder and temp. Claude can't rerun a blocked command outside the sandbox. `gh` runs outside it because it fails TLS checks in the macOS sandbox. |
-| [`hooks/block-secret-reads.sh`](hooks/block-secret-reads.sh) | Shipped | Blocks Bash commands that name those files, so they stay blocked with the sandbox off. It matches text, so it is a backstop, not a wall. Turn it off with `~/.claude/DISABLE_SECRET_GUARD`. |
+| [`hooks/block-secret-reads.sh`](hooks/block-secret-reads.sh) | Shipped | Blocks Bash commands that name those files, so they stay blocked with the sandbox off. It matches text, so it is a backstop, not a wall. To turn it off, create an empty file at `~/.claude/DISABLE_SECRET_GUARD`. Delete the file to turn it back on. A file with that name in a project's `.claude/` folder does nothing, so Claude can't switch the guard off. |
 | `autoMode.environment` | Personal | Tells auto mode which repos and services you trust. It differs per person, so set it by hand in `~/.claude/settings.json`. Keep `"$defaults"` in the list, or the built-in context is dropped. |
 
 A plugin can't ship deny rules or sandbox settings, so they come from this script, not the plugin. If a command you need fails in the sandbox, add its path under `sandbox.filesystem.allowWrite` or its name under `sandbox.excludedCommands`.

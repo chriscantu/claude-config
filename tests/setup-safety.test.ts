@@ -6,7 +6,10 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  readlinkSync,
   rmSync,
+  statSync,
+  symlinkSync,
   writeFileSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
@@ -42,9 +45,12 @@ const seedHome = (settings?: unknown) => {
   return { home, hook, settingsPath };
 };
 
-const run = (home: string) => {
+// FIRST_RUN_SETTINGS_PATH is dropped so a developer's own value can't point
+// the script at their real settings file.
+const run = (home: string, extraEnv: Record<string, string> = {}) => {
+  const { FIRST_RUN_SETTINGS_PATH: _ignored, ...env } = process.env;
   const r = spawnSync("fish", [SCRIPT], {
-    env: { ...process.env, HOME: home },
+    env: { ...env, HOME: home, ...extraEnv },
     encoding: "utf8",
   });
   if (r.error) throw r.error;
@@ -59,7 +65,7 @@ const secretHookCount = (s: any, hook: string) =>
     .filter((h: any) => h.command === hook).length;
 
 describe("setup-safety.fish", () => {
-  test("adds deny rules, sandbox, and the hook to an empty settings file", () => {
+  test("creates the settings file with deny rules, sandbox, and the hook when it is missing", () => {
     const { home, hook, settingsPath } = seedHome();
     const r = run(home);
     expect(r.code).toBe(0);
@@ -122,5 +128,98 @@ describe("setup-safety.fish", () => {
     expect(r.code).not.toBe(0);
     expect(r.out).toContain("install.fish");
     expect(read(settingsPath)).toEqual({ theme: "dark" });
+  });
+  test("refuses an empty settings file instead of treating it as {}", () => {
+    const { home, settingsPath } = seedHome();
+    writeFileSync(settingsPath, "");
+    expect(run(home).code).not.toBe(0);
+    expect(readFileSync(settingsPath, "utf8")).toBe("");
+  });
+
+  test.each([
+    ["deny is a string", { permissions: { deny: "Bash(sudo:*)" } }],
+    ["sandbox is a boolean", { sandbox: true }],
+    ["PreToolUse is an object", { hooks: { PreToolUse: {} } }],
+  ])("refuses a settings file where %s, and writes nothing", (_name, bad) => {
+    const { home, settingsPath } = seedHome(bad);
+    const before = readFileSync(settingsPath, "utf8");
+    expect(run(home).code).not.toBe(0);
+    expect(readFileSync(settingsPath, "utf8")).toBe(before);
+    expect(readdirSync(join(home, ".claude")).sort()).toEqual(["hooks", "settings.json"]);
+  });
+
+  test("writes through a symlinked settings file and keeps the link", () => {
+    const { home, settingsPath } = seedHome();
+    const real = join(home, "dotfiles-settings.json");
+    writeFileSync(real, JSON.stringify({ theme: "dark" }));
+    symlinkSync(real, settingsPath);
+    expect(run(home).code).toBe(0);
+    expect(readlinkSync(settingsPath)).toBe(real);
+    const s = read(real);
+    expect(s.theme).toBe("dark");
+    expect(s.sandbox.enabled).toBe(true);
+  });
+
+  test("keeps the settings file's permissions", () => {
+    const { home, settingsPath } = seedHome({ theme: "dark" });
+    chmodSync(settingsPath, 0o644);
+    expect(run(home).code).toBe(0);
+    expect(statSync(settingsPath).mode & 0o777).toBe(0o644);
+  });
+
+  test("names every sandbox key you kept that weakens the template, on every run", () => {
+    const { home } = seedHome({
+      sandbox: { enabled: false, allowUnsandboxedCommands: true },
+    });
+    for (const r of [run(home), run(home)]) {
+      expect(r.code).toBe(0);
+      expect(r.out).toContain('"sandbox.enabled": false');
+      expect(r.out).toContain('"sandbox.allowUnsandboxedCommands": true');
+    }
+  });
+
+  test("says jq is missing rather than blaming the template", () => {
+    const { home, settingsPath } = seedHome({ theme: "dark" });
+    const bin = mkdtempSync(join(tmpdir(), "setup-safety-nojq-"));
+    homes.push(bin);
+    const dirname = spawnSync("sh", ["-c", "command -v dirname"], { encoding: "utf8" }).stdout.trim();
+    symlinkSync(dirname, join(bin, "dirname"));
+    const fish = spawnSync("sh", ["-c", "command -v fish"], { encoding: "utf8" }).stdout.trim();
+    const { FIRST_RUN_SETTINGS_PATH: _ignored, ...env } = process.env;
+    const r = spawnSync(fish, [SCRIPT], {
+      env: { ...env, HOME: home, PATH: bin },
+      encoding: "utf8",
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.stdout + r.stderr).toContain("jq is not installed");
+    expect(r.stdout + r.stderr).not.toContain("template is not valid JSON");
+    expect(read(settingsPath)).toEqual({ theme: "dark" });
+  });
+  test("explains a symlink it can't follow instead of exiting silently", () => {
+    const { home, settingsPath } = seedHome();
+    symlinkSync(join(home, "missing-target.json"), settingsPath);
+    const r = run(home);
+    expect(r.code).not.toBe(0);
+    expect(r.out).toContain("symlink");
+  });
+
+  test("adds a Bash entry when the hook is registered only under another matcher", () => {
+    const { home, hook, settingsPath } = seedHome();
+    writeFileSync(
+      settingsPath,
+      JSON.stringify({
+        hooks: { PreToolUse: [{ matcher: "Read", hooks: [{ type: "command", command: hook }] }] },
+      }),
+    );
+    expect(run(home).code).toBe(0);
+    const bash = read(settingsPath).hooks.PreToolUse.filter((g: any) => g.matcher === "Bash");
+    expect(bash.flatMap((g: any) => g.hooks).map((h: any) => h.command)).toContain(hook);
+  });
+
+  test("warns when disableAllHooks would stop the hook from running", () => {
+    const { home } = seedHome({ disableAllHooks: true });
+    const r = run(home);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("disableAllHooks");
   });
 });

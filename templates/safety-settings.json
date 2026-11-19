@@ -1,10 +1,11 @@
 {
   "permissions": {
     "deny": [
-      "Read(./.env)",
-      "Read(./.env.*)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
       "Read(~/.ssh/**)",
-      "Read(**/credentials/**)"
+      "Read(**/credentials/**)",
+      "Edit(~/.claude/DISABLE_SECRET_GUARD)"
     ]
   },
   "sandbox": {
