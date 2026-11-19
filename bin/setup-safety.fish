@@ -9,8 +9,9 @@
 #     directories. With the sandbox on, these also block shell commands at
 #     the OS level. Edit deny rules keep Claude from creating the hook's
 #     off switch and from rewriting settings files to undo all of this.
-#   - The sandbox for shell commands, with no unsandboxed retry. `gh` runs
-#     outside it because it fails TLS checks under the macOS sandbox.
+#   - The sandbox for shell commands, with no unsandboxed retry. Weaker
+#     network isolation lets `gh` pass TLS checks inside the macOS sandbox,
+#     so it needs no exclusion.
 #   - A PreToolUse hook that blocks Bash commands naming those files, so they
 #     stay blocked when the sandbox is off or can't start.
 #
@@ -75,15 +76,18 @@ if not jq -e 'type == "object"' $settings >/dev/null 2>&1
 end
 
 # report_sandbox_overrides SETTINGS TEMPLATE → one NOTE per kept setting that
-# switches off a protection: a sandbox key that differs from the template, or
-# disableAllHooks. A "fills gaps only" merge must never hide that.
+# switches off a protection: a sandbox key that differs from the template, the
+# "gh *" exclusion earlier templates added, or disableAllHooks. A "fills gaps
+# only" merge must never hide that.
 function report_sandbox_overrides --argument-names settings template
     jq -r --slurpfile t $template '
         (.sandbox // {}) as $mine
         | ($t[0].sandbox | to_entries[]
             | .key as $k
-            | select($k != "excludedCommands" and ($mine | has($k)) and $mine[$k] != .value)
+            | select(($mine | has($k)) and $mine[$k] != .value)
             | "NOTE: your settings keep \"sandbox.\($k)\": \($mine[$k] | tojson) (the template sets \(.value | tojson)), so that sandbox protection is off."),
+          (select($mine.excludedCommands // [] | index(["gh *"]))
+            | "NOTE: your settings keep \"gh *\" in \"sandbox.excludedCommands\", so gh runs outside the sandbox. It no longer needs to; remove the entry by hand."),
           (select(.disableAllHooks == true)
             | "NOTE: your settings keep \"disableAllHooks\": true, so the secret-read hook never runs.")
     ' $settings >&2
@@ -102,7 +106,6 @@ set -l merge $registered'
     .permissions //= {}
     | .permissions.deny = union(.permissions.deny; $tpl.permissions.deny)
     | .sandbox = ($tpl.sandbox * (.sandbox // {}))
-    | .sandbox.excludedCommands = union(.sandbox.excludedCommands; $tpl.sandbox.excludedCommands)
     | .hooks //= {}
     | .hooks.PreToolUse //= []
     | if registered($hook) then .
