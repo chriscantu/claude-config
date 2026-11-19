@@ -110,6 +110,21 @@ set -l merge $registered'
       end
 '
 
+# Merge in memory and compare before touching the disk. The sandbox blocks new
+# files beside ~/.claude/settings.json, so a re-run with nothing to change must
+# not create a temp file (#598).
+set -l merged (jq --slurpfile t $template --arg hook $hook ". as \$s | \$t[0] as \$tpl | \$s | $merge" $settings | string collect)
+if test $pipestatus[1] -ne 0; or test -z "$merged"
+    echo "ERROR: jq failed to merge into $settings" >&2
+    exit 2
+end
+
+if printf '%s\n' $merged | cmp -s - $settings
+    echo "Safety settings already present in: $settings"
+    report_sandbox_overrides $settings $template
+    exit 0
+end
+
 # Write beside the target, then rename: a same-directory mv is atomic, so
 # Claude Code never loads a half-written file. cp -p first gives the temp
 # file the original's mode; mktemp alone would leave it 0600.
@@ -119,18 +134,10 @@ if test $status -ne 0; or not cp -p $settings $tmp
     test -n "$tmp"; and rm -f $tmp
     exit 2
 end
-jq --slurpfile t $template --arg hook $hook ". as \$s | \$t[0] as \$tpl | \$s | $merge" $settings > $tmp
-if test $status -ne 0; or not test -s $tmp
-    echo "ERROR: jq failed to merge into $settings" >&2
+if not printf '%s\n' $merged > $tmp
+    echo "ERROR: could not write the temp file beside $settings" >&2
     rm -f $tmp
     exit 2
-end
-
-if cmp -s $tmp $settings
-    rm -f $tmp
-    echo "Safety settings already present in: $settings"
-    report_sandbox_overrides $settings $template
-    exit 0
 end
 
 set -l backup "$settings.bak."(date -u +%Y%m%dT%H%M%SZ)
