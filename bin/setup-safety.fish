@@ -35,6 +35,10 @@ set -l settings $HOME/.claude/settings.json
 if set -q FIRST_RUN_SETTINGS_PATH
     set settings $FIRST_RUN_SETTINGS_PATH
 end
+# Back up beside the path as given, not the link's target: dotfile managers
+# keep the target in a git repo, where filters such as git-crypt match
+# settings.json but not a .bak copy, and settings can hold tokens in env.
+set -l backup_base $settings
 # Dotfile managers often link settings.json. Edit the file the link points to,
 # or the final rename would replace the link with a plain file.
 if test -L $settings
@@ -143,7 +147,7 @@ if not printf '%s\n' $merged > $tmp
     exit 2
 end
 
-set -l backup "$settings.bak."(date -u +%Y%m%dT%H%M%SZ)
+set -l backup "$backup_base.bak."(date -u +%Y%m%dT%H%M%SZ)
 if not cp $settings $backup
     echo "ERROR: failed to back up $settings" >&2
     rm -f $tmp
