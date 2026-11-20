@@ -9,7 +9,8 @@
 # detached and the hook never waits on the network.
 #
 # Writes one "session" record to the log, starts the worker, prints nothing
-# (stdout would be added to the session context), and always exits 0.
+# (stdout would be added to the session context), and always exits 0. The one
+# exception: with jq missing it prints a systemMessage for the user and stops.
 #
 # Kill switch: a file named DISABLE_CONFIG_RELEASE_UPDATE under ~/.claude/ or
 # <project>/.claude/.
@@ -78,9 +79,20 @@ start_worker() {
   nohup "${cmd[@]}" >/dev/null 2>&1 </dev/null &
 }
 
+# Printed by hand as JSON because jq is the thing that's missing, so the text
+# must hold no double quote or backslash.
+JQ_MISSING_MESSAGE="jq is not installed, so claude-config's hooks run degraded: block-secret-reads and block-dangerous-git scan the raw hook input instead of the command, and rules-shadow and the release-copy update are skipped. Install jq (brew install jq), then start a new session."
+
 main() {
+  # Without jq, four hooks degrade and say so only on stderr, which Claude Code
+  # never shows for a hook that exits 0. A systemMessage is shown to the user.
+  # This runs before the kill switch: that switch turns off updates, not this
+  # warning.
+  if ! command -v jq >/dev/null 2>&1; then
+    printf '{"systemMessage":"%s"}\n' "$JQ_MISSING_MESSAGE"
+    exit 0
+  fi
   hook_disabled DISABLE_CONFIG_RELEASE_UPDATE && exit 0
-  require_cmd jq || exit 0
 
   local release session loaded=""
   hook_read_input
