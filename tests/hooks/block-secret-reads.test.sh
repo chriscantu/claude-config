@@ -94,9 +94,25 @@ test_block 'cp .env.example .env'
 test_block 'touch ~/.claude/DISABLE_SECRET_GUARD'
 test_block 'touch .claude/DISABLE_SECRET_GUARD'
 
+# --- Block: globs that bash expands to the secret name (#598) ---
+test_block 'cat ~/.ss?/id_rsa'
+test_block 'cat ~/.s*/id_rsa'
+test_block 'cat ~/.[s]sh/id_rsa'
+test_block 'ls ~/.s?h'
+test_block 'cat .e*'
+test_block 'cat .[e]nv'
+test_block 'cat .?nv'
+test_block 'cat .e?v.local'
+
 # --- Allow: more look-alikes ---
 test_allow 'direnv allow .envrc'
 test_allow 'ls ~/.sshrc-notes'
+# Globs that end in letters .env and .ssh don't, such as .envrc's rc.
+test_allow 'cat .e*rc'
+test_allow 'cat ~/.s*rc'
+test_allow 'cat ~/.shrc'
+# A bare .* has no letter to anchor on; blocking it would block `ls -d .*`.
+test_allow 'ls -d .*'
 
 # --- Long commands: grep -q used to close the pipe early, and pipefail read
 # the SIGPIPE as "no match" ---

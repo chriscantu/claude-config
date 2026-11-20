@@ -12,7 +12,8 @@
 #
 # Best effort only: it matches the command text after removing quotes and
 # backslashes the way bash joins words, so `cat '.e'nv` is caught but a path
-# built at runtime (for example "$(echo .e)nv" or a glob like .e*) slips past.
+# built at runtime (for example "$(echo .e)nv") slips past. So does a glob with
+# no letter of the name in it, such as .*, which also matches every dotfile.
 # The sandbox is the strong layer.
 #
 # Env templates such as .env.example are blocked too. The Read(**/.env.*) deny
@@ -86,13 +87,18 @@ SCAN="${COMMAND//[${q}\"\\]/}"
 START="(^|[[:space:]/=<:\`({,])"
 END="([[:space:];|&>)\`,}*?]|$)"
 NOT_END="[^[:space:];|&>)\`,}]"
+# A glob that stands for exactly one letter: ? or a bracket class like [e].
+# Each letter of a secret name below may be written as one of these, and a *
+# may replace the rest of the name, so .e* and .[s]sh expand to a secret too.
+ONE="\\?|\\[[^]/]*\\]"
 SECRET_PATTERNS=(
   # .env and any suffix (.env.local, .env-local, .env.production.local), plus
-  # the globs .env* and .en? that expand to it. .envrc is not a secret.
-  "${START}\\.en[v?*]([.?*-]${NOT_END}*)?${END}"
+  # globs such as .env*, .en?, .e* and .[e]nv that expand to it. .envrc is not
+  # a secret.
+  "${START}\\.(e|${ONE})(\\*|(n|${ONE})(\\*|(v|${ONE})([.?*-]${NOT_END}*)?))${END}"
   # .ssh after any segment start: ~/.ssh, \$HOME/.ssh, ~/".ssh", or a bare
-  # .ssh/ after cd ~.
-  "${START}\\.ssh(/|${END})"
+  # .ssh/ after cd ~. Globs such as .ss?, .s* and .[s]sh count too.
+  "${START}\\.(s|${ONE})(\\*|(s|${ONE})(\\*|(h|${ONE})\\*?))(/|${END})"
   # credentials/ directory at any depth
   "${START}credentials/"
   # The off-switch file: naming it would let the model disable this guard.
