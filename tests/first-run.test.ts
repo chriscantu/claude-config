@@ -451,6 +451,28 @@ describe("first-run.fish — hook registration (#557)", () => {
     expect(guardCommands(readPreToolUse(settings))).toEqual([join(home, ".claude", "hooks", GUARD)]);
   });
 
+  // A checkout path can contain a space, bare or quoted after an interpreter.
+  // Splitting the command into words must not cut that path in two (#588).
+  for (const [form, toCommand] of [
+    ["bare", (p: string) => p],
+    ["quoted after an interpreter", (p: string) => `bash "${p}"`],
+  ] as const) {
+    test(`an old checkout entry with a space in its path (${form}) moves to the link`, () => {
+      const { home, settings, env } = seedFixture();
+      const checkout = join(home, "My Repos", "claude-config");
+      mkdirSync(join(checkout, "bin"), { recursive: true });
+      mkdirSync(join(checkout, "hooks"));
+      writeFileSync(join(checkout, "bin", "first-run.fish"), "");
+      writeFileSync(join(checkout, "hooks", GUARD), "");
+      const oldCommand = toCommand(join(checkout, "hooks", GUARD));
+      writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: [guardEntry(oldCommand)] } }));
+
+      assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+      const commands = readPreToolUse(settings).flatMap((e) => e.hooks ?? []).map((h) => h.command);
+      expect(commands).toEqual([join(home, ".claude", "hooks", GUARD)]);
+    });
+  }
+
   test("a malformed PreToolUse element doesn't make each run add another entry", () => {
     const { settings, env } = seedFixture();
     writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: ["junk", { matcher: 7 }] } }));

@@ -236,6 +236,25 @@ if test $hooks_enabled -eq 1
         return 1
     end
 
+    # Prints the guard's path from a hook command, or nothing. The path may
+    # contain spaces, so a quoted path, or a whole command that is one
+    # existing file, wins before the command is split into words
+    # ("bash <checkout>/hooks/...").
+    # string match -r prints the whole match, then each group; [2] is the
+    # path. (-g would print only the group, but CI's fish 3.3 lacks it.)
+    function __first_run_guard_path --argument-names cmd
+        set -l guard '/hooks/block-dangerous-git\.sh'
+        set -l quoted (string match -r -- "[\"']([^\"']*$guard)[\"']" $cmd)
+        if test -n "$quoted[2]"
+            echo $quoted[2]
+        else if string match -q -r -- "$guard\$" $cmd; and test -f "$cmd"
+            echo $cmd
+        else
+            set -l word (string match -r -- "(?:^|\s)(\S*$guard)(?:\s|\$)" $cmd)
+            test -n "$word[2]"; and echo $word[2]
+        end
+    end
+
     # Ensure parent dir exists and seed an empty settings.json if missing.
     set -l settings_dir (dirname $settings)
     if not test -d $settings_dir
@@ -350,11 +369,11 @@ if test $hooks_enabled -eq 1
     # empty; the check below then adds the link if nothing else covers Bash.
     # Only paths inside a claude-config checkout (it has bin/first-run.fish)
     # count; other entries are the user's own and are never touched.
-    # A command may put an interpreter or arguments around the path
-    # ("bash <checkout>/hooks/..."), so check each word, not the whole command.
+    # A command may put an interpreter or arguments around the path, so
+    # __first_run_guard_path pulls the path out first.
     set -l stale_guards
     for cmd in (jq -r '.hooks.PreToolUse? | arrays | .[] | objects | .hooks[]? | objects | .command? // empty | strings' $settings)
-        set -l guard_path (string split ' ' -- $cmd | string match -- "*/hooks/block-dangerous-git.sh")
+        set -l guard_path (__first_run_guard_path $cmd)
         test -n "$guard_path[1]"; or continue
         test "$guard_path[1]" = "$hook_dangerous"; and continue
         test -e (dirname (dirname $guard_path[1]))/bin/first-run.fish; and set -a stale_guards $cmd

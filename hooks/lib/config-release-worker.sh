@@ -105,6 +105,7 @@ relink_needed || last_relink_failed || log_update updated
 # Scan the output before judging the exit code: a failed link-config can still
 # have printed the registration warning, and that must not be lost.
 RESULT=updated+relinked
+# A retry of a failed relink with no new commits updated nothing.
 [[ "$FROM" != "$TO" ]] || RESULT=relinked
 LINK_OUT=$(run_relink) || RESULT=relink-failed
 if [[ "$LINK_OUT" == *"hooks/rules-shadow.sh is not registered"* ]]; then
