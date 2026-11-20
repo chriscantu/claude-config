@@ -70,6 +70,11 @@ elif ! printf '%s' "$HOOK_INPUT" | jq empty 2>/dev/null; then
   COMMAND=$(raw_payload)
 else
   COMMAND=$(hook_input_field '.tool_input.command')
+  # Valid JSON of another shape, such as {"tool_input":"cat .env"}, has no
+  # command field. Claude Code never sends one, but scan it rather than allow.
+  if [[ -z "$COMMAND" ]]; then
+    COMMAND=$(raw_payload)
+  fi
 fi
 
 if [[ -z "$COMMAND" ]]; then

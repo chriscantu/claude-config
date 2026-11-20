@@ -144,6 +144,12 @@ expect_exit "$(raw_exit '{"tool_input":{"command":"cat .env"}')" 2 "truncated JS
 # A byte that isn't valid UTF-8 must not switch the patterns off in a UTF-8
 # locale.
 expect_exit "$(printf '{"tool_input":{"command":"echo \xff; cat .env"' | LC_ALL=en_US.UTF-8 HOME="$EMPTY_HOME" "$HOOK" >/dev/null 2>&1; echo $?)" 2 "invalid UTF-8 byte let a raw-scanned .env read through"
+# Valid JSON of the wrong shape has no .tool_input.command. Claude Code never
+# sends one, but an empty command must not wave the payload through (#598).
+expect_exit "$(raw_exit '{"tool_input":"cat .env"}')" 2 "wrong-shape JSON naming .env should be blocked"
+expect_exit "$(raw_exit '{"tool_input":{"cmd":"cat ~/.ssh/id_rsa"}}')" 2 "JSON with no command field naming ~/.ssh should be blocked"
+expect_exit "$(raw_exit '{"tool_input":"ls -la"}')" 0 "wrong-shape JSON with no secret should be allowed"
+expect_exit "$(raw_exit '')" 0 "an empty payload should be allowed"
 
 # --- Without jq the hook scans the raw payload. JSON escapes quotes as \", so
 # the patterns must accept a backslash beside the path ---
