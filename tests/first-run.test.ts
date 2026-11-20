@@ -402,6 +402,55 @@ describe("first-run.fish — hook registration (#557)", () => {
     });
   }
 
+  // Claude Code needs hooks to be an object. Refuse anything else before the
+  // backup, so no stray settings.json.bak.* is left behind (#588).
+  for (const [shape, hooks] of [
+    ["a string", "x"],
+    ["a list", []],
+  ] as const) {
+    test(`hooks as ${shape} → exit 2, file unchanged, no backup`, () => {
+      const { home, settings, env } = seedFixture();
+      const original = JSON.stringify({ hooks });
+      writeFileSync(settings, original);
+
+      const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS });
+      expect(r.exitCode).toBe(2);
+      expect(r.stderr).toContain("is not an object");
+      expect(readFileSync(settings, "utf8")).toBe(original);
+      expect(readdirSync(join(home, ".claude")).some((f) => f.startsWith("settings.json.bak."))).toBe(false);
+    });
+  }
+
+  test("a result without the guard is never moved into place (#588)", () => {
+    const { home, settings, env } = seedFixture();
+    const original = JSON.stringify({ model: "keep-me" });
+    writeFileSync(settings, original);
+    // A jq that drops everything on the step that adds the guard, like a
+    // future bug in that filter would.
+    const realJq = spawnSync("sh", ["-c", "command -v jq"], { encoding: "utf8" }).stdout.trim();
+    const shim = join(home, "shim");
+    mkdirSync(shim);
+    writeFileSync(
+      join(shim, "jq"),
+      `#!/bin/sh\ncase "$*" in *add_hook*) echo '{}'; exit 0 ;; esac\nexec ${realJq} "$@"\n`,
+      { mode: 0o755 },
+    );
+
+    const r = runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS, PATH: `${shim}:${process.env.PATH}` });
+    expect(r.exitCode).toBe(2);
+    expect(r.stderr).toContain("no PreToolUse hook runs");
+    expect(readFileSync(settings, "utf8")).toBe(original);
+  });
+
+  test("an old checkout entry with an interpreter in front moves to the link (#588)", () => {
+    const { home, settings, env } = seedFixture();
+    const withArgs = `bash ${join(REPO, "hooks", GUARD)}`;
+    writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: [guardEntry(withArgs)] } }));
+
+    assertExit("run", runFirstRun({ ...env, FIRST_RUN_ANSWERS: DEFAULT_ANSWERS }), "zero");
+    expect(guardCommands(readPreToolUse(settings))).toEqual([join(home, ".claude", "hooks", GUARD)]);
+  });
+
   test("a malformed PreToolUse element doesn't make each run add another entry", () => {
     const { settings, env } = seedFixture();
     writeFileSync(settings, JSON.stringify({ hooks: { PreToolUse: ["junk", { matcher: 7 }] } }));
