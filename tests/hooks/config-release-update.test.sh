@@ -148,6 +148,43 @@ run_hook
 assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" relink-failed+needs-registration "$(field update result)"
 
+echo "── failed relink is retried when nothing new arrived ──"
+new_case retry-unchanged
+push_change sh -c 'echo b > rules/b.md'
+LINK_CMD="exit 3"
+run_hook
+LINK_CMD="echo ran >> $LINKS"
+run_hook
+assert_eq "result" relinked "$(field update result)"
+assert_eq "link ran once" 1 "$(link_count)"
+run_hook
+assert_eq "no retry after success" unchanged "$(field update result)"
+assert_eq "link still ran once" 1 "$(link_count)"
+
+echo "── failed relink is retried on a content-only update ──"
+new_case retry-content
+push_change sh -c 'echo b > rules/b.md'
+LINK_CMD="exit 3"
+run_hook
+push_change sh -c 'echo two > rules/a.md'
+LINK_CMD="echo ran >> $LINKS"
+run_hook
+assert_eq "result" updated+relinked "$(field update result)"
+assert_eq "link ran once" 1 "$(link_count)"
+
+echo "── failed relink is still retried after a skipped run ──"
+new_case retry-after-skip
+push_change sh -c 'echo b > rules/b.md'
+LINK_CMD="exit 3"
+run_hook
+touch "$REL/untracked"
+run_hook
+rm "$REL/untracked"
+assert_eq "skipped while dirty" skipped:dirty "$(field update result)"
+LINK_CMD="echo ran >> $LINKS"
+run_hook
+assert_eq "result" relinked "$(field update result)"
+
 echo "── checkout failure leaves HEAD alone ──"
 new_case checkoutfail
 push_change sh -c 'echo two > rules/a.md'
