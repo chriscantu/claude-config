@@ -95,6 +95,10 @@ function report_sandbox_overrides --argument-names settings template
           (select(.disableAllHooks == true)
             | "NOTE: your settings keep \"disableAllHooks\": true, so the secret-read hook never runs.")
     ' $settings >&2
+    or begin
+        echo "ERROR: could not check $settings for kept settings that switch off a protection" >&2
+        return 1
+    end
 end
 
 # --- merge -------------------------------------------------------------
@@ -128,7 +132,7 @@ end
 
 if printf '%s\n' $merged | cmp -s - $settings
     echo "Safety settings already present in: $settings"
-    report_sandbox_overrides $settings $template
+    report_sandbox_overrides $settings $template; or exit 2
     exit 0
 end
 
@@ -141,14 +145,26 @@ if test $status -ne 0; or not cp -p $settings $tmp
     test -n "$tmp"; and rm -f $tmp
     exit 2
 end
+# An interrupt between here and the rename would leave settings.json.XXXXXX
+# behind, and fish exits 0 on Ctrl-C. `exit` inside a signal handler also
+# exits 0, so exec gives the interrupt a failing status. rm is a no-op once mv
+# has renamed the file. The handler reads a global: script locals are out of
+# a function's scope.
+set -g setup_safety_tmp $tmp
+function remove_temp_on_interrupt --on-signal INT --on-signal TERM --on-signal HUP
+    rm -f $setup_safety_tmp
+    exec sh -c 'exit 130'
+end
 if not printf '%s\n' $merged > $tmp
     echo "ERROR: could not write the temp file beside $settings" >&2
     rm -f $tmp
     exit 2
 end
 
-set -l backup "$backup_base.bak."(date -u +%Y%m%dT%H%M%SZ)
-if not cp $settings $backup
+# mktemp picks a name no earlier backup has, so two runs in the same second
+# can't overwrite each other's backup.
+set -l backup (mktemp "$backup_base.bak."(date -u +%Y%m%dT%H%M%SZ)".XXXXXX")
+if test $status -ne 0; or not cp $settings $backup
     echo "ERROR: failed to back up $settings" >&2
     rm -f $tmp
     exit 2
@@ -168,4 +184,4 @@ if not jq -e --arg hook $hook "$registered registered(\$hook)" $settings >/dev/n
 end
 
 echo "Safety settings merged into: $settings"
-report_sandbox_overrides $settings $template
+report_sandbox_overrides $settings $template; or exit 2

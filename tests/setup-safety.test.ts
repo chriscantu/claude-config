@@ -274,4 +274,58 @@ describe("setup-safety.fish", () => {
     expect(r.code).toBe(0);
     expect(r.out).toContain("disableAllHooks");
   });
+
+  // Shims on PATH that stand in for real tools, so a test can force a fixed
+  // clock, an interrupt, or a jq failure at one exact step.
+  const shimBin = (shims: Record<string, string>) => {
+    const bin = mkdtempSync(join(tmpdir(), "setup-safety-shim-"));
+    homes.push(bin);
+    for (const [name, body] of Object.entries(shims)) {
+      const p = join(bin, name);
+      writeFileSync(p, `#!/bin/sh\n${body}\n`);
+      chmodSync(p, 0o755);
+    }
+    return { PATH: `${bin}:${process.env.PATH}` };
+  };
+  const realPath = (tool: string) =>
+    spawnSync("sh", ["-c", `command -v ${tool}`], { encoding: "utf8" }).stdout.trim();
+
+  test("two runs in the same second keep two separate backups", () => {
+    const { home, settingsPath } = seedHome({ theme: "dark" });
+    const env = shimBin({ date: "echo 20260101T000000Z" });
+    expect(run(home, env).code).toBe(0);
+    writeFileSync(settingsPath, JSON.stringify({ theme: "light" }));
+    expect(run(home, env).code).toBe(0);
+    const dir = join(home, ".claude");
+    const backups = readdirSync(dir).filter((f) => f.startsWith("settings.json.bak."));
+    expect(backups.length).toBe(2);
+    expect(backups.map((b) => read(join(dir, b)).theme).sort()).toEqual(["dark", "light"]);
+  });
+
+  // The script asks for the time right after it creates the temp file, so a
+  // date that interrupts the script lands at the worst moment.
+  test.each(["INT", "TERM"])("an interrupt (%s) removes the temp file", (sig) => {
+    const { home, settingsPath } = seedHome({ theme: "dark" });
+    const r = run(home, shimBin({ date: `kill -${sig} $PPID; sleep 1; echo 20260101T000000Z` }));
+    expect(r.code).not.toBe(0);
+    const dir = join(home, ".claude");
+    expect(readdirSync(dir).filter((f) => /^settings\.json\.(?!bak\.)/.test(f))).toEqual([]);
+    expect(read(settingsPath)).toEqual({ theme: "dark" });
+  });
+
+  // The report is the only jq call whose filter prints "NOTE:".
+  test.each([
+    ["after a merge", {}],
+    ["when nothing changed", "merged-already"],
+  ])("says so when the override report fails %s", (_name, start) => {
+    const { home } = seedHome({});
+    if (start === "merged-already") expect(run(home).code).toBe(0);
+    const jq = realPath("jq");
+    const r = run(
+      home,
+      shimBin({ jq: `case "$*" in *NOTE:*) exit 5;; esac\nexec ${jq} "$@"` }),
+    );
+    expect(r.code).toBe(2);
+    expect(r.out).toContain("could not check");
+  });
 });
