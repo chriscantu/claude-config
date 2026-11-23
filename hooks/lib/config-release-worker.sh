@@ -63,6 +63,15 @@ relink_needed() {
   [[ -n "$(git -C "$REL" diff --name-only "$FROM" "$TO" -- "$LAYOUT_FILE" 2>/dev/null)" ]]
 }
 
+# last_relink_failed → 0 when the newest record that ran link-config logged a
+# failure. Skipped runs in between don't count, so a failed relink is retried
+# every session until one succeeds.
+last_relink_failed() {
+  local last
+  last=$(jq -R -r 'fromjson? | select(.event == "update") | .result | strings | select(contains("relink"))' "$LOG" 2>/dev/null | tail -1)
+  [[ "$last" == relink-failed* ]]
+}
+
 # run_relink → run link-config; print its combined output. Returns its exit code.
 run_relink() {
   if [[ -n "${CONFIG_RELEASE_LINK_CMD:-}" ]]; then
@@ -86,16 +95,18 @@ trap 'rmdir "$LOCK" 2>/dev/null' EXIT
 fetch_origin || log_update fetch-failed
 
 TARGET=$(git -C "$REL" rev-parse origin/main 2>/dev/null) || log_update fetch-failed
-[[ "$TARGET" != "$FROM" ]] || log_update unchanged
+[[ "$TARGET" != "$FROM" ]] || last_relink_failed || log_update unchanged
 git -C "$REL" merge-base --is-ancestor HEAD origin/main 2>/dev/null || log_update skipped:not-fast-forward
 git -C "$REL" checkout -q --detach "$TARGET" 2>/dev/null || log_update checkout-failed
 TO="$TARGET"
 
-relink_needed || log_update updated
+relink_needed || last_relink_failed || log_update updated
 
 # Scan the output before judging the exit code: a failed link-config can still
 # have printed the registration warning, and that must not be lost.
 RESULT=updated+relinked
+# A retry of a failed relink with no new commits updated nothing.
+[[ "$FROM" != "$TO" ]] || RESULT=relinked
 LINK_OUT=$(run_relink) || RESULT=relink-failed
 if [[ "$LINK_OUT" == *"hooks/rules-shadow.sh is not registered"* ]]; then
   RESULT+="+needs-registration"

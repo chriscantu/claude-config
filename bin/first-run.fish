@@ -236,6 +236,25 @@ if test $hooks_enabled -eq 1
         return 1
     end
 
+    # Prints the guard's path from a hook command, or nothing. The path may
+    # contain spaces, so a quoted path, or a whole command that is one
+    # existing file, wins before the command is split into words
+    # ("bash <checkout>/hooks/...").
+    # string match -r prints the whole match, then each group; [2] is the
+    # path. (-g would print only the group, but CI's fish 3.3 lacks it.)
+    function __first_run_guard_path --argument-names cmd
+        set -l guard '/hooks/block-dangerous-git\.sh'
+        set -l quoted (string match -r -- "[\"']([^\"']*$guard)[\"']" $cmd)
+        if test -n "$quoted[2]"
+            echo $quoted[2]
+        else if string match -q -r -- "$guard\$" $cmd; and test -f "$cmd"
+            echo $cmd
+        else
+            set -l word (string match -r -- "(?:^|\s)(\S*$guard)(?:\s|\$)" $cmd)
+            test -n "$word[2]"; and echo $word[2]
+        end
+    end
+
     # Ensure parent dir exists and seed an empty settings.json if missing.
     set -l settings_dir (dirname $settings)
     if not test -d $settings_dir
@@ -320,8 +339,14 @@ if test $hooks_enabled -eq 1
         exit 1
     end
 
-    # Claude Code needs PreToolUse to be a list. Any other shape is already
-    # broken, and the steps below assume a list, so refuse before writing.
+    # Claude Code needs hooks to be an object and PreToolUse to be a list. Any
+    # other shape is already broken, and the steps below assume these shapes,
+    # so refuse before the backup.
+    if not jq -e '(.hooks | type) as $t | $t == "object" or $t == "null"' $settings >/dev/null 2>&1
+        echo "ERROR: hooks in $settings is not an object. Refusing to modify." >&2
+        echo "       Fix it by hand, then re-run." >&2
+        exit 2
+    end
     set -l pre_tool_use_ok 'if (.hooks | type) == "object" then (.hooks.PreToolUse | type) as $t | $t == "array" or $t == "null" else true end'
     if not jq -e $pre_tool_use_ok $settings >/dev/null 2>&1
         echo "ERROR: PreToolUse in $settings is not a list. Refusing to modify." >&2
@@ -344,11 +369,14 @@ if test $hooks_enabled -eq 1
     # empty; the check below then adds the link if nothing else covers Bash.
     # Only paths inside a claude-config checkout (it has bin/first-run.fish)
     # count; other entries are the user's own and are never touched.
+    # A command may put an interpreter or arguments around the path, so
+    # __first_run_guard_path pulls the path out first.
     set -l stale_guards
     for cmd in (jq -r '.hooks.PreToolUse? | arrays | .[] | objects | .hooks[]? | objects | .command? // empty | strings' $settings)
-        string match -q "*/hooks/block-dangerous-git.sh" -- $cmd; or continue
-        test "$cmd" = "$hook_dangerous"; and continue
-        test -e (dirname (dirname $cmd))/bin/first-run.fish; and set -a stale_guards $cmd
+        set -l guard_path (__first_run_guard_path $cmd)
+        test -n "$guard_path[1]"; or continue
+        test "$guard_path[1]" = "$hook_dangerous"; and continue
+        test -e (dirname (dirname $guard_path[1]))/bin/first-run.fish; and set -a stale_guards $cmd
     end
     set -l cleaned (mktemp)
     if test (count $stale_guards) -eq 0
@@ -403,15 +431,16 @@ if test $hooks_enabled -eq 1
         rm -f $tmp
         exit 2
     end
-    if not mv $tmp $settings
-        echo "ERROR: failed to write $settings" >&2
+    # Check the result before it replaces the user's file (#557: success was
+    # once printed with no hook written).
+    if not __first_run_guard_registered $tmp $hook_dangerous
+        echo "ERROR: no PreToolUse hook runs $hook_dangerous in the new $settings; left it unchanged" >&2
         rm -f $tmp
         exit 2
     end
-    # Read back before claiming success (#557: this line once printed with
-    # no hook written).
-    if not __first_run_guard_registered $settings $hook_dangerous
-        echo "ERROR: wrote $settings but no PreToolUse hook runs $hook_dangerous" >&2
+    if not mv $tmp $settings
+        echo "ERROR: failed to write $settings" >&2
+        rm -f $tmp
         exit 2
     end
     echo "Registered hooks in: $settings"

@@ -148,6 +148,43 @@ run_hook
 assert_eq "stdout empty" "" "$OUT"
 assert_eq "result" relink-failed+needs-registration "$(field update result)"
 
+echo "── failed relink is retried when nothing new arrived ──"
+new_case retry-unchanged
+push_change sh -c 'echo b > rules/b.md'
+LINK_CMD="exit 3"
+run_hook
+LINK_CMD="echo ran >> $LINKS"
+run_hook
+assert_eq "result" relinked "$(field update result)"
+assert_eq "link ran once" 1 "$(link_count)"
+run_hook
+assert_eq "no retry after success" unchanged "$(field update result)"
+assert_eq "link still ran once" 1 "$(link_count)"
+
+echo "── failed relink is retried on a content-only update ──"
+new_case retry-content
+push_change sh -c 'echo b > rules/b.md'
+LINK_CMD="exit 3"
+run_hook
+push_change sh -c 'echo two > rules/a.md'
+LINK_CMD="echo ran >> $LINKS"
+run_hook
+assert_eq "result" updated+relinked "$(field update result)"
+assert_eq "link ran once" 1 "$(link_count)"
+
+echo "── failed relink is still retried after a skipped run ──"
+new_case retry-after-skip
+push_change sh -c 'echo b > rules/b.md'
+LINK_CMD="exit 3"
+run_hook
+touch "$REL/untracked"
+run_hook
+rm "$REL/untracked"
+assert_eq "skipped while dirty" skipped:dirty "$(field update result)"
+LINK_CMD="echo ran >> $LINKS"
+run_hook
+assert_eq "result" relinked "$(field update result)"
+
 echo "── checkout failure leaves HEAD alone ──"
 new_case checkoutfail
 push_change sh -c 'echo two > rules/a.md'
@@ -312,6 +349,32 @@ run_hook CLAUDE_CONFIG_RELEASE_DIR= CONFIG_RELEASE_WORKER="$RECORD_REL"
 assert_eq "session.result" skipped:no-release "$(field session result)"
 assert_eq "worker not started" no "$([[ -e $CASE/worker.rel ]] && echo yes || echo no)"
 HOOK="$REPO_ROOT/hooks/config-release-update.sh"
+
+# Without jq, four hooks fall back or skip with a stderr warning, and Claude
+# Code never shows stderr from a hook that exits 0. This hook is the one place
+# that tells the user, once per session, with a systemMessage (#598).
+NOJQ_BIN="$TMP/nojq-bin"
+mkdir -p "$NOJQ_BIN"
+for tool in bash cat dirname readlink; do ln -s "$(command -v "$tool")" "$NOJQ_BIN/$tool"; done
+# system_message → the systemMessage field of $OUT, or "" if $OUT isn't JSON.
+system_message() { printf '%s' "$OUT" | jq -r '.systemMessage // ""' 2>/dev/null; }
+
+echo "── missing jq is shown to the user ──"
+new_case nojq
+run_hook PATH="$NOJQ_BIN"
+assert_eq "exit 0" 0 "$RC"
+assert_eq "stdout is JSON with a systemMessage" yes \
+  "$(printf '%s' "$OUT" | jq -e '.systemMessage | type == "string"' >/dev/null 2>&1 && echo yes || echo no)"
+assert_eq "message names jq" yes "$([[ $(system_message) == *"jq"* ]] && echo yes || echo no)"
+assert_eq "message names the secret-read hook" yes \
+  "$([[ $(system_message) == *"block-secret-reads"* ]] && echo yes || echo no)"
+
+echo "── missing jq is shown even with the update switched off ──"
+new_case nojq-off
+touch "$CASE/sent/DISABLE_CONFIG_RELEASE_UPDATE"
+run_hook PATH="$NOJQ_BIN"
+assert_eq "exit 0" 0 "$RC"
+assert_eq "message names jq" yes "$([[ $(system_message) == *"jq"* ]] && echo yes || echo no)"
 
 echo
 echo "Passed: $PASS  Failed: $FAIL"
