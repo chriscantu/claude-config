@@ -1,9 +1,9 @@
 {
-  "name": "claude-config",
+  "name": "leadership-toolkit",
   "owner": {"name": "Cantu"},
   "plugins": [
     {
-      "name": "claude-config",
+      "name": "leadership-toolkit",
       "source": "./",
       "description": "Global Claude Code config: rules, agents, skills, hooks, commands"
     }
