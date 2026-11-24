@@ -1,1 +1,0 @@
-{ "name": "tool-diet", "version": "0.1.0", "description": "Moves rarely used built-in tools behind ToolSearch so their long descriptions stop riding on every request." }

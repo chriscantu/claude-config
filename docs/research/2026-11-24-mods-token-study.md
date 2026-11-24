@@ -9,7 +9,7 @@ It did not cut cost, and pass rates fell.
 
 ## Why
 
-- Our best mod (`mods/tool-diet`) moves four rarely used tools behind
+- Our best mod (`tool-diet`, code below) moves four rarely used tools behind
   ToolSearch. It cut input tokens by 16% per eval round (−15.7%).
 - All of the saving was cache reads. Cache reads bill at 0.1x. Cache writes went
   up 11%, and they bill at 2x (1-hour cache). Net cost went **up** about 4%.
@@ -85,9 +85,22 @@ No public mod defers tool definitions. GitHub code search for `isDeferred` plus
 
 ## Step 4: Prototype and measurement
 
-The mod (`mods/tool-diet/hooks/register.ts`) defers Artifact, Workflow,
-ScheduleWakeup and ReportFindings. Each stays callable through ToolSearch.
-A smoke test confirmed `ToolSearch select:Artifact` and then a working Artifact call.
+The mod defers Artifact, Workflow, ScheduleWakeup and ReportFindings. Each
+stays callable through ToolSearch. A smoke test confirmed `ToolSearch
+select:Artifact` and then a working Artifact call. The mod was not kept in the
+repo. This is its whole hooks module, so the test can be rerun:
+
+```ts
+import type { Register } from 'claude-code'
+
+const DEFERRED = ['Artifact', 'Workflow', 'ScheduleWakeup', 'ReportFindings']
+
+export const register: Register = on => {
+  for (const tool of DEFERRED) {
+    on('tool.describe', { tool }, async ($, e, next) => ({ ...(await next(e)), isDeferred: true }))
+  }
+}
+```
 
 Smoke test, one-word prompt, steady state:
 
@@ -160,7 +173,7 @@ known to be flaky. Still, the direction never flipped.
 - Fires for someone else: **not verified.** The fresh folder has no login, so no
   request went out, and a logged-out session lists none of the four tools. The
   mod fired in the logged-in default config only.
-- The marketplace entry was removed after the decision, so the mod does not ship.
+- After the decision, the mod and its marketplace entry were removed, so it does not ship.
 
 ## Trade-offs
 
@@ -184,5 +197,24 @@ known to be flaky. Still, the direction never flipped.
   context-window pressure in long sessions). The 16k-token cut per request is real
   context space.
 
-Cheaper levers with no mod: turn off unused plugins (skill listing and agent
-listing, about 10%), and continue the rules-reduction program (11.8%).
+## Cheaper levers with no mod
+
+Continue the rules-reduction program. Rules and instructions are 11.8% of input.
+
+Turn off unused plugins. Script: `tests/plugin-usage.ts`. It scanned 931 saved
+sessions (since 2026-10-21; older ones are cleaned up automatically).
+
+| Plugin | Times used | Est. raw tokens per request |
+|---|---:|---:|
+| engineering (synced) | 0 | ~700 |
+| product-management (synced) | 0 | ~675 |
+| design (synced) | 0 | ~500 |
+| productivity (synced) | 0 | ~275 |
+| cowork-plugin-management (synced) | 0 | ~180 |
+| pr-review-toolkit | 14 sessions, 58 calls | ~1,660 |
+| superpowers | 8 sessions, 14 calls | ~720 |
+
+Turning off the five unused synced plugins saves about 2,300 raw tokens per
+request. That is about 35% of the skill listing, or 2–3% of input. They sync from
+the claude.ai account, so turning them off may also turn them off in claude.ai.
+Their use there does not show up in these transcripts.
