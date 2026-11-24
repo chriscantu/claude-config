@@ -43,6 +43,8 @@ if [[ "$agent" == "arbiter" ]]; then
   echo "### 1. stub summary"
   exit 0
 fi
+# A reviewer that never finishes, to prove the timeout still kills it.
+[[ -n "${STUB_HANG:-}" ]] && exec sleep 30
 cat > /dev/null
 {
   echo "cwd=$(pwd -P)"
@@ -106,6 +108,21 @@ check "worker critique written to live repo" "$(grep -qs 'critique from test-gap
 check "arbiter summary written to live repo" "$(grep -qs 'stub summary' .claude/state/critiques/*/SUMMARY.md && echo 1)"
 # 5. The throwaway copy is removed afterwards.
 check "review copy removed after run" "$([[ -n "$SEEN_CWD" && ! -e "$SEEN_CWD" ]] && echo 1)"
+
+# 6. A failed mktemp skips the review and logs why, like every other skip (#618).
+LOG="$REPO/.claude/state/critiques/.spawn-log"
+rm -f "$PROBE_DIR"/*.seen
+PATH="$STUB_BIN:$PATH" PROBE_DIR="$PROBE_DIR" TMPDIR="$SCRATCH/no-such-dir" \
+  bash "$SPAWN" deadbeefcafe0002 test >/dev/null 2>&1
+check "failed temp dir logs skip mktemp_failed" "$(grep -q 'skip mktemp_failed' "$LOG" 2>/dev/null && echo 1)"
+check "failed temp dir runs no reviewer" "$([[ ! -e "$SEEN" ]] && echo 1)"
+
+# 7. A hung reviewer is still killed: the timeout marker no longer needs mktemp.
+printf '{ "workers": ["test-gap"], "worker_timeout_seconds": 1, "arbiter_timeout_seconds": 30, "max_budget_usd_per_agent": 0.01 }\n' \
+  > hooks/adversarial-config.json
+PATH="$STUB_BIN:$PATH" PROBE_DIR="$PROBE_DIR" STUB_HANG=1 \
+  bash "$SPAWN" deadbeefcafe0003 test >/dev/null 2>&1
+check "hung reviewer killed by timeout (exit=124)" "$(grep -q 'worker=test-gap end exit=124' "$LOG" 2>/dev/null && echo 1)"
 
 echo "PASS=$PASS FAIL=$FAIL"
 if [[ $FAIL -gt 0 ]]; then
