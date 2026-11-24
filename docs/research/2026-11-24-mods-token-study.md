@@ -88,7 +88,22 @@ No public mod defers tool definitions. GitHub code search for `isDeferred` plus
 The mod defers Artifact, Workflow, ScheduleWakeup and ReportFindings. Each
 stays callable through ToolSearch. A smoke test confirmed `ToolSearch
 select:Artifact` and then a working Artifact call. The mod was not kept in the
-repo. This is its whole hooks module, so the test can be rerun:
+repo. These three files rebuild it, so the test can be rerun. Put them in a
+`tool-diet/` folder and pass that folder to `tests/mod-ab-run.ts` as `<modDir>`.
+
+`tool-diet/.claude-plugin/plugin.json`:
+
+```json
+{ "name": "tool-diet", "version": "0.1.0", "description": "Moves rarely used built-in tools behind ToolSearch so their long descriptions stop riding on every request." }
+```
+
+`tool-diet/hooks/hooks.json`:
+
+```json
+{ "modules": ["./register.ts"] }
+```
+
+`tool-diet/hooks/register.ts`:
 
 ```ts
 import type { Register } from 'claude-code'
@@ -114,6 +129,13 @@ across sessions; the mod's changed prefix starts cold.
 
 A/B test: suites fat-marker-sketch (10), goal-driven (4), verification (3);
 3 rounds per arm; arms alternate each round. Harness: `tests/mod-ab-run.ts`.
+
+**One-off measurement.** The smoke test above and the A/B figures below were
+measured once, on 2026-11-24. The harness printed its rows to the terminal, and
+that output was not kept, so no script in this repo regenerates these exact
+numbers. The cost-weighted line and the single-turn re-grade were worked out by
+hand from those rows. Rerunning the harness with the rebuilt mod gives a new
+sample, not these numbers.
 
 **Deviation:** the eval config folder's login had expired, so both arms ran with
 `EVAL_ALLOW_DEFAULT_CONFIG=1`, using the default config. Both arms share that
@@ -202,7 +224,10 @@ known to be flaky. Still, the direction never flipped.
 Continue the rules-reduction program. Rules and instructions are 11.8% of input.
 
 Turn off unused plugins. Script: `tests/plugin-usage.ts`. It scanned 931 saved
-sessions (since 2026-10-21; older ones are cleaned up automatically).
+transcripts (since 2026-10-21; older ones are cleaned up automatically). That
+count includes subagent transcripts, so it is more than the number of sessions.
+Each plugin's size comes from the newest listing that still names it, so a
+plugin turned off later still shows what it cost while it was on.
 
 | Plugin | Times used | Est. raw tokens per request |
 |---|---:|---:|

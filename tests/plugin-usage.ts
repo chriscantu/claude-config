@@ -3,6 +3,7 @@
 // agent listing. Usage: bun run tests/plugin-usage.ts [projectsRoot]
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
+import { type NewestListing, recordListing } from "./plugin-listing.ts";
 
 const root = process.argv[2] ?? join(process.env.HOME ?? "", ".claude", "projects");
 const PLUGINS = ["design", "product-management", "engineering", "productivity", "cowork-plugin-management",
@@ -11,7 +12,9 @@ const PLUGINS = ["design", "product-management", "engineering", "productivity", 
 type U = { sessions: Set<string>; skill: number; command: number; agent: number; mcp: number; last: string };
 const use = new Map<string, U>(PLUGINS.map((p) => [p, { sessions: new Set(), skill: 0, command: 0, agent: 0, mcp: 0, last: "" }]));
 const listingChars = new Map<string, number>();
-let latestListing = "", latestListingTs = "", latestAgents: string[] = [], latestAgentsTs = "";
+const skillListingByPlugin: NewestListing = new Map();
+const agentListingByPlugin: NewestListing = new Map();
+let latestListing = "", latestListingTs = "";
 let files = 0, firstTs = "9999";
 
 function walk(dir: string, out: string[]) {
@@ -43,11 +46,13 @@ for (const f of all) {
     const ts: string = r.timestamp ?? "";
     if (ts && ts < firstTs) firstTs = ts;
     const sid: string = r.sessionId ?? f;
-    if (r.type === "attachment" && r.attachment?.type === "skill_listing" && ts >= latestListingTs) {
-      latestListing = String(r.attachment.content ?? ""); latestListingTs = ts;
+    if (r.type === "attachment" && r.attachment?.type === "skill_listing") {
+      const content = String(r.attachment.content ?? "");
+      recordListing(skillListingByPlugin, ts, content.split("\n"));
+      if (ts >= latestListingTs) { latestListing = content; latestListingTs = ts; }
     }
-    if (r.type === "attachment" && r.attachment?.type === "agent_listing_delta" && ts >= latestAgentsTs) {
-      latestAgents = r.attachment.addedLines ?? []; latestAgentsTs = ts;
+    if (r.type === "attachment" && r.attachment?.type === "agent_listing_delta") {
+      recordListing(agentListingByPlugin, ts, r.attachment.addedLines ?? []);
     }
     if (r.type === "assistant") {
       for (const c of r.message?.content ?? []) {
@@ -69,17 +74,13 @@ for (const l of latestListing.split("\n")) {
   const m = /^- ([a-z0-9-]+):/.exec(l);
   if (m) listingChars.set(m[1]!, (listingChars.get(m[1]!) ?? 0) + l.length);
 }
-const agentChars = new Map<string, number>();
-for (const l of latestAgents) {
-  const m = /^- ([a-z0-9-]+):/.exec(l);
-  if (m) agentChars.set(m[1]!, (agentChars.get(m[1]!) ?? 0) + l.length);
-}
 
 console.log(`Transcripts scanned: ${files} (since ${firstTs.slice(0, 10)})\n`);
 console.log("| Plugin | Sessions used | Skill calls | Slash commands | Agent calls | MCP calls | Last used | Listing tokens/request (est.) |\n|---|---:|---:|---:|---:|---:|---|---:|");
 for (const p of PLUGINS) {
   const u = use.get(p)!;
-  const tok = Math.round(((listingChars.get(p) ?? 0) + (agentChars.get(p) ?? 0)) / 4);
+  const chars = (skillListingByPlugin.get(p)?.chars ?? 0) + (agentListingByPlugin.get(p)?.chars ?? 0);
+  const tok = Math.round(chars / 4);
   console.log(`| ${p} | ${u.sessions.size} | ${u.skill} | ${u.command} | ${u.agent} | ${u.mcp} | ${u.last.slice(0, 10) || "never"} | ${tok} |`);
 }
 const totalListing = [...listingChars.values()].reduce((a, b) => a + b, 0) / 4;

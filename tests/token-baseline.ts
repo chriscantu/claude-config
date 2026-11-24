@@ -48,100 +48,140 @@ export function category(source: string): string {
   return source;
 }
 
+// The harness opens every injected SKILL.md with this line, so the folder name
+// it ends with identifies which skill the body belongs to.
+const SKILL_BODY_HEADER = /^Base directory for this skill: .*\/([^/\n]+)\n/;
+
+type ToolCall = { name: string; path?: string };
+
+/** What one transcript has built up so far as its records are replayed in order. */
+type SessionState = {
+  usage: Usage;
+  stats: Map<string, SourceStat>;
+  requestPrefix: Block[]; // system prompt + tool defs; replaced whenever the request shape changes
+  conversation: Block[];
+  seenMessageIds: Set<string>;
+  toolCalls: Map<string, ToolCall>;
+  readPaths: Set<string>;
+  calls: number;
+};
+
 export function analyzeSession(lines: string[]) {
-  const usage: Usage = { fresh: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
-  const stats = new Map<string, SourceStat>();
-  let fixed: Block[] = []; // system prompt + tool defs, replaced per request shape
-  let convo: Block[] = [];
-  const seenMsg = new Set<string>();
-  const toolNames = new Map<string, { name: string; path?: string }>();
-  const readPaths = new Set<string>();
-  let calls = 0;
-
-  const add = (source: string, s: string) => {
-    const t = est(s);
-    if (t > 0) convo.push({ source, est: t, sent: 0 });
+  const state: SessionState = {
+    usage: { fresh: 0, cacheWrite: 0, cacheRead: 0, output: 0 },
+    stats: new Map(),
+    requestPrefix: [],
+    conversation: [],
+    seenMessageIds: new Set(),
+    toolCalls: new Map(),
+    readPaths: new Set(),
+    calls: 0,
   };
-
   for (const line of lines) {
-    let r: any;
-    try { r = JSON.parse(line); } catch { continue; }
-    if (r.isSidechain) continue;
-
-    if (r.type === "api-request-shape" && r.shape) {
-      fixed = [];
-      for (const b of r.shape.system ?? []) fixed.push({ source: "system-prompt(harness)", est: est(text(b.text)), sent: 0 });
-      for (const t of r.shape.tools ?? []) {
-        const src = String(t.name ?? "").startsWith("mcp__") ? "tool-defs:mcp" : "tool-defs:builtin";
-        fixed.push({ source: src, est: est(JSON.stringify(t)), sent: 0 });
-      }
-      continue;
-    }
-    if (r.type === "system" && r.subtype === "compact_boundary") { convo = []; continue; }
-
-    if (r.type === "attachment" && r.attachment) {
-      const a = r.attachment;
-      if (a.type === "instructions") for (const f of a.files ?? []) add(classifyInstructionPath(f.path ?? ""), text(f.content));
-      else if (a.type === "skill_listing") add("skill-listing", text(a.content));
-      else if (a.type === "hook_additional_context") add("hook-context", text(a.content));
-      // prompt_snapshot is a resume-only copy of system+tools; counting it double-counts.
-      else if (a.type !== "hook_success" && a.type !== "prompt_snapshot") add(`reminder:${a.type}`, JSON.stringify(a));
-      continue;
-    }
-
-    if (r.type === "user" && r.message) {
-      const c = r.message.content;
-      if (typeof c === "string") { add(r.isCompactSummary ? "compact-summary" : "user-prompt", c); continue; }
-      for (const part of c ?? []) {
-        if (part.type === "tool_result") {
-          const tool = toolNames.get(part.tool_use_id) ?? { name: "unknown" };
-          let src = `tool-output:${tool.name}`;
-          if (tool.name === "Read" && tool.path) {
-            if (readPaths.has(tool.path)) src = "repeat-read";
-            readPaths.add(tool.path);
-          }
-          add(src, text(part.content));
-        } else if (part.type === "text") {
-          const t: string = part.text ?? "";
-          const m = /^Base directory for this skill: .*\/([^/\n]+)\n/.exec(t);
-          if (m) add(`skill-body:${m[1]}`, t);
-          else add(r.isMeta ? "meta-text" : r.isCompactSummary ? "compact-summary" : "user-prompt", t);
-        } else add("user-other", JSON.stringify(part));
-      }
-      continue;
-    }
-
-    if (r.type === "assistant" && r.message) {
-      const id = r.message.id;
-      if (id && !seenMsg.has(id)) {
-        seenMsg.add(id);
-        calls++;
-        const u = r.message.usage ?? {};
-        usage.fresh += u.input_tokens ?? 0;
-        usage.cacheWrite += u.cache_creation_input_tokens ?? 0;
-        usage.cacheRead += u.cache_read_input_tokens ?? 0;
-        usage.output += u.output_tokens ?? 0;
-        // Everything in context before this message was sent on this call.
-        for (const b of [...fixed, ...convo]) {
-          const s = stats.get(b.source) ?? { sends: 0, estTokens: 0, weighted: 0, costUnits: 0 };
-          if (b.sent === 0) s.estTokens += b.est;
-          s.weighted += b.est;
-          s.costUnits += b.est * (b.sent === 0 ? WRITE_MULT : READ_MULT);
-          s.sends++;
-          b.sent++;
-          stats.set(b.source, s);
-        }
-      }
-      for (const part of r.message.content ?? []) {
-        if (part.type === "tool_use") {
-          toolNames.set(part.id, { name: part.name, path: part.input?.file_path });
-          add("assistant-history", JSON.stringify(part.input ?? {}));
-        } else if (part.type === "text") add("assistant-history", part.text ?? "");
-        else if (part.type === "thinking") add("assistant-history", part.thinking ?? "");
-      }
-    }
+    let record: any;
+    try { record = JSON.parse(line); } catch { continue; }
+    if (!record.isSidechain) applyRecord(state, record);
   }
-  return { usage, stats, calls };
+  return { usage: state.usage, stats: state.stats, calls: state.calls };
+}
+
+function applyRecord(state: SessionState, record: any) {
+  if (record.type === "api-request-shape" && record.shape) return replaceRequestPrefix(state, record.shape);
+  if (record.type === "system" && record.subtype === "compact_boundary") { state.conversation = []; return; }
+  if (record.type === "attachment" && record.attachment) return addAttachment(state, record.attachment);
+  if (record.type === "user" && record.message) return addUserMessage(state, record);
+  if (record.type === "assistant" && record.message) return addAssistantMessage(state, record.message);
+}
+
+function addBlock(state: SessionState, source: string, s: string) {
+  const t = est(s);
+  if (t > 0) state.conversation.push({ source, est: t, sent: 0 });
+}
+
+function replaceRequestPrefix(state: SessionState, shape: any) {
+  state.requestPrefix = [];
+  for (const b of shape.system ?? []) state.requestPrefix.push({ source: "system-prompt(harness)", est: est(text(b.text)), sent: 0 });
+  for (const t of shape.tools ?? []) {
+    const source = String(t.name ?? "").startsWith("mcp__") ? "tool-defs:mcp" : "tool-defs:builtin";
+    state.requestPrefix.push({ source, est: est(JSON.stringify(t)), sent: 0 });
+  }
+}
+
+function addAttachment(state: SessionState, a: any) {
+  if (a.type === "instructions") {
+    for (const f of a.files ?? []) addBlock(state, classifyInstructionPath(f.path ?? ""), text(f.content));
+    return;
+  }
+  if (a.type === "skill_listing") return addBlock(state, "skill-listing", text(a.content));
+  if (a.type === "hook_additional_context") return addBlock(state, "hook-context", text(a.content));
+  // prompt_snapshot is a resume-only copy of system+tools; counting it double-counts.
+  if (a.type === "hook_success" || a.type === "prompt_snapshot") return;
+  addBlock(state, `reminder:${a.type}`, JSON.stringify(a));
+}
+
+function addUserMessage(state: SessionState, record: any) {
+  const content = record.message.content;
+  if (typeof content === "string") return addBlock(state, record.isCompactSummary ? "compact-summary" : "user-prompt", content);
+  for (const part of content ?? []) addUserPart(state, record, part);
+}
+
+function addUserPart(state: SessionState, record: any, part: any) {
+  if (part.type === "tool_result") return addBlock(state, toolResultSource(state, part.tool_use_id), text(part.content));
+  if (part.type !== "text") return addBlock(state, "user-other", JSON.stringify(part));
+  const t: string = part.text ?? "";
+  const skill = SKILL_BODY_HEADER.exec(t);
+  if (skill) return addBlock(state, `skill-body:${skill[1]}`, t);
+  addBlock(state, record.isMeta ? "meta-text" : record.isCompactSummary ? "compact-summary" : "user-prompt", t);
+}
+
+/** Names the source of a tool result; a second Read of the same path counts as a repeat read. */
+function toolResultSource(state: SessionState, toolUseId: string): string {
+  const tool = state.toolCalls.get(toolUseId) ?? { name: "unknown" };
+  if (tool.name !== "Read" || !tool.path) return `tool-output:${tool.name}`;
+  const isRepeat = state.readPaths.has(tool.path);
+  state.readPaths.add(tool.path);
+  return isRepeat ? "repeat-read" : "tool-output:Read";
+}
+
+function addAssistantMessage(state: SessionState, message: any) {
+  // One streamed message spans several records; only its first record is a new API call.
+  const id = message.id;
+  if (id && !state.seenMessageIds.has(id)) {
+    state.seenMessageIds.add(id);
+    state.calls++;
+    addUsage(state.usage, message.usage ?? {});
+    chargeContext(state);
+  }
+  for (const part of message.content ?? []) addAssistantPart(state, part);
+}
+
+function addUsage(usage: Usage, u: any) {
+  usage.fresh += u.input_tokens ?? 0;
+  usage.cacheWrite += u.cache_creation_input_tokens ?? 0;
+  usage.cacheRead += u.cache_read_input_tokens ?? 0;
+  usage.output += u.output_tokens ?? 0;
+}
+
+/** Everything in context before a message was sent on that message's API call. */
+function chargeContext(state: SessionState) {
+  for (const b of [...state.requestPrefix, ...state.conversation]) {
+    const s = state.stats.get(b.source) ?? { sends: 0, estTokens: 0, weighted: 0, costUnits: 0 };
+    if (b.sent === 0) s.estTokens += b.est;
+    s.weighted += b.est;
+    s.costUnits += b.est * (b.sent === 0 ? WRITE_MULT : READ_MULT);
+    s.sends++;
+    b.sent++;
+    state.stats.set(b.source, s);
+  }
+}
+
+function addAssistantPart(state: SessionState, part: any) {
+  if (part.type === "tool_use") {
+    state.toolCalls.set(part.id, { name: part.name, path: part.input?.file_path });
+    return addBlock(state, "assistant-history", JSON.stringify(part.input ?? {}));
+  }
+  if (part.type === "text") return addBlock(state, "assistant-history", part.text ?? "");
+  if (part.type === "thinking") addBlock(state, "assistant-history", part.thinking ?? "");
 }
 
 function recentTranscripts(root: string, n: number): string[] {
