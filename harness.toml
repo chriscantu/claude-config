@@ -2,7 +2,7 @@
 # Edit this file, then run `harness sync` to generate CC plugin files.
 
 [project]
-name = "claude-config"
+name = "leadership-toolkit"
 version = "0.1.0"
 description = "User's global Claude Code config: rules, agents, skills, hooks, commands symlinked into ~/.claude/"
 

@@ -16,7 +16,30 @@ Cantu
 Pilot
 
 ## Status
-Proposed
+Proposed. Amended 2026-11-23: the plugin is renamed `leadership-toolkit` — see Amendment below.
+
+## Amendment (2026-11-23): plugin renamed to `leadership-toolkit`
+
+The plugin and its marketplace are now named `leadership-toolkit`, not
+`claude-config`. The install command becomes
+`leadership-toolkit@leadership-toolkit`. The GitHub repo keeps its name. The
+rest of this ADR is unchanged. This replaces the Neutral bullet that says the
+name "remains `claude-config`".
+
+Why:
+
+- Claude Code now reserves plugin names that start with `claude-`.
+  `claude plugin validate .` failed on both `plugin.json` and
+  `marketplace.json` with `Plugin name "claude-config" is reserved`. The
+  plugin directory would refuse to list it (issue
+  [#614](https://github.com/chriscantu/claude-config/issues/614)).
+- The plugin was never published, so no installs break. Renaming after the
+  publish would break every install.
+- `leadership-toolkit` is the name this ADR already floated. It names the
+  audience the plugin path serves (Directors, VPs, senior ICs).
+
+Trade-off: the name undersells the planning skills and review agents in the
+bundle.
 
 ## Context
 
