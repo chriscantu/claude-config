@@ -146,12 +146,12 @@ Per round (all three suites):
 
 | Arm | Round | Fresh | Cache write | Cache read | Output | Pass | Cache-read ratio |
 |---|---|---:|---:|---:|---:|---:|---:|
-| Off | 1 | 168 | 692,216 | 4,207,109 | 39,411 | 12/17 | 85.8% |
+| Off | 1 | 168 | 692,216 | 4,207,109 | 39,411 | 12/17 | 85.9% |
 | Off | 2 | 142 | 688,103 | 3,570,654 | 48,608 | 13/17 | 83.8% |
 | Off | 3 | 158 | 690,408 | 4,017,052 | 49,756 | 10/17 | 85.3% |
-| On | 1 | 150 | 749,574 | 2,998,758 | 42,971 | 9/17 | 79.9% |
+| On | 1 | 150 | 749,574 | 2,998,758 | 42,971 | 9/17 | 80.0% |
 | On | 2 | 156 | 769,475 | 3,145,591 | 50,010 | 8/17 | 80.3% |
-| On | 3 | 158 | 782,105 | 3,244,634 | 48,880 | 9/17 | 80.5% |
+| On | 3 | 158 | 782,105 | 3,244,634 | 48,880 | 9/17 | 80.6% |
 
 | Metric | Off (mean, range) | On (mean, range) | Change |
 |---|---|---|---:|
@@ -161,6 +161,12 @@ Per round (all three suites):
 | Output | 45.9k (39–50k) | 47.3k (43–50k) | +3.0% |
 | Cost-weighted (write ×2, read ×0.1) | 1.77M | 1.85M | **+4.1%** |
 | Pass rate | 35/51 (68.6%) | 26/51 (51.0%) | **−17.6 pts** |
+
+The cost-weighted line counts input only: fresh ×1, cache write ×2, cache read
+×0.1. The ×2 write rate is the 1-hour cache price. All 108 eval result files
+from this run log their cache writes as 1-hour writes and none as 5-minute
+writes, so that rate applies. Adding output at ×5 gives 2.00M vs 2.08M, still
+**+4.0%**, so leaving output out does not change the result.
 
 Per suite:
 
@@ -195,7 +201,8 @@ known to be flaky. Still, the direction never flipped.
 - Fires for someone else: **not verified.** The fresh folder has no login, so no
   request went out, and a logged-out session lists none of the four tools. The
   mod fired in the logged-in default config only.
-- After the decision, the mod and its marketplace entry were removed, so it does not ship.
+- The marketplace entry used for the install test was a local edit and was
+  never committed. After the decision, the mod was removed too, so it does not ship.
 
 ## Trade-offs
 

@@ -2,7 +2,12 @@
 /**
  * A/B the tool-diet mod over eval suites.
  *
- * Usage: bun run ab-run.ts <repoDir> <modDir> <runs> <suite>... > ab.json
+ * Usage: bun run tests/mod-ab-run.ts <repoDir> <modDir> <runs> <suite>... > ab.json
+ *
+ * <modDir> is the mod's folder. The mod is not in the repo; the study doc
+ * (docs/research/2026-11-24-mods-token-study.md, Step 4) holds its files.
+ * Set AB_DEFAULT_CONFIG=1 to run both arms on the default config. The study
+ * needed it because the eval config folder's login had expired.
  *
  * Arms alternate within each round so drift (time of day, server-side cache)
  * hits both equally. Usage comes from every `result` event in the transcripts
@@ -13,7 +18,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 const [repoDir, modDir, runsArg, ...suites] = process.argv.slice(2);
-if (!repoDir || !modDir || !runsArg || suites.length === 0) throw new Error("usage: ab-run.ts <repoDir> <modDir> <runs> <suite>...");
+if (!repoDir || !modDir || !runsArg || suites.length === 0) throw new Error("usage: bun run tests/mod-ab-run.ts <repoDir> <modDir> <runs> <suite>...");
 const resultsDir = join(repoDir, "tests", "results");
 const extraEnv: Record<string, string> = process.env.AB_DEFAULT_CONFIG === "1" ? { EVAL_ALLOW_DEFAULT_CONFIG: "1" } : {};
 
