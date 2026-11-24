@@ -60,7 +60,7 @@ git diff HEAD 2>/dev/null > "$DIFF_FILE"
 # while the user may be committing. So reviewers run in a throwaway local
 # clone that matches HEAD plus every uncommitted change. A clone, not a
 # worktree: a worktree shares the stash and branches with this checkout.
-REVIEW_TMP=$(mktemp -d -t adv-review.XXXXXX) || exit 0
+REVIEW_TMP=$(mktemp -d "${TMPDIR:-/tmp}/adv-review.XXXXXX") || exit 0
 trap 'rm -rf "$REVIEW_TMP"' EXIT
 REVIEW_COPY="$REVIEW_TMP/repo"
 
@@ -111,7 +111,7 @@ fi
 run_with_timeout() {
   local secs="$1"; shift
   local marker
-  marker=$(mktemp -t adv-tmo.XXXXXX) || { "$@"; return $?; }
+  marker=$(mktemp "${TMPDIR:-/tmp}/adv-tmo.XXXXXX") || { "$@"; return $?; }
   rm -f "$marker"
   "$@" &
   local cmd_pid=$!

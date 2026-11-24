@@ -72,7 +72,7 @@ test_allow "cat > notes.md <<'EOF'\nRun git branch -D feature/x after merge\nEOF
 # A security guardrail must fail safe, not open. Shim jq off PATH (keeping the
 # other tools the hook needs) and confirm a dangerous payload is still blocked
 # via the raw-payload fallback.
-SHIM_DIR="$(mktemp -d)"
+SHIM_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")" || exit 1
 for t in cat grep dirname readlink bash sh; do
   src="$(command -v "$t" 2>/dev/null)"
   [[ -n "$src" ]] && ln -s "$src" "$SHIM_DIR/$t"
@@ -94,7 +94,7 @@ rm -rf "$SHIM_DIR"
 # A copy of the hook with no lib/ beside it (single-file install, partial
 # plugin cache, readlink unable to resolve) must still block, not exit 1 —
 # Claude Code treats exit 1 as a non-blocking error and runs the command.
-NOLIB_DIR="$(mktemp -d)"
+NOLIB_DIR="$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")" || exit 1
 cp "$HOOK" "$NOLIB_DIR/block-dangerous-git.sh"
 out=$(echo '{"tool_input":{"command":"git reset --hard HEAD~3"}}' | bash "$NOLIB_DIR/block-dangerous-git.sh" 2>&1; echo "EXIT=$?")
 if echo "$out" | grep -q "EXIT=2"; then

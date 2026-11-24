@@ -14,6 +14,9 @@
 #
 # Exit: 0 ok, 2 setup error.
 
+# Fall back to /tmp so mktemp templates below work when TMPDIR is unset (#613).
+test -n "$TMPDIR"; or set -gx TMPDIR /tmp
+
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
 set -l link_flags
 set -l i 1
@@ -110,7 +113,7 @@ if not cp $settings $backup
 end
 echo "Backed up: $settings -> $backup"
 
-set -l tmp (mktemp)
+set -l tmp (mktemp "$TMPDIR/setup-release.XXXXXX")
 jq --arg cmd $hook_cmd '
     .hooks //= {}
     | .hooks.SessionStart //= []

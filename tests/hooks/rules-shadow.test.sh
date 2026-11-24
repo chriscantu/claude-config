@@ -7,7 +7,7 @@ set -u
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HOOK="$REPO_ROOT/hooks/rules-shadow.sh"
 
-TMP="$(mktemp -d)"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")" || exit 1
 trap 'rm -rf "$TMP"' EXIT
 export RULES_SHADOW_LOG_DIR="$TMP/logs"
 LOG="$RULES_SHADOW_LOG_DIR/rules-shadow.log"

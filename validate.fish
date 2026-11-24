@@ -9,6 +9,9 @@
 # phases without requiring the real claude-config repo on disk. Validate the
 # override points at an existing dir — silently accepting a typo'd path would
 # make every phase scan empty globs and emit false passes.
+# Fall back to /tmp so mktemp templates below work when TMPDIR is unset (#613).
+test -n "$TMPDIR"; or set -gx TMPDIR /tmp
+
 if set -q CLAUDE_CONFIG_REPO_DIR; and test -n "$CLAUDE_CONFIG_REPO_DIR"
     if not test -d "$CLAUDE_CONFIG_REPO_DIR"
         echo "Error: CLAUDE_CONFIG_REPO_DIR=$CLAUDE_CONFIG_REPO_DIR is not a directory" >&2
@@ -292,7 +295,7 @@ function check_evals_json_shape
         return
     end
 
-    set -l count_err (mktemp)
+    set -l count_err (mktemp "$TMPDIR/validate.XXXXXX")
     set -l count (jq '.evals | length' $file 2>$count_err)
     set -l count_status $status
     if test $count_status -ne 0
@@ -310,7 +313,7 @@ function check_evals_json_shape
         return
     end
 
-    set -l jq_err (mktemp)
+    set -l jq_err (mktemp "$TMPDIR/validate.XXXXXX")
     set -l raw_lines (jq -r '.evals | to_entries[] | . as $e |
         ($e.value.name // "eval[\($e.key)]") as $id |
         ($e.value | [

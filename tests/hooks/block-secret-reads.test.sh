@@ -11,7 +11,7 @@ FAILURES=()
 
 # An empty HOME keeps a developer's real ~/.claude off switch from hiding
 # failures.
-EMPTY_HOME=$(mktemp -d)
+EMPTY_HOME=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX") || exit 1
 trap 'rm -rf "$EMPTY_HOME"' EXIT
 
 # Build the payload with jq so commands with quotes stay valid JSON. The
@@ -123,8 +123,8 @@ test_block "$long_cmd"
 # A project-local file must not count, because the model can create one in the
 # working folder. HOOK_SENTINEL_DIR, the other hooks' test override, must not
 # count either: a session's env settings could point it anywhere.
-off_home=$(mktemp -d)
-off_proj=$(mktemp -d)
+off_home=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX") || exit 1
+off_proj=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX") || exit 1
 mkdir -p "$off_home/.claude" "$off_proj/.claude"
 run_unsandboxed() {
   (cd "$off_proj" && jq -n --arg c "cat .env" '{tool_input:{command:$c}}' \
@@ -147,7 +147,7 @@ expect_exit "$(printf '{"tool_input":{"command":"echo \xff; cat .env"' | LC_ALL=
 
 # --- Without jq the hook scans the raw payload. JSON escapes quotes as \", so
 # the patterns must accept a backslash beside the path ---
-nojq_bin=$(mktemp -d)
+nojq_bin=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX") || exit 1
 for tool in bash cat dirname readlink tr; do ln -s "$(command -v "$tool")" "$nojq_bin/$tool"; done
 nojq_exit() {
   local payload
@@ -165,7 +165,7 @@ rm -rf "$nojq_bin"
 
 # --- A runtime with no preflight helpers must fail closed, not fall into the
 # raw scan as if jq were missing ---
-broken=$(mktemp -d)
+broken=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX") || exit 1
 cp -R "$REPO_ROOT/hooks/lib" "$broken/lib"
 cp "$HOOK" "$broken/"
 rm "$broken/lib/preflight.sh"

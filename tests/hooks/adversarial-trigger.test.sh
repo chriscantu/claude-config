@@ -82,7 +82,7 @@ run_case() {
 
 echo "Running adversarial-trigger tests..."
 
-SCRATCH=$(mktemp -d)
+SCRATCH=$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX") || exit 1
 trap 'cd /; rm -rf "$SCRATCH"' EXIT
 setup_scratch_repo "$SCRATCH"
 
