@@ -99,6 +99,16 @@ end
 
 # --- merge -------------------------------------------------------------
 
+# Rules an earlier template added and this one replaces. "//**/" blocked the
+# file name anywhere on disk, so the sandbox also blocked temp test fixtures;
+# "~/**/" still covers every project under home (#613). Only these exact
+# strings are removed, and each run that removes one says so.
+set -l retired '["Edit(//**/.claude/settings.json)", "Edit(//**/.claude/settings.local.json)"]'
+jq -r --argjson r $retired '
+    .permissions.deny // [] | .[] | select(. as $x | $r | index([$x]))
+    | "NOTE: replacing \"\(.)\" with the template'"'"'s home-folder rule."
+' $settings >&2
+
 # A hook counts as registered only under a matcher that fires on Bash: an entry
 # under "Read" alone would never run for shell commands.
 set -l registered 'def registered($hook): any(.hooks.PreToolUse[]? | select((.matcher // "") | test("^([*]|)$|Bash")) | .hooks[]?; .command? == $hook);'
@@ -108,7 +118,7 @@ set -l registered 'def registered($hook): any(.hooks.PreToolUse[]? | select((.ma
 set -l merge $registered'
     def union($a; $b): reduce (($a // []) + $b)[] as $x ([]; if index([$x]) then . else . + [$x] end);
     .permissions //= {}
-    | .permissions.deny = union(.permissions.deny; $tpl.permissions.deny)
+    | .permissions.deny = union((.permissions.deny // []) - $retired; $tpl.permissions.deny)
     | .sandbox = ($tpl.sandbox * (.sandbox // {}))
     | .hooks //= {}
     | .hooks.PreToolUse //= []
@@ -120,7 +130,7 @@ set -l merge $registered'
 # Merge in memory and compare before touching the disk. The sandbox blocks new
 # files beside ~/.claude/settings.json, so a re-run with nothing to change must
 # not create a temp file (#598).
-set -l merged (jq --slurpfile t $template --arg hook $hook ". as \$s | \$t[0] as \$tpl | \$s | $merge" $settings | string collect)
+set -l merged (jq --slurpfile t $template --arg hook $hook --argjson retired $retired ". as \$s | \$t[0] as \$tpl | \$s | $merge" $settings | string collect)
 if test $pipestatus[1] -ne 0; or test -z "$merged"
     echo "ERROR: jq failed to merge into $settings" >&2
     exit 2
