@@ -61,8 +61,11 @@ ambiguity.
    git -C "$(dirname "$RESOLVED")" remote get-url origin 2>/dev/null
    ```
 
-   If the origin matches `github.com[:/]chriscantu/claude-config(\.git)?`,
-   refuse. This catches every checkout of this repo, not one path.
+   If the origin matches
+   `github.com[:/]chriscantu/(claude-config|leadership-toolkit)(\.git)?`,
+   refuse. This catches every checkout of this repo, not one path. The repo
+   was renamed from `claude-config` to `leadership-toolkit` on 2026-11-23, and
+   older clones keep the old remote URL, so match both names.
 
 4. **Structural fallback for non-git copies.** A scratch copy under a public
    tree may have no git remote, so step 2 alone has a hole. Also refuse if the

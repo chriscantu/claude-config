@@ -81,7 +81,7 @@ Install from the Claude Code marketplace:
 Requires [fish shell](https://fishshell.com/) (`brew install fish` on macOS, `apt install fish` on Debian).
 
 ```sh
-git clone https://github.com/chriscantu/claude-config.git ~/repos/claude-config
+git clone https://github.com/chriscantu/leadership-toolkit.git ~/repos/claude-config
 cd ~/repos/claude-config
 fish install.fish
 ```
