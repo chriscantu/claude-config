@@ -61,7 +61,7 @@ git diff HEAD 2>/dev/null > "$DIFF_FILE"
 # clone that matches HEAD plus every uncommitted change. A clone, not a
 # worktree: a worktree shares the stash and branches with this checkout.
 if ! REVIEW_TMP=$(mktemp -d "${TMPDIR:-/tmp}/adv-review.XXXXXX"); then
-  echo "[$(date -u +%FT%TZ)] skip mktemp_failed tmpdir=${TMPDIR:-/tmp}" >> "$LOG_FILE"
+  echo "[$(date -u +%FT%TZ)] skip mktemp_failed tmpdir=$(printf '%q' "${TMPDIR:-/tmp}" | head -c 60)" >> "$LOG_FILE"
   exit 0
 fi
 trap 'rm -rf "$REVIEW_TMP"' EXIT

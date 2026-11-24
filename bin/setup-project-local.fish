@@ -48,7 +48,7 @@ if not jq -e . $local_settings >/dev/null 2>&1
     echo "       Fix the file manually, then re-run." >&2
     exit 1
 end
-set -l tmp (mktemp "$TMPDIR/setup-project-local.XXXXXX"); or begin; echo "ERROR: mktemp failed in $TMPDIR" >&2; exit 1; end
+set -l tmp (mktemp "$TMPDIR/setup-project-local.XXXXXX"); or begin; echo "ERROR: mktemp failed in $TMPDIR" >&2; exit 2; end
 jq --arg d $presentations '
     .permissions //= {}
     | .permissions.additionalDirectories //= []

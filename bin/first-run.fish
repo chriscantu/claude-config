@@ -192,7 +192,7 @@ end
 
 # Write beside the target, then rename: a same-directory mv is atomic, so
 # Claude Code never loads a half-written file.
-set -l prefs_tmp (mktemp "$prefs.XXXXXX"); or begin; echo "ERROR: mktemp failed beside $prefs" >&2; exit 1; end
+set -l prefs_tmp (mktemp "$prefs.XXXXXX"); or begin; echo "ERROR: mktemp failed beside $prefs" >&2; exit 2; end
 begin
     echo "## First-Run Personalization"
     echo ""
@@ -381,7 +381,7 @@ if test $hooks_enabled -eq 1
         test "$guard_path[1]" = "$hook_dangerous"; and continue
         test -e (dirname (dirname $guard_path[1]))/bin/first-run.fish; and set -a stale_guards $cmd
     end
-    set -l cleaned (mktemp "$TMPDIR/first-run.XXXXXX"); or begin; echo "ERROR: mktemp failed in $TMPDIR" >&2; exit 1; end
+    set -l cleaned (mktemp "$TMPDIR/first-run.XXXXXX"); or begin; echo "ERROR: mktemp failed in $TMPDIR" >&2; exit 2; end
     if test (count $stale_guards) -eq 0
         if not cp $settings $cleaned
             echo "ERROR: failed to copy $settings" >&2
@@ -415,7 +415,7 @@ if test $hooks_enabled -eq 1
         set add_hook false
     end
 
-    set -l tmp (mktemp "$TMPDIR/first-run.XXXXXX"); or begin; echo "ERROR: mktemp failed in $TMPDIR" >&2; exit 1; end
+    set -l tmp (mktemp "$TMPDIR/first-run.XXXXXX"); or begin; echo "ERROR: mktemp failed in $TMPDIR" >&2; rm -f $cleaned; exit 2; end
     jq --arg cmd $hook_dangerous --argjson add_hook $add_hook '
         if $add_hook then
             .hooks //= {}
