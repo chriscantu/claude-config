@@ -41,6 +41,9 @@
 #   - Not run from CI by default (auth + billing). Wire in selectively from
 #     a pre-merge check, or run locally after adding a new rule.
 
+# Fall back to /tmp so mktemp templates below work when TMPDIR is unset (#613).
+test -n "$TMPDIR"; or set -gx TMPDIR /tmp
+
 source (dirname (status --current-filename))/lib/eval-home.fish
 
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
@@ -91,7 +94,7 @@ function probe_rule --argument-names rule_name model
     # Capture stderr to a tempfile so a probe failure can surface the
     # actual claude CLI error (auth expired, rate limit, model unknown)
     # instead of just rc=N.
-    set -l err_file (mktemp)
+    set -l err_file (mktemp "$TMPDIR/verify-rule.XXXXXX")
     # Non-interactive, no session pollution, no skill side effects.
     set -l response (env -u ANTHROPIC_API_KEY CLAUDE_CONFIG_DIR=(eval_home_dir) claude --print --model $model --no-session-persistence --output-format text --disable-slash-commands "$prompt" 2>$err_file)
     set -l rc $status

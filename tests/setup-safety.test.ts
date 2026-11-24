@@ -110,6 +110,36 @@ describe("setup-safety.fish", () => {
     expect(read(settingsPath).sandbox.excludedCommands).toEqual(["gh *"]);
   });
 
+  // A "//**/" rule blocks the file name anywhere on disk, temp test fixtures
+  // included, so the tests that build a fake ~/.claude couldn't run in the
+  // sandbox. "~/**/" still covers every project under the home folder.
+  test("the template guards settings files under home, not the whole disk", () => {
+    const deny: string[] = TEMPLATE.permissions.deny;
+    expect(deny).toContain("Edit(~/**/.claude/settings.json)");
+    expect(deny).toContain("Edit(~/**/.claude/settings.local.json)");
+    expect(deny.filter((r) => r.startsWith("Edit(//"))).toEqual([]);
+  });
+
+  test("replaces the retired whole-disk rules, names them, and keeps the user's own", () => {
+    const { home, settingsPath } = seedHome({
+      permissions: {
+        deny: [
+          "Bash(sudo:*)",
+          "Edit(//**/.claude/settings.json)",
+          "Edit(//**/.claude/settings.local.json)",
+        ],
+      },
+    });
+    const r = run(home);
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("Edit(//**/.claude/settings.json)");
+    const deny: string[] = read(settingsPath).permissions.deny;
+    expect(deny[0]).toBe("Bash(sudo:*)");
+    expect(deny).toContain("Edit(~/**/.claude/settings.json)");
+    expect(deny.filter((rule) => rule.startsWith("Edit(//"))).toEqual([]);
+    expect(run(home).out).not.toContain("Edit(//**/");
+  });
+
   test("is idempotent: a second run changes nothing", () => {
     const { home, settingsPath } = seedHome({});
     expect(run(home).code).toBe(0);

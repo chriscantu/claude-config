@@ -7,8 +7,8 @@
       "Read(**/credentials/**)",
       "Edit(~/.claude/DISABLE_SECRET_GUARD)",
       "Edit(~/.claude/settings.json)",
-      "Edit(//**/.claude/settings.json)",
-      "Edit(//**/.claude/settings.local.json)"
+      "Edit(~/**/.claude/settings.json)",
+      "Edit(~/**/.claude/settings.local.json)"
     ]
   },
   "sandbox": {

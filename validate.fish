@@ -5,6 +5,9 @@
 # Phase 1: Static validation (frontmatter, cross-references, symlinks)
 # Phase 2: Concept coverage (required behavioral concepts exist somewhere in config)
 
+# Fall back to /tmp so mktemp templates below work when TMPDIR is unset (#613).
+test -n "$TMPDIR"; or set -gx TMPDIR /tmp
+
 # CLAUDE_CONFIG_REPO_DIR env override enables fixture-based testing of validation
 # phases without requiring the real claude-config repo on disk. Validate the
 # override points at an existing dir — silently accepting a typo'd path would
@@ -292,7 +295,7 @@ function check_evals_json_shape
         return
     end
 
-    set -l count_err (mktemp)
+    set -l count_err (mktemp "$TMPDIR/validate.XXXXXX")
     set -l count (jq '.evals | length' $file 2>$count_err)
     set -l count_status $status
     if test $count_status -ne 0
@@ -310,7 +313,7 @@ function check_evals_json_shape
         return
     end
 
-    set -l jq_err (mktemp)
+    set -l jq_err (mktemp "$TMPDIR/validate.XXXXXX")
     set -l raw_lines (jq -r '.evals | to_entries[] | . as $e |
         ($e.value.name // "eval[\($e.key)]") as $id |
         ($e.value | [

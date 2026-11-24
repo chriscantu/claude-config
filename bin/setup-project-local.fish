@@ -12,6 +12,9 @@
 #   fish bin/setup-project-local.fish        # update local settings
 #   fish bin/setup-project-local.fish --help
 
+# Fall back to /tmp so mktemp templates below work when TMPDIR is unset (#613).
+test -n "$TMPDIR"; or set -gx TMPDIR /tmp
+
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
 if test -z "$repo" -o ! -d "$repo/.claude"
     echo "ERROR: cannot resolve repo root (got: '$repo')." >&2
@@ -45,7 +48,7 @@ if not jq -e . $local_settings >/dev/null 2>&1
     echo "       Fix the file manually, then re-run." >&2
     exit 1
 end
-set -l tmp (mktemp)
+set -l tmp (mktemp "$TMPDIR/setup-project-local.XXXXXX")
 jq --arg d $presentations '
     .permissions //= {}
     | .permissions.additionalDirectories //= []

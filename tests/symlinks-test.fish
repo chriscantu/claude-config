@@ -2,6 +2,9 @@
 # Regression tests for bin/lib/symlinks.fish — see lib for function contracts.
 # Tests use isolated fixture dirs under mktemp.
 
+# Fall back to /tmp so mktemp templates below work when TMPDIR is unset (#613).
+test -n "$TMPDIR"; or set -gx TMPDIR /tmp
+
 set repo_dir (cd (dirname (status filename)); and cd ..; and pwd)
 set lib "$repo_dir/bin/lib/symlinks.fish"
 
@@ -27,7 +30,7 @@ end
 
 # Build a fixture "repo" with one entry in each managed location.
 function make_repo_fixture
-    set fixture (mktemp -d)
+    set fixture (mktemp -d "$TMPDIR/symlinks-test.XXXXXX"); or exit 1
     mkdir -p $fixture/rules $fixture/agents $fixture/commands $fixture/skills/myskill $fixture/.claude/skills/vendored $fixture/hooks $fixture/global
     echo "# rule" > $fixture/rules/foo.md
     echo "# rule README" > $fixture/rules/README.md
@@ -45,7 +48,7 @@ end
 
 # Registers the gate hook, as a real install does, so execution-mode.md is skipped.
 function make_home_fixture
-    set fixture (mktemp -d)
+    set fixture (mktemp -d "$TMPDIR/symlinks-test.XXXXXX"); or exit 1
     echo '{"hooks":{"Stop":[{"hooks":[{"type":"command","command":"/x/hooks/rules-shadow.sh"}]}]}}' >$fixture/settings.json
     echo $fixture
 end
@@ -168,7 +171,7 @@ end
 
 # Without the hook registered nothing would inject execution-mode.md, so it
 # stays linked and the iterator warns on stderr.
-set bare_home (mktemp -d)
+set bare_home (mktemp -d "$TMPDIR/symlinks-test.XXXXXX"); or exit 1
 set bare_entries (each_symlink_target $repo $bare_home 2>$bare_home/stderr)
 if string match -q "*rules/execution-mode.md*" $bare_entries
     t_pass "rules/execution-mode.md stays linked when the gate hook is not registered"
@@ -311,7 +314,7 @@ set home (make_home_fixture)
 install_layout $repo $home
 # Foreign symlink — points outside $repo. Must NOT be flagged. Simulates a
 # user's other plugin living next to us under ~/.claude/rules/.
-set foreign (mktemp)
+set foreign (mktemp "$TMPDIR/symlinks-test.XXXXXX"); or exit 1
 echo "# foreign rule" > $foreign
 mkdir -p $home/rules
 ln -s $foreign $home/rules/from-other-plugin.md
@@ -381,7 +384,7 @@ cleanup_fixture $home
 echo ""
 echo "── Test I: release_source_root"
 set checkout (make_repo_fixture)
-set rel_home (mktemp -d)
+set rel_home (mktemp -d "$TMPDIR/symlinks-test.XXXXXX"); or exit 1
 set -lx CLAUDE_CONFIG_RELEASE_DIR $rel_home/release
 mkdir -p $rel_home/release
 echo "gitdir: elsewhere" > $rel_home/release/.git

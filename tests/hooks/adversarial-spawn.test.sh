@@ -13,7 +13,7 @@ PASS=0
 FAIL=0
 FAILED_TESTS=()
 
-SCRATCH="$(mktemp -d)"
+SCRATCH="$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")" || exit 1
 trap 'rm -rf "$SCRATCH"' EXIT
 REPO="$SCRATCH/repo"
 STUB_BIN="$SCRATCH/bin"

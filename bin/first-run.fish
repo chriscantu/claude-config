@@ -29,6 +29,9 @@
 #   FIRST_RUN_SKIP_VERIFY=1            # skip link-config/validate gates
 #                                        (tests run them separately)
 
+# Fall back to /tmp so mktemp templates below work when TMPDIR is unset (#613).
+test -n "$TMPDIR"; or set -gx TMPDIR /tmp
+
 set -l repo (cd (dirname (status --current-filename))/..; and pwd)
 if test -z "$repo" -o ! -d "$repo/global"
     echo "ERROR: cannot resolve repo root (got: '$repo')." >&2
@@ -378,7 +381,7 @@ if test $hooks_enabled -eq 1
         test "$guard_path[1]" = "$hook_dangerous"; and continue
         test -e (dirname (dirname $guard_path[1]))/bin/first-run.fish; and set -a stale_guards $cmd
     end
-    set -l cleaned (mktemp)
+    set -l cleaned (mktemp "$TMPDIR/first-run.XXXXXX")
     if test (count $stale_guards) -eq 0
         if not cp $settings $cleaned
             echo "ERROR: failed to copy $settings" >&2
@@ -412,7 +415,7 @@ if test $hooks_enabled -eq 1
         set add_hook false
     end
 
-    set -l tmp (mktemp)
+    set -l tmp (mktemp "$TMPDIR/first-run.XXXXXX")
     jq --arg cmd $hook_dangerous --argjson add_hook $add_hook '
         if $add_hook then
             .hooks //= {}

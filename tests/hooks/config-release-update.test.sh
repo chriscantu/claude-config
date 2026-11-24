@@ -9,7 +9,7 @@ set -u
 REPO_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HOOK="$REPO_ROOT/hooks/config-release-update.sh"
 
-TMP="$(mktemp -d)"
+TMP="$(mktemp -d "${TMPDIR:-/tmp}/hooktest.XXXXXX")" || exit 1
 trap 'rm -rf "$TMP"' EXIT
 
 PASS=0
