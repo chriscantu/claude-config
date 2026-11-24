@@ -113,7 +113,7 @@ if not cp $settings $backup
 end
 echo "Backed up: $settings -> $backup"
 
-set -l tmp (mktemp "$TMPDIR/setup-release.XXXXXX")
+set -l tmp (mktemp "$TMPDIR/setup-release.XXXXXX"); or begin; echo "ERROR: mktemp failed in $TMPDIR" >&2; exit 2; end
 jq --arg cmd $hook_cmd '
     .hooks //= {}
     | .hooks.SessionStart //= []

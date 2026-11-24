@@ -295,7 +295,7 @@ function check_evals_json_shape
         return
     end
 
-    set -l count_err (mktemp "$TMPDIR/validate.XXXXXX")
+    set -l count_err (mktemp "$TMPDIR/validate.XXXXXX"); or begin; fail "$label: mktemp failed in $TMPDIR"; return; end
     set -l count (jq '.evals | length' $file 2>$count_err)
     set -l count_status $status
     if test $count_status -ne 0
@@ -313,7 +313,7 @@ function check_evals_json_shape
         return
     end
 
-    set -l jq_err (mktemp "$TMPDIR/validate.XXXXXX")
+    set -l jq_err (mktemp "$TMPDIR/validate.XXXXXX"); or begin; fail "$label: mktemp failed in $TMPDIR"; return; end
     set -l raw_lines (jq -r '.evals | to_entries[] | . as $e |
         ($e.value.name // "eval[\($e.key)]") as $id |
         ($e.value | [
