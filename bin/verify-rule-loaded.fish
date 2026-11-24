@@ -94,7 +94,7 @@ function probe_rule --argument-names rule_name model
     # Capture stderr to a tempfile so a probe failure can surface the
     # actual claude CLI error (auth expired, rate limit, model unknown)
     # instead of just rc=N.
-    set -l err_file (mktemp "$TMPDIR/verify-rule.XXXXXX")
+    set -l err_file (mktemp "$TMPDIR/verify-rule.XXXXXX"); or begin; echo "ERROR: mktemp failed in $TMPDIR" >&2; exit 1; end
     # Non-interactive, no session pollution, no skill side effects.
     set -l response (env -u ANTHROPIC_API_KEY CLAUDE_CONFIG_DIR=(eval_home_dir) claude --print --model $model --no-session-persistence --output-format text --disable-slash-commands "$prompt" 2>$err_file)
     set -l rc $status

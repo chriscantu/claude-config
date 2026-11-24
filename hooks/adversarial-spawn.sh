@@ -60,7 +60,10 @@ git diff HEAD 2>/dev/null > "$DIFF_FILE"
 # while the user may be committing. So reviewers run in a throwaway local
 # clone that matches HEAD plus every uncommitted change. A clone, not a
 # worktree: a worktree shares the stash and branches with this checkout.
-REVIEW_TMP=$(mktemp -d "${TMPDIR:-/tmp}/adv-review.XXXXXX") || exit 0
+if ! REVIEW_TMP=$(mktemp -d "${TMPDIR:-/tmp}/adv-review.XXXXXX"); then
+  echo "[$(date -u +%FT%TZ)] skip mktemp_failed tmpdir=${TMPDIR:-/tmp}" >> "$LOG_FILE"
+  exit 0
+fi
 trap 'rm -rf "$REVIEW_TMP"' EXIT
 REVIEW_COPY="$REVIEW_TMP/repo"
 
@@ -108,13 +111,13 @@ fi
 # via a marker file the killer touches IMMEDIATELY before sending SIGTERM.
 # If the marker exists after `wait`, our timer fired. Otherwise the command
 # died on its own — preserve its exit code, even if it was 143/137.
+# The marker lives in $REVIEW_TMP, named by the command's PID, so parallel
+# workers never share one and no mktemp failure can drop the timeout (#618).
 run_with_timeout() {
   local secs="$1"; shift
-  local marker
-  marker=$(mktemp "${TMPDIR:-/tmp}/adv-tmo.XXXXXX") || { "$@"; return $?; }
-  rm -f "$marker"
   "$@" &
   local cmd_pid=$!
+  local marker="$REVIEW_TMP/tmo.$cmd_pid"
   ( sleep "$secs"; touch "$marker"; kill -TERM "$cmd_pid" 2>/dev/null; sleep 2; kill -KILL "$cmd_pid" 2>/dev/null ) &
   local killer_pid=$!
   wait "$cmd_pid" 2>/dev/null
