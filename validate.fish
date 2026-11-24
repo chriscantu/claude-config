@@ -5,13 +5,13 @@
 # Phase 1: Static validation (frontmatter, cross-references, symlinks)
 # Phase 2: Concept coverage (required behavioral concepts exist somewhere in config)
 
+# Fall back to /tmp so mktemp templates below work when TMPDIR is unset (#613).
+test -n "$TMPDIR"; or set -gx TMPDIR /tmp
+
 # CLAUDE_CONFIG_REPO_DIR env override enables fixture-based testing of validation
 # phases without requiring the real claude-config repo on disk. Validate the
 # override points at an existing dir — silently accepting a typo'd path would
 # make every phase scan empty globs and emit false passes.
-# Fall back to /tmp so mktemp templates below work when TMPDIR is unset (#613).
-test -n "$TMPDIR"; or set -gx TMPDIR /tmp
-
 if set -q CLAUDE_CONFIG_REPO_DIR; and test -n "$CLAUDE_CONFIG_REPO_DIR"
     if not test -d "$CLAUDE_CONFIG_REPO_DIR"
         echo "Error: CLAUDE_CONFIG_REPO_DIR=$CLAUDE_CONFIG_REPO_DIR is not a directory" >&2

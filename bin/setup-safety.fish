@@ -100,9 +100,11 @@ end
 # --- merge -------------------------------------------------------------
 
 # Rules an earlier template added and this one replaces. "//**/" blocked the
-# file name anywhere on disk, so the sandbox also blocked temp test fixtures;
-# "~/**/" still covers every project under home (#613). Only these exact
-# strings are removed, and each run that removes one says so.
+# file name anywhere on disk. The sandbox applies Edit deny rules to shell
+# writes too, so it also blocked the fake settings files tests build in temp
+# folders. "~/**/" still covers every project under home (found while fixing
+# #613). Only these exact strings are removed, and each run that removes one
+# says so.
 set -l retired '["Edit(//**/.claude/settings.json)", "Edit(//**/.claude/settings.local.json)"]'
 jq -r --argjson r $retired '
     .permissions.deny // [] | .[] | select(. as $x | $r | index([$x]))
