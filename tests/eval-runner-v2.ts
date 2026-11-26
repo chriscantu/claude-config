@@ -40,6 +40,9 @@ import {
   ScratchDecoySeedError,
   aggregateChainSignals,
   buildChildEnv,
+  STUB_MARKER_ENV,
+  stubBypassed,
+  stubCommandNames,
   createTeardownTracker,
   discoverSkills,
   evaluate,
@@ -989,14 +992,24 @@ async function main() {
         out.push(dim(`      ${skillName}/${e.name}: teardown failed (${e.teardown}): ${msg}`)),
       work: async () => {
         let childEnv: NodeJS.ProcessEnv;
+        let stubRan = false;
+        // Holds the CLAUDE_ENV_FILE and the stub's call log; outside the
+        // session's cwd so the model never sees either file.
+        const envScratch = e.path_prepend ? mkdtempSync(join(tmpdir(), "claude-eval-env-")) : undefined;
         try {
-          childEnv = buildChildEnv(CLI_CHILD_ENV, repoDir, e);
+          childEnv = buildChildEnv(CLI_CHILD_ENV, repoDir, e, envScratch);
         } catch (err) {
           out.push(`    ${red("✗")} ${(err as Error).message}`);
           workResult = failedResult();
+          if (envScratch) rmSync(envScratch, { recursive: true, force: true });
           return;
         }
-        const { stdout, stderr, exitCode, failure } = await runClaude(resolveProjectDir(buildPrompt(e)), undefined, e.scratch_decoy, childEnv);
+        const { stdout, stderr, exitCode, failure } = await runClaude(resolveProjectDir(buildPrompt(e)), undefined, e.scratch_decoy, childEnv)
+          .finally(() => {
+            // Read the stub log before the dir is removed.
+            stubRan = envScratch ? existsSync(childEnv[STUB_MARKER_ENV]!) : false;
+            if (envScratch) rmSync(envScratch, { recursive: true, force: true });
+          });
 
         if (failure || exitCode !== 0) {
           const reason = formatRunFailure(failure, exitCode, stdout, stderr, { prefix: "exit" });
@@ -1047,6 +1060,30 @@ async function main() {
         }
 
         const signals = extractSignals(events);
+
+        const bypass = e.path_prepend
+          ? stubBypassed(signals.toolUses, stubCommandNames(e.path_prepend.map((d) => join(repoDir, d))), stubRan)
+          : null;
+        if (bypass) {
+          out.push(`    ${red("✗")} ${bypass}`);
+          writeTranscript({
+            path: transcriptFile,
+            skillName,
+            evalName: e.name,
+            prompt: e.prompt,
+            signals,
+            rawStdout: stdout,
+            rawStderr: stderr,
+            exitCode,
+            parsedEvents: events.length,
+            skippedLines: skipped,
+            failure: bypass,
+            unevaluatedAssertions: e.assertions,
+          });
+          out.push(dim(`      transcript → ${transcriptFile.replace(repoDir + "/", "")}`));
+          workResult = failedResult();
+          return;
+        }
 
         const perTurn: Array<{ assertion: typeof e.assertions[number]; result: ReturnType<typeof evaluate>; signals: Signals | null; turnIndex: number }> = [];
         for (const a of e.assertions) {

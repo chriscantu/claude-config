@@ -7,6 +7,7 @@
  */
 
 import { describe, expect, test } from "bun:test";
+import { execSync } from "node:child_process";
 import { mkdtempSync, writeFileSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -32,6 +33,10 @@ import {
   streamHasSuccessfulResult,
   buildChildEnv,
   loadEvalFile,
+  pathPrependScript,
+  STUB_MARKER_ENV,
+  stubBypassed,
+  stubCommandNames,
   metaCheck,
   parseStreamJson,
   reliabilityOf,
@@ -2692,16 +2697,91 @@ describe("buildChildEnv()", () => {
   test("prepends repo-relative dirs to PATH and merges env vars", () => {
     const repo = mkdtempSync(join(tmpdir(), "evals-env-repo-"));
     mkdirSync(join(repo, "stub"), { recursive: true });
+    const scratch = mkdtempSync(join(tmpdir(), "evals-env-scratch-"));
     const base = { PATH: "/usr/bin", HOME: "/h" };
-    const env = buildChildEnv(base, repo, { env: { MODE: "fork" }, path_prepend: ["stub"] });
+    const env = buildChildEnv(base, repo, { env: { MODE: "fork" }, path_prepend: ["stub"] }, scratch);
     expect(env.PATH).toBe(`${join(repo, "stub")}:/usr/bin`);
     expect(env.MODE).toBe("fork");
     expect(env.HOME).toBe("/h");
     expect(base.PATH).toBe("/usr/bin");
   });
 
+  // The Bash tool runs a login shell, and macOS's login setup moves system
+  // folders such as /opt/homebrew/bin ahead of the stub dir (#629). Claude
+  // Code sources CLAUDE_ENV_FILE before each Bash command, so the stub dir
+  // goes back in front there.
+  test("path_prepend also writes a CLAUDE_ENV_FILE that puts the stub dirs first", () => {
+    const repo = mkdtempSync(join(tmpdir(), "evals-env-repo-"));
+    mkdirSync(join(repo, "stub"), { recursive: true });
+    const scratch = mkdtempSync(join(tmpdir(), "evals-env-scratch-"));
+    const env = buildChildEnv({ PATH: "/usr/bin" }, repo, { path_prepend: ["stub"] }, scratch);
+    expect(env.CLAUDE_ENV_FILE).toBeDefined();
+    expect(readFileSync(env.CLAUDE_ENV_FILE!, "utf8")).toBe(pathPrependScript([join(repo, "stub")]));
+    expect(env[STUB_MARKER_ENV]).toBe(join(scratch, "stub-calls.log"));
+  });
+
+  test("an eval without path_prepend gets no env file or marker", () => {
+    const env = buildChildEnv({ PATH: "/usr/bin" }, "/repo", {});
+    expect(env.CLAUDE_ENV_FILE).toBeUndefined();
+    expect(env[STUB_MARKER_ENV]).toBeUndefined();
+  });
+
+  test("path_prepend without a scratch dir is an error, not a silent skip", () => {
+    const repo = mkdtempSync(join(tmpdir(), "evals-env-repo-"));
+    mkdirSync(join(repo, "stub"), { recursive: true });
+    expect(() => buildChildEnv({ PATH: "/usr/bin" }, repo, { path_prepend: ["stub"] })).toThrow(/scratch dir/);
+  });
+
   test("throws when a path_prepend dir does not exist", () => {
-    expect(() => buildChildEnv({ PATH: "/usr/bin" }, "/nonexistent-repo", { path_prepend: ["stub"] }))
+    expect(() => buildChildEnv({ PATH: "/usr/bin" }, "/nonexistent-repo", { path_prepend: ["stub"] }, "/tmp"))
       .toThrow(/path_prepend dir .* does not exist/);
+  });
+});
+
+describe("pathPrependScript()", () => {
+  test("puts each dir in front of PATH, quoted so spaces and quotes survive", () => {
+    const script = pathPrependScript(["/a b/stub", "/it's/x"]);
+    const out = execSync(`sh -c '. "$0"; printf %s "$PATH"' ${JSON.stringify(writeTemp(script))}`, {
+      env: { PATH: "/usr/bin:/bin" },
+      encoding: "utf8",
+    });
+    expect(out).toBe("/a b/stub:/it's/x:/usr/bin:/bin");
+  });
+});
+
+function writeTemp(content: string): string {
+  const p = join(mkdtempSync(join(tmpdir(), "evals-script-")), "env.sh");
+  writeFileSync(p, content);
+  return p;
+}
+
+describe("stubCommandNames()", () => {
+  test("lists only the executable files in the stub dirs", () => {
+    const dir = mkdtempSync(join(tmpdir(), "evals-stub-names-"));
+    writeFileSync(join(dir, "gh"), "#!/bin/sh\n", { mode: 0o755 });
+    writeFileSync(join(dir, "gh-stub.ts"), "", { mode: 0o644 });
+    expect(stubCommandNames([dir])).toEqual(["gh"]);
+  });
+});
+
+describe("stubBypassed()", () => {
+  const bash = (command: string) => ({ name: "Bash", input: { command } });
+
+  test("flags a session that ran gh while the stub never ran", () => {
+    expect(stubBypassed([bash("gh pr view 42 --json body")], ["gh"], false)).toMatch(/gh/);
+  });
+
+  test("passes when the stub ran", () => {
+    expect(stubBypassed([bash("gh pr view 42")], ["gh"], true)).toBeNull();
+  });
+
+  test("passes when the session never ran the stubbed command", () => {
+    expect(stubBypassed([bash("ls; git status"), { name: "Read", input: { file_path: "/gh" } }], ["gh"], false)).toBeNull();
+  });
+
+  test("finds the command after a pipe, &&, or subshell, but not inside another word", () => {
+    expect(stubBypassed([bash("cd /x && gh pr checks 42")], ["gh"], false)).not.toBeNull();
+    expect(stubBypassed([bash("echo $(gh api x)")], ["gh"], false)).not.toBeNull();
+    expect(stubBypassed([bash("ghq list; echo ghost")], ["gh"], false)).toBeNull();
   });
 });

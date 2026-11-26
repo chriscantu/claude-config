@@ -4,7 +4,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 export type AssertionTier = "required" | "diagnostic";
@@ -418,6 +418,7 @@ export function buildChildEnv(
   base: NodeJS.ProcessEnv,
   repoRoot: string,
   opts: { env?: Readonly<Record<string, string>>; path_prepend?: readonly string[] },
+  scratchDir?: string,
 ): NodeJS.ProcessEnv {
   const child: NodeJS.ProcessEnv = { ...base, ...opts.env };
   if (!opts.path_prepend) return child;
@@ -425,8 +426,53 @@ export function buildChildEnv(
   for (const dir of dirs) {
     if (!existsSync(dir)) throw new Error(`path_prepend dir ${dir} does not exist`);
   }
+  if (!scratchDir) throw new Error("path_prepend needs a scratch dir for its CLAUDE_ENV_FILE");
   child.PATH = [...dirs, base.PATH ?? ""].join(":");
+  // PATH alone is not enough: the Bash tool runs a login shell, and macOS's
+  // login setup moves system folders such as /opt/homebrew/bin ahead of the
+  // stub dirs, so the real binary wins (#629). Claude Code sources
+  // CLAUDE_ENV_FILE before each Bash command, which puts the stubs back first.
+  const envFile = join(scratchDir, "path-prepend.sh");
+  writeFileSync(envFile, pathPrependScript(dirs));
+  child.CLAUDE_ENV_FILE = envFile;
+  child[STUB_MARKER_ENV] = join(scratchDir, "stub-calls.log");
   return child;
+}
+
+/** Env var naming the file a stub appends to each time it runs. */
+export const STUB_MARKER_ENV = "EVAL_STUB_MARKER";
+
+const shQuote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
+
+/** A POSIX shell snippet that puts `dirs` in front of PATH. */
+export function pathPrependScript(dirs: readonly string[]): string {
+  return `export PATH=${dirs.map(shQuote).join(":")}:"$PATH"\n`;
+}
+
+/** The command names a set of stub dirs provides: their executable files. */
+export function stubCommandNames(dirs: readonly string[]): string[] {
+  const names: string[] = [];
+  for (const dir of dirs) {
+    for (const name of readdirSync(dir)) {
+      if (statSync(join(dir, name)).mode & 0o111) names.push(name);
+    }
+  }
+  return names.sort();
+}
+
+/**
+ * Returns why the eval is invalid when a Bash command ran a stubbed command
+ * but the stub never ran, which means the real binary answered instead.
+ * Returns null when the stub ran or the session never called it.
+ */
+export function stubBypassed(toolUses: readonly ToolUse[], stubNames: readonly string[], stubRan: boolean): string | null {
+  if (stubRan) return null;
+  for (const name of stubNames) {
+    const asCommand = new RegExp(`(^|[\\s;&|(\`])${name.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(\\s|$)`);
+    const called = toolUses.some((tu) => tu.name === "Bash" && typeof tu.input.command === "string" && asCommand.test(tu.input.command));
+    if (called) return `stub bypassed: the session ran \`${name}\` but the stub in path_prepend never ran, so the real ${name} answered (#629)`;
+  }
+  return null;
 }
 
 /**

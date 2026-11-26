@@ -12,6 +12,8 @@
  *   GH_STUB_PR_BODY  PR description, usually the eval's test plan
  *   GH_STUB_DRAFT    "true" to report the PR as a draft
  *   GH_STUB_FILES    comma-separated changed paths
+ *   EVAL_STUB_MARKER file the runner checks afterwards; each call appends its
+ *                    args, so the runner can tell the stub ran and not the real gh
  *
  * Only the subcommands models reach for in these evals are implemented.
  * Anything else fails, so a transcript never shows a made-up success. Errors
@@ -20,10 +22,12 @@
  */
 
 import { spawnSync } from "node:child_process";
+import { appendFileSync } from "node:fs";
 
 const env = process.env;
 const mode = env.GH_STUB_MODE ?? "ok";
 const args = process.argv.slice(2);
+if (env.EVAL_STUB_MARKER) appendFileSync(env.EVAL_STUB_MARKER, `${args.join(" ")}\n`);
 
 function fail(message: string, code = 1): never {
   process.stderr.write(`${message}\n`);
