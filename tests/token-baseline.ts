@@ -222,10 +222,17 @@ export function calibrationScale(total: Usage, sources: Map<string, SourceStat>)
 export const rankSources = (m: Map<string, SourceStat>) =>
   [...m.entries()].sort((a, b) => b[1].weighted - a[1].weighted || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
 
+/** Parses `--n`. Anything but a whole number of zero or more throws, rather than reading every transcript. */
+export function parseSessionCount(raw: string | undefined): number {
+  if (raw === undefined || !/^\d+$/.test(raw)) throw new Error(`--n must be a whole number of zero or more, got ${JSON.stringify(raw)}`);
+  return Number(raw);
+}
+
 if (import.meta.main) {
   const argv = process.argv.slice(2);
   const flag = (k: string, d: string) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : d; };
-  const n = Number(flag("--n", "30"));
+  let n: number;
+  try { n = parseSessionCount(flag("--n", "30")); } catch (e) { console.error((e as Error).message); process.exit(1); }
   const root = flag("--root", join(homedir(), ".claude", "projects"));
   const exclude = flag("--exclude", "");
 

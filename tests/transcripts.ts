@@ -6,7 +6,10 @@ import { join, relative, sep } from "node:path";
 /** One transcript on disk. `subagent` marks files under a session's `subagents/` folder. */
 export type TranscriptFile = { path: string; mtimeMs: number; subagent: boolean };
 
-export type Selection = { includeSubagents: boolean; exclude?: string; limit?: number };
+export type Selection = { includeSubagents: boolean; exclude?: string };
+
+/** True when the file sits under a `subagents` folder somewhere below `root`. */
+export const isSubagentPath = (root: string, path: string) => relative(root, path).split(sep).includes("subagents");
 
 /** Every `.jsonl` file under `root`, at any depth. */
 export function listTranscripts(root: string): TranscriptFile[] {
@@ -17,7 +20,7 @@ export function listTranscripts(root: string): TranscriptFile[] {
       const s = statSync(path);
       if (s.isDirectory()) walk(path);
       else if (name.endsWith(".jsonl"))
-        out.push({ path, mtimeMs: s.mtimeMs, subagent: relative(root, path).split(sep).includes("subagents") });
+        out.push({ path, mtimeMs: s.mtimeMs, subagent: isSubagentPath(root, path) });
     }
   };
   walk(root);
@@ -26,15 +29,14 @@ export function listTranscripts(root: string): TranscriptFile[] {
 
 /**
  * Newest first. Ties on modified time sort by path, so two runs over the same
- * files give the same order. Exclusion runs before the limit, so the limit
- * counts only files that are kept.
+ * files give the same order. Callers take their first n from this list, so
+ * excluded files never use up a place.
  */
-export function selectTranscripts(files: TranscriptFile[], { includeSubagents, exclude, limit }: Selection): string[] {
+export function selectTranscripts(files: TranscriptFile[], { includeSubagents, exclude }: Selection): string[] {
   return files
     .filter((f) => includeSubagents || !f.subagent)
     .filter((f) => !exclude || !f.path.includes(exclude))
     .sort((a, b) => b.mtimeMs - a.mtimeMs || (a.path < b.path ? -1 : a.path > b.path ? 1 : 0))
-    .slice(0, limit)
     .map((f) => f.path);
 }
 
