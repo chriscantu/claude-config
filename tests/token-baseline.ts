@@ -2,7 +2,7 @@
 /**
  * Token baseline over recent Claude Code session transcripts.
  *
- * Usage: bun run token-baseline.ts [--n 30] [--root ~/.claude/projects] [--json]
+ * Usage: bun run token-baseline.ts [--n 30] [--root ~/.claude/projects] [--exclude <path-substring>] [--json]
  *
  * Two outputs:
  *   1. Billed usage by class, summed from each API call's `usage` block
@@ -13,9 +13,10 @@
  *      the billed input. A block is charged once per API call made while it
  *      sits in context — that is what makes always-loaded content expensive.
  */
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
+import { listTranscripts, selectTranscripts, transcriptSetLabel } from "./transcripts.ts";
 
 export type Usage = { fresh: number; cacheWrite: number; cacheRead: number; output: number };
 export type SourceStat = { sends: number; estTokens: number; weighted: number; costUnits: number };
@@ -184,34 +185,20 @@ function addAssistantPart(state: SessionState, part: any) {
   if (part.type === "thinking") addBlock(state, "assistant-history", part.thinking ?? "");
 }
 
-function recentTranscripts(root: string, n: number): string[] {
-  const files: { p: string; m: number }[] = [];
-  for (const d of readdirSync(root)) {
-    const dir = join(root, d);
-    if (!statSync(dir).isDirectory()) continue;
-    for (const f of readdirSync(dir)) {
-      if (!f.endsWith(".jsonl")) continue;
-      const p = join(dir, f);
-      files.push({ p, m: statSync(p).mtimeMs });
-    }
-  }
-  return files.sort((a, b) => b.m - a.m).slice(0, n).map((f) => f.p);
-}
+type SessionResult = ReturnType<typeof analyzeSession>;
 
-if (import.meta.main) {
-  const argv = process.argv.slice(2);
-  const flag = (k: string, d: string) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : d; };
-  const n = Number(flag("--n", "30"));
-  const root = flag("--root", join(homedir(), ".claude", "projects"));
-  const exclude = flag("--exclude", "");
-
+/**
+ * Analyzes transcripts in the given order until `n` of them contain API calls.
+ * A transcript with no calls does not count toward `n`. `shortfall` is how many
+ * sessions short of `n` the run ended when the transcripts ran out.
+ */
+export function collectSessions(paths: string[], n: number, analyze: (path: string) => SessionResult) {
   const total: Usage = { fresh: 0, cacheWrite: 0, cacheRead: 0, output: 0 };
   const all = new Map<string, SourceStat>();
   let calls = 0, sessions = 0;
-  for (const p of recentTranscripts(root, n + (exclude ? 1 : 0))) {
-    if (exclude && p.includes(exclude)) continue;
+  for (const p of paths) {
     if (sessions >= n) break;
-    const res = analyzeSession(readFileSync(p, "utf8").split("\n"));
+    const res = analyze(p);
     if (res.calls === 0) continue;
     sessions++; calls += res.calls;
     for (const k of Object.keys(total) as (keyof Usage)[]) total[k] += res.usage[k];
@@ -221,20 +208,48 @@ if (import.meta.main) {
       all.set(k, s);
     }
   }
+  return { sessions, calls, total, all, shortfall: Math.max(0, n - sessions) };
+}
+
+/** Billed input over estimated input: the factor that turns character estimates into billed tokens. */
+export function calibrationScale(total: Usage, sources: Map<string, SourceStat>): number {
+  const billedInput = total.fresh + total.cacheWrite + total.cacheRead;
+  const estInput = [...sources.values()].reduce((a, s) => a + s.weighted, 0);
+  return estInput ? billedInput / estInput : 1;
+}
+
+/** Heaviest first; equal weights sort by source name so the table order is stable. */
+export const rankSources = (m: Map<string, SourceStat>) =>
+  [...m.entries()].sort((a, b) => b[1].weighted - a[1].weighted || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+
+if (import.meta.main) {
+  const argv = process.argv.slice(2);
+  const flag = (k: string, d: string) => { const i = argv.indexOf(k); return i >= 0 ? argv[i + 1] : d; };
+  const n = Number(flag("--n", "30"));
+  const root = flag("--root", join(homedir(), ".claude", "projects"));
+  const exclude = flag("--exclude", "");
+
+  // Subagent records are all sidechain records, which analyzeSession skips, so
+  // reading those files would add nothing.
+  const transcriptSet = transcriptSetLabel(false);
+  const paths = selectTranscripts(listTranscripts(root), { includeSubagents: false, exclude });
+  const { sessions, calls, total, all, shortfall } = collectSessions(paths, n, (p) => analyzeSession(readFileSync(p, "utf8").split("\n")));
+  if (shortfall > 0)
+    console.error(`warning: found ${sessions} of ${n} requested sessions with API calls${exclude ? ` after excluding "${exclude}"` : ""}`);
 
   const billedInput = total.fresh + total.cacheWrite + total.cacheRead;
   const estInput = [...all.values()].reduce((a, s) => a + s.weighted, 0);
-  const scale = estInput ? billedInput / estInput : 1;
+  const scale = calibrationScale(total, all);
   const costTotal = [...all.values()].reduce((a, s) => a + s.costUnits, 0);
   const fmt = (x: number) => Math.round(x).toLocaleString("en-US");
   const pct = (x: number, t: number) => `${((100 * x) / t).toFixed(1)}%`;
 
   if (argv.includes("--json")) {
-    console.log(JSON.stringify({ sessions, calls, total, scale, sources: Object.fromEntries(all) }, null, 2));
+    console.log(JSON.stringify({ transcriptSet, sessions, calls, total, scale, sources: Object.fromEntries(all) }, null, 2));
     process.exit(0);
   }
 
-  console.log(`Sessions: ${sessions}   API calls: ${fmt(calls)}   calibration scale (billed/estimated): ${scale.toFixed(2)}\n`);
+  console.log(`Sessions: ${sessions} (${transcriptSet})   API calls: ${fmt(calls)}   calibration scale (billed/estimated): ${scale.toFixed(2)}\n`);
   console.log("| Class | Tokens | Share of all tokens |\n|---|---:|---:|");
   const grand = billedInput + total.output;
   for (const [k, v] of Object.entries({ "fresh input": total.fresh, "cache write": total.cacheWrite, "cache read": total.cacheRead, output: total.output }))
@@ -250,7 +265,7 @@ if (import.meta.main) {
   }
   const table = (title: string, m: Map<string, SourceStat>, top: number) => {
     console.log(`### ${title}\n\n| # | Source | Unique tokens | Context-weighted tokens | Share of input | Cost-weighted share |\n|---|---|---:|---:|---:|---:|`);
-    [...m.entries()].sort((a, b) => b[1].weighted - a[1].weighted).slice(0, top).forEach(([k, v], i) =>
+    rankSources(m).slice(0, top).forEach(([k, v], i) =>
       console.log(`| ${i + 1} | ${k} | ${fmt(v.estTokens * scale)} | ${fmt(v.weighted * scale)} | ${pct(v.weighted, estInput)} | ${pct(v.costUnits, costTotal)} |`));
     console.log();
   };

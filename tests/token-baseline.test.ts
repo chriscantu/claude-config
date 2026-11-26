@@ -1,5 +1,5 @@
 import { expect, test } from "bun:test";
-import { analyzeSession, category, classifyInstructionPath } from "./token-baseline.ts";
+import { analyzeSession, calibrationScale, category, classifyInstructionPath, collectSessions, rankSources } from "./token-baseline.ts";
 
 const L = (o: object) => JSON.stringify(o);
 const asst = (id: string, content: object[] = [], usage = { input_tokens: 1, cache_creation_input_tokens: 10, cache_read_input_tokens: 100, output_tokens: 5 }) =>
@@ -45,8 +45,40 @@ test("compaction drops conversation blocks", () => {
   expect(stats.get("user-prompt")!.sends).toBe(1);
 });
 
-test("classification", () => {
+test("rule files and the memory index count as always-loaded instructions", () => {
   expect(classifyInstructionPath("/x/rules/goal-driven.md")).toBe("rule:goal-driven.md");
   expect(category("rule:x.md")).toBe("always-loaded rules/instructions");
   expect(category("memory-index")).toBe("always-loaded rules/instructions");
+});
+
+const stat = (weighted: number) => ({ sends: 1, estTokens: weighted, weighted, costUnits: weighted });
+const fakeSession = (calls: number) => ({
+  usage: { fresh: calls, cacheWrite: 0, cacheRead: 0, output: 0 },
+  stats: new Map([["user-prompt", stat(calls)]]),
+  calls,
+});
+
+test("sessions with no API calls do not use up the requested count", () => {
+  const calls: Record<string, number> = { a: 0, b: 2, c: 3, d: 4 };
+  const res = collectSessions(["a", "b", "c", "d"], 2, (p) => fakeSession(calls[p]!));
+  expect(res.sessions).toBe(2);
+  expect(res.calls).toBe(5);
+  expect(res.shortfall).toBe(0);
+});
+
+test("when too few transcripts are left, the shortfall is reported", () => {
+  const res = collectSessions(["a", "b"], 3, () => fakeSession(1));
+  expect(res.sessions).toBe(2);
+  expect(res.shortfall).toBe(1);
+});
+
+test("calibration scale is billed input divided by estimated input", () => {
+  const total = { fresh: 100, cacheWrite: 100, cacheRead: 100, output: 999 };
+  expect(calibrationScale(total, new Map([["a", stat(100)], ["b", stat(50)]]))).toBe(2);
+  expect(calibrationScale(total, new Map())).toBe(1);
+});
+
+test("sources with equal weight rank by name", () => {
+  const ranked = rankSources(new Map([["b", stat(5)], ["c", stat(9)], ["a", stat(5)]]));
+  expect(ranked.map(([k]) => k)).toEqual(["c", "a", "b"]);
 });

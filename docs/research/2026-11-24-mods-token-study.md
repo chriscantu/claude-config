@@ -21,6 +21,8 @@ It did not cut cost, and pass rates fell.
 ## Step 1: Baseline (last 30 sessions, 995 API calls)
 
 Script: `tests/token-baseline.ts` (tests in `tests/token-baseline.test.ts`).
+It reads main session transcripts only. Subagent transcripts hold only
+sidechain records, which the script skips, so leaving them out changes nothing.
 
 | Class | Tokens | Share |
 |---|---:|---:|
