@@ -35,7 +35,7 @@ import {
   loadEvalFile,
   pathPrependScript,
   STUB_MARKER_ENV,
-  stubBypassed,
+  stubBypassReason,
   stubCommandNames,
   metaCheck,
   parseStreamJson,
@@ -2764,24 +2764,24 @@ describe("stubCommandNames()", () => {
   });
 });
 
-describe("stubBypassed()", () => {
+describe("stubBypassReason()", () => {
   const bash = (command: string) => ({ name: "Bash", input: { command } });
 
   test("flags a session that ran gh while the stub never ran", () => {
-    expect(stubBypassed([bash("gh pr view 42 --json body")], ["gh"], false)).toMatch(/gh/);
+    expect(stubBypassReason([bash("gh pr view 42 --json body")], ["gh"], false)).toMatch(/gh/);
   });
 
   test("passes when the stub ran", () => {
-    expect(stubBypassed([bash("gh pr view 42")], ["gh"], true)).toBeNull();
+    expect(stubBypassReason([bash("gh pr view 42")], ["gh"], true)).toBeNull();
   });
 
   test("passes when the session never ran the stubbed command", () => {
-    expect(stubBypassed([bash("ls; git status"), { name: "Read", input: { file_path: "/gh" } }], ["gh"], false)).toBeNull();
+    expect(stubBypassReason([bash("ls; git status"), { name: "Read", input: { file_path: "/gh" } }], ["gh"], false)).toBeNull();
   });
 
   test("finds the command after a pipe, &&, or subshell, but not inside another word", () => {
-    expect(stubBypassed([bash("cd /x && gh pr checks 42")], ["gh"], false)).not.toBeNull();
-    expect(stubBypassed([bash("echo $(gh api x)")], ["gh"], false)).not.toBeNull();
-    expect(stubBypassed([bash("ghq list; echo ghost")], ["gh"], false)).toBeNull();
+    expect(stubBypassReason([bash("cd /x && gh pr checks 42")], ["gh"], false)).not.toBeNull();
+    expect(stubBypassReason([bash("echo $(gh api x)")], ["gh"], false)).not.toBeNull();
+    expect(stubBypassReason([bash("ghq list; echo ghost")], ["gh"], false)).toBeNull();
   });
 });

@@ -41,7 +41,7 @@ import {
   aggregateChainSignals,
   buildChildEnv,
   STUB_MARKER_ENV,
-  stubBypassed,
+  stubBypassReason,
   stubCommandNames,
   createTeardownTracker,
   discoverSkills,
@@ -76,6 +76,8 @@ const skillsDir = join(repoDir, "skills");
 const rulesEvalsDir = join(repoDir, "rules-evals");
 const resultsDir = join(repoDir, "tests", "results");
 const claudeBin = process.env.CLAUDE_BIN ?? "claude";
+/** Temp dir prefix for one eval's CLAUDE_ENV_FILE and stub call log. */
+const EVAL_ENV_DIR_PREFIX = "claude-eval-env-";
 
 const args = process.argv.slice(2);
 const dryRun = args.includes("--dry-run");
@@ -995,7 +997,7 @@ async function main() {
         let stubRan = false;
         // Holds the CLAUDE_ENV_FILE and the stub's call log; outside the
         // session's cwd so the model never sees either file.
-        const envScratch = e.path_prepend ? mkdtempSync(join(tmpdir(), "claude-eval-env-")) : undefined;
+        const envScratch = e.path_prepend ? mkdtempSync(join(tmpdir(), EVAL_ENV_DIR_PREFIX)) : undefined;
         try {
           childEnv = buildChildEnv(CLI_CHILD_ENV, repoDir, e, envScratch);
         } catch (err) {
@@ -1007,7 +1009,7 @@ async function main() {
         const { stdout, stderr, exitCode, failure } = await runClaude(resolveProjectDir(buildPrompt(e)), undefined, e.scratch_decoy, childEnv)
           .finally(() => {
             // Read the stub log before the dir is removed.
-            stubRan = envScratch ? existsSync(childEnv[STUB_MARKER_ENV]!) : false;
+            stubRan = envScratch !== undefined && existsSync(childEnv[STUB_MARKER_ENV]!);
             if (envScratch) rmSync(envScratch, { recursive: true, force: true });
           });
 
@@ -1062,7 +1064,7 @@ async function main() {
         const signals = extractSignals(events);
 
         const bypass = e.path_prepend
-          ? stubBypassed(signals.toolUses, stubCommandNames(e.path_prepend.map((d) => join(repoDir, d))), stubRan)
+          ? stubBypassReason(signals.toolUses, stubCommandNames(e.path_prepend.map((d) => join(repoDir, d))), stubRan)
           : null;
         if (bypass) {
           out.push(`    ${red("✗")} ${bypass}`);
