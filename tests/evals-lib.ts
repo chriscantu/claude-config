@@ -4,7 +4,7 @@
  */
 
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 
 export type AssertionTier = "required" | "diagnostic";
@@ -418,6 +418,7 @@ export function buildChildEnv(
   base: NodeJS.ProcessEnv,
   repoRoot: string,
   opts: { env?: Readonly<Record<string, string>>; path_prepend?: readonly string[] },
+  scratchDir?: string,
 ): NodeJS.ProcessEnv {
   const child: NodeJS.ProcessEnv = { ...base, ...opts.env };
   if (!opts.path_prepend) return child;
@@ -425,8 +426,69 @@ export function buildChildEnv(
   for (const dir of dirs) {
     if (!existsSync(dir)) throw new Error(`path_prepend dir ${dir} does not exist`);
   }
+  if (!scratchDir) throw new Error("path_prepend needs a scratch dir for its CLAUDE_ENV_FILE");
   child.PATH = [...dirs, base.PATH ?? ""].join(":");
+  // PATH alone is not enough: the Bash tool runs a login shell, and macOS's
+  // login setup moves system folders such as /opt/homebrew/bin ahead of the
+  // stub dirs, so the real binary wins (#629). Claude Code sources
+  // CLAUDE_ENV_FILE before each Bash command, which puts the stubs back first.
+  const envFile = join(scratchDir, PATH_PREPEND_SCRIPT_NAME);
+  writeFileSync(envFile, pathPrependScript(dirs));
+  child.CLAUDE_ENV_FILE = envFile;
+  child[STUB_MARKER_ENV] = join(scratchDir, STUB_CALL_LOG_NAME);
   return child;
+}
+
+// Both files live in a temp dir made for one eval and read only by the
+// runner, so their names are fixed rather than configurable.
+const PATH_PREPEND_SCRIPT_NAME = "path-prepend.sh";
+const STUB_CALL_LOG_NAME = "stub-calls.log";
+
+/** Env var naming the file a stub appends to each time it runs. */
+export const STUB_MARKER_ENV = "EVAL_STUB_MARKER";
+
+/** Wraps `s` in single quotes for a POSIX shell, escaping any quotes inside. */
+const shellSingleQuote = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
+
+/** A POSIX shell snippet that puts `dirs` in front of PATH. */
+export function pathPrependScript(dirs: readonly string[]): string {
+  return `export PATH=${dirs.map(shellSingleQuote).join(":")}:"$PATH"\n`;
+}
+
+const isExecutable = (path: string) => (statSync(path).mode & 0o111) !== 0;
+
+/** The command names a set of stub dirs provides: their executable files. */
+export function stubCommandNames(dirs: readonly string[]): string[] {
+  return dirs
+    .flatMap((dir) => readdirSync(dir).map((name) => ({ name, path: join(dir, name) })))
+    .filter((file) => isExecutable(file.path))
+    .map((file) => file.name)
+    .sort();
+}
+
+// A command name counts as run when it starts the command line or follows
+// whitespace, `;`, `&`, `|`, `(` or a backtick, and is followed by whitespace
+// or the end. That matches `cd x && gh pr view` and `$(gh api x)`, but not
+// `ghq` or `ghost`.
+const COMMAND_START = String.raw`(^|[\s;&|(\`])`;
+const COMMAND_END = String.raw`(\s|$)`;
+const escapeRegExp = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, String.raw`\$&`);
+const runsAsCommand = (name: string) => new RegExp(COMMAND_START + escapeRegExp(name) + COMMAND_END);
+
+const bashCommands = (toolUses: readonly ToolUse[]) =>
+  toolUses.flatMap((tu) => (tu.name === "Bash" && typeof tu.input.command === "string" ? [tu.input.command] : []));
+
+/**
+ * Returns why the eval is invalid when a Bash command ran a stubbed command
+ * but the stub never ran, which means the real binary answered instead.
+ * Returns null when the stub ran or the session never called it.
+ */
+export function stubBypassReason(toolUses: readonly ToolUse[], stubNames: readonly string[], stubRan: boolean): string | null {
+  if (stubRan) return null;
+  const commands = bashCommands(toolUses);
+  const bypassed = stubNames.find((name) => commands.some((command) => runsAsCommand(name).test(command)));
+  if (!bypassed) return null;
+  return `stub bypassed: the session ran \`${bypassed}\` but the stub in path_prepend never ran, so the real ${bypassed} answered (#629)`;
 }
 
 /**
