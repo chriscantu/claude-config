@@ -1,9 +1,10 @@
 // Per-plugin usage (skills, slash commands, agents, MCP tools) across all saved
 // sessions, plus each plugin's per-request footprint in the skill listing and
 // agent listing. Usage: bun run tests/plugin-usage.ts [projectsRoot]
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { type NewestListing, recordListing } from "./plugin-listing.ts";
+import { listTranscripts, transcriptSetLabel } from "./transcripts.ts";
 
 const root = process.argv[2] ?? join(process.env.HOME ?? "", ".claude", "projects");
 const PLUGINS = ["design", "product-management", "engineering", "productivity", "cowork-plugin-management",
@@ -17,16 +18,12 @@ const agentListingByPlugin: NewestListing = new Map();
 let latestListing = "", latestListingTs = "";
 let files = 0, firstTs = "9999";
 
-function walk(dir: string, out: string[]) {
-  for (const n of readdirSync(dir)) {
-    const p = join(dir, n);
-    const s = statSync(p);
-    if (s.isDirectory()) walk(p, out);
-    else if (n.endsWith(".jsonl")) out.push(p);
-  }
-}
-const all: string[] = [];
-walk(root, all);
+// Subagent transcripts stay in: a skill or tool a subagent calls is still a use,
+// and each subagent request carries its own skill listing.
+const transcriptSet = transcriptSetLabel(true);
+// Files are read in path order, so when two listings share a timestamp the
+// later path wins on every run, not whichever file readdir returned last.
+const all = listTranscripts(root).map((f) => f.path).sort();
 
 const hit = (plugin: string, kind: keyof Omit<U, "sessions" | "last">, sid: string, ts: string) => {
   const u = use.get(plugin);
@@ -75,7 +72,7 @@ for (const l of latestListing.split("\n")) {
   if (m) listingChars.set(m[1]!, (listingChars.get(m[1]!) ?? 0) + l.length);
 }
 
-console.log(`Transcripts scanned: ${files} (since ${firstTs.slice(0, 10)})\n`);
+console.log(`Transcripts scanned: ${files} (${transcriptSet}, since ${firstTs.slice(0, 10)})\n`);
 console.log("| Plugin | Sessions used | Skill calls | Slash commands | Agent calls | MCP calls | Last used | Listing tokens/request (est.) |\n|---|---:|---:|---:|---:|---:|---|---:|");
 for (const p of PLUGINS) {
   const u = use.get(p)!;
